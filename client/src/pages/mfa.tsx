@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { ShieldCheck, ArrowRight, Smartphone, RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp";
+import { Input } from "@/components/ui/input";
 
 export default function MFAPage() {
   const [, setLocation] = useLocation();
@@ -47,20 +47,14 @@ export default function MFAPage() {
           </CardHeader>
           <form onSubmit={handleVerify}>
             <CardContent className="flex flex-col items-center space-y-6">
-              <div className="flex justify-center">
-                <InputOTP maxLength={6} value={code} onChange={setCode}>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} className="h-12 w-12 text-lg" />
-                    <InputOTPSlot index={1} className="h-12 w-12 text-lg" />
-                    <InputOTPSlot index={2} className="h-12 w-12 text-lg" />
-                  </InputOTPGroup>
-                  <InputOTPSeparator />
-                  <InputOTPGroup>
-                    <InputOTPSlot index={3} className="h-12 w-12 text-lg" />
-                    <InputOTPSlot index={4} className="h-12 w-12 text-lg" />
-                    <InputOTPSlot index={5} className="h-12 w-12 text-lg" />
-                  </InputOTPGroup>
-                </InputOTP>
+              <div className="flex justify-center w-full max-w-[240px]">
+                <Input 
+                  className="text-center text-2xl tracking-[1em] font-mono h-14" 
+                  maxLength={6} 
+                  value={code} 
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                />
               </div>
               
               <div className="text-sm text-center">
