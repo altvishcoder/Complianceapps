@@ -2,15 +2,30 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin } from "lucide-react";
 import { useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import generatedImage from '@assets/generated_images/abstract_digital_network_background_for_ai_interface.png';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Ingestion() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingState, setProcessingState] = useState<'idle' | 'analyzing' | 'complete'>('idle');
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const { toast } = useToast();
 
   const handleUpload = () => {
     setIsUploading(true);
@@ -25,6 +40,16 @@ export default function Ingestion() {
         setTimeout(() => setProcessingState('complete'), 3000);
       }
     }, 100);
+  };
+
+  const handleApprove = () => {
+    setIsReviewOpen(false);
+    setProcessingState('idle'); // Reset state or move to another state
+    toast({
+      title: "Certificate Approved",
+      description: "The CP12 certificate has been validated and added to the property record.",
+      variant: "default",
+    });
   };
 
   return (
@@ -178,7 +203,7 @@ export default function Ingestion() {
                      </div>
                      
                      <div className="flex justify-end pt-2">
-                        <Button className="gap-2">
+                        <Button className="gap-2" onClick={() => setIsReviewOpen(true)}>
                           Review & Approve <ArrowRight className="h-4 w-4" />
                         </Button>
                      </div>
@@ -234,6 +259,173 @@ export default function Ingestion() {
 
         </main>
       </div>
+
+      {/* Review Dialog */}
+      <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <div className="p-6 border-b border-border bg-muted/10">
+            <DialogHeader>
+              <DialogTitle>Review Extraction Results</DialogTitle>
+              <DialogDescription>
+                Verify AI-extracted data against the original document before processing.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          
+          <div className="flex-1 flex overflow-hidden">
+            {/* Document Preview (Mock) */}
+            <div className="w-1/2 bg-slate-900 p-8 flex items-center justify-center border-r border-border overflow-y-auto">
+               <div className="bg-white w-full h-[140%] shadow-2xl rounded-sm p-8 text-[10px] text-slate-800 font-serif leading-relaxed opacity-90">
+                  <div className="flex justify-between border-b-2 border-black pb-4 mb-6">
+                    <h1 className="text-2xl font-bold uppercase">Gas Safety Record</h1>
+                    <div className="text-right">
+                      <p className="font-bold">British Gas</p>
+                      <p>Reg No: 55421</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div>
+                      <h3 className="font-bold uppercase mb-2 border-b border-black">Site Address</h3>
+                      <p>124 High Street</p>
+                      <p>London</p>
+                      <p>SW1 4AX</p>
+                    </div>
+                    <div>
+                       <h3 className="font-bold uppercase mb-2 border-b border-black">Details</h3>
+                       <p>Date: 14/12/2025</p>
+                       <p>Engineer: John Smith</p>
+                    </div>
+                  </div>
+
+                  <table className="w-full border-collapse border border-black mb-8">
+                    <thead>
+                      <tr className="bg-slate-100">
+                         <th className="border border-black p-1 text-left">Appliance</th>
+                         <th className="border border-black p-1">Location</th>
+                         <th className="border border-black p-1">Make/Model</th>
+                         <th className="border border-black p-1">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-black p-1">Boiler</td>
+                        <td className="border border-black p-1">Kitchen</td>
+                        <td className="border border-black p-1">Worcester</td>
+                        <td className="border border-black p-1 text-center">PASS</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black p-1">Hob</td>
+                        <td className="border border-black p-1">Kitchen</td>
+                        <td className="border border-black p-1">Beko</td>
+                        <td className="border border-black p-1 text-center">PASS</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <div className="border border-black p-4 mb-4">
+                    <p className="font-bold mb-2">Outcome:</p>
+                    <div className="flex gap-4">
+                      <span className="font-bold">PASS [X]</span>
+                      <span>FAIL [ ]</span>
+                      <span>AT RISK [ ]</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-8 pt-4 border-t border-black flex justify-between items-end">
+                    <div>
+                       <p className="mb-4">Engineer Signature:</p>
+                       <p className="font-script text-xl">John Smith</p>
+                    </div>
+                     <div>
+                       <p className="mb-4">Next Inspection Due:</p>
+                       <p className="font-bold text-lg">14/12/2026</p>
+                    </div>
+                  </div>
+               </div>
+            </div>
+
+            {/* Form Fields */}
+            <div className="w-1/2 p-6 overflow-y-auto bg-background">
+               <div className="space-y-6">
+                 <div className="space-y-4">
+                   <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Property Details</h3>
+                   <div className="grid gap-2">
+                     <Label>Matched Address</Label>
+                     <div className="relative">
+                       <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                       <Input defaultValue="124 High Street, London, SW1 4AX" className="pl-9 bg-emerald-50/50 border-emerald-200" />
+                       <Badge className="absolute right-2 top-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 pointer-events-none shadow-none">99% Match</Badge>
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="space-y-4">
+                   <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Certificate Data</h3>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label>Type</Label>
+                        <Input defaultValue="Gas Safety (CP12)" />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Reference</Label>
+                        <Input defaultValue="CP-2024-88921" />
+                      </div>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label>Inspection Date</Label>
+                        <div className="relative">
+                           <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                           <Input defaultValue="2025-12-14" className="pl-9" />
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Expiry Date</Label>
+                         <div className="relative">
+                           <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                           <Input defaultValue="2026-12-14" className="pl-9 font-medium text-emerald-600" />
+                        </div>
+                      </div>
+                   </div>
+
+                   <div className="grid gap-2">
+                     <Label>Engineer</Label>
+                     <div className="relative">
+                       <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                       <Input defaultValue="John Smith (ID: 44521)" className="pl-9" />
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Compliance Outcome</h3>
+                    <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50 space-y-3">
+                       <div className="flex items-center justify-between">
+                         <Label className="text-emerald-900">Overall Status</Label>
+                         <Badge className="bg-emerald-600 hover:bg-emerald-700">PASS</Badge>
+                       </div>
+                       <div className="grid gap-2">
+                         <Label className="text-emerald-900">Defects / Remedials</Label>
+                         <Input defaultValue="None Identified" className="bg-white border-emerald-200 text-emerald-900" />
+                       </div>
+                    </div>
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t border-border bg-muted/10">
+            <Button variant="outline" onClick={() => setIsReviewOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="mr-auto ml-2">Reject Document</Button>
+            <Button onClick={handleApprove} className="bg-emerald-600 hover:bg-emerald-700">
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Confirm & Process
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
