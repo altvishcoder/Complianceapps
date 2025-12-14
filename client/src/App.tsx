@@ -8,6 +8,8 @@ import Dashboard from "@/pages/dashboard";
 import Ingestion from "@/pages/ingestion";
 import Properties from "@/pages/properties";
 import Reports from "@/pages/reports";
+import LoginPage from "@/pages/auth/login";
+import MFAPage from "@/pages/mfa";
 
 function Router() {
   return (
@@ -16,6 +18,8 @@ function Router() {
       <Route path="/ingestion" component={Ingestion} />
       <Route path="/properties" component={Properties} />
       <Route path="/reports" component={Reports} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/mfa" component={MFAPage} />
       <Route component={NotFound} />
     </Switch>
   );
