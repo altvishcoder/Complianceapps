@@ -12,6 +12,7 @@ import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import MFAPage from "@/pages/mfa";
 import AdminSetup from "@/pages/admin/setup";
+import AdminUsersPage from "@/pages/admin/users";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/properties" component={Properties} />
       <Route path="/reports" component={Reports} />
       <Route path="/admin/setup" component={AdminSetup} />
+      <Route path="/admin/users" component={AdminUsersPage} />
       
       {/* Default Redirect to Login */}
       <Route path="/">
