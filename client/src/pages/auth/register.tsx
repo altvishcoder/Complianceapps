@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CheckCircle2 } from "lucide-react";
+import { Captcha } from "@/components/ui/captcha";
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
@@ -49,8 +50,7 @@ export default function RegisterPage() {
               </Alert>
               
               <div className="text-sm text-muted-foreground space-y-3 bg-muted/30 p-4 rounded-md border border-border/50">
-                <p>An approval request has been sent to the system administrator:</p>
-                <p className="font-mono font-medium text-foreground bg-background p-2 rounded border border-border">vishwa@lasha.digital</p>
+                <p>An approval request has been sent to the system administrator.</p>
                 <p>You will receive an email notification once your account is active.</p>
               </div>
             </CardContent>
@@ -142,6 +142,10 @@ export default function RegisterPage() {
                     required 
                   />
                 </div>
+              </div>
+
+              <div className="pt-2">
+                <Captcha />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
