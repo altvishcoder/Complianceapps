@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers } from "lucide-react";
 import { useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import generatedImage from '@assets/generated_images/abstract_digital_network_background_for_ai_interface.png';
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Ingestion() {
   const [isUploading, setIsUploading] = useState(false);
@@ -56,167 +57,204 @@ export default function Ingestion() {
     <div className="flex h-screen bg-muted/30">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Ingestion Hub" />
+        <Header title="Cert Hub - Advanced Document Center" />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Upload Area */}
-            <Card className="h-full flex flex-col">
-              <CardHeader>
-                <CardTitle>Document Upload</CardTitle>
-                <CardDescription>Drag and drop compliance certificates here. Supports PDF, JPG, PNG.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <div 
-                  className="h-full min-h-[300px] border-2 border-dashed border-border rounded-lg bg-muted/20 flex flex-col items-center justify-center p-6 text-center hover:bg-muted/40 transition-colors cursor-pointer group"
-                  onClick={handleUpload}
-                >
-                  <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <UploadCloud className="h-8 w-8" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Click or Drag files to upload</h3>
-                  <p className="text-sm text-muted-foreground max-w-xs">
-                    AI will automatically identify document type, property address, and compliance status.
-                  </p>
-                  {isUploading && (
-                    <div className="w-full max-w-xs mt-8 space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Uploading...</span>
-                        <span>{uploadProgress}%</span>
+          <Tabs defaultValue="upload" className="w-full">
+            <div className="flex justify-between items-center mb-4">
+              <TabsList>
+                <TabsTrigger value="upload">Upload & Scan</TabsTrigger>
+                <TabsTrigger value="batch">Batch Processing</TabsTrigger>
+                <TabsTrigger value="review">Review Queue (12)</TabsTrigger>
+              </TabsList>
+              <div className="flex gap-2">
+                 <Button variant="outline" size="sm" className="gap-2">
+                    <Scan className="h-4 w-4" />
+                    Connect Scanner
+                 </Button>
+                 <Button variant="outline" size="sm" className="gap-2">
+                    <Layers className="h-4 w-4" />
+                    Templates
+                 </Button>
+              </div>
+            </div>
+
+            <TabsContent value="upload" className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Upload Area */}
+                <Card className="h-full flex flex-col">
+                  <CardHeader>
+                    <CardTitle>Intelligent Ingestion</CardTitle>
+                    <CardDescription>Advanced OCR & Entity Extraction. Drag files here.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <div 
+                      className="h-full min-h-[300px] border-2 border-dashed border-border rounded-lg bg-muted/20 flex flex-col items-center justify-center p-6 text-center hover:bg-muted/40 transition-colors cursor-pointer group"
+                      onClick={handleUpload}
+                    >
+                      <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <Scan className="h-8 w-8" />
                       </div>
-                      <Progress value={uploadProgress} className="h-2" />
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                      <h3 className="text-lg font-semibold mb-2">Advanced Document Scan</h3>
+                      <p className="text-sm text-muted-foreground max-w-xs mb-4">
+                        Supports high-res PDF, TIFF, JPG. <br/>
+                        Automatically detects: Handwriting, Signatures, Stamps.
+                      </p>
+                      <div className="flex gap-2 text-xs text-muted-foreground bg-background px-3 py-1 rounded-full border">
+                         <FileSearch className="h-3 w-3" />
+                         <span>Deep Content Analysis Active</span>
+                      </div>
 
-            {/* AI Processing View */}
-            <Card className="h-full flex flex-col relative overflow-hidden border-blue-200/50 dark:border-blue-800/50">
-               {/* Background Image for AI Feel */}
-              <div 
-                className="absolute inset-0 z-0 opacity-10 pointer-events-none"
-                style={{ 
-                  backgroundImage: `url(${generatedImage})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-              />
-              
-              <CardHeader className="relative z-10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <BrainCircuit className="h-5 w-5 text-blue-600" />
-                      AI Processing Queue
-                    </CardTitle>
-                    <CardDescription>Real-time extraction and validation</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                    </span>
-                    Engine Active
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 relative z-10 space-y-4">
-                {processingState === 'idle' && (
-                  <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                    <BrainCircuit className="h-12 w-12 mb-4 opacity-20" />
-                    <p>Waiting for documents...</p>
-                  </div>
-                )}
-
-                {processingState === 'analyzing' && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-lg border border-blue-100 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-blue-500" />
-                        <div>
-                          <p className="font-medium text-sm">CP12_Gas_Cert_HighSt.pdf</p>
-                          <p className="text-xs text-blue-600 flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Extracting Entities...
-                          </p>
+                      {isUploading && (
+                        <div className="w-full max-w-xs mt-8 space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span>Scanning & Uploading...</span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <Progress value={uploadProgress} className="h-2" />
                         </div>
-                      </div>
+                      )}
                     </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                         <span>OCR Scanning</span>
-                         <span className="text-emerald-600">Complete</span>
+                  </CardContent>
+                </Card>
+
+                {/* AI Processing View */}
+                <Card className="h-full flex flex-col relative overflow-hidden border-blue-200/50 dark:border-blue-800/50">
+                  {/* Background Image for AI Feel */}
+                  <div 
+                    className="absolute inset-0 z-0 opacity-10 pointer-events-none"
+                    style={{ 
+                      backgroundImage: `url(${generatedImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}
+                  />
+                  
+                  <CardHeader className="relative z-10">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <BrainCircuit className="h-5 w-5 text-blue-600" />
+                          Cert Hub Intelligence
+                        </CardTitle>
+                        <CardDescription>Real-time extraction and validation</CardDescription>
                       </div>
-                      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 w-full" />
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-xs text-muted-foreground px-1 mt-3">
-                         <span>Entity Recognition (LLM)</span>
-                         <span className="text-blue-600">Processing...</span>
-                      </div>
-                      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                         <div className="h-full bg-blue-500 w-[60%] animate-pulse" />
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        Engine Active
                       </div>
                     </div>
+                  </CardHeader>
+                  <CardContent className="flex-1 relative z-10 space-y-4">
+                    {processingState === 'idle' && (
+                      <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                        <BrainCircuit className="h-12 w-12 mb-4 opacity-20" />
+                        <p>Ready to analyze documents...</p>
+                      </div>
+                    )}
 
-                    <div className="p-4 bg-slate-50 rounded-md font-mono text-xs text-slate-600 space-y-1 border border-slate-100">
-                      <p>{'>'} Document Type: Gas Safety Record (CP12)</p>
-                      <p>{'>'} Confidence: 99.8%</p>
-                      <p>{'>'} Engineer: J. Smith (ID: 44521)</p>
-                      <p className="animate-pulse">{'>'} Extracting Address...</p>
-                    </div>
-                  </div>
-                )}
+                    {processingState === 'analyzing' && (
+                      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-lg border border-blue-100 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-8 w-8 text-blue-500" />
+                            <div>
+                              <p className="font-medium text-sm">CP12_Gas_Cert_HighSt.pdf</p>
+                              <p className="text-xs text-blue-600 flex items-center gap-1">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Extracting Entities...
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                            <span>OCR Scanning</span>
+                            <span className="text-emerald-600">Complete</span>
+                          </div>
+                          <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 w-full" />
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-xs text-muted-foreground px-1 mt-3">
+                            <span>Entity Recognition (LLM)</span>
+                            <span className="text-blue-600">Processing...</span>
+                          </div>
+                          <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 w-[60%] animate-pulse" />
+                          </div>
+                        </div>
 
-                {processingState === 'complete' && (
-                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                     <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-lg flex items-start gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-emerald-900">Processing Complete</p>
-                          <p className="text-sm text-emerald-700 mt-1">
-                            Successfully extracted 14 fields. Matched to property <strong>124 High Street</strong>.
-                          </p>
+                        <div className="p-4 bg-slate-50 rounded-md font-mono text-xs text-slate-600 space-y-1 border border-slate-100">
+                          <p>{'>'} Document Type: Gas Safety Record (CP12)</p>
+                          <p>{'>'} Confidence: 99.8%</p>
+                          <p>{'>'} Engineer: J. Smith (ID: 44521)</p>
+                          <p className="animate-pulse">{'>'} Extracting Address...</p>
                         </div>
-                     </div>
+                      </div>
+                    )}
 
-                     <div className="bg-white border border-border rounded-lg divide-y divide-border text-sm">
-                        <div className="p-3 flex justify-between">
-                          <span className="text-muted-foreground">Type</span>
-                          <span className="font-medium">CP12 Gas Safety</span>
+                    {processingState === 'complete' && (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-lg flex items-start gap-3">
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                            <div>
+                              <p className="font-medium text-emerald-900">Processing Complete</p>
+                              <p className="text-sm text-emerald-700 mt-1">
+                                Successfully extracted 14 fields. Matched to property <strong>124 High Street</strong>.
+                              </p>
+                            </div>
                         </div>
-                        <div className="p-3 flex justify-between">
-                          <span className="text-muted-foreground">Status</span>
-                          <span className="font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100">PASS</span>
+
+                        <div className="bg-white border border-border rounded-lg divide-y divide-border text-sm">
+                            <div className="p-3 flex justify-between">
+                              <span className="text-muted-foreground">Type</span>
+                              <span className="font-medium">CP12 Gas Safety</span>
+                            </div>
+                            <div className="p-3 flex justify-between">
+                              <span className="text-muted-foreground">Status</span>
+                              <span className="font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100">PASS</span>
+                            </div>
+                            <div className="p-3 flex justify-between">
+                              <span className="text-muted-foreground">Expiry</span>
+                              <span className="font-medium">14 Dec 2026</span>
+                            </div>
+                            <div className="p-3 flex justify-between">
+                              <span className="text-muted-foreground">Defects</span>
+                              <span className="font-medium text-slate-900">None Identified</span>
+                            </div>
                         </div>
-                        <div className="p-3 flex justify-between">
-                          <span className="text-muted-foreground">Expiry</span>
-                          <span className="font-medium">14 Dec 2026</span>
+                        
+                        <div className="flex justify-end pt-2">
+                            <Button className="gap-2" onClick={() => setIsReviewOpen(true)}>
+                              Review & Approve <ArrowRight className="h-4 w-4" />
+                            </Button>
                         </div>
-                        <div className="p-3 flex justify-between">
-                          <span className="text-muted-foreground">Defects</span>
-                          <span className="font-medium text-slate-900">None Identified</span>
-                        </div>
-                     </div>
-                     
-                     <div className="flex justify-end pt-2">
-                        <Button className="gap-2" onClick={() => setIsReviewOpen(true)}>
-                          Review & Approve <ArrowRight className="h-4 w-4" />
-                        </Button>
-                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="batch">
+               <div className="flex flex-col items-center justify-center h-[400px] border-2 border-dashed rounded-lg bg-muted/10">
+                  <Layers className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                  <h3 className="text-lg font-semibold">Batch Processing Mode</h3>
+                  <p className="text-muted-foreground mb-4">Upload folder or ZIP archive for bulk ingestion.</p>
+                  <Button variant="outline">Select Folder</Button>
+               </div>
+            </TabsContent>
+          </Tabs>
           
           {/* Recent Uploads Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Uploads</CardTitle>
+              <CardTitle>Recent Scan History</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">

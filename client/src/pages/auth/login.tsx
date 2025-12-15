@@ -17,6 +17,14 @@ export default function LoginPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // Simulate login logic
+    if (email === "superadmin@compliance.ai") {
+      localStorage.setItem("user_role", "super_admin");
+    } else {
+      localStorage.setItem("user_role", "user");
+    }
+
     // Simulate network request
     setTimeout(() => {
       setIsLoading(false);
@@ -96,6 +104,21 @@ export default function LoginPage() {
           Protected by Enterprise Grade Security. <br/>
           By signing in, you agree to our Terms of Service and Privacy Policy.
         </p>
+
+        <div className="bg-slate-950 text-slate-300 p-4 rounded-md text-xs font-mono space-y-2 border border-slate-800">
+          <p className="font-bold text-slate-100 border-b border-slate-800 pb-1 mb-2">Dev Access / Test Credentials</p>
+          <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
+             <span>Super Admin:</span>
+             <span className="text-emerald-400">superadmin@compliance.ai</span>
+          </div>
+          <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
+             <span>Password:</span>
+             <span className="text-emerald-400">admin123</span>
+          </div>
+          <div className="text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-800">
+            * Use these credentials to access restricted Admin Setup areas.
+          </div>
+        </div>
       </div>
     </div>
   );

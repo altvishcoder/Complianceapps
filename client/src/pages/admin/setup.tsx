@@ -6,9 +6,50 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, UserPlus, Users, Key, Mail, Building } from "lucide-react";
+import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 export default function AdminSetup() {
+  const [, setLocation] = useLocation();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    const role = localStorage.getItem("user_role");
+    if (role === "super_admin") {
+      setIsAuthorized(true);
+    } else {
+      setIsAuthorized(false);
+    }
+  }, []);
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <Card className="max-w-md w-full border-destructive/50 shadow-lg">
+          <CardHeader className="text-center">
+            <div className="mx-auto h-12 w-12 bg-destructive/10 rounded-full flex items-center justify-center mb-2 text-destructive">
+               <Lock className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-destructive">Access Denied</CardTitle>
+            <CardDescription>
+              You do not have permission to view the System Administration area.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <div className="bg-destructive/5 border border-destructive/20 p-3 rounded text-sm text-destructive/80 flex gap-2 items-start">
+               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+               <p>This area is restricted to Super Administrator accounts only.</p>
+             </div>
+             <Button className="w-full" variant="outline" onClick={() => setLocation("/dashboard")}>
+               Return to Dashboard
+             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-muted/30">
       <Sidebar />
