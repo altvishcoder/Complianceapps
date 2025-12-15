@@ -39,6 +39,9 @@ export default function MFAPage() {
           </div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Two-Factor Authentication</h1>
           <p className="text-muted-foreground">We sent a verification code to your registered email address</p>
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded-md text-xs mt-2 max-w-xs mx-auto">
+            <span className="font-semibold">Demo Mode:</span> Use code <strong>123456</strong> to verify
+          </div>
         </div>
 
         <Card className="border-border/50 shadow-lg">

@@ -238,11 +238,23 @@ export default function AdminUsersPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="pt-2">
-                        <Button type="button" variant="outline" className="w-full text-xs" size="sm">
-                            <Key className="mr-2 h-3 w-3" />
-                            Send Password Reset Email
-                        </Button>
+                    <div className="pt-2 border-t mt-2">
+                        <Label htmlFor="reset-password">Reset Password</Label>
+                        <div className="flex gap-2 mt-1.5">
+                            <Input 
+                                id="reset-password" 
+                                type="password"
+                                placeholder="New password"
+                                className="text-sm"
+                            />
+                            <Button type="button" variant="outline" size="sm">
+                                <Key className="mr-2 h-3 w-3" />
+                                Reset
+                            </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                          Enter a new password to manually override the user's current password.
+                        </p>
                     </div>
                   </div>
                   <DialogFooter>
