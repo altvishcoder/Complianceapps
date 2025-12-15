@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { ShieldCheck, ArrowRight, Smartphone, RefreshCw, ArrowLeft } from "lucide-react";
+import { ShieldCheck, ArrowRight, Mail, RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ export default function MFAPage() {
     // Simulate verification
     setTimeout(() => {
       setIsLoading(false);
-      setLocation("/");
+      setLocation("/dashboard");
     }, 1500);
   };
 
@@ -35,10 +35,10 @@ export default function MFAPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center space-y-2">
           <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-2 border border-blue-100">
-             <Smartphone className="h-6 w-6" />
+             <Mail className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Two-Factor Authentication</h1>
-          <p className="text-muted-foreground">We sent a verification code to your registered device ending in **88</p>
+          <p className="text-muted-foreground">We sent a verification code to your registered email address</p>
         </div>
 
         <Card className="border-border/50 shadow-lg">
@@ -58,7 +58,7 @@ export default function MFAPage() {
               </div>
               
               <div className="text-sm text-center">
-                <p className="text-muted-foreground mb-1">Didn't receive the code?</p>
+                <p className="text-muted-foreground mb-1">Didn't receive the email?</p>
                 {timeLeft > 0 ? (
                   <span className="text-muted-foreground text-xs font-mono">Resend in {timeLeft}s</span>
                 ) : (
@@ -68,7 +68,7 @@ export default function MFAPage() {
                     type="button"
                     onClick={() => setTimeLeft(30)}
                   >
-                    Resend Code
+                    Resend Email
                   </Button>
                 )}
               </div>
