@@ -12,11 +12,11 @@ import {
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Ingestion Hub", href: "/ingestion", icon: UploadCloud },
   { name: "Compliance Reports", href: "/reports", icon: FileText },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Admin Setup", href: "/admin/setup", icon: Settings },
 ];
 
 export function Sidebar() {

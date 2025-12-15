@@ -38,7 +38,7 @@ export default function MFAPage() {
              <Smartphone className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Two-Factor Authentication</h1>
-          <p className="text-muted-foreground">We sent a verification code to +44 7*** ***892</p>
+          <p className="text-muted-foreground">We sent a verification code to your registered device ending in **88</p>
         </div>
 
         <Card className="border-border/50 shadow-lg">
