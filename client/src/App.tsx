@@ -14,9 +14,12 @@ import MFAPage from "@/pages/mfa";
 import AdminSetup from "@/pages/admin/setup";
 import AdminUsersPage from "@/pages/admin/users";
 
+import LandingPage from "@/pages/landing";
+
 function Router() {
   return (
     <Switch>
+      <Route path="/" component={LandingPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
       <Route path="/mfa" component={MFAPage} />
@@ -26,11 +29,6 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/admin/setup" component={AdminSetup} />
       <Route path="/admin/users" component={AdminUsersPage} />
-      
-      {/* Default Redirect to Login */}
-      <Route path="/">
-        <Redirect to="/login" />
-      </Route>
       
       <Route component={NotFound} />
     </Switch>

@@ -85,7 +85,7 @@ export default function LoginPage() {
               <div className="text-center text-sm">
                 <span className="text-muted-foreground">Don't have an account? </span>
                 <Link href="/register">
-                  <a className="font-medium text-primary hover:underline underline-offset-4">Register here</a>
+                  <span className="font-medium text-primary hover:underline underline-offset-4 cursor-pointer">Register here</span>
                 </Link>
               </div>
             </CardFooter>
