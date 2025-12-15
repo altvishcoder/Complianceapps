@@ -9,8 +9,7 @@ import {
   Mail, 
   CheckCircle, 
   XCircle,
-  Trash2,
-  Edit
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +52,7 @@ const INITIAL_USERS = [
 ];
 
 export default function AdminUsersPage() {
+  console.log("AdminUsersPage mounting..."); 
   const [, setLocation] = useLocation();
   const [users, setUsers] = useState(INITIAL_USERS);
   const [searchTerm, setSearchTerm] = useState("");
