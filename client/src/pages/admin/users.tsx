@@ -9,7 +9,9 @@ import {
   Mail, 
   CheckCircle, 
   XCircle,
-  Trash2
+  Trash2,
+  Edit,
+  Key
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,8 +58,14 @@ export default function AdminUsersPage() {
   const [, setLocation] = useLocation();
   const [users, setUsers] = useState(INITIAL_USERS);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Add User State
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", role: "Viewer" });
+  const [newUser, setNewUser] = useState({ name: "", email: "", role: "Viewer", password: "" });
+
+  // Edit User State
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState({ id: 0, name: "", email: "", role: "Viewer" });
 
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -76,7 +84,18 @@ export default function AdminUsersPage() {
     };
     setUsers([...users, user]);
     setIsAddDialogOpen(false);
-    setNewUser({ name: "", email: "", role: "Viewer" });
+    setNewUser({ name: "", email: "", role: "Viewer", password: "" });
+  };
+
+  const handleEditUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsers(users.map(u => u.id === editingUser.id ? { ...u, name: editingUser.name, email: editingUser.email, role: editingUser.role } : u));
+    setIsEditDialogOpen(false);
+  };
+
+  const openEditDialog = (user: typeof INITIAL_USERS[0]) => {
+    setEditingUser({ id: user.id, name: user.name, email: user.email, role: user.role });
+    setIsEditDialogOpen(true);
   };
 
   const handleDeleteUser = (id: number) => {
@@ -137,6 +156,17 @@ export default function AdminUsersPage() {
                       />
                     </div>
                     <div className="grid gap-2">
+                      <Label htmlFor="password">Initial Password</Label>
+                      <Input 
+                        id="password" 
+                        type="password"
+                        value={newUser.password}
+                        onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="role">Role</Label>
                       <Select 
                         value={newUser.role} 
@@ -156,6 +186,67 @@ export default function AdminUsersPage() {
                   </div>
                   <DialogFooter>
                     <Button type="submit">Create Account</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit User Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit User</DialogTitle>
+                  <DialogDescription>
+                    Update user details.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleEditUser}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-name">Full Name</Label>
+                      <Input 
+                        id="edit-name" 
+                        value={editingUser.name}
+                        onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-email">Email</Label>
+                      <Input 
+                        id="edit-email" 
+                        type="email"
+                        value={editingUser.email}
+                        onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-role">Role</Label>
+                      <Select 
+                        value={editingUser.role} 
+                        onValueChange={(val) => setEditingUser({...editingUser, role: val})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Administrator">Administrator</SelectItem>
+                          <SelectItem value="Compliance Officer">Compliance Officer</SelectItem>
+                          <SelectItem value="Auditor">Auditor</SelectItem>
+                          <SelectItem value="Viewer">Viewer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="pt-2">
+                        <Button type="button" variant="outline" className="w-full text-xs" size="sm">
+                            <Key className="mr-2 h-3 w-3" />
+                            Send Password Reset Email
+                        </Button>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit">Save Changes</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -242,6 +333,10 @@ export default function AdminUsersPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit User
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
                                 <Mail className="mr-2 h-4 w-4" />
                                 Copy Email
