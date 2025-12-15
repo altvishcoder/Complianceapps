@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { ShieldCheck, ArrowRight, Lock, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,11 +72,17 @@ export default function LoginPage() {
                 <Label htmlFor="remember" className="text-sm font-normal">Remember me for 30 days</Label>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col space-y-4">
               <Button className="w-full group" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"} 
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />}
               </Button>
+              <div className="text-center text-sm">
+                <span className="text-muted-foreground">Don't have an account? </span>
+                <Link href="/register">
+                  <a className="font-medium text-primary hover:underline underline-offset-4">Register here</a>
+                </Link>
+              </div>
             </CardFooter>
           </form>
         </Card>
