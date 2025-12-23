@@ -6,34 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft } from "lucide-react";
 import { Link, useRoute } from "wouter";
-import { db, Property, Certificate, RemedialAction } from "@/lib/store";
-import { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useQuery } from "@tanstack/react-query";
+import { propertiesApi } from "@/lib/api";
 
 export default function PropertyDetail() {
   const [match, params] = useRoute("/properties/:id");
-  const [property, setProperty] = useState<Property | undefined>();
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [actions, setActions] = useState<RemedialAction[]>([]);
-  const [block, setBlock] = useState<any>();
-  const [scheme, setScheme] = useState<any>();
+  
+  const { data: property, isLoading } = useQuery({
+    queryKey: ["property", params?.id],
+    queryFn: () => propertiesApi.get(params?.id!),
+    enabled: !!params?.id,
+  });
 
-  useEffect(() => {
-    if (params?.id) {
-       const prop = db.properties.find(p => p.id === params.id);
-       setProperty(prop);
-       if (prop) {
-          setCertificates(db.certificates.filter(c => c.propertyId === prop.id));
-          setActions(db.actions.filter(a => a.propertyId === prop.id));
-          const blk = db.blocks.find(b => b.id === prop.blockId);
-          setBlock(blk);
-          setScheme(db.schemes.find(s => s.id === blk?.schemeId));
-       }
-    }
-  }, [params?.id]);
-
-  if (!property) return <div className="p-8">Loading...</div>;
+  if (isLoading || !property) return <div className="p-8">Loading...</div>;
+  
+  const certificates = property.certificates || [];
+  const actions = property.actions || [];
+  const block = property.block;
+  const scheme = property.scheme;
 
   const getStatusBadge = (status: string) => {
     switch (status) {

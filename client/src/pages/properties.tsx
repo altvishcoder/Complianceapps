@@ -6,20 +6,36 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { db, Property, Block, Scheme } from "@/lib/store";
 import { Link } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { propertiesApi, schemesApi, blocksApi } from "@/lib/api";
+import type { InsertProperty } from "@shared/schema";
 
 export default function Properties() {
-  const [properties, setProperties] = useState<Property[]>(db.properties);
-  const [schemes, setSchemes] = useState<Scheme[]>(db.schemes);
-  const [blocks, setBlocks] = useState<Block[]>(db.blocks);
-  const [filteredBlocks, setFilteredBlocks] = useState<Block[]>([]);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  // Fetch data
+  const { data: properties = [] } = useQuery({
+    queryKey: ["properties"],
+    queryFn: () => propertiesApi.list(),
+  });
+  
+  const { data: schemes = [] } = useQuery({
+    queryKey: ["schemes"],
+    queryFn: () => schemesApi.list(),
+  });
+  
+  const { data: blocks = [] } = useQuery({
+    queryKey: ["blocks"],
+    queryFn: () => blocksApi.list(),
+  });
   
   // Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -29,31 +45,43 @@ export default function Properties() {
     addressLine1: "",
     city: "",
     postcode: "",
-    propertyType: "FLAT",
-    tenure: "SOCIAL_RENT",
+    propertyType: "FLAT" as const,
+    tenure: "SOCIAL_RENT" as const,
     bedrooms: "1",
     hasGas: true
   });
 
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const unsubscribe = db.subscribe(() => {
-      setProperties(db.properties);
-      setSchemes(db.schemes);
-      setBlocks(db.blocks);
-    });
-    return unsubscribe;
-  }, []);
-
-  // Filter blocks when scheme changes in form
-  useEffect(() => {
-    if (newProp.schemeId) {
-      setFilteredBlocks(db.getBlocksByScheme(newProp.schemeId));
-    } else {
-      setFilteredBlocks([]);
-    }
-  }, [newProp.schemeId]);
+  // Filtered blocks based on selected scheme
+  const filteredBlocks = newProp.schemeId 
+    ? blocks.filter(b => b.schemeId === newProp.schemeId)
+    : [];
+  
+  // Create property mutation
+  const createProperty = useMutation({
+    mutationFn: (data: InsertProperty) => propertiesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      setIsAddOpen(false);
+      toast({
+        title: "Property Added",
+        description: "New asset has been successfully created and linked to the block.",
+      });
+      setNewProp({
+        schemeId: "",
+        blockId: "",
+        addressLine1: "",
+        city: "",
+        postcode: "",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: "1",
+        hasGas: true
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const handleAddProperty = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,35 +90,17 @@ export default function Properties() {
       return;
     }
 
-    db.addProperty({
+    createProperty.mutate({
       blockId: newProp.blockId,
       uprn: `UPRN-${Date.now()}`,
       addressLine1: newProp.addressLine1,
       city: newProp.city,
       postcode: newProp.postcode,
-      propertyType: newProp.propertyType as any,
-      tenure: newProp.tenure as any,
+      propertyType: newProp.propertyType,
+      tenure: newProp.tenure,
       bedrooms: parseInt(newProp.bedrooms),
-      hasGas: newProp.hasGas
-    });
-
-    setIsAddOpen(false);
-    toast({
-      title: "Property Added",
-      description: "New asset has been successfully created and linked to the block.",
-    });
-    
-    // Reset form
-    setNewProp({
-      schemeId: "",
-      blockId: "",
-      addressLine1: "",
-      city: "",
-      postcode: "",
-      propertyType: "FLAT",
-      tenure: "SOCIAL_RENT",
-      bedrooms: "1",
-      hasGas: true
+      hasGas: newProp.hasGas,
+      complianceStatus: "COMPLIANT"
     });
   };
 
@@ -295,9 +305,6 @@ export default function Properties() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {properties.map((prop) => {
-                       const block = blocks.find(b => b.id === prop.blockId);
-                       const scheme = schemes.find(s => s.id === block?.schemeId);
-                       
                        return (
                         <Link key={prop.id} href={`/properties/${prop.id}`} className="contents">
                         <tr className="group hover:bg-muted/20 transition-colors cursor-pointer">
@@ -309,8 +316,8 @@ export default function Properties() {
                           </td>
                           <td className="p-4 text-muted-foreground">
                              <div className="flex flex-col">
-                                <span>{block?.name}</span>
-                                <span className="text-xs">{scheme?.name}</span>
+                                <span>{prop.block?.name}</span>
+                                <span className="text-xs">{prop.scheme?.name}</span>
                              </div>
                           </td>
                           <td className="p-4 text-muted-foreground capitalize">{prop.propertyType.toLowerCase()}</td>

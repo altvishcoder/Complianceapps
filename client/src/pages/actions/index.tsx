@@ -18,7 +18,9 @@ import {
   User
 } from "lucide-react";
 import { useState } from "react";
-import { remedialActions, RemedialAction } from "@/lib/mock-data";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { actionsApi } from "@/lib/api";
+import type { EnrichedRemedialAction } from "@/lib/api";
 import { 
   Sheet, 
   SheetContent, 
@@ -33,14 +35,34 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function ActionsPage() {
-  const [selectedAction, setSelectedAction] = useState<RemedialAction | null>(null);
+  const [selectedAction, setSelectedAction] = useState<EnrichedRemedialAction | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const { data: remedialActions = [] } = useQuery({
+    queryKey: ["remedial-actions"],
+    queryFn: () => actionsApi.list(),
+  });
+  
+  const updateAction = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
+      actionsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["remedial-actions"] });
+      toast({
+        title: "Status Updated",
+        description: "Action status has been changed",
+      });
+    },
+  });
 
   const handleUpdateStatus = (newStatus: string) => {
-    toast({
-      title: "Status Updated",
-      description: `Action status changed to ${newStatus}`,
-    });
+    if (selectedAction) {
+      updateAction.mutate({ 
+        id: selectedAction.id, 
+        data: { status: newStatus as any } 
+      });
+    }
   };
 
   return (
@@ -143,22 +165,22 @@ export default function ActionsPage() {
                       }`} />
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{action.property}</span>
+                          <span className="font-semibold">{action.property?.addressLine1 || 'Unknown Property'}</span>
                           <span className="text-xs text-muted-foreground">#{action.id}</span>
                         </div>
-                        <p className="text-sm font-medium">{action.issue}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Source: {action.source} • Assigned: {action.assignedTo}</p>
+                        <p className="text-sm font-medium">{action.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Code: {action.code || 'N/A'} • Location: {action.location || 'N/A'}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                       <div className="text-right mr-4">
                         <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Due</div>
-                        <div className={`text-sm font-bold ${action.dueDate === 'Today' || action.dueDate === 'Tomorrow' ? 'text-rose-600' : ''}`}>{action.dueDate}</div>
+                        <div className={`text-sm font-bold`}>{action.dueDate || 'TBD'}</div>
                       </div>
                       <Badge variant={
-                        action.status === 'Open' ? 'destructive' :
-                        action.status === 'In Progress' ? 'secondary' : 'outline'
+                        action.status === 'OPEN' ? 'destructive' :
+                        action.status === 'IN_PROGRESS' ? 'secondary' : 'outline'
                       }>
                         {action.status}
                       </Badge>
@@ -181,10 +203,10 @@ export default function ActionsPage() {
                        </Badge>
                        <span className="text-sm text-muted-foreground">#{selectedAction.id}</span>
                     </div>
-                    <SheetTitle className="text-xl">{selectedAction.issue}</SheetTitle>
+                    <SheetTitle className="text-xl">{selectedAction.description}</SheetTitle>
                     <SheetDescription className="text-base flex items-center gap-2">
                        <AlertOctagon className="h-4 w-4" />
-                       {selectedAction.property}
+                       {selectedAction.property?.addressLine1 || 'Unknown Property'}
                     </SheetDescription>
                   </SheetHeader>
                   
@@ -213,30 +235,30 @@ export default function ActionsPage() {
                       <div className="space-y-4">
                          <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                               <Label className="text-muted-foreground text-xs">Assigned Contractor</Label>
+                               <Label className="text-muted-foreground text-xs">Code</Label>
                                <div className="flex items-center gap-2 font-medium">
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                  {selectedAction.assignedTo}
+                                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                                  {selectedAction.code || 'N/A'}
                                </div>
                             </div>
                             <div className="space-y-1">
                                <Label className="text-muted-foreground text-xs">Due Date</Label>
                                <div className="flex items-center gap-2 font-medium">
                                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                                  {selectedAction.dueDate}
+                                  {selectedAction.dueDate || 'TBD'}
                                </div>
                             </div>
                             <div className="space-y-1">
-                               <Label className="text-muted-foreground text-xs">Source Document</Label>
+                               <Label className="text-muted-foreground text-xs">Location</Label>
                                <div className="flex items-center gap-2 font-medium">
-                                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                                  {selectedAction.source}
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  {selectedAction.location || 'N/A'}
                                </div>
                             </div>
                             <div className="space-y-1">
                                <Label className="text-muted-foreground text-xs">Estimated Cost</Label>
                                <div className="font-medium text-emerald-600">
-                                  {selectedAction.costEstimate}
+                                  {selectedAction.costEstimate || 'TBD'}
                                </div>
                             </div>
                          </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,7 +16,9 @@ import {
   Plus
 } from "lucide-react";
 import { Link } from "wouter";
-import { db, Certificate, Property } from "@/lib/store";
+import { useQuery } from "@tanstack/react-query";
+import { certificatesApi } from "@/lib/api";
+import type { EnrichedCertificate } from "@/lib/api";
 import { 
   Sheet, 
   SheetContent, 
@@ -37,22 +39,15 @@ import { Separator } from "@/components/ui/separator";
 
 export default function CertificatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [certificates, setCertificates] = useState<Certificate[]>(db.certificates);
-  const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
-  const [selectedProp, setSelectedProp] = useState<Property | null>(null);
+  const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-     const unsub = db.subscribe(() => setCertificates(db.certificates));
-     return unsub;
-  }, []);
-
-  useEffect(() => {
-     if (selectedCert) {
-        const prop = db.properties.find(p => p.id === selectedCert.propertyId) || null;
-        setSelectedProp(prop);
-     }
-  }, [selectedCert]);
+  
+  const { data: certificates = [] } = useQuery({
+    queryKey: ["certificates"],
+    queryFn: () => certificatesApi.list(),
+  });
+  
+  const selectedProp = selectedCert?.property;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -121,7 +116,6 @@ export default function CertificatesPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {certificates.map((cert) => {
-                      const prop = db.properties.find(p => p.id === cert.propertyId);
                       return (
                       <tr key={cert.id} className="hover:bg-muted/20 cursor-pointer" onClick={() => setSelectedCert(cert)}>
                         <td className="p-4">
@@ -135,7 +129,7 @@ export default function CertificatesPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="p-4 font-medium">{prop?.addressLine1}</td>
+                        <td className="p-4 font-medium">{cert.property?.addressLine1}</td>
                         <td className="p-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(cert.status)}`}>
                             {cert.status.replace('_', ' ')}
