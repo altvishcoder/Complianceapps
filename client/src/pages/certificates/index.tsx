@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,14 +11,12 @@ import {
   Filter, 
   Download, 
   Eye, 
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
   MoreHorizontal,
-  FileCheck
+  FileCheck,
+  Plus
 } from "lucide-react";
 import { Link } from "wouter";
-import { certificates, Certificate } from "@/lib/mock-data";
+import { db, Certificate, Property } from "@/lib/store";
 import { 
   Sheet, 
   SheetContent, 
@@ -31,7 +29,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -40,14 +37,29 @@ import { Separator } from "@/components/ui/separator";
 
 export default function CertificatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [certificates, setCertificates] = useState<Certificate[]>(db.certificates);
   const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
+  const [selectedProp, setSelectedProp] = useState<Property | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+     const unsub = db.subscribe(() => setCertificates(db.certificates));
+     return unsub;
+  }, []);
+
+  useEffect(() => {
+     if (selectedCert) {
+        const prop = db.properties.find(p => p.id === selectedCert.propertyId) || null;
+        setSelectedProp(prop);
+     }
+  }, [selectedCert]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Valid": return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "Expiring Soon": return "bg-amber-50 text-amber-700 border-amber-200";
-      case "Overdue": return "bg-rose-50 text-rose-700 border-rose-200";
+      case "APPROVED": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "NEEDS_REVIEW": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "PROCESSING": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "REJECTED": return "bg-rose-50 text-rose-700 border-rose-200";
       default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
@@ -82,9 +94,9 @@ export default function CertificatesPage() {
                 <Filter className="h-4 w-4" />
               </Button>
             </div>
-            <Link href="/ingestion">
-              <Button className="bg-primary hover:bg-primary/90">
-                Upload New
+            <Link href="/certificates/upload">
+              <Button className="bg-primary hover:bg-primary/90 gap-2">
+                <Plus className="h-4 w-4" /> Upload New
               </Button>
             </Link>
           </div>
@@ -108,7 +120,9 @@ export default function CertificatesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {certificates.map((cert) => (
+                    {certificates.map((cert) => {
+                      const prop = db.properties.find(p => p.id === cert.propertyId);
+                      return (
                       <tr key={cert.id} className="hover:bg-muted/20 cursor-pointer" onClick={() => setSelectedCert(cert)}>
                         <td className="p-4">
                           <div className="flex items-center gap-3">
@@ -116,18 +130,18 @@ export default function CertificatesPage() {
                               <FileText className="h-4 w-4" />
                             </div>
                             <div>
-                              <div className="font-medium">{cert.type}</div>
-                              <div className="text-xs text-muted-foreground">{cert.id}</div>
+                              <div className="font-medium">{cert.certificateType}</div>
+                              <div className="text-xs text-muted-foreground">{cert.fileName}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="p-4 font-medium">{cert.property}</td>
+                        <td className="p-4 font-medium">{prop?.addressLine1}</td>
                         <td className="p-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(cert.status)}`}>
-                            {cert.status}
+                            {cert.status.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="p-4 text-muted-foreground">{cert.expiry}</td>
+                        <td className="p-4 text-muted-foreground">{cert.expiryDate}</td>
                         <td className="p-4">
                           <Badge variant="outline">{cert.outcome}</Badge>
                         </td>
@@ -158,7 +172,8 @@ export default function CertificatesPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -173,7 +188,7 @@ export default function CertificatesPage() {
                       <SheetHeader>
                         <SheetTitle className="flex items-center gap-2">
                            <FileText className="h-5 w-5 text-blue-600" />
-                           {selectedCert.type}
+                           {selectedCert.certificateType}
                         </SheetTitle>
                         <SheetDescription>
                            Certificate ID: {selectedCert.id}
@@ -187,8 +202,8 @@ export default function CertificatesPage() {
                          <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg border">
                             <div>
                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Status</div>
-                               <Badge className={selectedCert.status === 'Valid' ? 'bg-emerald-500' : 'bg-rose-500'}>
-                                  {selectedCert.status}
+                               <Badge className={selectedCert.status === 'APPROVED' ? 'bg-emerald-500' : 'bg-amber-500'}>
+                                  {selectedCert.status.replace('_', ' ')}
                                </Badge>
                             </div>
                             <div>
@@ -197,27 +212,19 @@ export default function CertificatesPage() {
                             </div>
                             <div>
                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Issue Date</div>
-                               <div className="text-sm">{selectedCert.date}</div>
+                               <div className="text-sm">{selectedCert.issueDate}</div>
                             </div>
                              <div>
                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Expiry Date</div>
-                               <div className="text-sm font-semibold">{selectedCert.expiry}</div>
+                               <div className="text-sm font-semibold">{selectedCert.expiryDate}</div>
                             </div>
                          </div>
 
                          <div className="space-y-2">
                             <h3 className="font-semibold text-sm">Property Details</h3>
                             <div className="p-3 border rounded-md">
-                               <div className="font-medium">{selectedCert.property}</div>
-                               <div className="text-xs text-muted-foreground mt-1">UPRN: {selectedCert.propId}</div>
-                            </div>
-                         </div>
-
-                         <div className="space-y-2">
-                            <h3 className="font-semibold text-sm">Engineer / Contractor</h3>
-                            <div className="p-3 border rounded-md">
-                               <div className="font-medium">{selectedCert.engineer || "N/A"}</div>
-                               <div className="text-xs text-muted-foreground mt-1">Verified via Gas Safe Register</div>
+                               <div className="font-medium">{selectedProp?.addressLine1}</div>
+                               <div className="text-xs text-muted-foreground mt-1">UPRN: {selectedProp?.uprn}</div>
                             </div>
                          </div>
 

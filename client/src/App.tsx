@@ -9,6 +9,7 @@ import Ingestion from "@/pages/ingestion";
 import Properties from "@/pages/properties";
 import Reports from "@/pages/reports";
 import CertificatesPage from "@/pages/certificates";
+import CertificateUpload from "@/pages/certificates/upload";
 import CompliancePage from "@/pages/compliance";
 import ActionsPage from "@/pages/actions";
 import ContractorsPage from "@/pages/contractors";
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/ingestion" component={Ingestion} />
       <Route path="/properties" component={Properties} />
       <Route path="/certificates" component={CertificatesPage} />
+      <Route path="/certificates/upload" component={CertificateUpload} />
       <Route path="/compliance" component={CompliancePage} />
       <Route path="/actions" component={ActionsPage} />
       <Route path="/contractors" component={ContractorsPage} />
