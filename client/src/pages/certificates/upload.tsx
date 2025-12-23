@@ -63,14 +63,14 @@ export default function CertificateUpload() {
   };
 
   const startExtraction = () => {
-    // Simulate AI Extraction Pipeline
+    // Simulate AI Extraction Pipeline based on Prompts
     const steps = [
-      "Analyzing document structure...",
-      "OCR Text Extraction...",
-      "Classifying Certificate Type...",
-      "Extracting Entities (GPT-4o)...",
-      "Validating Compliance Data...",
-      "Complete!"
+      "Document Quality Assessment (Resolution & Text)...",
+      "Classifying Certificate Type (GPT-4o)...",
+      "Routing to Extraction Pipeline (Gas Safety / CP12)...",
+      "Extracting Entities (Engineer, Address, Appliances)...",
+      "Validating Logic (Gas Safe #, Dates)...",
+      "Structuring Output JSON..."
     ];
 
     let stepIndex = 0;
@@ -84,7 +84,7 @@ export default function CertificateUpload() {
         clearInterval(stepInterval);
         finishProcessing();
       }
-    }, 800);
+    }, 1200); // Slower for realism
   };
 
   const finishProcessing = () => {

@@ -1,38 +1,270 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+// ComplianceAI Storage Interface - implements database operations using Drizzle ORM
+import { 
+  users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions,
+  type User, type InsertUser,
+  type Organisation, type InsertOrganisation,
+  type Scheme, type InsertScheme,
+  type Block, type InsertBlock,
+  type Property, type InsertProperty,
+  type Certificate, type InsertCertificate,
+  type Extraction, type InsertExtraction,
+  type RemedialAction, type InsertRemedialAction
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
+  // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Organisations
+  getOrganisation(id: string): Promise<Organisation | undefined>;
+  createOrganisation(org: InsertOrganisation): Promise<Organisation>;
+  listOrganisations(): Promise<Organisation[]>;
+  
+  // Schemes
+  listSchemes(organisationId: string): Promise<Scheme[]>;
+  getScheme(id: string): Promise<Scheme | undefined>;
+  createScheme(scheme: InsertScheme): Promise<Scheme>;
+  updateScheme(id: string, updates: Partial<InsertScheme>): Promise<Scheme | undefined>;
+  
+  // Blocks
+  listBlocks(schemeId?: string): Promise<Block[]>;
+  getBlock(id: string): Promise<Block | undefined>;
+  createBlock(block: InsertBlock): Promise<Block>;
+  updateBlock(id: string, updates: Partial<InsertBlock>): Promise<Block | undefined>;
+  
+  // Properties
+  listProperties(organisationId: string, filters?: { blockId?: string; schemeId?: string }): Promise<Property[]>;
+  getProperty(id: string): Promise<Property | undefined>;
+  createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: string, updates: Partial<InsertProperty>): Promise<Property | undefined>;
+  deleteProperty(id: string): Promise<boolean>;
+  
+  // Certificates
+  listCertificates(organisationId: string, filters?: { propertyId?: string; status?: string }): Promise<Certificate[]>;
+  getCertificate(id: string): Promise<Certificate | undefined>;
+  createCertificate(certificate: InsertCertificate): Promise<Certificate>;
+  updateCertificate(id: string, updates: Partial<InsertCertificate>): Promise<Certificate | undefined>;
+  deleteCertificate(id: string): Promise<boolean>;
+  
+  // Extractions
+  getExtractionByCertificate(certificateId: string): Promise<Extraction | undefined>;
+  createExtraction(extraction: InsertExtraction): Promise<Extraction>;
+  
+  // Remedial Actions
+  listRemedialActions(organisationId: string, filters?: { propertyId?: string; status?: string; certificateId?: string }): Promise<RemedialAction[]>;
+  getRemedialAction(id: string): Promise<RemedialAction | undefined>;
+  createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction>;
+  updateRemedialAction(id: string, updates: Partial<InsertRemedialAction>): Promise<RemedialAction | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
+  // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+  
+  // Organisations
+  async getOrganisation(id: string): Promise<Organisation | undefined> {
+    const [org] = await db.select().from(organisations).where(eq(organisations.id, id));
+    return org || undefined;
+  }
+  
+  async createOrganisation(org: InsertOrganisation): Promise<Organisation> {
+    const [organisation] = await db.insert(organisations).values(org).returning();
+    return organisation;
+  }
+  
+  async listOrganisations(): Promise<Organisation[]> {
+    return db.select().from(organisations);
+  }
+  
+  // Schemes
+  async listSchemes(organisationId: string): Promise<Scheme[]> {
+    return db.select().from(schemes).where(eq(schemes.organisationId, organisationId));
+  }
+  
+  async getScheme(id: string): Promise<Scheme | undefined> {
+    const [scheme] = await db.select().from(schemes).where(eq(schemes.id, id));
+    return scheme || undefined;
+  }
+  
+  async createScheme(scheme: InsertScheme): Promise<Scheme> {
+    const [newScheme] = await db.insert(schemes).values(scheme).returning();
+    return newScheme;
+  }
+  
+  async updateScheme(id: string, updates: Partial<InsertScheme>): Promise<Scheme | undefined> {
+    const [updated] = await db.update(schemes).set({ ...updates, updatedAt: new Date() }).where(eq(schemes.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  // Blocks
+  async listBlocks(schemeId?: string): Promise<Block[]> {
+    if (schemeId) {
+      return db.select().from(blocks).where(eq(blocks.schemeId, schemeId));
+    }
+    return db.select().from(blocks);
+  }
+  
+  async getBlock(id: string): Promise<Block | undefined> {
+    const [block] = await db.select().from(blocks).where(eq(blocks.id, id));
+    return block || undefined;
+  }
+  
+  async createBlock(block: InsertBlock): Promise<Block> {
+    const [newBlock] = await db.insert(blocks).values(block).returning();
+    return newBlock;
+  }
+  
+  async updateBlock(id: string, updates: Partial<InsertBlock>): Promise<Block | undefined> {
+    const [updated] = await db.update(blocks).set({ ...updates, updatedAt: new Date() }).where(eq(blocks.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  // Properties
+  async listProperties(organisationId: string, filters?: { blockId?: string; schemeId?: string }): Promise<Property[]> {
+    if (filters?.blockId) {
+      return db.select().from(properties).where(eq(properties.blockId, filters.blockId));
+    }
+    
+    // For schemeId, we need to join with blocks
+    if (filters?.schemeId) {
+      return db.select()
+        .from(properties)
+        .innerJoin(blocks, eq(properties.blockId, blocks.id))
+        .where(eq(blocks.schemeId, filters.schemeId))
+        .then(results => results.map(r => r.properties));
+    }
+    
+    // All properties for the organisation (via schemes)
+    return db.select()
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(schemes.organisationId, organisationId))
+      .then(results => results.map(r => r.properties));
+  }
+  
+  async getProperty(id: string): Promise<Property | undefined> {
+    const [property] = await db.select().from(properties).where(eq(properties.id, id));
+    return property || undefined;
+  }
+  
+  async createProperty(property: InsertProperty): Promise<Property> {
+    const [newProperty] = await db.insert(properties).values(property).returning();
+    return newProperty;
+  }
+  
+  async updateProperty(id: string, updates: Partial<InsertProperty>): Promise<Property | undefined> {
+    const [updated] = await db.update(properties).set({ ...updates, updatedAt: new Date() }).where(eq(properties.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  async deleteProperty(id: string): Promise<boolean> {
+    const result = await db.delete(properties).where(eq(properties.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+  
+  // Certificates
+  async listCertificates(organisationId: string, filters?: { propertyId?: string; status?: string }): Promise<Certificate[]> {
+    const conditions = [eq(certificates.organisationId, organisationId)];
+    
+    if (filters?.propertyId) {
+      conditions.push(eq(certificates.propertyId, filters.propertyId));
+    }
+    
+    if (filters?.status) {
+      conditions.push(eq(certificates.status, filters.status as any));
+    }
+    
+    return db.select().from(certificates).where(and(...conditions)).orderBy(desc(certificates.createdAt));
+  }
+  
+  async getCertificate(id: string): Promise<Certificate | undefined> {
+    const [certificate] = await db.select().from(certificates).where(eq(certificates.id, id));
+    return certificate || undefined;
+  }
+  
+  async createCertificate(certificate: InsertCertificate): Promise<Certificate> {
+    const [newCertificate] = await db.insert(certificates).values(certificate).returning();
+    return newCertificate;
+  }
+  
+  async updateCertificate(id: string, updates: Partial<InsertCertificate>): Promise<Certificate | undefined> {
+    const [updated] = await db.update(certificates).set({ ...updates, updatedAt: new Date() }).where(eq(certificates.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  async deleteCertificate(id: string): Promise<boolean> {
+    const result = await db.delete(certificates).where(eq(certificates.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+  
+  // Extractions
+  async getExtractionByCertificate(certificateId: string): Promise<Extraction | undefined> {
+    const [extraction] = await db.select().from(extractions).where(eq(extractions.certificateId, certificateId)).orderBy(desc(extractions.createdAt));
+    return extraction || undefined;
+  }
+  
+  async createExtraction(extraction: InsertExtraction): Promise<Extraction> {
+    const [newExtraction] = await db.insert(extractions).values(extraction).returning();
+    return newExtraction;
+  }
+  
+  // Remedial Actions
+  async listRemedialActions(organisationId: string, filters?: { propertyId?: string; status?: string; certificateId?: string }): Promise<RemedialAction[]> {
+    // Need to join with certificates to filter by organisation
+    const conditions = [eq(certificates.organisationId, organisationId)];
+    
+    if (filters?.propertyId) {
+      conditions.push(eq(remedialActions.propertyId, filters.propertyId));
+    }
+    
+    if (filters?.status) {
+      conditions.push(eq(remedialActions.status, filters.status as any));
+    }
+    
+    if (filters?.certificateId) {
+      conditions.push(eq(remedialActions.certificateId, filters.certificateId));
+    }
+    
+    return db.select({ actions: remedialActions })
+      .from(remedialActions)
+      .innerJoin(certificates, eq(remedialActions.certificateId, certificates.id))
+      .where(and(...conditions))
+      .orderBy(desc(remedialActions.createdAt))
+      .then(results => results.map(r => r.actions));
+  }
+  
+  async getRemedialAction(id: string): Promise<RemedialAction | undefined> {
+    const [action] = await db.select().from(remedialActions).where(eq(remedialActions.id, id));
+    return action || undefined;
+  }
+  
+  async createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction> {
+    const [newAction] = await db.insert(remedialActions).values(action).returning();
+    return newAction;
+  }
+  
+  async updateRemedialAction(id: string, updates: Partial<InsertRemedialAction>): Promise<RemedialAction | undefined> {
+    const [updated] = await db.update(remedialActions).set({ ...updates, updatedAt: new Date() }).where(eq(remedialActions.id, id)).returning();
+    return updated || undefined;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

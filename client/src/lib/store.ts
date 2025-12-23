@@ -125,17 +125,40 @@ export const mockCertificates: Certificate[] = [
   { 
     id: "CERT-001", propertyId: "PROP-001", fileName: "CP12_2024.pdf", 
     certificateType: "GAS_SAFETY", status: "APPROVED", 
-    issueDate: "2024-01-15", expiryDate: "2025-01-15", outcome: "PASS", uploadedAt: "2024-01-16T10:00:00Z" 
+    issueDate: "2024-01-15", expiryDate: "2025-01-15", outcome: "PASS", uploadedAt: "2024-01-16T10:00:00Z",
+    extractedData: {
+      certificateNumber: "GS-8829102",
+      engineer: { name: "James Miller", gasSafeNumber: "8829192", signaturePresent: true },
+      propertyAddress: { line1: "Flat 1, Oak House", postcode: "SW1 1AA" },
+      appliances: [
+        { location: "Kitchen", type: "Boiler", make: "Worcester", model: "Greenstar", safetyDeviceCorrect: true, ventilationSatisfactory: true, applianceSafe: true },
+        { location: "Living Room", type: "Gas Fire", make: "Baxi", model: "Bermuda", safetyDeviceCorrect: true, ventilationSatisfactory: true, applianceSafe: true }
+      ],
+      overallOutcome: "SATISFACTORY"
+    }
   },
   { 
     id: "CERT-002", propertyId: "PROP-002", fileName: "CP12_OLD.pdf", 
     certificateType: "GAS_SAFETY", status: "APPROVED", 
-    issueDate: "2023-01-10", expiryDate: "2024-01-10", outcome: "PASS", uploadedAt: "2023-01-12T10:00:00Z" 
+    issueDate: "2023-01-10", expiryDate: "2024-01-10", outcome: "PASS", uploadedAt: "2023-01-12T10:00:00Z",
+    extractedData: {
+       overallOutcome: "SATISFACTORY"
+    } 
   },
   { 
     id: "CERT-003", propertyId: "PROP-004", fileName: "EICR_FAILED.pdf", 
     certificateType: "EICR", status: "APPROVED", 
-    issueDate: "2024-06-01", expiryDate: "2029-06-01", outcome: "UNSATISFACTORY", uploadedAt: "2024-06-02T14:30:00Z" 
+    issueDate: "2024-06-01", expiryDate: "2029-06-01", outcome: "UNSATISFACTORY", uploadedAt: "2024-06-02T14:30:00Z",
+    extractedData: {
+      reportNumber: "EICR-99281",
+      inspector: { name: "Sarah Connor", registrationNumber: "NICEIC-112233" },
+      overallAssessment: "UNSATISFACTORY",
+      observations: [
+         { itemNumber: "4.1", description: "Exposed live parts in fuse box", code: "C1", location: "Hallway" },
+         { itemNumber: "5.2", description: "No RCD protection for bathroom circuits", code: "C2", location: "Bathroom" }
+      ],
+      c1Count: 1, c2Count: 1, c3Count: 0
+    }
   },
 ];
 

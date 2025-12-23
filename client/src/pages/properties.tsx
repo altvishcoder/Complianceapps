@@ -299,7 +299,8 @@ export default function Properties() {
                        const scheme = schemes.find(s => s.id === block?.schemeId);
                        
                        return (
-                        <tr key={prop.id} className="group hover:bg-muted/20 transition-colors cursor-pointer">
+                        <Link key={prop.id} href={`/properties/${prop.id}`} className="contents">
+                        <tr className="group hover:bg-muted/20 transition-colors cursor-pointer">
                           <td className="p-4 pl-6">
                             <div className="flex flex-col">
                               <span className="font-semibold text-foreground">{prop.addressLine1}</span>
@@ -322,6 +323,7 @@ export default function Properties() {
                              </Button>
                           </td>
                         </tr>
+                        </Link>
                        );
                     })}
                   </tbody>

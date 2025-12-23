@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Ingestion from "@/pages/ingestion";
 import Properties from "@/pages/properties";
+import PropertyDetail from "@/pages/properties/detail";
 import Reports from "@/pages/reports";
 import CertificatesPage from "@/pages/certificates";
 import CertificateUpload from "@/pages/certificates/upload";
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/ingestion" component={Ingestion} />
       <Route path="/properties" component={Properties} />
+      <Route path="/properties/:id" component={PropertyDetail} />
       <Route path="/certificates" component={CertificatesPage} />
       <Route path="/certificates/upload" component={CertificateUpload} />
       <Route path="/compliance" component={CompliancePage} />

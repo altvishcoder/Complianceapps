@@ -229,6 +229,83 @@ export default function CertificatesPage() {
                          </div>
 
                          <Separator />
+                         
+                         {/* Dynamic Extraction Data Display based on certificate type */}
+                         {selectedCert.extractedData && (
+                            <div className="space-y-4">
+                               <h3 className="font-semibold text-sm flex items-center gap-2">
+                                  <FileCheck className="h-4 w-4 text-blue-600" />
+                                  Extracted Data
+                               </h3>
+                               
+                               {selectedCert.certificateType === 'GAS_SAFETY' && selectedCert.extractedData.appliances && (
+                                  <div className="space-y-2">
+                                     <div className="text-xs font-medium text-muted-foreground uppercase">Appliances</div>
+                                     <div className="rounded-md border overflow-hidden">
+                                        <table className="w-full text-xs text-left bg-background">
+                                           <thead className="bg-muted text-muted-foreground">
+                                              <tr>
+                                                 <th className="p-2">Location</th>
+                                                 <th className="p-2">Type</th>
+                                                 <th className="p-2">Status</th>
+                                              </tr>
+                                           </thead>
+                                           <tbody>
+                                              {selectedCert.extractedData.appliances.map((app: any, idx: number) => (
+                                                 <tr key={idx} className="border-t">
+                                                    <td className="p-2">{app.location}</td>
+                                                    <td className="p-2">{app.type} ({app.make})</td>
+                                                    <td className="p-2">
+                                                       {app.applianceSafe ? 
+                                                          <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200">Safe</Badge> : 
+                                                          <Badge variant="destructive">Unsafe</Badge>
+                                                       }
+                                                    </td>
+                                                 </tr>
+                                              ))}
+                                           </tbody>
+                                        </table>
+                                     </div>
+                                  </div>
+                               )}
+
+                               {selectedCert.certificateType === 'EICR' && selectedCert.extractedData.observations && (
+                                  <div className="space-y-2">
+                                     <div className="text-xs font-medium text-muted-foreground uppercase">Observations</div>
+                                     <div className="space-y-2">
+                                        {selectedCert.extractedData.observations.map((obs: any, idx: number) => (
+                                           <div key={idx} className="p-2 border rounded-md bg-background text-xs flex gap-2 items-start">
+                                              <Badge variant={['C1', 'C2'].includes(obs.code) ? 'destructive' : 'secondary'} className="shrink-0">
+                                                 {obs.code}
+                                              </Badge>
+                                              <div>
+                                                 <div className="font-medium">{obs.location}</div>
+                                                 <div className="text-muted-foreground">{obs.description}</div>
+                                              </div>
+                                           </div>
+                                        ))}
+                                     </div>
+                                  </div>
+                               )}
+                               
+                               {selectedCert.extractedData.engineer && (
+                                   <div className="p-3 border rounded-md bg-muted/20 text-xs">
+                                      <div className="grid grid-cols-2 gap-2">
+                                         <div>
+                                            <span className="text-muted-foreground">Engineer:</span>
+                                            <div className="font-medium">{selectedCert.extractedData.engineer.name}</div>
+                                         </div>
+                                          <div>
+                                            <span className="text-muted-foreground">ID Number:</span>
+                                            <div className="font-medium">{selectedCert.extractedData.engineer.gasSafeNumber || selectedCert.extractedData.engineer.registrationNumber}</div>
+                                         </div>
+                                      </div>
+                                   </div>
+                               )}
+                            </div>
+                         )}
+
+                         <Separator />
 
                          <div className="space-y-2">
                             <h3 className="font-semibold text-sm">Preview</h3>
