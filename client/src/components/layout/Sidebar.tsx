@@ -7,16 +7,24 @@ import {
   Settings, 
   ShieldCheck,
   AlertTriangle,
-  LogOut
+  LogOut,
+  Files,
+  ClipboardCheck,
+  Wrench,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
+  { name: "Certificates", href: "/certificates", icon: Files },
   { name: "Ingestion Hub", href: "/ingestion", icon: UploadCloud },
-  { name: "Compliance Reports", href: "/reports", icon: FileText },
-  { name: "Admin Setup", href: "/admin/setup", icon: Settings },
+  { name: "Compliance Overview", href: "/compliance", icon: ClipboardCheck },
+  { name: "Remedial Actions", href: "/actions", icon: Wrench },
+  { name: "Contractors", href: "/contractors", icon: Users },
+  { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Settings", href: "/admin/setup", icon: Settings },
 ];
 
 export function Sidebar() {

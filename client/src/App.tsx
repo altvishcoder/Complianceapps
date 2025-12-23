@@ -8,6 +8,10 @@ import Dashboard from "@/pages/dashboard";
 import Ingestion from "@/pages/ingestion";
 import Properties from "@/pages/properties";
 import Reports from "@/pages/reports";
+import CertificatesPage from "@/pages/certificates";
+import CompliancePage from "@/pages/compliance";
+import ActionsPage from "@/pages/actions";
+import ContractorsPage from "@/pages/contractors";
 import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import MFAPage from "@/pages/mfa";
@@ -26,6 +30,10 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/ingestion" component={Ingestion} />
       <Route path="/properties" component={Properties} />
+      <Route path="/certificates" component={CertificatesPage} />
+      <Route path="/compliance" component={CompliancePage} />
+      <Route path="/actions" component={ActionsPage} />
+      <Route path="/contractors" component={ContractorsPage} />
       <Route path="/reports" component={Reports} />
       <Route path="/admin/setup" component={AdminSetup} />
       <Route path="/admin/users" component={AdminUsersPage} />

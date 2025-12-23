@@ -1,6 +1,9 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { FileText, BarChart3 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { FileText, BarChart3, Download, Calendar, ArrowRight } from "lucide-react";
 
 export default function Reports() {
   return (
@@ -8,15 +11,107 @@ export default function Reports() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Compliance Reports" />
-        <main className="flex-1 flex flex-col items-center justify-center p-6 text-muted-foreground">
-          <div className="h-24 w-24 bg-muted rounded-full flex items-center justify-center mb-6">
-             <BarChart3 className="h-10 w-10 opacity-50" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-emerald-500">
+              <CardHeader>
+                <div className="mb-2 h-10 w-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="h-6 w-6" />
+                </div>
+                <CardTitle>Tenant Satisfaction Measures (TSM)</CardTitle>
+                <CardDescription>Quarterly submission for Regulator of Social Housing</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground mb-4">
+                  Last generated: 14 Dec 2025
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Download className="mr-2 h-4 w-4" /> PDF
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Download className="mr-2 h-4 w-4" /> CSV
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-blue-500">
+              <CardHeader>
+                <div className="mb-2 h-10 w-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                  <FileText className="h-6 w-6" />
+                </div>
+                <CardTitle>Big 6 Compliance Summary</CardTitle>
+                <CardDescription>Executive overview of all major compliance streams</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground mb-4">
+                  Updated daily at 00:00 GMT
+                </div>
+                <Button className="w-full" size="sm">
+                  View Interactive Report <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-purple-500">
+              <CardHeader>
+                <div className="mb-2 h-10 w-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-6 w-6" />
+                </div>
+                <CardTitle>Forecast & Expiry Schedule</CardTitle>
+                <CardDescription>Forward look at upcoming renewals for budget planning</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground mb-4">
+                  Scope: Next 12 Months
+                </div>
+                <Button variant="outline" size="sm" className="w-full">
+                   Generate Forecast
+                </Button>
+              </CardContent>
+            </Card>
           </div>
-          <h2 className="text-xl font-semibold mb-2">Reports Module</h2>
-          <p className="max-w-md text-center">
-            Advanced reporting and BI dashboards will be available in the next sprint. 
-            Currently tracking Awaab's Law KPIs and Big 6 Compliance metrics.
-          </p>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Reports</CardTitle>
+            </CardHeader>
+            <CardContent>
+               <div className="rounded-md border">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-muted-foreground font-medium">
+                    <tr>
+                      <th className="p-3">Report Name</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Date Generated</th>
+                      <th className="p-3">Generated By</th>
+                      <th className="p-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {[
+                      { name: "Q4 2025 Compliance Board Pack", type: "PDF", date: "Dec 15, 2025", user: "Sarah Jenkins" },
+                      { name: "Monthly Gas Safety KPI", type: "Excel", date: "Dec 01, 2025", user: "System (Auto)" },
+                      { name: "Outstanding Remedials Export", type: "CSV", date: "Nov 28, 2025", user: "Mike Ross" },
+                    ].map((row, i) => (
+                      <tr key={i} className="hover:bg-muted/20">
+                        <td className="p-3 font-medium">{row.name}</td>
+                        <td className="p-3"><Badge variant="outline">{row.type}</Badge></td>
+                        <td className="p-3 text-muted-foreground">{row.date}</td>
+                        <td className="p-3">{row.user}</td>
+                        <td className="p-3 text-right">
+                          <Button variant="ghost" size="sm">Download</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
         </main>
       </div>
     </div>
