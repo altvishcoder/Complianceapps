@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { propertiesApi, schemesApi, blocksApi } from "@/lib/api";
 import type { InsertProperty } from "@shared/schema";
@@ -20,6 +20,7 @@ import type { InsertProperty } from "@shared/schema";
 export default function Properties() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   
   // Fetch data
   const { data: properties = [] } = useQuery({
@@ -39,14 +40,24 @@ export default function Properties() {
   
   // Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newProp, setNewProp] = useState({
+  const [newProp, setNewProp] = useState<{
+    schemeId: string;
+    blockId: string;
+    addressLine1: string;
+    city: string;
+    postcode: string;
+    propertyType: string;
+    tenure: string;
+    bedrooms: string;
+    hasGas: boolean;
+  }>({
     schemeId: "",
     blockId: "",
     addressLine1: "",
     city: "",
     postcode: "",
-    propertyType: "FLAT" as const,
-    tenure: "SOCIAL_RENT" as const,
+    propertyType: "FLAT",
+    tenure: "SOCIAL_RENT",
     bedrooms: "1",
     hasGas: true
   });
@@ -96,8 +107,8 @@ export default function Properties() {
       addressLine1: newProp.addressLine1,
       city: newProp.city,
       postcode: newProp.postcode,
-      propertyType: newProp.propertyType,
-      tenure: newProp.tenure,
+      propertyType: newProp.propertyType as "FLAT" | "HOUSE" | "BUNGALOW",
+      tenure: newProp.tenure as "SOCIAL_RENT" | "LEASEHOLD",
       bedrooms: parseInt(newProp.bedrooms),
       hasGas: newProp.hasGas,
       complianceStatus: "COMPLIANT"
@@ -304,10 +315,13 @@ export default function Properties() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {properties.map((prop) => {
-                       return (
-                        <Link key={prop.id} href={`/properties/${prop.id}`} className="contents">
-                        <tr className="group hover:bg-muted/20 transition-colors cursor-pointer">
+                    {properties.map((prop) => (
+                        <tr 
+                          key={prop.id} 
+                          className="group hover:bg-muted/20 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/properties/${prop.id}`)}
+                          data-testid={`row-property-${prop.id}`}
+                        >
                           <td className="p-4 pl-6">
                             <div className="flex flex-col">
                               <span className="font-semibold text-foreground">{prop.addressLine1}</span>
@@ -330,9 +344,7 @@ export default function Properties() {
                              </Button>
                           </td>
                         </tr>
-                        </Link>
-                       );
-                    })}
+                    ))}
                   </tbody>
                 </table>
               </div>
