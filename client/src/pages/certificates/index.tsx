@@ -301,19 +301,62 @@ export default function CertificatesPage() {
 
                          <Separator />
 
-                         <div className="space-y-2">
-                            <h3 className="font-semibold text-sm">Raw Extracted Data</h3>
-                            {selectedCert.extractedData ? (
-                              <div className="bg-slate-950 text-slate-200 p-4 rounded-md font-mono text-xs overflow-auto max-h-64">
-                                <pre>{JSON.stringify(selectedCert.extractedData, null, 2)}</pre>
-                              </div>
-                            ) : (
-                              <div className="p-4 bg-muted/50 rounded-md text-center text-muted-foreground text-sm">
-                                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                No extraction data available yet
-                              </div>
-                            )}
-                         </div>
+                         {/* Summary of Issues/Actions */}
+                         {selectedCert.extractedData && (
+                           <div className="space-y-3">
+                             <h3 className="font-semibold text-sm">Issues Summary</h3>
+                             
+                             {/* EICR Code Counts */}
+                             {(selectedCert.extractedData.c1Count > 0 || selectedCert.extractedData.c2Count > 0 || selectedCert.extractedData.c3Count > 0) && (
+                               <div className="grid grid-cols-3 gap-2">
+                                 {selectedCert.extractedData.c1Count > 0 && (
+                                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-center">
+                                     <div className="text-2xl font-bold text-red-600">{selectedCert.extractedData.c1Count}</div>
+                                     <div className="text-xs text-red-700 font-medium">C1 - Danger</div>
+                                   </div>
+                                 )}
+                                 {selectedCert.extractedData.c2Count > 0 && (
+                                   <div className="p-3 bg-orange-50 border border-orange-200 rounded-md text-center">
+                                     <div className="text-2xl font-bold text-orange-600">{selectedCert.extractedData.c2Count}</div>
+                                     <div className="text-xs text-orange-700 font-medium">C2 - Urgent</div>
+                                   </div>
+                                 )}
+                                 {selectedCert.extractedData.c3Count > 0 && (
+                                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-center">
+                                     <div className="text-2xl font-bold text-yellow-600">{selectedCert.extractedData.c3Count}</div>
+                                     <div className="text-xs text-yellow-700 font-medium">C3 - Improve</div>
+                                   </div>
+                                 )}
+                               </div>
+                             )}
+
+                             {/* Gas Safety Defects */}
+                             {selectedCert.extractedData.defects && selectedCert.extractedData.defects.length > 0 && (
+                               <div className="space-y-2">
+                                 <div className="text-xs font-medium text-muted-foreground uppercase">Defects Found</div>
+                                 {selectedCert.extractedData.defects.map((defect: any, idx: number) => (
+                                   <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-md">
+                                     <div className="flex items-start gap-2">
+                                       <Badge variant="destructive" className="shrink-0">{defect.classification || 'Defect'}</Badge>
+                                       <div className="text-sm">
+                                         <div className="font-medium text-red-900">{defect.description}</div>
+                                         <div className="text-xs text-red-700 mt-1">Location: {defect.location}</div>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 ))}
+                               </div>
+                             )}
+
+                             {/* No Issues Found */}
+                             {selectedCert.outcome === 'SATISFACTORY' && (
+                               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-md text-center">
+                                 <div className="text-emerald-600 font-semibold">No Issues Found</div>
+                                 <div className="text-xs text-emerald-700 mt-1">Certificate passed all checks</div>
+                               </div>
+                             )}
+                           </div>
+                         )}
 
                       </div>
                    </ScrollArea>
