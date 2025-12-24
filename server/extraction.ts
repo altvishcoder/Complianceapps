@@ -1,8 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const anthropic = new Anthropic();
 
@@ -488,11 +486,24 @@ function generateRemedialActions(
 
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
-    const parser = new pdfParse.PDFParse();
-    const result = await parser.loadPDF(pdfBuffer);
-    const pages = await result.getAllPagesText();
-    const text = pages.join('\n');
-    return text || "";
+    const uint8Array = new Uint8Array(pdfBuffer);
+    const loadingTask = pdfjs.getDocument({ data: uint8Array });
+    const pdfDocument = await loadingTask.promise;
+    
+    const textParts: string[] = [];
+    
+    for (let i = 1; i <= pdfDocument.numPages; i++) {
+      const page = await pdfDocument.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      textParts.push(pageText);
+    }
+    
+    const fullText = textParts.join('\n\n');
+    console.log(`Successfully extracted ${fullText.length} characters from PDF (${pdfDocument.numPages} pages)`);
+    return fullText;
   } catch (error) {
     console.error("PDF text extraction failed:", error);
     return "";
