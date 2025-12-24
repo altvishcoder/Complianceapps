@@ -89,6 +89,7 @@ export interface CertificateUploadData {
   fileType: string;
   fileSize: number;
   certificateType: string;
+  storageKey?: string | null;
   fileBase64?: string;
   mimeType?: string;
 }

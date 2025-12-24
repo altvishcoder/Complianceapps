@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { propertiesApi, certificatesApi } from "@/lib/api";
+import { useUpload } from "@/hooks/use-upload";
 
 const CERTIFICATE_TYPES = [
   { value: "GAS_SAFETY", label: "Gas Safety (CP12)" },
@@ -40,6 +41,8 @@ export default function CertificateUpload() {
     queryKey: ["properties"],
     queryFn: () => propertiesApi.list(),
   });
+
+  const { uploadFile, isUploading: isUploadingToStorage } = useUpload();
 
   const createCertificate = useMutation({
     mutationFn: certificatesApi.create,
@@ -82,8 +85,8 @@ export default function CertificateUpload() {
     let progress = 0;
     const interval = setInterval(() => {
       progress += 5;
-      setUploadProgress(Math.min(progress, 30));
-      if (progress >= 30) {
+      setUploadProgress(Math.min(progress, 20));
+      if (progress >= 20) {
         clearInterval(interval);
       }
     }, 100);
@@ -91,17 +94,26 @@ export default function CertificateUpload() {
     try {
       const mimeType = file.type;
       
+      // Step 1: Upload file to object storage
+      setExtractionStep("Uploading document to secure storage...");
+      const uploadResult = await uploadFile(file);
+      const storageKey = uploadResult?.objectPath || null;
+      
+      clearInterval(interval);
+      setUploadProgress(30);
+      
+      // Step 2: Create certificate with storage key and trigger extraction
       await createCertificate.mutateAsync({
         propertyId: selectedPropertyId,
         fileName: file.name,
         fileType: mimeType,
         fileSize: file.size,
         certificateType: selectedType as any,
+        storageKey: storageKey,
         fileBase64: mimeType.startsWith('image/') ? fileBase64 : undefined,
         mimeType: mimeType.startsWith('image/') ? mimeType : undefined,
       });
 
-      clearInterval(interval);
       setUploadProgress(50);
 
       const steps = [

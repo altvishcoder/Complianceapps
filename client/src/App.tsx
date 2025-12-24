@@ -11,6 +11,7 @@ import PropertyDetail from "@/pages/properties/detail";
 import Reports from "@/pages/reports";
 import CertificatesPage from "@/pages/certificates";
 import CertificateUpload from "@/pages/certificates/upload";
+import CertificateDetailPage from "@/pages/certificates/detail";
 import CompliancePage from "@/pages/compliance";
 import ActionsPage from "@/pages/actions";
 import ContractorsPage from "@/pages/contractors";
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/properties/:id" component={PropertyDetail} />
       <Route path="/certificates" component={CertificatesPage} />
       <Route path="/certificates/upload" component={CertificateUpload} />
+      <Route path="/certificates/:id" component={CertificateDetailPage} />
       <Route path="/compliance" component={CompliancePage} />
       <Route path="/actions" component={ActionsPage} />
       <Route path="/contractors" component={ContractorsPage} />

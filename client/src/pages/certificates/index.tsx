@@ -141,9 +141,11 @@ export default function CertificatesPage() {
                         </td>
                         <td className="p-4 text-right">
                           <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCert(cert)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <Link href={`/certificates/${cert.id}`}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`view-cert-${cert.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">

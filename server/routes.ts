@@ -199,6 +199,7 @@ export async function registerRoutes(
         ...certificate,
         property,
         extraction,
+        extractedData: extraction?.extractedData,
         actions,
       });
     } catch (error) {
