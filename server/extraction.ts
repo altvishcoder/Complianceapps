@@ -273,7 +273,7 @@ export async function extractCertificateWithClaude(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 4096,
       messages: [
         {
@@ -469,7 +469,7 @@ export async function processExtractionAndSave(
     await storage.createExtraction({
       certificateId,
       method: "CLAUDE_VISION",
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-3-5-haiku-20241022",
       promptVersion: "v2.0",
       extractedData: result.extractedData,
       confidence: result.confidence,
