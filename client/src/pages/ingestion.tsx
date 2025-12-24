@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Progress } from "@/components/ui/progress";
 import generatedImage from '@assets/generated_images/abstract_digital_network_background_for_ai_interface.png';
 import { 
@@ -20,37 +20,171 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDropzone } from "react-dropzone";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { propertiesApi, certificatesApi } from "@/lib/api";
+import { useUpload } from "@/hooks/use-upload";
+import type { EnrichedCertificate } from "@/lib/api";
+
+const CERTIFICATE_TYPES = [
+  { value: "GAS_SAFETY", label: "Gas Safety (CP12)" },
+  { value: "EICR", label: "Electrical (EICR)" },
+  { value: "FIRE_RISK_ASSESSMENT", label: "Fire Risk Assessment" },
+  { value: "ASBESTOS_SURVEY", label: "Asbestos Survey" },
+  { value: "LEGIONELLA_ASSESSMENT", label: "Legionella Assessment" },
+  { value: "LIFT_LOLER", label: "Lift (LOLER)" },
+  { value: "EPC", label: "Energy Performance (EPC)" },
+  { value: "OTHER", label: "Other" },
+];
 
 export default function Ingestion() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [processingState, setProcessingState] = useState<'idle' | 'analyzing' | 'complete'>('idle');
+  const [processingState, setProcessingState] = useState<'idle' | 'uploading' | 'analyzing' | 'complete' | 'error'>('idle');
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [processingStep, setProcessingStep] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [fileBase64, setFileBase64] = useState<string>("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [selectedType, setSelectedType] = useState("");
+  const [extractedResult, setExtractedResult] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { uploadFile } = useUpload();
 
-  const handleUpload = () => {
-    setIsUploading(true);
+  const { data: properties = [] } = useQuery({
+    queryKey: ["properties"],
+    queryFn: () => propertiesApi.list(),
+  });
+
+  const { data: recentCertificates = [] } = useQuery({
+    queryKey: ["certificates"],
+    queryFn: () => certificatesApi.list(),
+  });
+
+  const createCertificate = useMutation({
+    mutationFn: certificatesApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["certificates"] });
+    },
+  });
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      const selectedFile = acceptedFiles[0];
+      setFile(selectedFile);
+      setUploadProgress(0);
+      setProcessingState('idle');
+      setExtractedResult(null);
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        setFileBase64(base64);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp']
+    },
+    maxFiles: 1
+  });
+
+  const handleProcessDocument = async () => {
+    if (!file || !selectedPropertyId || !selectedType) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a property and certificate type before processing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProcessingState('uploading');
+    setUploadProgress(0);
+    
     let progress = 0;
     const interval = setInterval(() => {
       progress += 5;
-      setUploadProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsUploading(false);
-        setProcessingState('analyzing');
-        setTimeout(() => setProcessingState('complete'), 3000);
-      }
+      setUploadProgress(Math.min(progress, 30));
     }, 100);
+
+    try {
+      const mimeType = file.type;
+      
+      setProcessingStep("Uploading to secure storage...");
+      const uploadResult = await uploadFile(file);
+      const storageKey = uploadResult?.objectPath || null;
+      
+      clearInterval(interval);
+      setUploadProgress(40);
+      setProcessingState('analyzing');
+      setProcessingStep("Analyzing with Claude Vision AI...");
+      
+      const certificate = await createCertificate.mutateAsync({
+        propertyId: selectedPropertyId,
+        fileName: file.name,
+        fileType: mimeType,
+        fileSize: file.size,
+        certificateType: selectedType as any,
+        storageKey: storageKey,
+        fileBase64: mimeType.startsWith('image/') ? fileBase64 : undefined,
+        mimeType: mimeType.startsWith('image/') ? mimeType : undefined,
+      });
+
+      setUploadProgress(70);
+      setProcessingStep("Extracting certificate data...");
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setUploadProgress(90);
+      setProcessingStep("Identifying defects and issues...");
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const enrichedCert = await certificatesApi.get(certificate.id);
+      setExtractedResult(enrichedCert);
+      
+      setUploadProgress(100);
+      setProcessingState('complete');
+      
+    } catch (error) {
+      clearInterval(interval);
+      setProcessingState('error');
+      toast({
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : "Failed to process document",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleApprove = () => {
     setIsReviewOpen(false);
-    setProcessingState('idle'); // Reset state or move to another state
+    setProcessingState('idle');
+    setFile(null);
+    setFileBase64("");
+    setExtractedResult(null);
     toast({
       title: "Certificate Approved",
-      description: "The CP12 certificate has been validated and added to the property record.",
+      description: "The certificate has been validated and added to the property record.",
       variant: "default",
     });
+  };
+
+  const resetUpload = () => {
+    setFile(null);
+    setFileBase64("");
+    setProcessingState('idle');
+    setExtractedResult(null);
+    setUploadProgress(0);
   };
 
   return (
@@ -85,36 +219,93 @@ export default function Ingestion() {
                 <Card className="h-full flex flex-col">
                   <CardHeader>
                     <CardTitle>Intelligent Ingestion</CardTitle>
-                    <CardDescription>Advanced OCR & Entity Extraction. Drag files here.</CardDescription>
+                    <CardDescription>Claude Vision AI powered extraction. Drag files here.</CardDescription>
                   </CardHeader>
-                  <CardContent className="flex-1">
-                    <div 
-                      className="h-full min-h-[300px] border-2 border-dashed border-border rounded-lg bg-muted/20 flex flex-col items-center justify-center p-6 text-center hover:bg-muted/40 transition-colors cursor-pointer group"
-                      onClick={handleUpload}
-                    >
-                      <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Scan className="h-8 w-8" />
+                  <CardContent className="flex-1 space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Select Property *</Label>
+                        <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId} disabled={processingState !== 'idle'}>
+                          <SelectTrigger data-testid="select-property-ingestion">
+                            <SelectValue placeholder="Choose property..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {properties.map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.addressLine1}, {p.postcode}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Advanced Document Scan</h3>
-                      <p className="text-sm text-muted-foreground max-w-xs mb-4">
-                        Supports high-res PDF, TIFF, JPG. <br/>
-                        Automatically detects: Handwriting, Signatures, Stamps.
-                      </p>
-                      <div className="flex gap-2 text-xs text-muted-foreground bg-background px-3 py-1 rounded-full border">
-                         <FileSearch className="h-3 w-3" />
-                         <span>Deep Content Analysis Active</span>
+                      <div className="space-y-2">
+                        <Label>Certificate Type *</Label>
+                        <Select value={selectedType} onValueChange={setSelectedType} disabled={processingState !== 'idle'}>
+                          <SelectTrigger data-testid="select-type-ingestion">
+                            <SelectValue placeholder="Choose type..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CERTIFICATE_TYPES.map(t => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-
-                      {isUploading && (
-                        <div className="w-full max-w-xs mt-8 space-y-2">
-                          <div className="flex justify-between text-xs">
-                            <span>Scanning & Uploading...</span>
-                            <span>{uploadProgress}%</span>
-                          </div>
-                          <Progress value={uploadProgress} className="h-2" />
-                        </div>
-                      )}
                     </div>
+
+                    {!file ? (
+                      <div 
+                        {...getRootProps()}
+                        className={`h-full min-h-[220px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 text-center transition-colors cursor-pointer group
+                          ${isDragActive ? 'border-primary bg-primary/5' : 'border-border bg-muted/20 hover:bg-muted/40'}
+                        `}
+                      >
+                        <input {...getInputProps()} data-testid="file-input-ingestion" />
+                        <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Scan className="h-8 w-8" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Drop Document Here</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs mb-4">
+                          Supports PDF, JPG, PNG, WebP<br/>
+                          AI-powered extraction using Claude Vision
+                        </p>
+                        <div className="flex gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                           <BrainCircuit className="h-3 w-3" />
+                           <span>Anthropic Claude Vision Active</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg p-4 space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                              <FileText className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{file.name}</p>
+                              <p className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                          </div>
+                          {processingState === 'idle' && (
+                            <Button variant="ghost" size="icon" onClick={resetUpload} data-testid="remove-file-ingestion">
+                              <X className="h-5 w-5" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {processingState === 'idle' && (
+                          <Button 
+                            className="w-full gap-2" 
+                            onClick={handleProcessDocument}
+                            disabled={!selectedPropertyId || !selectedType}
+                            data-testid="start-processing-ingestion"
+                          >
+                            <BrainCircuit className="h-4 w-4" />
+                            Start AI Processing
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -153,19 +344,20 @@ export default function Ingestion() {
                       <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
                         <BrainCircuit className="h-12 w-12 mb-4 opacity-20" />
                         <p>Ready to analyze documents...</p>
+                        <p className="text-xs mt-2">Upload a file and click "Start AI Processing"</p>
                       </div>
                     )}
 
-                    {processingState === 'analyzing' && (
+                    {(processingState === 'uploading' || processingState === 'analyzing') && (
                       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-lg border border-blue-100 shadow-sm">
                           <div className="flex items-center gap-3">
                             <FileText className="h-8 w-8 text-blue-500" />
                             <div>
-                              <p className="font-medium text-sm">CP12_Gas_Cert_HighSt.pdf</p>
+                              <p className="font-medium text-sm">{file?.name || "Document"}</p>
                               <p className="text-xs text-blue-600 flex items-center gap-1">
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                Extracting Entities...
+                                {processingStep}
                               </p>
                             </div>
                           </div>
@@ -173,39 +365,55 @@ export default function Ingestion() {
                         
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                            <span>OCR Scanning</span>
-                            <span className="text-emerald-600">Complete</span>
+                            <span>Upload & Storage</span>
+                            <span className={uploadProgress >= 40 ? "text-emerald-600" : "text-blue-600"}>
+                              {uploadProgress >= 40 ? "Complete" : "Processing..."}
+                            </span>
                           </div>
                           <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 w-full" />
+                            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(uploadProgress * 2.5, 100)}%` }} />
                           </div>
                           
                           <div className="flex items-center justify-between text-xs text-muted-foreground px-1 mt-3">
-                            <span>Entity Recognition (LLM)</span>
-                            <span className="text-blue-600">Processing...</span>
+                            <span>Claude Vision AI Analysis</span>
+                            <span className={uploadProgress >= 70 ? "text-emerald-600" : "text-blue-600"}>
+                              {uploadProgress >= 90 ? "Complete" : uploadProgress >= 40 ? "Processing..." : "Waiting..."}
+                            </span>
                           </div>
                           <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 w-[60%] animate-pulse" />
+                            <div className={`h-full transition-all ${uploadProgress >= 40 ? 'bg-blue-500' : 'bg-slate-200'}`} 
+                                 style={{ width: `${Math.max(0, (uploadProgress - 40) * 1.67)}%` }} />
                           </div>
                         </div>
 
-                        <div className="p-4 bg-slate-50 rounded-md font-mono text-xs text-slate-600 space-y-1 border border-slate-100">
-                          <p>{'>'} Document Type: Gas Safety Record (CP12)</p>
-                          <p>{'>'} Confidence: 99.8%</p>
-                          <p>{'>'} Engineer: J. Smith (ID: 44521)</p>
-                          <p className="animate-pulse">{'>'} Extracting Address...</p>
+                        <div className="p-4 bg-slate-950 rounded-md font-mono text-xs text-slate-200 space-y-1 border border-slate-800">
+                          <p className="text-emerald-400">{'>'} Model: claude-3-5-haiku-20241022</p>
+                          <p>{'>'} Document Type: {CERTIFICATE_TYPES.find(t => t.value === selectedType)?.label || selectedType}</p>
+                          <p className="animate-pulse text-blue-400">{'>'} {processingStep}</p>
                         </div>
                       </div>
                     )}
 
-                    {processingState === 'complete' && (
+                    {processingState === 'complete' && extractedResult && (
                       <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-lg flex items-start gap-3">
-                            <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                        <div className={`p-4 rounded-lg flex items-start gap-3 ${
+                          extractedResult.outcome === 'SATISFACTORY' || extractedResult.outcome === 'PASS'
+                            ? 'bg-emerald-50/50 border border-emerald-100'
+                            : 'bg-amber-50/50 border border-amber-100'
+                        }`}>
+                            {extractedResult.outcome === 'SATISFACTORY' || extractedResult.outcome === 'PASS' ? (
+                              <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                            )}
                             <div>
-                              <p className="font-medium text-emerald-900">Processing Complete</p>
-                              <p className="text-sm text-emerald-700 mt-1">
-                                Successfully extracted 14 fields. Matched to property <strong>124 High Street</strong>.
+                              <p className={`font-medium ${
+                                extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-900' : 'text-amber-900'
+                              }`}>AI Extraction Complete</p>
+                              <p className={`text-sm mt-1 ${
+                                extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-700' : 'text-amber-700'
+                              }`}>
+                                Certificate extracted for <strong>{extractedResult.property?.addressLine1}</strong>
                               </p>
                             </div>
                         </div>
@@ -213,27 +421,57 @@ export default function Ingestion() {
                         <div className="bg-white border border-border rounded-lg divide-y divide-border text-sm">
                             <div className="p-3 flex justify-between">
                               <span className="text-muted-foreground">Type</span>
-                              <span className="font-medium">CP12 Gas Safety</span>
+                              <span className="font-medium">{extractedResult.certificateType?.replace(/_/g, ' ')}</span>
                             </div>
                             <div className="p-3 flex justify-between">
-                              <span className="text-muted-foreground">Status</span>
-                              <span className="font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100">PASS</span>
+                              <span className="text-muted-foreground">Outcome</span>
+                              <span className={`font-medium px-2 py-0.5 rounded text-xs border ${
+                                extractedResult.outcome === 'SATISFACTORY' || extractedResult.outcome === 'PASS'
+                                  ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+                                  : 'text-red-600 bg-red-50 border-red-100'
+                              }`}>{extractedResult.outcome}</span>
                             </div>
                             <div className="p-3 flex justify-between">
-                              <span className="text-muted-foreground">Expiry</span>
-                              <span className="font-medium">14 Dec 2026</span>
+                              <span className="text-muted-foreground">Issue Date</span>
+                              <span className="font-medium">{extractedResult.issueDate || 'N/A'}</span>
                             </div>
                             <div className="p-3 flex justify-between">
-                              <span className="text-muted-foreground">Defects</span>
-                              <span className="font-medium text-slate-900">None Identified</span>
+                              <span className="text-muted-foreground">Expiry Date</span>
+                              <span className="font-medium">{extractedResult.expiryDate || 'N/A'}</span>
                             </div>
+                            {extractedResult.extractedData?.c1Count > 0 && (
+                              <div className="p-3 flex justify-between">
+                                <span className="text-muted-foreground">C1 Defects</span>
+                                <span className="font-medium text-red-600">{extractedResult.extractedData.c1Count}</span>
+                              </div>
+                            )}
+                            {extractedResult.extractedData?.c2Count > 0 && (
+                              <div className="p-3 flex justify-between">
+                                <span className="text-muted-foreground">C2 Defects</span>
+                                <span className="font-medium text-orange-600">{extractedResult.extractedData.c2Count}</span>
+                              </div>
+                            )}
                         </div>
                         
-                        <div className="flex justify-end pt-2">
-                            <Button className="gap-2" onClick={() => setIsReviewOpen(true)}>
-                              Review & Approve <ArrowRight className="h-4 w-4" />
+                        <div className="flex gap-2 pt-2">
+                            <Button variant="outline" className="flex-1" onClick={resetUpload}>
+                              Upload Another
+                            </Button>
+                            <Button className="flex-1 gap-2" onClick={() => setIsReviewOpen(true)}>
+                              Review Details <ArrowRight className="h-4 w-4" />
                             </Button>
                         </div>
+                      </div>
+                    )}
+
+                    {processingState === 'error' && (
+                      <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                        <AlertCircle className="h-12 w-12 mb-4 text-red-400" />
+                        <p className="text-red-600 font-medium">Processing Failed</p>
+                        <p className="text-sm mt-2">Please try again or use a different document format.</p>
+                        <Button variant="outline" className="mt-4" onClick={resetUpload}>
+                          Try Again
+                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -254,7 +492,8 @@ export default function Ingestion() {
           {/* Recent Uploads Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Scan History</CardTitle>
+              <CardTitle>Recent Certificates</CardTitle>
+              <CardDescription>Recently processed certificates using Claude Vision AI</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">
@@ -263,32 +502,52 @@ export default function Ingestion() {
                     <tr>
                       <th className="p-3">File Name</th>
                       <th className="p-3">Type</th>
-                      <th className="p-3">Property Match</th>
+                      <th className="p-3">Property</th>
                       <th className="p-3">Status</th>
+                      <th className="p-3">Outcome</th>
                       <th className="p-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {[
-                      { file: "scan_2024_12_14.pdf", type: "EICR", prop: "12 Green Lane", status: "Review", color: "amber" },
-                      { file: "FRA_The_Towers_Block_A.pdf", type: "Fire Risk", prop: "The Towers (Block A)", status: "Processed", color: "emerald" },
-                      { file: "IMG_4421.jpg", type: "Damp Survey", prop: "Flat 4, Oak House", status: "Processed", color: "emerald" },
-                      { file: "unknown_doc_22.pdf", type: "Unknown", prop: "Unmatched", status: "Failed", color: "rose" },
-                    ].map((row, i) => (
-                      <tr key={i} className="hover:bg-muted/20">
-                        <td className="p-3 font-medium">{row.file}</td>
-                        <td className="p-3">{row.type}</td>
-                        <td className="p-3">{row.prop}</td>
+                    {recentCertificates.slice(0, 5).map((cert) => (
+                      <tr key={cert.id} className="hover:bg-muted/20">
+                        <td className="p-3 font-medium">{cert.fileName}</td>
+                        <td className="p-3">{cert.certificateType?.replace(/_/g, ' ')}</td>
+                        <td className="p-3">{cert.property?.addressLine1 || 'N/A'}</td>
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${row.color}-50 text-${row.color}-700 ring-1 ring-inset ring-${row.color}-600/20`}>
-                            {row.status}
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            cert.status === 'APPROVED' || cert.status === 'EXTRACTED' 
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                              : cert.status === 'NEEDS_REVIEW'
+                              ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
+                              : cert.status === 'PROCESSING'
+                              ? 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20'
+                              : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20'
+                          }`}>
+                            {cert.status?.replace(/_/g, ' ')}
                           </span>
                         </td>
+                        <td className="p-3">
+                          <Badge variant="outline" className={
+                            cert.outcome === 'SATISFACTORY' || cert.outcome === 'PASS'
+                              ? 'text-emerald-600 border-emerald-200'
+                              : 'text-red-600 border-red-200'
+                          }>{cert.outcome}</Badge>
+                        </td>
                         <td className="p-3 text-right">
-                          <Button variant="ghost" size="sm">View</Button>
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={`/certificates/${cert.id}`}>View</a>
+                          </Button>
                         </td>
                       </tr>
                     ))}
+                    {recentCertificates.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          No certificates processed yet. Upload a document above to get started.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
