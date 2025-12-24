@@ -51,8 +51,11 @@ Key enums define compliance statuses, property types, certificate types, and act
 - Uses `connect-pg-simple` for session storage
 
 ### AI/ML Services
-- OpenAI integration (via `openai` package) for certificate document extraction
-- Google Generative AI (`@google/generative-ai`) as alternative AI provider
+- **Anthropic Claude Vision** (`@anthropic-ai/sdk`) for certificate document extraction
+  - Uses Claude 3.5 Sonnet model with vision capabilities
+  - Extracts data from certificate images (JPG, PNG, WebP)
+  - Automatically detects issues and generates remedial actions
+  - Requires `ANTHROPIC_API_KEY` environment variable
 
 ### Third-Party Libraries
 - **Charts**: Recharts for data visualization
