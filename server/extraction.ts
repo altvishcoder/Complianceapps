@@ -23,12 +23,14 @@ const EXTRACTION_PROMPTS: Record<string, string> = {
   GAS_SAFETY: `You are analyzing a UK Gas Safety Certificate (CP12/Landlord Gas Safety Record).
 Extract the following information in JSON format:
 {
+  "documentType": "Landlord Gas Safety Record (LGSR/CP12)",
   "certificateNumber": "the certificate/record number",
   "engineer": {
     "name": "engineer's full name",
     "gasSafeNumber": "Gas Safe registration number (7 digits)",
     "signaturePresent": true/false
   },
+  "installationAddress": "the full property address where the gas appliances are installed",
   "appliances": [
     {
       "location": "room location",
@@ -38,7 +40,8 @@ Extract the following information in JSON format:
       "applianceSafe": true/false,
       "safetyDeviceCorrect": true/false,
       "ventilationSatisfactory": true/false,
-      "flueFlowSatisfactory": true/false
+      "flueFlowSatisfactory": true/false,
+      "safetyStatus": "PASS or AT RISK or FAIL"
     }
   ],
   "issueDate": "YYYY-MM-DD format",
@@ -54,18 +57,20 @@ Extract the following information in JSON format:
   "propertyAddress": "full property address if visible"
 }
 
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is. 
 If a field cannot be determined, use null. Mark outcome as UNSATISFACTORY if any appliance is unsafe or defects are found with ID/AR classification.`,
 
   EICR: `You are analyzing a UK Electrical Installation Condition Report (EICR).
 Extract the following information in JSON format:
 {
+  "documentType": "Electrical Installation Condition Report (EICR)",
   "reportNumber": "the report/certificate number",
   "inspector": {
     "name": "inspector's full name",
     "registrationNumber": "NICEIC/NAPIT/other registration number",
     "signaturePresent": true/false
   },
-  "installationAddress": "property address",
+  "installationAddress": "full property address",
   "issueDate": "YYYY-MM-DD format",
   "expiryDate": "YYYY-MM-DD format (recommended next inspection date)",
   "overallAssessment": "SATISFACTORY or UNSATISFACTORY",
@@ -84,6 +89,7 @@ Extract the following information in JSON format:
   "circuitsTested": total number of circuits tested
 }
 
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is.
 C1 = Danger present (requires immediate action)
 C2 = Potentially dangerous (urgent remedial action required)
 C3 = Improvement recommended
@@ -94,15 +100,19 @@ Mark overall assessment as UNSATISFACTORY if any C1 or C2 codes are present.`,
   FIRE_RISK: `You are analyzing a UK Fire Risk Assessment (FRA) document.
 Extract the following information in JSON format:
 {
+  "documentType": "Fire Risk Assessment (FRA)",
   "reportNumber": "the assessment reference number",
   "assessor": {
     "name": "assessor's full name",
     "qualifications": "relevant qualifications",
     "signaturePresent": true/false
   },
+  "installationAddress": "property/building address",
   "premisesAddress": "property/building address",
   "assessmentDate": "YYYY-MM-DD format",
+  "issueDate": "YYYY-MM-DD format (same as assessmentDate)",
   "reviewDate": "YYYY-MM-DD format (recommended review date)",
+  "expiryDate": "YYYY-MM-DD format (same as reviewDate)",
   "riskLevel": "LOW/MODERATE/SUBSTANTIAL/HIGH/INTOLERABLE",
   "findings": [
     {
@@ -121,11 +131,13 @@ Extract the following information in JSON format:
   "emergencyLightingAdequate": true/false
 }
 
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is.
 Mark as UNSATISFACTORY if risk level is SUBSTANTIAL, HIGH, or INTOLERABLE, or if there are any HIGH priority findings.`,
 
   ASBESTOS: `You are analyzing a UK Asbestos Survey Report (Management Survey or Refurbishment/Demolition Survey).
 Extract the following information in JSON format:
 {
+  "documentType": "Asbestos Survey Report",
   "reportNumber": "the survey reference number",
   "surveyor": {
     "name": "surveyor's full name",
@@ -133,9 +145,12 @@ Extract the following information in JSON format:
     "laboratoryAccreditation": "UKAS accreditation number"
   },
   "surveyType": "Management Survey or Refurbishment/Demolition Survey",
+  "installationAddress": "property address",
   "premisesAddress": "property address",
   "surveyDate": "YYYY-MM-DD format",
+  "issueDate": "YYYY-MM-DD format (same as surveyDate)",
   "reviewDate": "YYYY-MM-DD format",
+  "expiryDate": "YYYY-MM-DD format (same as reviewDate)",
   "acmItems": [
     {
       "itemId": "sample/item reference",
@@ -152,20 +167,25 @@ Extract the following information in JSON format:
   "managementPlanRequired": true/false
 }
 
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is.
 Mark as UNSATISFACTORY if any ACMs are in POOR/DAMAGED condition or high risk items are identified.`,
 
   LEGIONELLA: `You are analyzing a UK Legionella Risk Assessment report.
 Extract the following information in JSON format:
 {
+  "documentType": "Legionella Risk Assessment",
   "reportNumber": "assessment reference number",
   "assessor": {
     "name": "assessor's full name",
     "company": "company name",
     "qualifications": "relevant qualifications"
   },
+  "installationAddress": "property address",
   "premisesAddress": "property address",
   "assessmentDate": "YYYY-MM-DD format",
+  "issueDate": "YYYY-MM-DD format (same as assessmentDate)",
   "reviewDate": "YYYY-MM-DD format (usually 2 years)",
+  "expiryDate": "YYYY-MM-DD format (same as reviewDate)",
   "overallRisk": "LOW/MEDIUM/HIGH",
   "waterSystems": [
     {
@@ -186,21 +206,26 @@ Extract the following information in JSON format:
   "monthlyFlushingRequired": true/false
 }
 
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is.
 Mark as UNSATISFACTORY if overall risk is HIGH or there are IMMEDIATE priority recommendations.`,
 
   LIFT: `You are analyzing a UK Lift/Elevator Inspection Report (LOLER examination).
 Extract the following information in JSON format:
 {
+  "documentType": "Lift Inspection Report (LOLER)",
   "reportNumber": "examination report number",
   "examiner": {
     "name": "competent person's name",
     "company": "insurance company or examination body",
     "registrationNumber": "registration or certificate number"
   },
+  "installationAddress": "building address",
   "liftLocation": "building/floor location of lift",
   "liftType": "passenger/goods/platform/stairlift",
   "examinationDate": "YYYY-MM-DD format",
+  "issueDate": "YYYY-MM-DD format (same as examinationDate)",
   "nextExaminationDate": "YYYY-MM-DD format (usually 6 months for passenger lifts)",
+  "expiryDate": "YYYY-MM-DD format (same as nextExaminationDate)",
   "safeToOperate": true/false,
   "defects": [
     {
@@ -215,20 +240,23 @@ Extract the following information in JSON format:
   "categoryC_Count": number of Category C (does not meet standard) defects
 }
 
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is.
 Mark as UNSATISFACTORY if lift is not safe to operate or any Category A defects are present.`
 };
 
 function getDefaultPrompt(certificateType: string): string {
-  return `You are analyzing a UK compliance certificate of type: ${certificateType}.
+  return `You are analyzing a UK compliance certificate. The user selected type: ${certificateType}, but please identify the ACTUAL document type.
 Extract all relevant information including:
-- Certificate/report number
-- Issue date and expiry/review date (in YYYY-MM-DD format)
-- Inspector/engineer details
-- Overall outcome/assessment (SATISFACTORY or UNSATISFACTORY)
+- documentType: The actual type of certificate you are analyzing (e.g., "Landlord Gas Safety Record", "EICR", "Fire Risk Assessment", etc.)
+- certificateNumber or reportNumber
+- issueDate and expiryDate (in YYYY-MM-DD format)
+- installationAddress: The full property address from the certificate
+- inspector or engineer details (name, registration number)
+- overallOutcome or overallAssessment: SATISFACTORY or UNSATISFACTORY
 - Any defects, observations, or recommendations with their severity levels
-- Property address if visible
 
 Return the data as a structured JSON object. If a field cannot be determined, use null.
+IMPORTANT: Always include "documentType" to identify what type of certificate this actually is, even if it differs from what the user selected.
 Also determine if the certificate shows a SATISFACTORY or UNSATISFACTORY outcome based on the findings.`;
 }
 

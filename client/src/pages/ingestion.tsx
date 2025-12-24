@@ -622,30 +622,61 @@ export default function Ingestion() {
                  <div className="space-y-4">
                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Property Details</h3>
                    <div className="grid gap-2">
-                     <Label>Matched Address</Label>
+                     <Label>Selected Property (from your selection)</Label>
                      <div className="relative">
                        <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                        <Input 
                          value={`${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`} 
                          readOnly
-                         className="pl-9 bg-emerald-50/50 border-emerald-200" 
+                         className="pl-9 bg-blue-50/50 border-blue-200" 
                        />
                      </div>
                    </div>
+                   {(extractedResult.extractedData?.installationAddress || extractedResult.extractedData?.propertyAddress) && (
+                     <div className="grid gap-2">
+                       <Label>Address from Certificate (AI extracted)</Label>
+                       <div className="relative">
+                         <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                         <Input 
+                           value={
+                             typeof extractedResult.extractedData?.installationAddress === 'string' 
+                               ? extractedResult.extractedData.installationAddress
+                               : extractedResult.extractedData?.propertyAddress?.streetAddress 
+                                 ? `${extractedResult.extractedData.propertyAddress.streetAddress}, ${extractedResult.extractedData.propertyAddress.city || ''} ${extractedResult.extractedData.propertyAddress.postCode || ''}`
+                                 : 'Not extracted'
+                           } 
+                           readOnly
+                           className="pl-9 bg-amber-50/50 border-amber-200 text-amber-900" 
+                         />
+                       </div>
+                       <p className="text-xs text-amber-600">Please verify the selected property matches the certificate address</p>
+                     </div>
+                   )}
                  </div>
 
                  <div className="space-y-4">
                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Certificate Data</h3>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label>Type</Label>
-                        <Input value={extractedResult.certificateType?.replace(/_/g, ' ') || 'Unknown'} readOnly />
+                        <Label>Type (you selected)</Label>
+                        <Input value={extractedResult.certificateType?.replace(/_/g, ' ') || 'Unknown'} readOnly className="bg-blue-50/50 border-blue-200" />
                       </div>
                       <div className="grid gap-2">
-                        <Label>Reference</Label>
-                        <Input value={extractedResult.extractedData?.certificateNumber || extractedResult.id?.slice(0, 8) || 'N/A'} readOnly />
+                        <Label>Reference Number</Label>
+                        <Input value={extractedResult.extractedData?.certificateNumber || extractedResult.extractedData?.reportNumber || extractedResult.certificateNumber || 'N/A'} readOnly />
                       </div>
                    </div>
+                   {extractedResult.extractedData?.documentType && (
+                     <div className="grid gap-2">
+                       <Label>Detected Type (AI extracted)</Label>
+                       <Input 
+                         value={extractedResult.extractedData.documentType} 
+                         readOnly 
+                         className="bg-amber-50/50 border-amber-200 text-amber-900"
+                       />
+                       <p className="text-xs text-amber-600">Please verify the selected type matches the actual certificate</p>
+                     </div>
+                   )}
                    
                    <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
