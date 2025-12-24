@@ -570,80 +570,31 @@ export default function Ingestion() {
           </div>
           
           <div className="flex-1 flex overflow-hidden">
-            {/* Document Preview (Mock) */}
-            <div className="w-1/2 bg-slate-900 p-8 flex items-center justify-center border-r border-border overflow-y-auto">
-               <div className="bg-white w-full h-[140%] shadow-2xl rounded-sm p-8 text-[10px] text-slate-800 font-serif leading-relaxed opacity-90">
-                  <div className="flex justify-between border-b-2 border-black pb-4 mb-6">
-                    <h1 className="text-2xl font-bold uppercase">Gas Safety Record</h1>
-                    <div className="text-right">
-                      <p className="font-bold">British Gas</p>
-                      <p>Reg No: 55421</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-8 mb-8">
-                    <div>
-                      <h3 className="font-bold uppercase mb-2 border-b border-black">Site Address</h3>
-                      <p>124 High Street</p>
-                      <p>London</p>
-                      <p>SW1 4AX</p>
-                    </div>
-                    <div>
-                       <h3 className="font-bold uppercase mb-2 border-b border-black">Details</h3>
-                       <p>Date: 14/12/2025</p>
-                       <p>Engineer: John Smith</p>
-                    </div>
-                  </div>
-
-                  <table className="w-full border-collapse border border-black mb-8">
-                    <thead>
-                      <tr className="bg-slate-100">
-                         <th className="border border-black p-1 text-left">Appliance</th>
-                         <th className="border border-black p-1">Location</th>
-                         <th className="border border-black p-1">Make/Model</th>
-                         <th className="border border-black p-1">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-black p-1">Boiler</td>
-                        <td className="border border-black p-1">Kitchen</td>
-                        <td className="border border-black p-1">Worcester</td>
-                        <td className="border border-black p-1 text-center">PASS</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-black p-1">Hob</td>
-                        <td className="border border-black p-1">Kitchen</td>
-                        <td className="border border-black p-1">Beko</td>
-                        <td className="border border-black p-1 text-center">PASS</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div className="border border-black p-4 mb-4">
-                    <p className="font-bold mb-2">Outcome:</p>
-                    <div className="flex gap-4">
-                      <span className="font-bold">PASS [X]</span>
-                      <span>FAIL [ ]</span>
-                      <span>AT RISK [ ]</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-8 pt-4 border-t border-black flex justify-between items-end">
-                    <div>
-                       <p className="mb-4">Engineer Signature:</p>
-                       <p className="font-script text-xl">John Smith</p>
-                    </div>
-                     <div>
-                       <p className="mb-4">Next Inspection Due:</p>
-                       <p className="font-bold text-lg">14/12/2026</p>
-                    </div>
-                  </div>
-               </div>
+            {/* Document Preview */}
+            <div className="w-1/2 bg-slate-900 p-4 flex items-center justify-center border-r border-border overflow-y-auto">
+               {extractedResult?.storageKey ? (
+                 <img 
+                   src={`/api/object-storage/url/${encodeURIComponent(extractedResult.storageKey)}`}
+                   alt="Certificate document"
+                   className="max-w-full max-h-full object-contain rounded shadow-2xl"
+                 />
+               ) : file ? (
+                 <div className="flex flex-col items-center text-slate-400">
+                   <FileText className="h-24 w-24 mb-4" />
+                   <p className="text-lg font-medium">{file.name}</p>
+                   <p className="text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                 </div>
+               ) : (
+                 <div className="flex flex-col items-center text-slate-400">
+                   <FileText className="h-24 w-24 mb-4 opacity-50" />
+                   <p>No document preview available</p>
+                 </div>
+               )}
             </div>
 
-            {/* Form Fields */}
+            {/* Form Fields - Real Data */}
             <div className="w-1/2 p-6 overflow-y-auto bg-background">
+               {extractedResult ? (
                <div className="space-y-6">
                  <div className="space-y-4">
                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Property Details</h3>
@@ -651,8 +602,11 @@ export default function Ingestion() {
                      <Label>Matched Address</Label>
                      <div className="relative">
                        <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                       <Input defaultValue="124 High Street, London, SW1 4AX" className="pl-9 bg-emerald-50/50 border-emerald-200" />
-                       <Badge className="absolute right-2 top-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 pointer-events-none shadow-none">99% Match</Badge>
+                       <Input 
+                         value={`${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`} 
+                         readOnly
+                         className="pl-9 bg-emerald-50/50 border-emerald-200" 
+                       />
                      </div>
                    </div>
                  </div>
@@ -662,27 +616,31 @@ export default function Ingestion() {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label>Type</Label>
-                        <Input defaultValue="Gas Safety (CP12)" />
+                        <Input value={extractedResult.certificateType?.replace(/_/g, ' ') || 'Unknown'} readOnly />
                       </div>
                       <div className="grid gap-2">
                         <Label>Reference</Label>
-                        <Input defaultValue="CP-2024-88921" />
+                        <Input value={extractedResult.extractedData?.certificateNumber || extractedResult.id?.slice(0, 8) || 'N/A'} readOnly />
                       </div>
                    </div>
                    
                    <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label>Inspection Date</Label>
+                        <Label>Issue Date</Label>
                         <div className="relative">
                            <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                           <Input defaultValue="2025-12-14" className="pl-9" />
+                           <Input value={extractedResult.issueDate || 'N/A'} readOnly className="pl-9" />
                         </div>
                       </div>
                       <div className="grid gap-2">
                         <Label>Expiry Date</Label>
                          <div className="relative">
                            <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                           <Input defaultValue="2026-12-14" className="pl-9 font-medium text-emerald-600" />
+                           <Input 
+                             value={extractedResult.expiryDate || 'N/A'} 
+                             readOnly 
+                             className={`pl-9 font-medium ${extractedResult.expiryDate ? 'text-emerald-600' : ''}`} 
+                           />
                         </div>
                       </div>
                    </div>
@@ -691,25 +649,85 @@ export default function Ingestion() {
                      <Label>Engineer</Label>
                      <div className="relative">
                        <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                       <Input defaultValue="John Smith (ID: 44521)" className="pl-9" />
+                       <Input 
+                         value={extractedResult.extractedData?.engineerName 
+                           ? `${extractedResult.extractedData.engineerName}${extractedResult.extractedData.engineerIdNumber ? ` (ID: ${extractedResult.extractedData.engineerIdNumber})` : ''}`
+                           : 'Not extracted'} 
+                         readOnly 
+                         className="pl-9" 
+                       />
                      </div>
                    </div>
                  </div>
 
                  <div className="space-y-4">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Compliance Outcome</h3>
-                    <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50 space-y-3">
+                    <div className={`p-4 rounded-lg border space-y-3 ${
+                      extractedResult.outcome === 'SATISFACTORY' || extractedResult.outcome === 'PASS'
+                        ? 'border-emerald-200 bg-emerald-50'
+                        : 'border-red-200 bg-red-50'
+                    }`}>
                        <div className="flex items-center justify-between">
-                         <Label className="text-emerald-900">Overall Status</Label>
-                         <Badge className="bg-emerald-600 hover:bg-emerald-700">PASS</Badge>
+                         <Label className={extractedResult.outcome === 'SATISFACTORY' || extractedResult.outcome === 'PASS' ? 'text-emerald-900' : 'text-red-900'}>
+                           Overall Status
+                         </Label>
+                         <Badge className={
+                           extractedResult.outcome === 'SATISFACTORY' || extractedResult.outcome === 'PASS'
+                             ? 'bg-emerald-600 hover:bg-emerald-700'
+                             : 'bg-red-600 hover:bg-red-700'
+                         }>{extractedResult.outcome}</Badge>
                        </div>
-                       <div className="grid gap-2">
-                         <Label className="text-emerald-900">Defects / Remedials</Label>
-                         <Input defaultValue="None Identified" className="bg-white border-emerald-200 text-emerald-900" />
-                       </div>
+                       
+                       {(extractedResult.extractedData?.c1Count > 0 || extractedResult.extractedData?.c2Count > 0 || extractedResult.extractedData?.c3Count > 0) ? (
+                         <div className="space-y-2">
+                           <Label className="text-slate-700">Defects Identified</Label>
+                           <div className="flex gap-2 flex-wrap">
+                             {extractedResult.extractedData?.c1Count > 0 && (
+                               <Badge variant="destructive">C1: {extractedResult.extractedData.c1Count} (Immediate Danger)</Badge>
+                             )}
+                             {extractedResult.extractedData?.c2Count > 0 && (
+                               <Badge className="bg-orange-500 hover:bg-orange-600">C2: {extractedResult.extractedData.c2Count} (At Risk)</Badge>
+                             )}
+                             {extractedResult.extractedData?.c3Count > 0 && (
+                               <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">C3: {extractedResult.extractedData.c3Count} (Improvement)</Badge>
+                             )}
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="grid gap-2">
+                           <Label className={extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-900' : 'text-red-900'}>
+                             Defects / Remedials
+                           </Label>
+                           <Input value="None Identified" readOnly className="bg-white border-emerald-200 text-emerald-900" />
+                         </div>
+                       )}
                     </div>
                  </div>
+
+                 {extractedResult.extractedData?.appliances && extractedResult.extractedData.appliances.length > 0 && (
+                   <div className="space-y-4">
+                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Appliances</h3>
+                     <div className="border rounded-lg divide-y">
+                       {extractedResult.extractedData.appliances.map((app: any, idx: number) => (
+                         <div key={idx} className="p-3 flex justify-between items-center">
+                           <div>
+                             <p className="font-medium">{app.type || app.applianceType}</p>
+                             <p className="text-sm text-muted-foreground">{app.location} - {app.make} {app.model}</p>
+                           </div>
+                           <Badge variant="outline" className={
+                             app.safetyStatus === 'PASS' ? 'text-emerald-600 border-emerald-300' : 'text-red-600 border-red-300'
+                           }>{app.safetyStatus}</Badge>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
+               ) : (
+                 <div className="flex items-center justify-center h-full text-muted-foreground">
+                   <p>No extraction data available</p>
+                 </div>
+               )}
             </div>
           </div>
 
