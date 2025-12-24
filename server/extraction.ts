@@ -488,21 +488,11 @@ function generateRemedialActions(
 
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
-    let parseFn: (buffer: Buffer) => Promise<{ text: string }>;
-    
-    if (typeof pdfParse === 'function') {
-      parseFn = pdfParse;
-    } else if (typeof pdfParse.default === 'function') {
-      parseFn = pdfParse.default;
-    } else if (pdfParse && typeof pdfParse.pdf === 'function') {
-      parseFn = pdfParse.pdf;
-    } else {
-      console.error("pdf-parse module structure:", Object.keys(pdfParse));
-      throw new Error("Unable to find pdf-parse function");
-    }
-    
-    const data = await parseFn(pdfBuffer);
-    return data.text || "";
+    const parser = new pdfParse.PDFParse();
+    const result = await parser.loadPDF(pdfBuffer);
+    const pages = await result.getAllPagesText();
+    const text = pages.join('\n');
+    return text || "";
   } catch (error) {
     console.error("PDF text extraction failed:", error);
     return "";
