@@ -140,16 +140,30 @@ export default function Ingestion() {
         mimeType: mimeType.startsWith('image/') ? mimeType : undefined,
       });
 
-      setUploadProgress(70);
-      setProcessingStep("Extracting certificate data...");
+      setUploadProgress(50);
+      setProcessingStep("Waiting for AI extraction to complete...");
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setUploadProgress(90);
-      setProcessingStep("Identifying defects and issues...");
+      // Poll until extraction is complete (status changes from PROCESSING)
+      let enrichedCert = await certificatesApi.get(certificate.id);
+      let attempts = 0;
+      const maxAttempts = 30; // Max 30 seconds
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      while (enrichedCert.status === 'PROCESSING' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+        setUploadProgress(50 + Math.min(attempts * 1.5, 40));
+        setProcessingStep(`Analyzing with Claude Vision AI... (${attempts}s)`);
+        enrichedCert = await certificatesApi.get(certificate.id);
+      }
       
-      const enrichedCert = await certificatesApi.get(certificate.id);
+      if (enrichedCert.status === 'PROCESSING') {
+        throw new Error('AI extraction timed out. Please try again.');
+      }
+      
+      setUploadProgress(95);
+      setProcessingStep("Extraction complete!");
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
       setExtractedResult(enrichedCert);
       
       setUploadProgress(100);
@@ -629,7 +643,11 @@ export default function Ingestion() {
                         <Label>Issue Date</Label>
                         <div className="relative">
                            <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                           <Input value={extractedResult.issueDate || 'N/A'} readOnly className="pl-9" />
+                           <Input 
+                             value={extractedResult.issueDate || extractedResult.extractedData?.issueDate || 'N/A'} 
+                             readOnly 
+                             className="pl-9" 
+                           />
                         </div>
                       </div>
                       <div className="grid gap-2">
@@ -637,22 +655,26 @@ export default function Ingestion() {
                          <div className="relative">
                            <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                            <Input 
-                             value={extractedResult.expiryDate || 'N/A'} 
+                             value={extractedResult.expiryDate || extractedResult.extractedData?.expiryDate || extractedResult.extractedData?.reviewDate || 'N/A'} 
                              readOnly 
-                             className={`pl-9 font-medium ${extractedResult.expiryDate ? 'text-emerald-600' : ''}`} 
+                             className={`pl-9 font-medium ${(extractedResult.expiryDate || extractedResult.extractedData?.expiryDate) ? 'text-emerald-600' : ''}`} 
                            />
                         </div>
                       </div>
                    </div>
 
                    <div className="grid gap-2">
-                     <Label>Engineer</Label>
+                     <Label>Engineer / Inspector</Label>
                      <div className="relative">
                        <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                        <Input 
-                         value={extractedResult.extractedData?.engineerName 
-                           ? `${extractedResult.extractedData.engineerName}${extractedResult.extractedData.engineerIdNumber ? ` (ID: ${extractedResult.extractedData.engineerIdNumber})` : ''}`
-                           : 'Not extracted'} 
+                         value={(() => {
+                           const data = extractedResult.extractedData;
+                           if (!data) return 'Not extracted';
+                           const name = data.engineerName || data.inspector?.name || 'Unknown';
+                           const regNum = data.engineerIdNumber || data.inspector?.registrationNumber || '';
+                           return regNum ? `${name} (${regNum})` : name;
+                         })()}
                          readOnly 
                          className="pl-9" 
                        />
