@@ -586,22 +586,31 @@ export default function Ingestion() {
           <div className="flex-1 flex overflow-hidden">
             {/* Document Preview */}
             <div className="w-1/2 bg-slate-900 p-4 flex items-center justify-center border-r border-border overflow-y-auto">
-               {extractedResult?.storageKey ? (
+               {extractedResult?.storageKey && extractedResult.fileType?.startsWith('image/') ? (
                  <img 
                    src={`/api/object-storage/url/${encodeURIComponent(extractedResult.storageKey)}`}
                    alt="Certificate document"
                    className="max-w-full max-h-full object-contain rounded shadow-2xl"
                  />
-               ) : file ? (
-                 <div className="flex flex-col items-center text-slate-400">
-                   <FileText className="h-24 w-24 mb-4" />
-                   <p className="text-lg font-medium">{file.name}</p>
-                   <p className="text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                 </div>
                ) : (
-                 <div className="flex flex-col items-center text-slate-400">
-                   <FileText className="h-24 w-24 mb-4 opacity-50" />
-                   <p>No document preview available</p>
+                 <div className="flex flex-col items-center text-slate-300 text-center">
+                   <div className="p-6 bg-slate-800 rounded-xl mb-4">
+                     <FileText className="h-20 w-20" />
+                   </div>
+                   <p className="text-lg font-medium mb-1">{extractedResult?.fileName || file?.name || 'Document'}</p>
+                   <p className="text-sm text-slate-400 mb-4">
+                     {extractedResult?.fileType === 'application/pdf' ? 'PDF Document' : extractedResult?.fileType || 'Document'}
+                   </p>
+                   {extractedResult?.storageKey && (
+                     <a 
+                       href={`/api/object-storage/url/${encodeURIComponent(extractedResult.storageKey)}`}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="text-sm text-blue-400 hover:text-blue-300 underline"
+                     >
+                       Open in new tab
+                     </a>
+                   )}
                  </div>
                )}
             </div>
