@@ -102,11 +102,13 @@ export default function Ingestion() {
     if (!file || !selectedPropertyId || !selectedType) {
       toast({
         title: "Missing Information",
-        description: "Please select a property and certificate type before processing.",
+        description: "Please select a property (or auto-detect) and certificate type before processing.",
         variant: "destructive",
       });
       return;
     }
+    
+    const isAutoDetect = selectedPropertyId === 'auto-detect';
 
     setProcessingState('uploading');
     setUploadProgress(0);
@@ -129,8 +131,16 @@ export default function Ingestion() {
       setProcessingState('analyzing');
       setProcessingStep("Analyzing with Claude Vision AI...");
       
+      const actualPropertyId = isAutoDetect 
+        ? (properties.length > 0 ? properties[0].id : '') 
+        : selectedPropertyId;
+        
+      if (!actualPropertyId) {
+        throw new Error('No properties available. Please create a property first.');
+      }
+      
       const certificate = await createCertificate.mutateAsync({
-        propertyId: selectedPropertyId,
+        propertyId: actualPropertyId,
         fileName: file.name,
         fileType: mimeType,
         fileSize: file.size,
@@ -238,12 +248,19 @@ export default function Ingestion() {
                   <CardContent className="flex-1 space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Select Property *</Label>
+                        <Label>Select Property</Label>
                         <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId} disabled={processingState !== 'idle'}>
                           <SelectTrigger data-testid="select-property-ingestion">
                             <SelectValue placeholder="Choose property..." />
                           </SelectTrigger>
                           <SelectContent className="max-h-[300px]">
+                            <SelectItem value="auto-detect">
+                              <div className="flex items-center gap-2">
+                                <BrainCircuit className="h-4 w-4 text-blue-600" />
+                                <span className="font-medium text-blue-600">Auto-detect from document</span>
+                              </div>
+                            </SelectItem>
+                            <div className="my-1 border-t" />
                             {properties.map(p => (
                               <SelectItem key={p.id} value={p.id}>
                                 {p.addressLine1}, {p.postcode}
@@ -251,6 +268,12 @@ export default function Ingestion() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {selectedPropertyId === 'auto-detect' && (
+                          <p className="text-xs text-blue-600 flex items-center gap-1">
+                            <BrainCircuit className="h-3 w-3" />
+                            AI will extract address and match to properties
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label>Certificate Type *</Label>

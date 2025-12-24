@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
+import * as pdfParse from "pdf-parse";
 
 const anthropic = new Anthropic();
 
@@ -264,7 +265,8 @@ export async function extractCertificateWithClaude(
   certificateId: string,
   certificateType: string,
   fileBase64?: string,
-  mimeType?: string
+  mimeType?: string,
+  pdfText?: string
 ): Promise<ExtractionResult> {
   const certificate = await storage.getCertificate(certificateId);
   if (!certificate) {
@@ -275,7 +277,7 @@ export async function extractCertificateWithClaude(
   
   let messageContent: Anthropic.MessageParam["content"];
   
-  if (fileBase64 && mimeType) {
+  if (fileBase64 && mimeType && mimeType.startsWith('image/')) {
     messageContent = [
       {
         type: "image",
@@ -290,13 +292,15 @@ export async function extractCertificateWithClaude(
         text: prompt + "\n\nAnalyze the certificate image above and return only valid JSON."
       }
     ];
-  } else {
+  } else if (pdfText && pdfText.trim().length > 50) {
     messageContent = [
       {
         type: "text",
-        text: prompt + "\n\nNote: No image was provided. Generate a realistic example extraction for demonstration purposes. Return only valid JSON."
+        text: prompt + `\n\nAnalyze the following certificate text extracted from a PDF document and return only valid JSON:\n\n---CERTIFICATE TEXT START---\n${pdfText}\n---CERTIFICATE TEXT END---`
       }
     ];
+  } else {
+    throw new Error("No valid document content provided. Please upload an image (JPG, PNG, WebP) or a PDF with readable text.");
   }
 
   try {
@@ -338,7 +342,7 @@ export async function extractCertificateWithClaude(
       certificateNumber: extractedData.certificateNumber || extractedData.reportNumber,
       issueDate: extractedData.issueDate || extractedData.assessmentDate || extractedData.surveyDate || extractedData.examinationDate,
       expiryDate: extractedData.expiryDate || extractedData.reviewDate || extractedData.nextExaminationDate,
-      confidence: fileBase64 ? 0.85 : 0.5
+      confidence: (fileBase64 || pdfText) ? 0.85 : 0.5
     };
 
     return result;
@@ -480,11 +484,24 @@ function generateRemedialActions(
   return actions;
 }
 
+export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
+  try {
+    const pdfParseModule = pdfParse as any;
+    const parseFn = pdfParseModule.default || pdfParseModule;
+    const data = await parseFn(pdfBuffer);
+    return data.text || "";
+  } catch (error) {
+    console.error("PDF text extraction failed:", error);
+    return "";
+  }
+}
+
 export async function processExtractionAndSave(
   certificateId: string,
   certificateType: string,
   fileBase64?: string,
-  mimeType?: string
+  mimeType?: string,
+  pdfBuffer?: Buffer
 ): Promise<void> {
   const certificate = await storage.getCertificate(certificateId);
   if (!certificate) return;
@@ -492,7 +509,16 @@ export async function processExtractionAndSave(
   try {
     await storage.updateCertificate(certificateId, { status: "PROCESSING" });
     
-    const result = await extractCertificateWithClaude(certificateId, certificateType, fileBase64, mimeType);
+    let pdfText: string | undefined;
+    
+    if (pdfBuffer || (certificate.fileType === 'application/pdf' && !fileBase64)) {
+      if (pdfBuffer) {
+        pdfText = await extractTextFromPdf(pdfBuffer);
+        console.log(`Extracted ${pdfText.length} characters of text from PDF`);
+      }
+    }
+    
+    const result = await extractCertificateWithClaude(certificateId, certificateType, fileBase64, mimeType, pdfText);
 
     await storage.createExtraction({
       certificateId,

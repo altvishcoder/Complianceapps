@@ -7,7 +7,9 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
+
+const objectStorageService = new ObjectStorageService();
 
 export async function registerRoutes(
   httpServer: Server,
@@ -220,14 +222,40 @@ export async function registerRoutes(
       
       const certificate = await storage.createCertificate(data);
       
-      processExtractionAndSave(
-        certificate.id, 
-        certificate.certificateType,
-        fileBase64,
-        mimeType
-      ).catch(err => {
-        console.error("Error in AI extraction:", err);
-      });
+      (async () => {
+        try {
+          let pdfBuffer: Buffer | undefined;
+          
+          if (certificate.fileType === 'application/pdf' && certificate.storageKey) {
+            try {
+              const file = await objectStorageService.getObjectEntityFile(certificate.storageKey);
+              const chunks: Buffer[] = [];
+              const stream = file.createReadStream();
+              
+              await new Promise<void>((resolve, reject) => {
+                stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+                stream.on('end', () => resolve());
+                stream.on('error', reject);
+              });
+              
+              pdfBuffer = Buffer.concat(chunks);
+              console.log(`Downloaded PDF from storage: ${pdfBuffer.length} bytes`);
+            } catch (downloadErr) {
+              console.error("Failed to download PDF from storage:", downloadErr);
+            }
+          }
+          
+          await processExtractionAndSave(
+            certificate.id, 
+            certificate.certificateType,
+            fileBase64,
+            mimeType,
+            pdfBuffer
+          );
+        } catch (err) {
+          console.error("Error in AI extraction:", err);
+        }
+      })();
       
       res.status(201).json(certificate);
     } catch (error) {
