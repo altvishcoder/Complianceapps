@@ -488,7 +488,8 @@ function generateRemedialActions(
 
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
-    const data = await pdfParse(pdfBuffer);
+    const parseFn = pdfParse.default || pdfParse;
+    const data = await parseFn(pdfBuffer);
     return data.text || "";
   } catch (error) {
     console.error("PDF text extraction failed:", error);

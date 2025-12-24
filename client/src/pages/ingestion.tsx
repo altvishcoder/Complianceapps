@@ -108,7 +108,8 @@ export default function Ingestion() {
       return;
     }
     
-    const isAutoDetect = selectedPropertyId === 'auto-detect';
+    const isAutoDetectProperty = selectedPropertyId === 'auto-detect';
+    const isAutoDetectType = selectedType === 'auto-detect';
 
     setProcessingState('uploading');
     setUploadProgress(0);
@@ -131,7 +132,7 @@ export default function Ingestion() {
       setProcessingState('analyzing');
       setProcessingStep("Analyzing with Claude Vision AI...");
       
-      const actualPropertyId = isAutoDetect 
+      const actualPropertyId = isAutoDetectProperty 
         ? (properties.length > 0 ? properties[0].id : '') 
         : selectedPropertyId;
         
@@ -139,12 +140,14 @@ export default function Ingestion() {
         throw new Error('No properties available. Please create a property first.');
       }
       
+      const actualType = isAutoDetectType ? 'OTHER' : selectedType;
+      
       const certificate = await createCertificate.mutateAsync({
         propertyId: actualPropertyId,
         fileName: file.name,
         fileType: mimeType,
         fileSize: file.size,
-        certificateType: selectedType as any,
+        certificateType: actualType as any,
         storageKey: storageKey,
         fileBase64: mimeType.startsWith('image/') ? fileBase64 : undefined,
         mimeType: mimeType.startsWith('image/') ? mimeType : undefined,
@@ -276,17 +279,30 @@ export default function Ingestion() {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label>Certificate Type *</Label>
+                        <Label>Certificate Type</Label>
                         <Select value={selectedType} onValueChange={setSelectedType} disabled={processingState !== 'idle'}>
                           <SelectTrigger data-testid="select-type-ingestion">
                             <SelectValue placeholder="Choose type..." />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="auto-detect">
+                              <div className="flex items-center gap-2">
+                                <BrainCircuit className="h-4 w-4 text-blue-600" />
+                                <span className="font-medium text-blue-600">Auto-detect from document</span>
+                              </div>
+                            </SelectItem>
+                            <div className="my-1 border-t" />
                             {CERTIFICATE_TYPES.map(t => (
                               <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {selectedType === 'auto-detect' && (
+                          <p className="text-xs text-blue-600 flex items-center gap-1">
+                            <BrainCircuit className="h-3 w-3" />
+                            AI will identify the certificate type
+                          </p>
+                        )}
                       </div>
                     </div>
 
