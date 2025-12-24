@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
-import * as pdfParse from "pdf-parse";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const anthropic = new Anthropic();
 
@@ -486,9 +488,7 @@ function generateRemedialActions(
 
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
-    const pdfParseModule = pdfParse as any;
-    const parseFn = pdfParseModule.default || pdfParseModule;
-    const data = await parseFn(pdfBuffer);
+    const data = await pdfParse(pdfBuffer);
     return data.text || "";
   } catch (error) {
     console.error("PDF text extraction failed:", error);
