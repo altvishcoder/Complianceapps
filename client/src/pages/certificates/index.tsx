@@ -302,16 +302,17 @@ export default function CertificatesPage() {
                          <Separator />
 
                          <div className="space-y-2">
-                            <h3 className="font-semibold text-sm">Preview</h3>
-                            <div className="aspect-[3/4] bg-slate-100 rounded-md border flex items-center justify-center text-muted-foreground relative group overflow-hidden">
-                               <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors flex items-center justify-center">
-                                  <Button variant="outline" className="opacity-0 group-hover:opacity-100 transition-opacity bg-white">
-                                     <Eye className="mr-2 h-4 w-4" /> View Full PDF
-                                  </Button>
-                               </div>
-                               <FileText className="h-12 w-12 opacity-20" />
-                               <span className="sr-only">Document Preview</span>
-                            </div>
+                            <h3 className="font-semibold text-sm">Raw Extracted Data</h3>
+                            {selectedCert.extractedData ? (
+                              <div className="bg-slate-950 text-slate-200 p-4 rounded-md font-mono text-xs overflow-auto max-h-64">
+                                <pre>{JSON.stringify(selectedCert.extractedData, null, 2)}</pre>
+                              </div>
+                            ) : (
+                              <div className="p-4 bg-muted/50 rounded-md text-center text-muted-foreground text-sm">
+                                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                No extraction data available yet
+                              </div>
+                            )}
                          </div>
 
                       </div>
