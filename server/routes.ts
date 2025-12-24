@@ -6,6 +6,7 @@ import {
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema 
 } from "@shared/schema";
 import { z } from "zod";
+import { processExtractionAndSave } from "./extraction";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -204,22 +205,24 @@ export async function registerRoutes(
   
   app.post("/api/certificates", async (req, res) => {
     try {
+      const { fileBase64, mimeType, ...certificateData } = req.body;
+      
       const data = insertCertificateSchema.parse({
-        ...req.body,
+        ...certificateData,
         organisationId: ORG_ID,
-        status: "PROCESSING", // Start in processing state
+        status: "PROCESSING",
       });
       
       const certificate = await storage.createCertificate(data);
       
-      // Simulate AI extraction after a delay
-      setTimeout(async () => {
-        try {
-          await simulateAIExtraction(certificate.id, certificate.certificateType);
-        } catch (err) {
-          console.error("Error in AI extraction:", err);
-        }
-      }, 3000);
+      processExtractionAndSave(
+        certificate.id, 
+        certificate.certificateType,
+        fileBase64,
+        mimeType
+      ).catch(err => {
+        console.error("Error in AI extraction:", err);
+      });
       
       res.status(201).json(certificate);
     } catch (error) {
@@ -286,106 +289,4 @@ export async function registerRoutes(
   });
   
   return httpServer;
-}
-
-// Simulate AI extraction based on certificate type (ready for real OpenAI integration)
-async function simulateAIExtraction(certificateId: string, certificateType: string) {
-  const certificate = await storage.getCertificate(certificateId);
-  if (!certificate) return;
-  
-  // Simulate extraction based on type
-  let extractedData: any = {};
-  let outcome: string = "SATISFACTORY";
-  let remedialActions: any[] = [];
-  
-  if (certificateType === "GAS_SAFETY") {
-    extractedData = {
-      certificateNumber: `GS-${Math.floor(Math.random() * 1000000)}`,
-      engineer: {
-        name: "John Smith",
-        gasSafeNumber: String(Math.floor(1000000 + Math.random() * 9000000)),
-        signaturePresent: true
-      },
-      appliances: [
-        {
-          location: "Kitchen",
-          type: "Boiler",
-          make: "Worcester",
-          model: "Greenstar",
-          applianceSafe: true,
-          safetyDeviceCorrect: true,
-          ventilationSatisfactory: true
-        }
-      ],
-      overallOutcome: "SATISFACTORY"
-    };
-    outcome = "SATISFACTORY";
-  } else if (certificateType === "EICR") {
-    const hasIssues = Math.random() > 0.5;
-    extractedData = {
-      reportNumber: `EICR-${Math.floor(Math.random() * 100000)}`,
-      inspector: {
-        name: "Sarah Connor",
-        registrationNumber: `NICEIC-${Math.floor(100000 + Math.random() * 900000)}`
-      },
-      overallAssessment: hasIssues ? "UNSATISFACTORY" : "SATISFACTORY",
-      observations: hasIssues ? [
-        {
-          itemNumber: "4.1",
-          description: "Exposed live parts in consumer unit",
-          code: "C1",
-          location: "Hallway"
-        }
-      ] : [],
-      c1Count: hasIssues ? 1 : 0,
-      c2Count: 0,
-      c3Count: 0
-    };
-    outcome = hasIssues ? "UNSATISFACTORY" : "SATISFACTORY";
-    
-    if (hasIssues) {
-      remedialActions = [
-        {
-          propertyId: certificate.propertyId,
-          certificateId: certificateId,
-          code: "C1",
-          description: "Exposed live parts in consumer unit - immediate danger",
-          location: "Hallway",
-          severity: "IMMEDIATE",
-          status: "OPEN",
-          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          costEstimate: "£250"
-        }
-      ];
-    }
-  }
-  
-  // Create extraction record
-  await storage.createExtraction({
-    certificateId,
-    method: "SIMULATED",
-    model: "gpt-4o",
-    promptVersion: "v1.0",
-    extractedData,
-    confidence: 0.95,
-    textQuality: "GOOD"
-  });
-  
-  // Update certificate with extracted fields
-  const issueDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const expiryMonths = certificateType === "GAS_SAFETY" ? 12 : certificateType === "EICR" ? 60 : 120;
-  const expiryDate = new Date(Date.now() + expiryMonths * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  
-  await storage.updateCertificate(certificateId, {
-    status: "NEEDS_REVIEW",
-    issueDate,
-    expiryDate,
-    outcome: outcome as any,
-    certificateNumber: extractedData.certificateNumber || extractedData.reportNumber
-  });
-  
-  // Create remedial actions if needed
-  for (const action of remedialActions) {
-    await storage.createRemedialAction(action);
-  }
 }

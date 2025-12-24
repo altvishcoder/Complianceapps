@@ -5,7 +5,7 @@ const anthropic = new Anthropic();
 
 interface ExtractionResult {
   extractedData: Record<string, any>;
-  outcome: "SATISFACTORY" | "UNSATISFACTORY" | "PENDING" | "NOT_APPLICABLE";
+  outcome: "SATISFACTORY" | "UNSATISFACTORY";
   remedialActions: Array<{
     code: string;
     description: string;
@@ -273,7 +273,7 @@ export async function extractCertificateWithClaude(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 4096,
       messages: [
         {
@@ -469,7 +469,7 @@ export async function processExtractionAndSave(
     await storage.createExtraction({
       certificateId,
       method: "CLAUDE_VISION",
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       promptVersion: "v2.0",
       extractedData: result.extractedData,
       confidence: result.confidence,
@@ -513,7 +513,7 @@ export async function processExtractionAndSave(
   } catch (error) {
     console.error("Extraction failed:", error);
     await storage.updateCertificate(certificateId, { 
-      status: "EXTRACTION_FAILED" 
+      status: "FAILED" 
     });
   }
 }

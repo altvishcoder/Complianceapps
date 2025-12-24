@@ -83,6 +83,16 @@ export interface EnrichedCertificate extends Certificate {
   actions?: RemedialAction[];
 }
 
+export interface CertificateUploadData {
+  propertyId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  certificateType: string;
+  fileBase64?: string;
+  mimeType?: string;
+}
+
 export const certificatesApi = {
   list: (filters?: { propertyId?: string; status?: string }) => {
     const params = new URLSearchParams();
@@ -94,7 +104,7 @@ export const certificatesApi = {
   
   get: (id: string) => fetchJSON<EnrichedCertificate>(`${API_BASE}/certificates/${id}`),
   
-  create: (data: InsertCertificate) => fetchJSON<Certificate>(`${API_BASE}/certificates`, {
+  create: (data: CertificateUploadData) => fetchJSON<Certificate>(`${API_BASE}/certificates`, {
     method: "POST",
     body: JSON.stringify(data),
   }),
