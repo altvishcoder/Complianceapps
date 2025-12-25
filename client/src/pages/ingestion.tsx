@@ -466,7 +466,17 @@ export default function Ingestion() {
                               <p className={`text-sm mt-1 ${
                                 extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-700' : 'text-amber-700'
                               }`}>
-                                Certificate extracted for <strong>{extractedResult.property?.addressLine1}</strong>
+                                Certificate extracted for <strong>{(() => {
+                                  if (selectedPropertyId === 'auto-detect') {
+                                    const addr = extractedResult.extractedData?.installationAddress;
+                                    const propAddr = extractedResult.extractedData?.propertyAddress;
+                                    if (typeof addr === 'string') return addr.split(',')[0];
+                                    if (addr?.fullAddress) return addr.fullAddress.split(',')[0];
+                                    if (propAddr?.streetAddress) return propAddr.streetAddress;
+                                    return 'property (auto-detected)';
+                                  }
+                                  return extractedResult.property?.addressLine1 || 'property';
+                                })()}</strong>
                               </p>
                             </div>
                         </div>
@@ -492,18 +502,42 @@ export default function Ingestion() {
                               <span className="text-muted-foreground">Expiry Date</span>
                               <span className="font-medium">{extractedResult.expiryDate || 'N/A'}</span>
                             </div>
-                            {extractedResult.extractedData?.c1Count > 0 && (
-                              <div className="p-3 flex justify-between">
-                                <span className="text-muted-foreground">C1 Defects</span>
-                                <span className="font-medium text-red-600">{extractedResult.extractedData.c1Count}</span>
-                              </div>
-                            )}
-                            {extractedResult.extractedData?.c2Count > 0 && (
-                              <div className="p-3 flex justify-between">
-                                <span className="text-muted-foreground">C2 Defects</span>
-                                <span className="font-medium text-orange-600">{extractedResult.extractedData.c2Count}</span>
-                              </div>
-                            )}
+                            {(() => {
+                              const data = extractedResult.extractedData;
+                              if (!data) return null;
+                              const c1 = data.c1Count || data.complianceDetails?.C1_count || data.classificationSummary?.C1 || 0;
+                              const c2 = data.c2Count || data.complianceDetails?.C2_count || data.classificationSummary?.C2 || 0;
+                              const c3 = data.c3Count || data.complianceDetails?.C3_count || data.classificationSummary?.C3 || 0;
+                              const fi = data.fiCount || data.complianceDetails?.FI_count || data.classificationSummary?.FI || 0;
+                              return (
+                                <>
+                                  {c1 > 0 && (
+                                    <div className="p-3 flex justify-between">
+                                      <span className="text-muted-foreground">C1 (Danger)</span>
+                                      <span className="font-medium text-red-600">{c1}</span>
+                                    </div>
+                                  )}
+                                  {c2 > 0 && (
+                                    <div className="p-3 flex justify-between">
+                                      <span className="text-muted-foreground">C2 (Potentially Dangerous)</span>
+                                      <span className="font-medium text-orange-600">{c2}</span>
+                                    </div>
+                                  )}
+                                  {c3 > 0 && (
+                                    <div className="p-3 flex justify-between">
+                                      <span className="text-muted-foreground">C3 (Improvement)</span>
+                                      <span className="font-medium text-yellow-600">{c3}</span>
+                                    </div>
+                                  )}
+                                  {fi > 0 && (
+                                    <div className="p-3 flex justify-between">
+                                      <span className="text-muted-foreground">FI (Further Investigation)</span>
+                                      <span className="font-medium text-purple-600">{fi}</span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                         </div>
                         
                         <div className="flex gap-2 pt-2">
@@ -839,13 +873,22 @@ export default function Ingestion() {
                            });
                          }
                          
-                         // Source 2: Direct c1Count, c2Count, etc. fields
+                         // Source 2: complianceDetails object (with *_count keys)
+                         if (data.complianceDetails) {
+                           if (data.complianceDetails.C1_count > 0) counts['C1'] = data.complianceDetails.C1_count;
+                           if (data.complianceDetails.C2_count > 0) counts['C2'] = data.complianceDetails.C2_count;
+                           if (data.complianceDetails.C3_count > 0) counts['C3'] = data.complianceDetails.C3_count;
+                           if (data.complianceDetails.FI_count > 0) counts['FI'] = data.complianceDetails.FI_count;
+                           if (data.complianceDetails.LIM_count > 0) counts['LIM'] = data.complianceDetails.LIM_count;
+                         }
+                         
+                         // Source 3: Direct c1Count, c2Count, etc. fields
                          if (data.c1Count > 0) counts['C1'] = data.c1Count;
                          if (data.c2Count > 0) counts['C2'] = data.c2Count;
                          if (data.c3Count > 0) counts['C3'] = data.c3Count;
                          if (data.fiCount > 0) counts['FI'] = data.fiCount;
                          
-                         // Source 3: Count from defects array
+                         // Source 4: Count from defects array
                          if (data.defects && Array.isArray(data.defects)) {
                            data.defects.forEach((d: any) => {
                              const code = d.severity || d.code || '';
@@ -853,7 +896,7 @@ export default function Ingestion() {
                            });
                          }
                          
-                         // Source 4: Count from observations array
+                         // Source 5: Count from observations array
                          if (data.observations && Array.isArray(data.observations)) {
                            data.observations.forEach((o: any) => {
                              const code = o.code || o.severity || '';
