@@ -1,10 +1,56 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { ComplianceOverviewChart, HazardDistributionChart } from "@/components/dashboard/ComplianceChart";
-import { AlertTriangle, CheckCircle2, Clock, FileText, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from "recharts";
+
+interface DashboardStats {
+  overallCompliance: string;
+  activeHazards: number;
+  immediateHazards: number;
+  awaabsLawBreaches: number;
+  pendingCertificates: number;
+  totalProperties: number;
+  totalCertificates: number;
+  complianceByType: Array<{ type: string; compliant: number; nonCompliant: number }>;
+  hazardDistribution: Array<{ name: string; value: number }>;
+}
+
+const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
 
 export default function Dashboard() {
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/dashboard/stats');
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Dashboard" />
+          <main className="flex-1 flex items-center justify-center">
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  const complianceData = stats?.complianceByType || [];
+  const hazardData = stats?.hazardDistribution || [];
+
   return (
     <div className="flex h-screen bg-muted/30">
       <Sidebar />
@@ -15,96 +61,140 @@ export default function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard 
               title="Overall Compliance" 
-              value="98.2%" 
+              value={`${stats?.overallCompliance || '0'}%`}
               description="Across all asset groups"
               icon={CheckCircle2}
-              trend="up"
-              trendValue="0.4%"
-              status="success"
+              status={parseFloat(stats?.overallCompliance || '0') >= 90 ? "success" : "warning"}
             />
             <StatsCard 
               title="Active Hazards" 
-              value="24" 
-              description="Requiring immediate action"
+              value={String(stats?.activeHazards || 0)}
+              description={`${stats?.immediateHazards || 0} requiring immediate action`}
               icon={AlertTriangle}
-              trend="down"
-              trendValue="2"
-              status="danger"
+              trend={stats?.activeHazards ? "down" : undefined}
+              trendValue={String(stats?.immediateHazards || 0)}
+              status={stats?.activeHazards ? "danger" : "success"}
             />
             <StatsCard 
               title="Awaab's Law Breaches" 
-              value="0" 
+              value={String(stats?.awaabsLawBreaches || 0)}
               description="Timescale violations"
               icon={Clock}
-              status="success"
+              status={stats?.awaabsLawBreaches ? "danger" : "success"}
             />
             <StatsCard 
               title="Pending Certificates" 
-              value="156" 
+              value={String(stats?.pendingCertificates || 0)}
               description="In ingestion queue"
               icon={FileText}
-              trend="up"
-              trendValue="45"
             />
           </div>
 
           <div className="grid gap-6 md:grid-cols-7">
-            <ComplianceOverviewChart />
-            <HazardDistributionChart />
+            <Card className="col-span-4">
+              <CardHeader>
+                <CardTitle>Compliance Overview (Big 6)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {complianceData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={complianceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Bar dataKey="compliant" fill="#3b82f6" name="Compliant %" />
+                      <Bar dataKey="nonCompliant" fill="#ef4444" name="Non-Compliant %" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No compliance data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card className="col-span-3">
+              <CardHeader>
+                <CardTitle>Active Hazard Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {hazardData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={hazardData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value}`}
+                      >
+                        {hazardData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No active hazards
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4 font-display">Recent Activity</h3>
-              <div className="space-y-4">
-                {[
-                  { title: "Gas Safety Certificate Processed", desc: "124 High Street • CP12 • Pass", time: "10 mins ago", type: "success" },
-                  { title: "Damp & Mould Detected", desc: "Flat 4, Oak House • Severity High", time: "25 mins ago", type: "danger" },
-                  { title: "EICR Due Soon", desc: "15 properties expiring in 30 days", time: "1 hour ago", type: "warning" },
-                  { title: "Bulk Upload Completed", desc: "British Gas Feed • 450 files", time: "2 hours ago", type: "info" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start pb-4 border-b border-border/50 last:border-0 last:pb-0">
-                    <div className={`mt-1 h-2 w-2 rounded-full mr-3 ${
-                      item.type === 'success' ? 'bg-emerald-500' : 
-                      item.type === 'danger' ? 'bg-rose-500' : 
-                      item.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'
-                    }`} />
-                    <div>
-                      <p className="text-sm font-medium">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
-                    </div>
-                    <span className="ml-auto text-xs text-muted-foreground">{item.time}</span>
+            <Card>
+              <CardHeader>
+                <CardTitle>Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b">
+                    <span className="text-muted-foreground">Total Properties</span>
+                    <span className="font-semibold">{stats?.totalProperties || 0}</span>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="flex justify-between items-center pb-2 border-b">
+                    <span className="text-muted-foreground">Total Certificates</span>
+                    <span className="font-semibold">{stats?.totalCertificates || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b">
+                    <span className="text-muted-foreground">Active Hazards</span>
+                    <span className="font-semibold text-orange-600">{stats?.activeHazards || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Pending Reviews</span>
+                    <span className="font-semibold">{stats?.pendingCertificates || 0}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4 font-display">Awaab's Law Watchlist</h3>
-              <div className="space-y-3">
-                 {[
-                   { address: "12 Green Lane", issue: "Severe Mould in Bathroom", deadline: "4 hours left", status: "Critical" },
-                   { address: "Flat 2b, The Towers", issue: "Water Penetration", deadline: "2 days left", status: "Investigation" },
-                   { address: "56 Maple Drive", issue: "Broken Extractor Fan", deadline: "4 days left", status: "Remediation" },
-                 ].map((item, i) => (
-                   <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border border-border/50">
-                     <div>
-                       <p className="text-sm font-medium">{item.address}</p>
-                       <p className="text-xs text-muted-foreground">{item.issue}</p>
-                     </div>
-                     <div className="text-right">
-                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${
-                         item.status === 'Critical' ? 'bg-rose-50 text-rose-700 ring-rose-600/20' : 
-                         item.status === 'Investigation' ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 
-                         'bg-blue-50 text-blue-700 ring-blue-600/20'
-                       }`}>
-                         {item.deadline}
-                       </span>
-                     </div>
-                   </div>
-                 ))}
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Awaab's Law Watchlist</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {stats?.awaabsLawBreaches === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <CheckCircle2 className="w-12 h-12 text-green-500 mb-2" />
+                    <p className="text-muted-foreground">No timescale violations</p>
+                    <p className="text-sm text-muted-foreground">All properties are within compliance deadlines</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {stats?.awaabsLawBreaches} properties require attention
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>

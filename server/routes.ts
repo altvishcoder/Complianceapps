@@ -664,5 +664,67 @@ export async function registerRoutes(
     }
   });
   
+  // ===== DASHBOARD STATS =====
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const allCertificates = await storage.listCertificates(ORG_ID);
+      const allActions = await storage.listRemedialActions(ORG_ID);
+      const allProperties = await storage.listProperties(ORG_ID);
+      
+      // Calculate compliance rate
+      const totalCerts = allCertificates.length;
+      const validCerts = allCertificates.filter(c => 
+        c.status === 'APPROVED' || c.outcome === 'SATISFACTORY'
+      ).length;
+      const complianceRate = totalCerts > 0 ? ((validCerts / totalCerts) * 100).toFixed(1) : '0';
+      
+      // Active hazards (open remedial actions)
+      const activeHazards = allActions.filter(a => a.status === 'OPEN').length;
+      const immediateHazards = allActions.filter(a => 
+        a.status === 'OPEN' && a.severity === 'IMMEDIATE'
+      ).length;
+      
+      // Pending certificates (UPLOADED or PROCESSING or NEEDS_REVIEW status)
+      const pendingCerts = allCertificates.filter(c => 
+        c.status === 'UPLOADED' || c.status === 'PROCESSING' || c.status === 'NEEDS_REVIEW'
+      ).length;
+      
+      // Compliance by type
+      const certTypes = ['GAS_SAFETY', 'EICR', 'FIRE_RISK', 'LEGIONELLA_ASSESSMENT', 'LIFT_INSPECTION', 'ASBESTOS_SURVEY'];
+      const complianceByType = certTypes.map(type => {
+        const typeCerts = allCertificates.filter(c => c.certificateType === type);
+        const typeValid = typeCerts.filter(c => c.status === 'APPROVED' || c.outcome === 'SATISFACTORY').length;
+        const typeInvalid = typeCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
+        return {
+          type: type.replace(/_/g, ' '),
+          compliant: typeCerts.length > 0 ? Math.round((typeValid / typeCerts.length) * 100) : 100,
+          nonCompliant: typeCerts.length > 0 ? Math.round((typeInvalid / typeCerts.length) * 100) : 0,
+        };
+      });
+      
+      // Hazard distribution by category
+      const hazardCategories = allActions.filter(a => a.status === 'OPEN').reduce((acc, action) => {
+        const category = action.category || 'Other';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      res.json({
+        overallCompliance: complianceRate,
+        activeHazards,
+        immediateHazards,
+        awaabsLawBreaches: 0, // Placeholder
+        pendingCertificates: pendingCerts,
+        totalProperties: allProperties.length,
+        totalCertificates: totalCerts,
+        complianceByType,
+        hazardDistribution: Object.entries(hazardCategories).map(([name, value]) => ({ name, value })),
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+  
   return httpServer;
 }
