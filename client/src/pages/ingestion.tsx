@@ -115,12 +115,15 @@ type BatchFileStatus = 'pending' | 'uploading' | 'processing' | 'complete' | 'er
 
 interface BatchFile {
   id: string;
-  file: File;
+  file: File | null;
   base64: string;
   status: BatchFileStatus;
   progress: number;
   error?: string;
   certificateId?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
 }
 
 export default function Ingestion() {
@@ -135,7 +138,7 @@ export default function Ingestion() {
   const [selectedType, setSelectedType] = useState("auto-detect");
   const [extractedResult, setExtractedResult] = useState<EnrichedCertificate | null>(null);
   
-  // Batch processing state
+  // Batch processing state (history loaded from localStorage for display only)
   const [batchFiles, setBatchFiles] = useState<BatchFile[]>([]);
   const [batchProcessingMode, setBatchProcessingMode] = useState<ProcessingMode>('sequential');
   const [batchPropertyId, setBatchPropertyId] = useState("auto-detect");
@@ -144,6 +147,23 @@ export default function Ingestion() {
   const [batchProgress, setBatchProgress] = useState({ completed: 0, total: 0 });
   const [parallelLimit, setParallelLimit] = useState(3);
   const wasProcessingRef = useRef(false);
+  
+  // Persist batch file metadata to localStorage (never store file content/base64)
+  useEffect(() => {
+    const serializable = batchFiles
+      .filter(bf => bf.status === 'complete' || bf.status === 'error')
+      .map(bf => ({
+        id: bf.id,
+        status: bf.status,
+        progress: bf.progress,
+        error: bf.error,
+        certificateId: bf.certificateId,
+        fileName: bf.file?.name || bf.fileName,
+        fileSize: bf.file?.size || bf.fileSize,
+        fileType: bf.file?.type || bf.fileType,
+      }));
+    localStorage.setItem('ingestion_batch_history', JSON.stringify(serializable));
+  }, [batchFiles]);
   
   const { toast } = useToast();
   
