@@ -660,18 +660,43 @@ export default function Ingestion() {
                <div className="space-y-6">
                  <div className="space-y-4">
                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Property Details</h3>
-                   <div className="grid gap-2">
-                     <Label>Selected Property (from your selection)</Label>
-                     <div className="relative">
-                       <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                       <Input 
-                         value={`${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`} 
-                         readOnly
-                         className="pl-9 bg-blue-50/50 border-blue-200" 
-                       />
+                   {selectedPropertyId === 'auto-detect' ? (
+                     <div className="grid gap-2">
+                       <Label className="flex items-center gap-2">
+                         Property Address (from certificate)
+                         <Badge variant="outline" className="text-xs bg-amber-50 border-amber-300 text-amber-700">Auto-Detected</Badge>
+                       </Label>
+                       <div className="relative">
+                         <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                         <Input 
+                           value={(() => {
+                             const addr = extractedResult.extractedData?.installationAddress;
+                             const propAddr = extractedResult.extractedData?.propertyAddress;
+                             if (typeof addr === 'string') return addr;
+                             if (addr?.fullAddress) return addr.fullAddress;
+                             if (propAddr?.streetAddress) return `${propAddr.streetAddress}, ${propAddr.city || ''} ${propAddr.postCode || propAddr.postcode || ''}`;
+                             return 'Not extracted';
+                           })()} 
+                           readOnly
+                           className="pl-9 bg-amber-50/50 border-amber-200 text-amber-900" 
+                         />
+                       </div>
+                       <p className="text-xs text-amber-600">Auto-detect mode: Please verify this matches a property in your system</p>
                      </div>
-                   </div>
-                   {(extractedResult.extractedData?.installationAddress || extractedResult.extractedData?.propertyAddress) && (() => {
+                   ) : (
+                     <div className="grid gap-2">
+                       <Label>Selected Property (from your selection)</Label>
+                       <div className="relative">
+                         <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                         <Input 
+                           value={`${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`} 
+                           readOnly
+                           className="pl-9 bg-blue-50/50 border-blue-200" 
+                         />
+                       </div>
+                     </div>
+                   )}
+                   {selectedPropertyId !== 'auto-detect' && (extractedResult.extractedData?.installationAddress || extractedResult.extractedData?.propertyAddress) && (() => {
                      const addr = extractedResult.extractedData?.installationAddress;
                      const propAddr = extractedResult.extractedData?.propertyAddress;
                      let extractedAddress = 'Not extracted';
@@ -800,29 +825,81 @@ export default function Ingestion() {
                          }>{extractedResult.outcome}</Badge>
                        </div>
                        
-                       {(extractedResult.extractedData?.c1Count > 0 || extractedResult.extractedData?.c2Count > 0 || extractedResult.extractedData?.c3Count > 0) ? (
-                         <div className="space-y-2">
-                           <Label className="text-slate-700">Defects Identified</Label>
-                           <div className="flex gap-2 flex-wrap">
-                             {extractedResult.extractedData?.c1Count > 0 && (
-                               <Badge variant="destructive">C1: {extractedResult.extractedData.c1Count} (Immediate Danger)</Badge>
-                             )}
-                             {extractedResult.extractedData?.c2Count > 0 && (
-                               <Badge className="bg-orange-500 hover:bg-orange-600">C2: {extractedResult.extractedData.c2Count} (At Risk)</Badge>
-                             )}
-                             {extractedResult.extractedData?.c3Count > 0 && (
-                               <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">C3: {extractedResult.extractedData.c3Count} (Improvement)</Badge>
-                             )}
-                           </div>
-                         </div>
-                       ) : (
-                         <div className="grid gap-2">
-                           <Label className={extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-900' : 'text-red-900'}>
-                             Defects / Remedials
-                           </Label>
-                           <Input value="None Identified" readOnly className="bg-white border-emerald-200 text-emerald-900" />
-                         </div>
-                       )}
+                       {(() => {
+                         const data = extractedResult.extractedData;
+                         if (!data) return null;
+                         
+                         // Build classification counts from multiple possible sources
+                         const counts: Record<string, number> = {};
+                         
+                         // Source 1: classificationSummary object
+                         if (data.classificationSummary) {
+                           Object.entries(data.classificationSummary).forEach(([key, val]) => {
+                             if (typeof val === 'number' && val > 0) counts[key] = val;
+                           });
+                         }
+                         
+                         // Source 2: Direct c1Count, c2Count, etc. fields
+                         if (data.c1Count > 0) counts['C1'] = data.c1Count;
+                         if (data.c2Count > 0) counts['C2'] = data.c2Count;
+                         if (data.c3Count > 0) counts['C3'] = data.c3Count;
+                         if (data.fiCount > 0) counts['FI'] = data.fiCount;
+                         
+                         // Source 3: Count from defects array
+                         if (data.defects && Array.isArray(data.defects)) {
+                           data.defects.forEach((d: any) => {
+                             const code = d.severity || d.code || '';
+                             if (code) counts[code] = (counts[code] || 0) + 1;
+                           });
+                         }
+                         
+                         // Source 4: Count from observations array
+                         if (data.observations && Array.isArray(data.observations)) {
+                           data.observations.forEach((o: any) => {
+                             const code = o.code || o.severity || '';
+                             if (code) counts[code] = (counts[code] || 0) + 1;
+                           });
+                         }
+                         
+                         const hasDefects = Object.keys(counts).length > 0;
+                         
+                         if (hasDefects) {
+                           return (
+                             <div className="space-y-2">
+                               <Label className="text-slate-700">Classification Codes</Label>
+                               <div className="flex gap-2 flex-wrap">
+                                 {counts['C1'] > 0 && (
+                                   <Badge variant="destructive">C1: {counts['C1']} (Danger)</Badge>
+                                 )}
+                                 {counts['C2'] > 0 && (
+                                   <Badge className="bg-orange-500 hover:bg-orange-600">C2: {counts['C2']} (Potentially Dangerous)</Badge>
+                                 )}
+                                 {counts['C3'] > 0 && (
+                                   <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">C3: {counts['C3']} (Improvement)</Badge>
+                                 )}
+                                 {counts['FI'] > 0 && (
+                                   <Badge className="bg-purple-500 hover:bg-purple-600">FI: {counts['FI']} (Further Investigation)</Badge>
+                                 )}
+                                 {counts['LIM'] > 0 && (
+                                   <Badge className="bg-slate-500 hover:bg-slate-600">LIM: {counts['LIM']} (Limitation)</Badge>
+                                 )}
+                                 {counts['N/A'] > 0 && (
+                                   <Badge variant="outline">N/A: {counts['N/A']}</Badge>
+                                 )}
+                               </div>
+                             </div>
+                           );
+                         } else {
+                           return (
+                             <div className="grid gap-2">
+                               <Label className={extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-900' : 'text-red-900'}>
+                                 Defects / Remedials
+                               </Label>
+                               <Input value="None Identified" readOnly className="bg-white border-emerald-200 text-emerald-900" />
+                             </div>
+                           );
+                         }
+                       })()}
                     </div>
                  </div>
 
