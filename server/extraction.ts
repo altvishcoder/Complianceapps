@@ -424,25 +424,83 @@ function generateRemedialActions(
     }
   }
 
-  if (certificateType === "EICR" && data.observations) {
-    for (const obs of data.observations) {
-      let severity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
-      if (obs.code === "C1") {
-        severity = "IMMEDIATE";
-      } else if (obs.code === "C2") {
-        severity = "URGENT";
-      } else if (obs.code === "C3") {
-        severity = "ADVISORY";
+  // Handle EICR - check both observations and defects arrays, and handle auto-detect (OTHER with EICR document type)
+  const isEICR = certificateType === "EICR" || 
+    (certificateType === "OTHER" && data.documentType?.toLowerCase().includes("eicr")) ||
+    (certificateType === "OTHER" && data.documentType?.toLowerCase().includes("electrical installation"));
+  
+  if (isEICR) {
+    // Handle observations array (traditional format)
+    if (data.observations) {
+      for (const obs of data.observations) {
+        let severity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
+        if (obs.code === "C1") {
+          severity = "IMMEDIATE";
+        } else if (obs.code === "C2") {
+          severity = "URGENT";
+        } else if (obs.code === "C3") {
+          severity = "ADVISORY";
+        }
+        
+        if (obs.code === "C1" || obs.code === "C2" || obs.code === "C3") {
+          actions.push({
+            code: obs.code,
+            description: obs.description,
+            location: obs.location || "Electrical installation",
+            severity,
+            costEstimate: severity === "IMMEDIATE" ? "£150-400" : "£80-250"
+          });
+        }
       }
-      
-      if (obs.code === "C1" || obs.code === "C2") {
-        actions.push({
-          code: obs.code,
-          description: obs.description,
-          location: obs.location || "Electrical installation",
-          severity,
-          costEstimate: severity === "IMMEDIATE" ? "£150-400" : "£80-250"
-        });
+    }
+    
+    // Handle defects array (alternate format from AI)
+    if (data.defects) {
+      for (const defect of data.defects) {
+        const code = defect.severity || defect.code || "";
+        let severity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
+        if (code === "C1") {
+          severity = "IMMEDIATE";
+        } else if (code === "C2") {
+          severity = "URGENT";
+        } else if (code === "C3") {
+          severity = "ADVISORY";
+        }
+        
+        if (code === "C1" || code === "C2" || code === "C3") {
+          actions.push({
+            code,
+            description: defect.description,
+            location: defect.location || "Electrical installation",
+            severity,
+            costEstimate: severity === "IMMEDIATE" ? "£150-400" : "£80-250"
+          });
+        }
+      }
+    }
+    
+    // Handle defectsAndObservations array (another alternate format)
+    if (data.defectsAndObservations) {
+      for (const item of data.defectsAndObservations) {
+        const code = item.code || item.severity || "";
+        let severity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
+        if (code === "C1") {
+          severity = "IMMEDIATE";
+        } else if (code === "C2") {
+          severity = "URGENT";
+        } else if (code === "C3") {
+          severity = "ADVISORY";
+        }
+        
+        if (code === "C1" || code === "C2" || code === "C3") {
+          actions.push({
+            code,
+            description: item.description,
+            location: item.location || "Electrical installation",
+            severity,
+            costEstimate: severity === "IMMEDIATE" ? "£150-400" : "£80-250"
+          });
+        }
       }
     }
   }
