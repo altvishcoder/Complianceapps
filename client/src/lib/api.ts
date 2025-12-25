@@ -137,3 +137,22 @@ export const actionsApi = {
     body: JSON.stringify(data),
   }),
 };
+
+// Admin / Demo Data Management
+export const adminApi = {
+  wipeData: (includeProperties: boolean = false) => 
+    fetchJSON<{ success: boolean; message: string }>(`${API_BASE}/admin/wipe-data`, {
+      method: "POST",
+      body: JSON.stringify({ includeProperties }),
+    }),
+  
+  seedDemo: () => 
+    fetchJSON<{ success: boolean; message: string }>(`${API_BASE}/admin/seed-demo`, {
+      method: "POST",
+    }),
+  
+  resetDemo: () => 
+    fetchJSON<{ success: boolean; message: string }>(`${API_BASE}/admin/reset-demo`, {
+      method: "POST",
+    }),
+};

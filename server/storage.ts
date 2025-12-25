@@ -265,6 +265,104 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(remedialActions).set({ ...updates, updatedAt: new Date() }).where(eq(remedialActions.id, id)).returning();
     return updated || undefined;
   }
+  
+  // Admin / Demo Data Management
+  async wipeData(includeProperties: boolean = false): Promise<void> {
+    // Delete in order of dependencies (children first)
+    await db.delete(remedialActions);
+    await db.delete(extractions);
+    await db.delete(certificates);
+    
+    if (includeProperties) {
+      await db.delete(properties);
+      await db.delete(blocks);
+      await db.delete(schemes);
+    }
+    
+    console.log(`Data wiped successfully (includeProperties: ${includeProperties})`);
+  }
+  
+  async seedDemoData(organisationId: string): Promise<void> {
+    // Create demo schemes
+    const [londonScheme] = await db.insert(schemes).values({
+      organisationId,
+      name: "London Housing Estate",
+      reference: "SCH-LON-001",
+    }).returning();
+    
+    const [manchesterScheme] = await db.insert(schemes).values({
+      organisationId,
+      name: "Manchester Urban Regeneration",
+      reference: "SCH-MAN-001",
+    }).returning();
+    
+    // Create blocks
+    const [oakHouseBlock] = await db.insert(blocks).values({
+      schemeId: londonScheme.id,
+      name: "Oak House",
+      reference: "BLK-OAK-001",
+    }).returning();
+    
+    const [towersBlock] = await db.insert(blocks).values({
+      schemeId: manchesterScheme.id,
+      name: "The Towers",
+      reference: "BLK-TWR-001",
+    }).returning();
+    
+    // Create properties
+    await db.insert(properties).values([
+      {
+        blockId: oakHouseBlock.id,
+        uprn: "10001001",
+        addressLine1: "Flat 1, Oak House",
+        city: "London",
+        postcode: "SW1 1AA",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: 2,
+        hasGas: true,
+        complianceStatus: "COMPLIANT",
+      },
+      {
+        blockId: oakHouseBlock.id,
+        uprn: "10001002",
+        addressLine1: "Flat 2, Oak House",
+        city: "London",
+        postcode: "SW1 1AA",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: 2,
+        hasGas: true,
+        complianceStatus: "OVERDUE",
+      },
+      {
+        blockId: towersBlock.id,
+        uprn: "10002001",
+        addressLine1: "101 The Towers",
+        city: "Manchester",
+        postcode: "M1 1BB",
+        propertyType: "FLAT",
+        tenure: "LEASEHOLD",
+        bedrooms: 1,
+        hasGas: false,
+        complianceStatus: "COMPLIANT",
+      },
+      {
+        blockId: towersBlock.id,
+        uprn: "10002002",
+        addressLine1: "102 The Towers",
+        city: "Manchester",
+        postcode: "M1 1BB",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: 1,
+        hasGas: false,
+        complianceStatus: "NON_COMPLIANT",
+      },
+    ]);
+    
+    console.log("Demo data seeded successfully");
+  }
 }
 
 export const storage = new DatabaseStorage();

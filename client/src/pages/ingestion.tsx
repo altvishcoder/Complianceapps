@@ -38,6 +38,78 @@ const CERTIFICATE_TYPES = [
   { value: "OTHER", label: "Other" },
 ];
 
+// Helper function to extract address from certificate data
+function getExtractedAddress(extractedData: any): string {
+  if (!extractedData) return 'Not extracted';
+  
+  // Check installationAddress (can be string or object)
+  const addr = extractedData.installationAddress;
+  if (typeof addr === 'string' && addr.trim()) return addr;
+  if (addr?.fullAddress) return addr.fullAddress;
+  
+  // Check propertyAddress object
+  const propAddr = extractedData.propertyAddress;
+  if (propAddr?.streetAddress) {
+    return `${propAddr.streetAddress}, ${propAddr.city || ''} ${propAddr.postCode || propAddr.postcode || ''}`.trim();
+  }
+  
+  return 'Not extracted';
+}
+
+// Helper function to get classification code counts from various data formats
+function getClassificationCounts(extractedData: any): Record<string, number> {
+  if (!extractedData) return {};
+  
+  const counts: Record<string, number> = {};
+  
+  // Source 1: classificationSummary object (e.g., {C1: 1, C2: 2, FI: 1})
+  if (extractedData.classificationSummary) {
+    Object.entries(extractedData.classificationSummary).forEach(([key, val]) => {
+      if (typeof val === 'number' && val > 0) {
+        counts[key] = (counts[key] || 0) + val;
+      }
+    });
+  }
+  
+  // Source 2: complianceDetails object (e.g., {C1_count: 0, C2_count: 1, FI_count: 2})
+  // Only use this if classificationSummary wasn't present (avoid double counting)
+  if (extractedData.complianceDetails && !extractedData.classificationSummary) {
+    const cd = extractedData.complianceDetails;
+    if (cd.C1_count > 0) counts['C1'] = (counts['C1'] || 0) + cd.C1_count;
+    if (cd.C2_count > 0) counts['C2'] = (counts['C2'] || 0) + cd.C2_count;
+    if (cd.C3_count > 0) counts['C3'] = (counts['C3'] || 0) + cd.C3_count;
+    if (cd.FI_count > 0) counts['FI'] = (counts['FI'] || 0) + cd.FI_count;
+    if (cd.LIM_count > 0) counts['LIM'] = (counts['LIM'] || 0) + cd.LIM_count;
+    if (cd.NA_count > 0) counts['N/A'] = (counts['N/A'] || 0) + cd.NA_count;
+  }
+  
+  // Source 3: Direct count fields (c1Count, c2Count, etc.) - fallback if nothing else found
+  if (Object.keys(counts).length === 0) {
+    if (extractedData.c1Count > 0) counts['C1'] = extractedData.c1Count;
+    if (extractedData.c2Count > 0) counts['C2'] = extractedData.c2Count;
+    if (extractedData.c3Count > 0) counts['C3'] = extractedData.c3Count;
+    if (extractedData.fiCount > 0) counts['FI'] = extractedData.fiCount;
+  }
+  
+  // Source 4: Count from defects array (always aggregate from this)
+  if (extractedData.defects && Array.isArray(extractedData.defects)) {
+    extractedData.defects.forEach((d: any) => {
+      const code = d.severity || d.code || '';
+      if (code) counts[code] = (counts[code] || 0) + 1;
+    });
+  }
+  
+  // Source 5: Count from observations array  
+  if (extractedData.observations && Array.isArray(extractedData.observations)) {
+    extractedData.observations.forEach((o: any) => {
+      const code = o.code || o.severity || '';
+      if (code) counts[code] = (counts[code] || 0) + 1;
+    });
+  }
+  
+  return counts;
+}
+
 export default function Ingestion() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -466,17 +538,11 @@ export default function Ingestion() {
                               <p className={`text-sm mt-1 ${
                                 extractedResult.outcome === 'SATISFACTORY' ? 'text-emerald-700' : 'text-amber-700'
                               }`}>
-                                Certificate extracted for <strong>{(() => {
-                                  if (selectedPropertyId === 'auto-detect') {
-                                    const addr = extractedResult.extractedData?.installationAddress;
-                                    const propAddr = extractedResult.extractedData?.propertyAddress;
-                                    if (typeof addr === 'string') return addr.split(',')[0];
-                                    if (addr?.fullAddress) return addr.fullAddress.split(',')[0];
-                                    if (propAddr?.streetAddress) return propAddr.streetAddress;
-                                    return 'property (auto-detected)';
-                                  }
-                                  return extractedResult.property?.addressLine1 || 'property';
-                                })()}</strong>
+                                Certificate extracted for <strong>{
+                                  selectedPropertyId === 'auto-detect' 
+                                    ? getExtractedAddress(extractedResult.extractedData).split(',')[0] || 'property (auto-detected)'
+                                    : extractedResult.property?.addressLine1 || 'property'
+                                }</strong>
                               </p>
                             </div>
                         </div>
@@ -503,36 +569,37 @@ export default function Ingestion() {
                               <span className="font-medium">{extractedResult.expiryDate || 'N/A'}</span>
                             </div>
                             {(() => {
-                              const data = extractedResult.extractedData;
-                              if (!data) return null;
-                              const c1 = data.c1Count || data.complianceDetails?.C1_count || data.classificationSummary?.C1 || 0;
-                              const c2 = data.c2Count || data.complianceDetails?.C2_count || data.classificationSummary?.C2 || 0;
-                              const c3 = data.c3Count || data.complianceDetails?.C3_count || data.classificationSummary?.C3 || 0;
-                              const fi = data.fiCount || data.complianceDetails?.FI_count || data.classificationSummary?.FI || 0;
+                              const counts = getClassificationCounts(extractedResult.extractedData);
                               return (
                                 <>
-                                  {c1 > 0 && (
+                                  {counts['C1'] > 0 && (
                                     <div className="p-3 flex justify-between">
                                       <span className="text-muted-foreground">C1 (Danger)</span>
-                                      <span className="font-medium text-red-600">{c1}</span>
+                                      <span className="font-medium text-red-600">{counts['C1']}</span>
                                     </div>
                                   )}
-                                  {c2 > 0 && (
+                                  {counts['C2'] > 0 && (
                                     <div className="p-3 flex justify-between">
                                       <span className="text-muted-foreground">C2 (Potentially Dangerous)</span>
-                                      <span className="font-medium text-orange-600">{c2}</span>
+                                      <span className="font-medium text-orange-600">{counts['C2']}</span>
                                     </div>
                                   )}
-                                  {c3 > 0 && (
+                                  {counts['C3'] > 0 && (
                                     <div className="p-3 flex justify-between">
                                       <span className="text-muted-foreground">C3 (Improvement)</span>
-                                      <span className="font-medium text-yellow-600">{c3}</span>
+                                      <span className="font-medium text-yellow-600">{counts['C3']}</span>
                                     </div>
                                   )}
-                                  {fi > 0 && (
+                                  {counts['FI'] > 0 && (
                                     <div className="p-3 flex justify-between">
                                       <span className="text-muted-foreground">FI (Further Investigation)</span>
-                                      <span className="font-medium text-purple-600">{fi}</span>
+                                      <span className="font-medium text-purple-600">{counts['FI']}</span>
+                                    </div>
+                                  )}
+                                  {counts['LIM'] > 0 && (
+                                    <div className="p-3 flex justify-between">
+                                      <span className="text-muted-foreground">LIM (Limitation)</span>
+                                      <span className="font-medium text-slate-600">{counts['LIM']}</span>
                                     </div>
                                   )}
                                 </>
@@ -703,14 +770,7 @@ export default function Ingestion() {
                        <div className="relative">
                          <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                          <Input 
-                           value={(() => {
-                             const addr = extractedResult.extractedData?.installationAddress;
-                             const propAddr = extractedResult.extractedData?.propertyAddress;
-                             if (typeof addr === 'string') return addr;
-                             if (addr?.fullAddress) return addr.fullAddress;
-                             if (propAddr?.streetAddress) return `${propAddr.streetAddress}, ${propAddr.city || ''} ${propAddr.postCode || propAddr.postcode || ''}`;
-                             return 'Not extracted';
-                           })()} 
+                           value={getExtractedAddress(extractedResult.extractedData)} 
                            readOnly
                            className="pl-9 bg-amber-50/50 border-amber-200 text-amber-900" 
                          />
@@ -730,23 +790,13 @@ export default function Ingestion() {
                        </div>
                      </div>
                    )}
-                   {selectedPropertyId !== 'auto-detect' && (extractedResult.extractedData?.installationAddress || extractedResult.extractedData?.propertyAddress) && (() => {
-                     const addr = extractedResult.extractedData?.installationAddress;
-                     const propAddr = extractedResult.extractedData?.propertyAddress;
-                     let extractedAddress = 'Not extracted';
-                     
-                     if (typeof addr === 'string') {
-                       extractedAddress = addr;
-                     } else if (addr?.fullAddress) {
-                       extractedAddress = addr.fullAddress;
-                     } else if (propAddr?.streetAddress) {
-                       extractedAddress = `${propAddr.streetAddress}, ${propAddr.city || ''} ${propAddr.postCode || propAddr.postcode || ''}`;
-                     }
+                   {selectedPropertyId !== 'auto-detect' && (() => {
+                     const extractedAddress = getExtractedAddress(extractedResult.extractedData);
+                     if (extractedAddress === 'Not extracted') return null;
                      
                      const selectedAddr = `${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`.toLowerCase();
                      const normalizedExtracted = extractedAddress.toLowerCase();
-                     const isMismatch = extractedAddress !== 'Not extracted' && 
-                       !normalizedExtracted.includes(selectedAddr.split(',')[0].trim()) &&
+                     const isMismatch = !normalizedExtracted.includes(selectedAddr.split(',')[0].trim()) &&
                        !selectedAddr.includes(normalizedExtracted.split(',')[0].trim());
                      
                      return (
@@ -860,50 +910,7 @@ export default function Ingestion() {
                        </div>
                        
                        {(() => {
-                         const data = extractedResult.extractedData;
-                         if (!data) return null;
-                         
-                         // Build classification counts from multiple possible sources
-                         const counts: Record<string, number> = {};
-                         
-                         // Source 1: classificationSummary object
-                         if (data.classificationSummary) {
-                           Object.entries(data.classificationSummary).forEach(([key, val]) => {
-                             if (typeof val === 'number' && val > 0) counts[key] = val;
-                           });
-                         }
-                         
-                         // Source 2: complianceDetails object (with *_count keys)
-                         if (data.complianceDetails) {
-                           if (data.complianceDetails.C1_count > 0) counts['C1'] = data.complianceDetails.C1_count;
-                           if (data.complianceDetails.C2_count > 0) counts['C2'] = data.complianceDetails.C2_count;
-                           if (data.complianceDetails.C3_count > 0) counts['C3'] = data.complianceDetails.C3_count;
-                           if (data.complianceDetails.FI_count > 0) counts['FI'] = data.complianceDetails.FI_count;
-                           if (data.complianceDetails.LIM_count > 0) counts['LIM'] = data.complianceDetails.LIM_count;
-                         }
-                         
-                         // Source 3: Direct c1Count, c2Count, etc. fields
-                         if (data.c1Count > 0) counts['C1'] = data.c1Count;
-                         if (data.c2Count > 0) counts['C2'] = data.c2Count;
-                         if (data.c3Count > 0) counts['C3'] = data.c3Count;
-                         if (data.fiCount > 0) counts['FI'] = data.fiCount;
-                         
-                         // Source 4: Count from defects array
-                         if (data.defects && Array.isArray(data.defects)) {
-                           data.defects.forEach((d: any) => {
-                             const code = d.severity || d.code || '';
-                             if (code) counts[code] = (counts[code] || 0) + 1;
-                           });
-                         }
-                         
-                         // Source 5: Count from observations array
-                         if (data.observations && Array.isArray(data.observations)) {
-                           data.observations.forEach((o: any) => {
-                             const code = o.code || o.severity || '';
-                             if (code) counts[code] = (counts[code] || 0) + 1;
-                           });
-                         }
-                         
+                         const counts = getClassificationCounts(extractedResult.extractedData);
                          const hasDefects = Object.keys(counts).length > 0;
                          
                          if (hasDefects) {

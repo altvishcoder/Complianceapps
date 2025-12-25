@@ -321,5 +321,42 @@ export async function registerRoutes(
     }
   });
   
+  // ===== ADMIN / DEMO DATA MANAGEMENT =====
+  
+  // Wipe all data (certificates, actions, extractions)
+  app.post("/api/admin/wipe-data", async (req, res) => {
+    try {
+      const { includeProperties } = req.body || {};
+      await storage.wipeData(includeProperties === true);
+      res.json({ success: true, message: includeProperties ? "All data wiped including properties" : "Certificates and actions wiped" });
+    } catch (error) {
+      console.error("Error wiping data:", error);
+      res.status(500).json({ error: "Failed to wipe data" });
+    }
+  });
+  
+  // Seed demo data (schemes, blocks, properties)
+  app.post("/api/admin/seed-demo", async (req, res) => {
+    try {
+      await storage.seedDemoData(ORG_ID);
+      res.json({ success: true, message: "Demo data seeded successfully" });
+    } catch (error) {
+      console.error("Error seeding demo data:", error);
+      res.status(500).json({ error: "Failed to seed demo data" });
+    }
+  });
+  
+  // Reset demo (wipe all + reseed)
+  app.post("/api/admin/reset-demo", async (req, res) => {
+    try {
+      await storage.wipeData(true);
+      await storage.seedDemoData(ORG_ID);
+      res.json({ success: true, message: "Demo reset complete" });
+    } catch (error) {
+      console.error("Error resetting demo:", error);
+      res.status(500).json({ error: "Failed to reset demo" });
+    }
+  });
+  
   return httpServer;
 }

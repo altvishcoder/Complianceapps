@@ -6,13 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle } from "lucide-react";
+import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle, Database, Trash2, RefreshCw, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { adminApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSetup() {
   const [, setLocation] = useLocation();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     const role = localStorage.getItem("user_role");
@@ -22,6 +27,41 @@ export default function AdminSetup() {
       setIsAuthorized(false);
     }
   }, []);
+
+  const wipeDataMutation = useMutation({
+    mutationFn: (includeProperties: boolean) => adminApi.wipeData(includeProperties),
+    onSuccess: (data) => {
+      toast({ title: "Success", description: data.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const seedDemoMutation = useMutation({
+    mutationFn: () => adminApi.seedDemo(),
+    onSuccess: (data) => {
+      toast({ title: "Success", description: data.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetDemoMutation = useMutation({
+    mutationFn: () => adminApi.resetDemo(),
+    onSuccess: (data) => {
+      toast({ title: "Success", description: data.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isLoading = wipeDataMutation.isPending || seedDemoMutation.isPending || resetDemoMutation.isPending;
 
   if (!isAuthorized) {
     return (
@@ -74,6 +114,7 @@ export default function AdminSetup() {
                 <TabsTrigger value="users">Active Users</TabsTrigger>
                 <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
                 <TabsTrigger value="setup">Initial Setup</TabsTrigger>
+                <TabsTrigger value="demo">Demo Data</TabsTrigger>
               </TabsList>
 
               <TabsContent value="users" className="space-y-4">
@@ -175,6 +216,135 @@ export default function AdminSetup() {
 
                     <div className="pt-4 flex justify-end">
                       <Button>Save Configuration</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="demo" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      Demo Data Management
+                    </CardTitle>
+                    <CardDescription>
+                      Manage demonstration data for testing and training purposes.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                      <div className="flex gap-2 items-start">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-medium text-amber-800">Important</p>
+                          <p className="text-sm text-amber-700">
+                            These actions modify your database. Wipe operations cannot be undone.
+                            Make sure you have a backup before proceeding.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <Card className="border-2">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Play className="h-4 w-4 text-emerald-600" />
+                            Seed Demo Data
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Add sample schemes, blocks, and properties for demonstration purposes.
+                          </p>
+                          <Button 
+                            className="w-full"
+                            variant="outline"
+                            onClick={() => seedDemoMutation.mutate()}
+                            disabled={isLoading}
+                            data-testid="button-seed-demo"
+                          >
+                            {seedDemoMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Seeding...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="mr-2 h-4 w-4" />
+                                Seed Demo Data
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-2 border-orange-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Trash2 className="h-4 w-4 text-orange-600" />
+                            Wipe Certificates
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Remove all certificates, extractions, and remedial actions. Keep properties.
+                          </p>
+                          <Button 
+                            className="w-full"
+                            variant="outline"
+                            onClick={() => wipeDataMutation.mutate(false)}
+                            disabled={isLoading}
+                            data-testid="button-wipe-certificates"
+                          >
+                            {wipeDataMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Wiping...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Wipe Certificates
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-2 border-red-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4 text-red-600" />
+                            Reset Demo
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Wipe everything and start fresh with new demo data.
+                          </p>
+                          <Button 
+                            className="w-full"
+                            variant="destructive"
+                            onClick={() => resetDemoMutation.mutate()}
+                            disabled={isLoading}
+                            data-testid="button-reset-demo"
+                          >
+                            {resetDemoMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Resetting...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Reset Demo
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
                     </div>
                   </CardContent>
                 </Card>
