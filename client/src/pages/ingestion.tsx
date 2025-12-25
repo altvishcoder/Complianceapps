@@ -826,6 +826,42 @@ export default function Ingestion() {
                     </div>
                  </div>
 
+                 {/* Remedial Actions Section */}
+                 {extractedResult.actions && extractedResult.actions.length > 0 && (
+                   <div className="space-y-4">
+                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                       Remedial Actions ({extractedResult.actions.length})
+                     </h3>
+                     <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+                       {extractedResult.actions.map((action: any) => (
+                         <div key={action.id} className="p-3 space-y-1">
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                               <Badge variant={
+                                 action.severity === 'IMMEDIATE' ? 'destructive' :
+                                 action.severity === 'URGENT' ? 'default' : 'secondary'
+                               } className={
+                                 action.severity === 'URGENT' ? 'bg-orange-500 hover:bg-orange-600' :
+                                 action.severity === 'ADVISORY' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''
+                               }>
+                                 {action.code}
+                               </Badge>
+                               <span className="font-medium text-sm">{action.location}</span>
+                             </div>
+                             <Badge variant="outline" className="text-xs">
+                               {action.severity}
+                             </Badge>
+                           </div>
+                           <p className="text-sm text-muted-foreground">{action.description}</p>
+                           {action.costEstimate && (
+                             <p className="text-xs text-muted-foreground">Est. cost: {action.costEstimate}</p>
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+
                  {extractedResult.extractedData?.appliances && extractedResult.extractedData.appliances.length > 0 && (
                    <div className="space-y-4">
                      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Appliances</h3>
