@@ -34,8 +34,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved';
+
 export default function ActionsPage() {
   const [selectedAction, setSelectedAction] = useState<EnrichedRemedialAction | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -55,6 +59,41 @@ export default function ActionsPage() {
     if (!a.resolvedAt) return false;
     return new Date(a.resolvedAt) >= thirtyDaysAgo;
   }).length;
+  
+  // Filter actions based on active filter and search
+  const filteredActions = remedialActions.filter(action => {
+    // Apply filter
+    let passesFilter = true;
+    switch (activeFilter) {
+      case 'open':
+        passesFilter = action.status === 'OPEN';
+        break;
+      case 'emergency':
+        passesFilter = action.severity === 'IMMEDIATE' && action.status === 'OPEN';
+        break;
+      case 'in_progress':
+        passesFilter = action.status === 'IN_PROGRESS';
+        break;
+      case 'resolved':
+        passesFilter = action.status === 'COMPLETED';
+        break;
+      default:
+        passesFilter = true;
+    }
+    
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = 
+        action.description?.toLowerCase().includes(query) ||
+        action.location?.toLowerCase().includes(query) ||
+        action.code?.toLowerCase().includes(query) ||
+        action.property?.addressLine1?.toLowerCase().includes(query);
+      return passesFilter && matchesSearch;
+    }
+    
+    return passesFilter;
+  });
   
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
@@ -88,25 +127,33 @@ export default function ActionsPage() {
             <div className="flex gap-4 flex-1">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search actions..." className="pl-9" />
+                <Input 
+                  placeholder="Search actions..." 
+                  className="pl-9" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  data-testid="input-search-actions"
+                />
               </div>
-              <Select defaultValue="all">
-                <SelectTrigger className="w-[180px]">
+              <Select value={activeFilter} onValueChange={(v) => setActiveFilter(v as FilterType)}>
+                <SelectTrigger className="w-[180px]" data-testid="select-filter-status">
                   <SelectValue placeholder="Filter by Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="all">All Actions</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="emergency">Emergency Only</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline">
-                <Filter className="h-4 w-4 mr-2" />
-                More Filters
-              </Button>
+              {activeFilter !== 'all' && (
+                <Button variant="outline" onClick={() => setActiveFilter('all')}>
+                  Clear Filter
+                </Button>
+              )}
               <Button onClick={() => toast({ title: "Export Started", description: "Downloading CSV..." })}>
                 Export List
               </Button>
@@ -114,7 +161,11 @@ export default function ActionsPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-blue-500' : ''}`}
+              onClick={() => setActiveFilter(activeFilter === 'open' ? 'all' : 'open')}
+              data-testid="card-total-open"
+            >
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Open</p>
@@ -125,7 +176,11 @@ export default function ActionsPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'emergency' ? 'ring-2 ring-rose-500' : ''}`}
+              onClick={() => setActiveFilter(activeFilter === 'emergency' ? 'all' : 'emergency')}
+              data-testid="card-emergency"
+            >
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Emergency</p>
@@ -136,7 +191,11 @@ export default function ActionsPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'in_progress' ? 'ring-2 ring-amber-500' : ''}`}
+              onClick={() => setActiveFilter(activeFilter === 'in_progress' ? 'all' : 'in_progress')}
+              data-testid="card-in-progress"
+            >
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">In Progress</p>
@@ -147,7 +206,11 @@ export default function ActionsPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'resolved' ? 'ring-2 ring-emerald-500' : ''}`}
+              onClick={() => setActiveFilter(activeFilter === 'resolved' ? 'all' : 'resolved')}
+              data-testid="card-resolved"
+            >
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Resolved (30d)</p>
@@ -162,12 +225,27 @@ export default function ActionsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Action Required</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Action Required</span>
+                <Badge variant="secondary">{filteredActions.length} result{filteredActions.length !== 1 ? 's' : ''}</Badge>
+              </CardTitle>
               <CardDescription>Remedial works identified from recent inspections</CardDescription>
             </CardHeader>
             <CardContent>
+              {filteredActions.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No actions found</p>
+                  <p className="text-sm">Try adjusting your filters or search query</p>
+                  {activeFilter !== 'all' && (
+                    <Button variant="outline" className="mt-4" onClick={() => setActiveFilter('all')}>
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              ) : (
               <div className="space-y-4">
-                {remedialActions.map((action) => (
+                {filteredActions.map((action) => (
                   <div key={action.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/20 transition-colors gap-4 cursor-pointer" onClick={() => setSelectedAction(action)}>
                     <div className="flex gap-4">
                       <div className={`mt-1 h-3 w-3 rounded-full shrink-0 ${
@@ -201,6 +279,7 @@ export default function ActionsPage() {
                   </div>
                 ))}
               </div>
+              )}
             </CardContent>
           </Card>
 
