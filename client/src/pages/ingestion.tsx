@@ -404,6 +404,15 @@ export default function Ingestion() {
         enrichedCert = await certificatesApi.get(certificate.id);
       }
 
+      // Check if extraction timed out or failed
+      if (enrichedCert.status === 'PROCESSING') {
+        throw new Error('AI extraction timed out');
+      }
+      
+      if (enrichedCert.status === 'FAILED' || enrichedCert.status === 'ERROR') {
+        throw new Error('AI extraction failed');
+      }
+
       setBatchFiles(prev => prev.map(f => 
         f.id === bf.id ? { ...f, status: 'complete', progress: 100, certificateId: certificate.id } : f
       ));
@@ -468,10 +477,25 @@ export default function Ingestion() {
       
       queryClient.invalidateQueries({ queryKey: ["certificates"] });
       
-      const completedCount = batchFiles.filter(f => f.status === 'complete').length;
-      toast({
-        title: "Batch Processing Complete",
-        description: `Successfully processed ${completedCount} documents.`,
+      // Get fresh state for accurate counts
+      setBatchFiles(currentFiles => {
+        const completedCount = currentFiles.filter(f => f.status === 'complete').length;
+        const errorCount = currentFiles.filter(f => f.status === 'error').length;
+        const total = completedCount + errorCount;
+        
+        if (errorCount > 0) {
+          toast({
+            title: "Batch Processing Complete",
+            description: `Processed ${total} documents: ${completedCount} successful, ${errorCount} failed.`,
+            variant: errorCount === total ? "destructive" : "default",
+          });
+        } else {
+          toast({
+            title: "Batch Processing Complete",
+            description: `Successfully processed ${completedCount} documents.`,
+          });
+        }
+        return currentFiles;
       });
     } catch (error) {
       toast({
