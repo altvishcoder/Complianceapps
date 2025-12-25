@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers, Play, Pause, RotateCcw, Zap, Clock, ListOrdered } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import generatedImage from '@assets/generated_images/abstract_digital_network_background_for_ai_interface.png';
 import { 
@@ -143,8 +143,33 @@ export default function Ingestion() {
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ completed: 0, total: 0 });
   const [parallelLimit, setParallelLimit] = useState(3);
+  const wasProcessingRef = useRef(false);
   
   const { toast } = useToast();
+  
+  // Show toast when batch processing completes
+  useEffect(() => {
+    if (wasProcessingRef.current && !isBatchProcessing && batchFiles.length > 0) {
+      const completedCount = batchFiles.filter(f => f.status === 'complete').length;
+      const errorCount = batchFiles.filter(f => f.status === 'error').length;
+      
+      if (completedCount + errorCount > 0) {
+        if (errorCount > 0) {
+          toast({
+            title: "Batch Processing Complete",
+            description: `Processed: ${completedCount} successful, ${errorCount} failed.`,
+            variant: errorCount === completedCount + errorCount ? "destructive" : "default",
+          });
+        } else {
+          toast({
+            title: "Batch Processing Complete",
+            description: `Successfully processed ${completedCount} documents.`,
+          });
+        }
+      }
+    }
+    wasProcessingRef.current = isBatchProcessing;
+  }, [isBatchProcessing, batchFiles, toast]);
   const queryClient = useQueryClient();
   const { uploadFile } = useUpload();
 
@@ -409,7 +434,7 @@ export default function Ingestion() {
         throw new Error('AI extraction timed out');
       }
       
-      if (enrichedCert.status === 'FAILED' || enrichedCert.status === 'ERROR') {
+      if (enrichedCert.status === 'REJECTED') {
         throw new Error('AI extraction failed');
       }
 
@@ -477,33 +502,17 @@ export default function Ingestion() {
       
       queryClient.invalidateQueries({ queryKey: ["certificates"] });
       
-      // Get fresh state for accurate counts
-      setBatchFiles(currentFiles => {
-        const completedCount = currentFiles.filter(f => f.status === 'complete').length;
-        const errorCount = currentFiles.filter(f => f.status === 'error').length;
-        const total = completedCount + errorCount;
-        
-        if (errorCount > 0) {
-          toast({
-            title: "Batch Processing Complete",
-            description: `Processed ${total} documents: ${completedCount} successful, ${errorCount} failed.`,
-            variant: errorCount === total ? "destructive" : "default",
-          });
-        } else {
-          toast({
-            title: "Batch Processing Complete",
-            description: `Successfully processed ${completedCount} documents.`,
-          });
-        }
-        return currentFiles;
-      });
+      // Use a small delay to ensure state updates are complete before reading
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Show success toast (counts are computed from updated state in the component)
+      setIsBatchProcessing(false);
     } catch (error) {
       toast({
         title: "Batch Processing Error",
         description: "Some documents failed to process. Check individual file statuses.",
         variant: "destructive",
       });
-    } finally {
       setIsBatchProcessing(false);
     }
   };
