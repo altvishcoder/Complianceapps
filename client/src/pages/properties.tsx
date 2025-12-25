@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
@@ -21,8 +22,9 @@ export default function Properties() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState("all");
   
-  // Fetch data
   const { data: properties = [] } = useQuery({
     queryKey: ["properties"],
     queryFn: () => propertiesApi.list(),
@@ -38,7 +40,6 @@ export default function Properties() {
     queryFn: () => blocksApi.list(),
   });
   
-  // Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newProp, setNewProp] = useState<{
     schemeId: string;
@@ -62,12 +63,10 @@ export default function Properties() {
     hasGas: true
   });
 
-  // Filtered blocks based on selected scheme
   const filteredBlocks = newProp.schemeId 
     ? blocks.filter(b => b.schemeId === newProp.schemeId)
     : [];
   
-  // Create property mutation
   const createProperty = useMutation({
     mutationFn: (data: InsertProperty) => propertiesApi.create(data),
     onSuccess: () => {
@@ -87,6 +86,36 @@ export default function Properties() {
         tenure: "SOCIAL_RENT",
         bedrooms: "1",
         hasGas: true
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => propertiesApi.bulkDelete(ids),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      setSelectedIds(new Set());
+      toast({
+        title: "Properties Deleted",
+        description: `${data.deleted} properties have been removed.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkVerifyMutation = useMutation({
+    mutationFn: (ids: string[]) => propertiesApi.bulkVerify(ids),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      setSelectedIds(new Set());
+      toast({
+        title: "Properties Verified",
+        description: `${data.verified} properties have been marked as verified.`,
       });
     },
     onError: (error: Error) => {
@@ -115,7 +144,10 @@ export default function Properties() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, needsVerification?: boolean) => {
+    if (needsVerification) {
+      return <Badge className="bg-orange-500 hover:bg-orange-600">Needs Verification</Badge>;
+    }
     switch (status) {
       case "COMPLIANT": return <Badge className="bg-emerald-500 hover:bg-emerald-600">Compliant</Badge>;
       case "NON_COMPLIANT": return <Badge variant="destructive">Non-Compliant</Badge>;
@@ -125,6 +157,34 @@ export default function Properties() {
     }
   };
 
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredProperties.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredProperties.map(p => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSelection = new Set(selectedIds);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedIds(newSelection);
+  };
+
+  const filteredProperties = properties.filter(p => {
+    if (statusFilter === "unverified") return p.needsVerification;
+    if (statusFilter === "compliant") return p.complianceStatus === "COMPLIANT" && !p.needsVerification;
+    if (statusFilter === "non-compliant") return p.complianceStatus === "NON_COMPLIANT" || p.complianceStatus === "OVERDUE";
+    return true;
+  });
+
+  const unverifiedCount = properties.filter(p => p.needsVerification).length;
+
   return (
     <div className="flex h-screen bg-muted/30">
       <Sidebar />
@@ -132,7 +192,7 @@ export default function Properties() {
         <Header title="Property Management" />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           
-          <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <div className="grid gap-4 md:grid-cols-4 mb-6">
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
@@ -160,6 +220,15 @@ export default function Properties() {
                   <div className="text-2xl font-bold">{schemes.length}</div>
                 </CardContent>
              </Card>
+             <Card className={unverifiedCount > 0 ? "border-orange-300" : ""}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Needs Verification</CardTitle>
+                  <AlertCircle className={`h-4 w-4 ${unverifiedCount > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${unverifiedCount > 0 ? 'text-orange-600' : ''}`}>{unverifiedCount}</div>
+                </CardContent>
+             </Card>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -168,7 +237,7 @@ export default function Properties() {
                   <Input placeholder="Search address, postcode or UPRN..." className="pl-9" />
                   <Filter className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 </div>
-                <Select defaultValue="all">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -176,129 +245,157 @@ export default function Properties() {
                     <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="compliant">Compliant</SelectItem>
                     <SelectItem value="non-compliant">Non-Compliant</SelectItem>
+                    <SelectItem value="unverified">Needs Verification</SelectItem>
                   </SelectContent>
                 </Select>
              </div>
              
-             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-               <DialogTrigger asChild>
-                 <Button className="gap-2">
-                    <Plus className="h-4 w-4" /> Add Property
-                 </Button>
-               </DialogTrigger>
-               <DialogContent className="sm:max-w-[600px]">
-                 <DialogHeader>
-                   <DialogTitle>Add New Property</DialogTitle>
-                   <DialogDescription>Create a new property unit within an existing scheme and block.</DialogDescription>
-                 </DialogHeader>
-                 <form onSubmit={handleAddProperty}>
-                   <div className="grid gap-4 py-4">
-                     
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <Label>Scheme</Label>
-                           <Select 
-                              value={newProp.schemeId} 
-                              onValueChange={(val) => setNewProp({...newProp, schemeId: val, blockId: ""})}
-                           >
-                              <SelectTrigger>
-                                 <SelectValue placeholder="Select Scheme" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                 {schemes.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                              </SelectContent>
-                           </Select>
-                        </div>
-                        <div className="space-y-2">
-                           <Label>Block</Label>
-                           <Select 
-                              value={newProp.blockId} 
-                              onValueChange={(val) => setNewProp({...newProp, blockId: val})}
-                              disabled={!newProp.schemeId}
-                           >
-                              <SelectTrigger>
-                                 <SelectValue placeholder="Select Block" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                 {filteredBlocks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                              </SelectContent>
-                           </Select>
-                        </div>
-                     </div>
+             <div className="flex gap-2">
+               {selectedIds.size > 0 && (
+                 <>
+                   <Button 
+                     variant="outline" 
+                     className="gap-2"
+                     onClick={() => bulkVerifyMutation.mutate(Array.from(selectedIds))}
+                     disabled={bulkVerifyMutation.isPending}
+                     data-testid="button-bulk-verify"
+                   >
+                     <ShieldCheck className="h-4 w-4" />
+                     Verify ({selectedIds.size})
+                   </Button>
+                   <Button 
+                     variant="destructive" 
+                     className="gap-2"
+                     onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+                     disabled={bulkDeleteMutation.isPending}
+                     data-testid="button-bulk-delete"
+                   >
+                     <Trash2 className="h-4 w-4" />
+                     Delete ({selectedIds.size})
+                   </Button>
+                 </>
+               )}
+               
+               <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                 <DialogTrigger asChild>
+                   <Button className="gap-2">
+                      <Plus className="h-4 w-4" /> Add Property
+                   </Button>
+                 </DialogTrigger>
+                 <DialogContent className="sm:max-w-[600px]">
+                   <DialogHeader>
+                     <DialogTitle>Add New Property</DialogTitle>
+                     <DialogDescription>Create a new property unit within an existing scheme and block.</DialogDescription>
+                   </DialogHeader>
+                   <form onSubmit={handleAddProperty}>
+                     <div className="grid gap-4 py-4">
+                       
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                             <Label>Scheme</Label>
+                             <Select 
+                                value={newProp.schemeId} 
+                                onValueChange={(val) => setNewProp({...newProp, schemeId: val, blockId: ""})}
+                             >
+                                <SelectTrigger>
+                                   <SelectValue placeholder="Select Scheme" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                   {schemes.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                </SelectContent>
+                             </Select>
+                          </div>
+                          <div className="space-y-2">
+                             <Label>Block</Label>
+                             <Select 
+                                value={newProp.blockId} 
+                                onValueChange={(val) => setNewProp({...newProp, blockId: val})}
+                                disabled={!newProp.schemeId}
+                             >
+                                <SelectTrigger>
+                                   <SelectValue placeholder="Select Block" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                   {filteredBlocks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                                </SelectContent>
+                             </Select>
+                          </div>
+                       </div>
 
-                     <div className="space-y-2">
-                        <Label>Address Line 1</Label>
-                        <Input 
-                           value={newProp.addressLine1}
-                           onChange={e => setNewProp({...newProp, addressLine1: e.target.value})}
-                           placeholder="e.g. Flat 10, Oak House" 
-                        />
-                     </div>
+                       <div className="space-y-2">
+                          <Label>Address Line 1</Label>
+                          <Input 
+                             value={newProp.addressLine1}
+                             onChange={e => setNewProp({...newProp, addressLine1: e.target.value})}
+                             placeholder="e.g. Flat 10, Oak House" 
+                          />
+                       </div>
 
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <Label>City</Label>
-                           <Input 
-                              value={newProp.city}
-                              onChange={e => setNewProp({...newProp, city: e.target.value})}
-                              placeholder="London" 
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label>Postcode</Label>
-                           <Input 
-                              value={newProp.postcode}
-                              onChange={e => setNewProp({...newProp, postcode: e.target.value})}
-                              placeholder="SW1A 1AA" 
-                           />
-                        </div>
-                     </div>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                             <Label>City</Label>
+                             <Input 
+                                value={newProp.city}
+                                onChange={e => setNewProp({...newProp, city: e.target.value})}
+                                placeholder="London" 
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <Label>Postcode</Label>
+                             <Input 
+                                value={newProp.postcode}
+                                onChange={e => setNewProp({...newProp, postcode: e.target.value})}
+                                placeholder="SW1A 1AA" 
+                             />
+                          </div>
+                       </div>
 
-                     <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                           <Label>Type</Label>
-                           <Select 
-                              value={newProp.propertyType}
-                              onValueChange={(val) => setNewProp({...newProp, propertyType: val})}
-                           >
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                 <SelectItem value="FLAT">Flat</SelectItem>
-                                 <SelectItem value="HOUSE">House</SelectItem>
-                                 <SelectItem value="BUNGALOW">Bungalow</SelectItem>
-                              </SelectContent>
-                           </Select>
-                        </div>
-                         <div className="space-y-2">
-                           <Label>Bedrooms</Label>
-                           <Input 
-                              type="number" 
-                              value={newProp.bedrooms}
-                              onChange={e => setNewProp({...newProp, bedrooms: e.target.value})}
-                              min="0"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label>Tenure</Label>
-                           <Select 
-                              value={newProp.tenure}
-                              onValueChange={(val) => setNewProp({...newProp, tenure: val})}
-                           >
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                 <SelectItem value="SOCIAL_RENT">Social Rent</SelectItem>
-                                 <SelectItem value="LEASEHOLD">Leasehold</SelectItem>
-                              </SelectContent>
-                           </Select>
-                        </div>
+                       <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                             <Label>Type</Label>
+                             <Select 
+                                value={newProp.propertyType}
+                                onValueChange={(val) => setNewProp({...newProp, propertyType: val})}
+                             >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                   <SelectItem value="FLAT">Flat</SelectItem>
+                                   <SelectItem value="HOUSE">House</SelectItem>
+                                   <SelectItem value="BUNGALOW">Bungalow</SelectItem>
+                                </SelectContent>
+                             </Select>
+                          </div>
+                           <div className="space-y-2">
+                             <Label>Bedrooms</Label>
+                             <Input 
+                                type="number" 
+                                value={newProp.bedrooms}
+                                onChange={e => setNewProp({...newProp, bedrooms: e.target.value})}
+                                min="0"
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <Label>Tenure</Label>
+                             <Select 
+                                value={newProp.tenure}
+                                onValueChange={(val) => setNewProp({...newProp, tenure: val})}
+                             >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                   <SelectItem value="SOCIAL_RENT">Social Rent</SelectItem>
+                                   <SelectItem value="LEASEHOLD">Leasehold</SelectItem>
+                                </SelectContent>
+                             </Select>
+                          </div>
+                       </div>
                      </div>
-                   </div>
-                   <DialogFooter>
-                     <Button type="submit">Create Property</Button>
-                   </DialogFooter>
-                 </form>
-               </DialogContent>
-             </Dialog>
+                     <DialogFooter>
+                       <Button type="submit">Create Property</Button>
+                     </DialogFooter>
+                   </form>
+                 </DialogContent>
+               </Dialog>
+             </div>
           </div>
 
           <Card>
@@ -307,7 +404,14 @@ export default function Properties() {
                 <table className="w-full text-sm text-left">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
-                      <th className="p-4 pl-6">Address</th>
+                      <th className="p-4 pl-4 w-10">
+                        <Checkbox 
+                          checked={selectedIds.size === filteredProperties.length && filteredProperties.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          data-testid="checkbox-select-all"
+                        />
+                      </th>
+                      <th className="p-4">Address</th>
                       <th className="p-4">Block / Scheme</th>
                       <th className="p-4">Type</th>
                       <th className="p-4">Status</th>
@@ -315,14 +419,36 @@ export default function Properties() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {properties.map((prop) => (
+                    {filteredProperties.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          No properties found. Add a property or load demo data.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredProperties.map((prop) => (
                         <tr 
                           key={prop.id} 
-                          className="group hover:bg-muted/20 transition-colors cursor-pointer"
+                          className={`group hover:bg-muted/20 transition-colors cursor-pointer ${selectedIds.has(prop.id) ? 'bg-muted/30' : ''}`}
                           onClick={() => navigate(`/properties/${prop.id}`)}
                           data-testid={`row-property-${prop.id}`}
                         >
-                          <td className="p-4 pl-6">
+                          <td className="p-4 pl-4" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={selectedIds.has(prop.id)}
+                              onCheckedChange={() => {
+                                const newSelection = new Set(selectedIds);
+                                if (newSelection.has(prop.id)) {
+                                  newSelection.delete(prop.id);
+                                } else {
+                                  newSelection.add(prop.id);
+                                }
+                                setSelectedIds(newSelection);
+                              }}
+                              data-testid={`checkbox-property-${prop.id}`}
+                            />
+                          </td>
+                          <td className="p-4">
                             <div className="flex flex-col">
                               <span className="font-semibold text-foreground">{prop.addressLine1}</span>
                               <span className="text-xs text-muted-foreground">{prop.city}, {prop.postcode}</span>
@@ -336,7 +462,7 @@ export default function Properties() {
                           </td>
                           <td className="p-4 text-muted-foreground capitalize">{prop.propertyType.toLowerCase()}</td>
                           <td className="p-4">
-                             {getStatusBadge(prop.complianceStatus)}
+                             {getStatusBadge(prop.complianceStatus, prop.needsVerification)}
                           </td>
                           <td className="p-4 text-right pr-6">
                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -344,7 +470,8 @@ export default function Properties() {
                              </Button>
                           </td>
                         </tr>
-                    ))}
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -51,6 +51,8 @@ export interface EnrichedProperty extends Property {
   fullAddress?: string;
   certificates?: Certificate[];
   actions?: RemedialAction[];
+  needsVerification?: boolean;
+  source?: string;
 }
 
 export const propertiesApi = {
@@ -73,6 +75,24 @@ export const propertiesApi = {
     method: "PATCH",
     body: JSON.stringify(data),
   }),
+  
+  autoCreate: (addressData: { addressLine1: string; city?: string; postcode?: string }) => 
+    fetchJSON<Property>(`${API_BASE}/properties/auto-create`, {
+      method: "POST",
+      body: JSON.stringify(addressData),
+    }),
+  
+  bulkDelete: (ids: string[]) => 
+    fetchJSON<{ success: boolean; deleted: number }>(`${API_BASE}/properties/bulk-delete`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  
+  bulkVerify: (ids: string[]) => 
+    fetchJSON<{ success: boolean; verified: number }>(`${API_BASE}/properties/bulk-verify`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
 };
 
 // Certificates

@@ -252,12 +252,19 @@ export default function Ingestion() {
       setProcessingState('analyzing');
       setProcessingStep("Analyzing document...");
       
-      const actualPropertyId = isAutoDetectProperty 
+      let actualPropertyId = isAutoDetectProperty 
         ? (properties.length > 0 ? properties[0].id : '') 
         : selectedPropertyId;
         
       if (!actualPropertyId) {
-        throw new Error('No properties available. Please create a property first.');
+        setProcessingStep("No properties found. Creating auto-property...");
+        const autoProperty = await propertiesApi.autoCreate({
+          addressLine1: file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+          city: 'To Be Verified',
+          postcode: 'UNKNOWN',
+        });
+        actualPropertyId = autoProperty.id;
+        queryClient.invalidateQueries({ queryKey: ["properties"] });
       }
       
       const actualType = isAutoDetectType ? 'OTHER' : selectedType;
@@ -402,12 +409,18 @@ export default function Ingestion() {
         f.id === bf.id ? { ...f, status: 'processing', progress: 40 } : f
       ));
 
-      const actualPropertyId = batchPropertyId === 'auto-detect' 
+      let actualPropertyId = batchPropertyId === 'auto-detect' 
         ? (properties.length > 0 ? properties[0].id : '') 
         : batchPropertyId;
         
       if (!actualPropertyId) {
-        throw new Error('No properties available');
+        const autoProperty = await propertiesApi.autoCreate({
+          addressLine1: bf.file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+          city: 'To Be Verified',
+          postcode: 'UNKNOWN',
+        });
+        actualPropertyId = autoProperty.id;
+        queryClient.invalidateQueries({ queryKey: ["properties"] });
       }
       
       const actualType = batchCertType === 'auto-detect' ? 'OTHER' : batchCertType;
