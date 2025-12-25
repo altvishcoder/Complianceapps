@@ -14,6 +14,8 @@ import {
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { actionsApi, certificatesApi } from "@/lib/api";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -29,6 +31,27 @@ const navigation = [
 
 export function Sidebar() {
   const [location, setLocation] = useLocation();
+  
+  const { data: actions = [], isError: actionsError } = useQuery({
+    queryKey: ["actions"],
+    queryFn: () => actionsApi.list(),
+    staleTime: 30000,
+    retry: false,
+  });
+  
+  const { data: certificates = [], isError: certsError } = useQuery({
+    queryKey: ["certificates"],
+    queryFn: () => certificatesApi.list(),
+    staleTime: 30000,
+    retry: false,
+  });
+  
+  const emergencyHazards = actionsError ? 0 : actions.filter(a => a.severity === 'IMMEDIATE' && a.status === 'OPEN').length;
+  const overdueGasCerts = certsError ? 0 : certificates.filter(c => {
+    if (c.certificateType !== 'GAS_SAFETY') return false;
+    if (!c.expiryDate) return false;
+    return new Date(c.expiryDate) < new Date();
+  }).length;
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -69,14 +92,28 @@ export function Sidebar() {
             Alerts
           </h3>
           <div className="mt-2 space-y-1">
-             <div className="flex items-center px-3 py-2 text-sm text-rose-400 font-medium bg-rose-950/20 rounded-md border border-rose-900/20">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                <span>3 Emergency Hazards</span>
-             </div>
-             <div className="flex items-center px-3 py-2 text-sm text-amber-400 font-medium bg-amber-950/20 rounded-md border border-amber-900/20">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                <span>12 Overdue CP12s</span>
-             </div>
+            {emergencyHazards > 0 && (
+              <Link href="/actions">
+                <div className="flex items-center px-3 py-2 text-sm text-rose-400 font-medium bg-rose-950/20 rounded-md border border-rose-900/20 cursor-pointer hover:bg-rose-950/30 transition-colors">
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  <span>{emergencyHazards} Emergency Hazard{emergencyHazards !== 1 ? 's' : ''}</span>
+                </div>
+              </Link>
+            )}
+            {overdueGasCerts > 0 && (
+              <Link href="/certificates">
+                <div className="flex items-center px-3 py-2 text-sm text-amber-400 font-medium bg-amber-950/20 rounded-md border border-amber-900/20 cursor-pointer hover:bg-amber-950/30 transition-colors">
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  <span>{overdueGasCerts} Overdue CP12{overdueGasCerts !== 1 ? 's' : ''}</span>
+                </div>
+              </Link>
+            )}
+            {emergencyHazards === 0 && overdueGasCerts === 0 && (
+              <div className="flex items-center px-3 py-2 text-sm text-green-400 font-medium bg-green-950/20 rounded-md border border-green-900/20">
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                <span>No critical alerts</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

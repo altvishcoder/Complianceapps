@@ -379,6 +379,14 @@ export default function Ingestion() {
     setBatchProgress({ completed: 0, total: 0 });
   };
 
+  const retryFailedFiles = () => {
+    setBatchFiles(prev => prev.map(f => 
+      f.status === 'error' ? { ...f, status: 'pending' as BatchFileStatus, progress: 0, error: undefined } : f
+    ));
+  };
+
+  const hasFailedFiles = batchFiles.some(f => f.status === 'error');
+
   const processSingleBatchFile = async (bf: BatchFile): Promise<void> => {
     try {
       // Update status to uploading
@@ -1019,6 +1027,19 @@ export default function Ingestion() {
                                 {batchProgress.completed}/{batchProgress.total} completed
                               </span>
                             )}
+                            {hasFailedFiles && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={retryFailedFiles} 
+                                disabled={isBatchProcessing}
+                                className="h-7 text-xs text-orange-600 hover:text-orange-700"
+                                data-testid="btn-retry-failed"
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Retry Failed
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="sm" 
@@ -1026,7 +1047,7 @@ export default function Ingestion() {
                               disabled={isBatchProcessing}
                               className="h-7 text-xs"
                             >
-                              <RotateCcw className="h-3 w-3 mr-1" />
+                              <X className="h-3 w-3 mr-1" />
                               Clear All
                             </Button>
                           </div>
