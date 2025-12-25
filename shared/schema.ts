@@ -269,7 +269,7 @@ export const evalRuns = pgTable("eval_runs", {
   itemResults: json("item_results").notNull(), // Per-item scores
   
   // Comparison to previous
-  previousRunId: varchar("previous_run_id"),
+  previousRunId: varchar("previous_run_id").references(() => evalRuns.id),
   regressions: json("regressions").notNull().default([]),
   improvements: json("improvements").notNull().default([]),
   scoreDelta: real("score_delta"),
@@ -418,7 +418,6 @@ export const extractionRunRelations = relations(extractionRuns, ({ one }) => ({
     fields: [extractionRuns.schemaId],
     references: [extractionSchemas.id],
   }),
-  humanReview: one(humanReviews),
 }));
 
 export const humanReviewRelations = relations(humanReviews, ({ one }) => ({
