@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers, Play, Pause, RotateCcw, Zap, Clock, ListOrdered } from "lucide-react";
 import { useState, useCallback } from "react";
 import { Progress } from "@/components/ui/progress";
 import generatedImage from '@assets/generated_images/abstract_digital_network_background_for_ai_interface.png';
@@ -110,6 +110,19 @@ function getClassificationCounts(extractedData: any): Record<string, number> {
   return counts;
 }
 
+type ProcessingMode = 'sequential' | 'parallel';
+type BatchFileStatus = 'pending' | 'uploading' | 'processing' | 'complete' | 'error';
+
+interface BatchFile {
+  id: string;
+  file: File;
+  base64: string;
+  status: BatchFileStatus;
+  progress: number;
+  error?: string;
+  certificateId?: string;
+}
+
 export default function Ingestion() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -121,6 +134,16 @@ export default function Ingestion() {
   const [selectedPropertyId, setSelectedPropertyId] = useState("auto-detect");
   const [selectedType, setSelectedType] = useState("auto-detect");
   const [extractedResult, setExtractedResult] = useState<EnrichedCertificate | null>(null);
+  
+  // Batch processing state
+  const [batchFiles, setBatchFiles] = useState<BatchFile[]>([]);
+  const [batchProcessingMode, setBatchProcessingMode] = useState<ProcessingMode>('sequential');
+  const [batchPropertyId, setBatchPropertyId] = useState("auto-detect");
+  const [batchCertType, setBatchCertType] = useState("auto-detect");
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ completed: 0, total: 0 });
+  const [parallelLimit, setParallelLimit] = useState(3);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { uploadFile } = useUpload();
@@ -284,6 +307,202 @@ export default function Ingestion() {
     setProcessingState('idle');
     setExtractedResult(null);
     setUploadProgress(0);
+  };
+
+  // Batch processing handlers
+  const onBatchDrop = useCallback((acceptedFiles: File[]) => {
+    const newBatchFiles: BatchFile[] = acceptedFiles.map(file => ({
+      id: crypto.randomUUID(),
+      file,
+      base64: '',
+      status: 'pending' as BatchFileStatus,
+      progress: 0,
+    }));
+    
+    // Read base64 for each file
+    newBatchFiles.forEach((bf, index) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        setBatchFiles(prev => prev.map(f => 
+          f.id === bf.id ? { ...f, base64 } : f
+        ));
+      };
+      reader.readAsDataURL(bf.file);
+    });
+    
+    setBatchFiles(prev => [...prev, ...newBatchFiles]);
+  }, []);
+
+  const { getRootProps: getBatchRootProps, getInputProps: getBatchInputProps, isDragActive: isBatchDragActive } = useDropzone({ 
+    onDrop: onBatchDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp']
+    },
+    disabled: isBatchProcessing
+  });
+
+  const removeBatchFile = (id: string) => {
+    setBatchFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const clearBatchFiles = () => {
+    setBatchFiles([]);
+    setBatchProgress({ completed: 0, total: 0 });
+  };
+
+  const processSingleBatchFile = async (bf: BatchFile): Promise<void> => {
+    try {
+      // Update status to uploading
+      setBatchFiles(prev => prev.map(f => 
+        f.id === bf.id ? { ...f, status: 'uploading', progress: 10 } : f
+      ));
+
+      const mimeType = bf.file.type;
+      const uploadResult = await uploadFile(bf.file);
+      const storageKey = uploadResult?.objectPath || null;
+
+      setBatchFiles(prev => prev.map(f => 
+        f.id === bf.id ? { ...f, status: 'processing', progress: 40 } : f
+      ));
+
+      const actualPropertyId = batchPropertyId === 'auto-detect' 
+        ? (properties.length > 0 ? properties[0].id : '') 
+        : batchPropertyId;
+        
+      if (!actualPropertyId) {
+        throw new Error('No properties available');
+      }
+      
+      const actualType = batchCertType === 'auto-detect' ? 'OTHER' : batchCertType;
+
+      const certificate = await createCertificate.mutateAsync({
+        propertyId: actualPropertyId,
+        fileName: bf.file.name,
+        fileType: mimeType,
+        fileSize: bf.file.size,
+        certificateType: actualType as any,
+        storageKey: storageKey,
+        fileBase64: mimeType.startsWith('image/') ? bf.base64 : undefined,
+        mimeType: mimeType.startsWith('image/') ? mimeType : undefined,
+      });
+
+      // Poll for extraction completion
+      let enrichedCert = await certificatesApi.get(certificate.id);
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      while (enrichedCert.status === 'PROCESSING' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+        setBatchFiles(prev => prev.map(f => 
+          f.id === bf.id ? { ...f, progress: 40 + Math.min(attempts * 2, 50) } : f
+        ));
+        enrichedCert = await certificatesApi.get(certificate.id);
+      }
+
+      setBatchFiles(prev => prev.map(f => 
+        f.id === bf.id ? { ...f, status: 'complete', progress: 100, certificateId: certificate.id } : f
+      ));
+
+    } catch (error) {
+      setBatchFiles(prev => prev.map(f => 
+        f.id === bf.id ? { 
+          ...f, 
+          status: 'error', 
+          progress: 0, 
+          error: error instanceof Error ? error.message : 'Failed to process'
+        } : f
+      ));
+    }
+  };
+
+  const processSequential = async () => {
+    const pendingFiles = batchFiles.filter(f => f.status === 'pending');
+    setBatchProgress({ completed: 0, total: pendingFiles.length });
+
+    for (let i = 0; i < pendingFiles.length; i++) {
+      await processSingleBatchFile(pendingFiles[i]);
+      setBatchProgress(prev => ({ ...prev, completed: i + 1 }));
+    }
+  };
+
+  const processParallel = async () => {
+    const pendingFiles = batchFiles.filter(f => f.status === 'pending');
+    setBatchProgress({ completed: 0, total: pendingFiles.length });
+    let completed = 0;
+
+    // Process in chunks based on parallelLimit
+    for (let i = 0; i < pendingFiles.length; i += parallelLimit) {
+      const chunk = pendingFiles.slice(i, i + parallelLimit);
+      await Promise.all(chunk.map(async (bf) => {
+        await processSingleBatchFile(bf);
+        completed++;
+        setBatchProgress(prev => ({ ...prev, completed }));
+      }));
+    }
+  };
+
+  const startBatchProcessing = async () => {
+    const pendingFiles = batchFiles.filter(f => f.status === 'pending');
+    if (pendingFiles.length === 0) {
+      toast({
+        title: "No Files to Process",
+        description: "Please add some documents first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBatchProcessing(true);
+    
+    try {
+      if (batchProcessingMode === 'sequential') {
+        await processSequential();
+      } else {
+        await processParallel();
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["certificates"] });
+      
+      const completedCount = batchFiles.filter(f => f.status === 'complete').length;
+      toast({
+        title: "Batch Processing Complete",
+        description: `Successfully processed ${completedCount} documents.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Batch Processing Error",
+        description: "Some documents failed to process. Check individual file statuses.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const getStatusIcon = (status: BatchFileStatus) => {
+    switch (status) {
+      case 'pending': return <Clock className="h-4 w-4 text-muted-foreground" />;
+      case 'uploading': return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'processing': return <BrainCircuit className="h-4 w-4 text-purple-500 animate-pulse" />;
+      case 'complete': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
+    }
+  };
+
+  const getStatusBadge = (status: BatchFileStatus) => {
+    const variants: Record<BatchFileStatus, string> = {
+      pending: 'bg-gray-100 text-gray-700',
+      uploading: 'bg-blue-100 text-blue-700',
+      processing: 'bg-purple-100 text-purple-700',
+      complete: 'bg-green-100 text-green-700',
+      error: 'bg-red-100 text-red-700',
+    };
+    return <Badge className={variants[status]}>{status}</Badge>;
   };
 
   return (
@@ -633,13 +852,252 @@ export default function Ingestion() {
               </div>
             </TabsContent>
             
-            <TabsContent value="batch">
-               <div className="flex flex-col items-center justify-center h-[400px] border-2 border-dashed rounded-lg bg-muted/10">
-                  <Layers className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-                  <h3 className="text-lg font-semibold">Batch Processing Mode</h3>
-                  <p className="text-muted-foreground mb-4">Upload folder or ZIP archive for bulk ingestion.</p>
-                  <Button variant="outline">Select Folder</Button>
-               </div>
+            <TabsContent value="batch" className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-3">
+                {/* Batch Upload Area */}
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-5 w-5" />
+                      Batch Document Upload
+                    </CardTitle>
+                    <CardDescription>
+                      Upload multiple documents at once. AI will process them based on your selected mode.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Settings Row */}
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label>Processing Mode</Label>
+                        <Select value={batchProcessingMode} onValueChange={(v) => setBatchProcessingMode(v as ProcessingMode)} disabled={isBatchProcessing}>
+                          <SelectTrigger data-testid="select-batch-mode">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sequential">
+                              <div className="flex items-center gap-2">
+                                <ListOrdered className="h-4 w-4" />
+                                <span>Sequential (One at a time)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="parallel">
+                              <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4" />
+                                <span>Parallel (Faster)</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default Property</Label>
+                        <Select value={batchPropertyId} onValueChange={setBatchPropertyId} disabled={isBatchProcessing}>
+                          <SelectTrigger data-testid="select-batch-property">
+                            <SelectValue placeholder="Choose property..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            <SelectItem value="auto-detect">
+                              <div className="flex items-center gap-2">
+                                <BrainCircuit className="h-4 w-4 text-blue-600" />
+                                <span className="font-medium text-blue-600">Auto-detect</span>
+                              </div>
+                            </SelectItem>
+                            <div className="my-1 border-t" />
+                            {properties.map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.addressLine1}, {p.postcode}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default Certificate Type</Label>
+                        <Select value={batchCertType} onValueChange={setBatchCertType} disabled={isBatchProcessing}>
+                          <SelectTrigger data-testid="select-batch-cert-type">
+                            <SelectValue placeholder="Choose type..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto-detect">
+                              <div className="flex items-center gap-2">
+                                <BrainCircuit className="h-4 w-4 text-blue-600" />
+                                <span className="font-medium text-blue-600">Auto-detect</span>
+                              </div>
+                            </SelectItem>
+                            <div className="my-1 border-t" />
+                            {CERTIFICATE_TYPES.map(t => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {batchProcessingMode === 'parallel' && (
+                      <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <Zap className="h-5 w-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900">Parallel Processing</p>
+                          <p className="text-xs text-blue-700">Process up to {parallelLimit} documents simultaneously</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-blue-700">Concurrent:</Label>
+                          <Select value={String(parallelLimit)} onValueChange={(v) => setParallelLimit(Number(v))} disabled={isBatchProcessing}>
+                            <SelectTrigger className="w-16 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[2, 3, 4, 5].map(n => (
+                                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dropzone */}
+                    <div 
+                      {...getBatchRootProps()}
+                      className={`min-h-[150px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 text-center transition-colors cursor-pointer
+                        ${isBatchDragActive ? 'border-primary bg-primary/5' : 'border-border bg-muted/20 hover:bg-muted/40'}
+                        ${isBatchProcessing ? 'opacity-50 cursor-not-allowed' : ''}
+                      `}
+                    >
+                      <input {...getBatchInputProps()} data-testid="batch-file-input" />
+                      <UploadCloud className="h-10 w-10 text-muted-foreground mb-3" />
+                      <h3 className="text-md font-semibold mb-1">Drop Multiple Documents</h3>
+                      <p className="text-sm text-muted-foreground">
+                        PDF, JPG, PNG, WebP supported
+                      </p>
+                    </div>
+
+                    {/* File List */}
+                    {batchFiles.length > 0 && (
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="bg-muted/50 px-4 py-2 flex justify-between items-center border-b">
+                          <span className="text-sm font-medium">
+                            {batchFiles.length} document{batchFiles.length !== 1 ? 's' : ''} queued
+                          </span>
+                          <div className="flex gap-2">
+                            {batchProgress.total > 0 && (
+                              <span className="text-sm text-muted-foreground">
+                                {batchProgress.completed}/{batchProgress.total} completed
+                              </span>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={clearBatchFiles} 
+                              disabled={isBatchProcessing}
+                              className="h-7 text-xs"
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" />
+                              Clear All
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto divide-y">
+                          {batchFiles.map((bf) => (
+                            <div key={bf.id} className="px-4 py-3 flex items-center gap-3 hover:bg-muted/30">
+                              {getStatusIcon(bf.status)}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{bf.file.name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {getStatusBadge(bf.status)}
+                                  <span className="text-xs text-muted-foreground">
+                                    {(bf.file.size / 1024).toFixed(1)} KB
+                                  </span>
+                                  {bf.error && (
+                                    <span className="text-xs text-red-600">{bf.error}</span>
+                                  )}
+                                </div>
+                                {(bf.status === 'uploading' || bf.status === 'processing') && (
+                                  <Progress value={bf.progress} className="mt-2 h-1" />
+                                )}
+                              </div>
+                              {bf.status === 'pending' && !isBatchProcessing && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7"
+                                  onClick={() => removeBatchFile(bf.id)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Button */}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        onClick={startBatchProcessing}
+                        disabled={batchFiles.length === 0 || isBatchProcessing}
+                        className="gap-2"
+                        data-testid="btn-start-batch"
+                      >
+                        {isBatchProcessing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4" />
+                            Start Batch Processing
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Processing Info Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BrainCircuit className="h-5 w-5" />
+                      Processing Modes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="p-3 border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <ListOrdered className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium text-sm">Sequential</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Processes documents one at a time. Best for reliability and when you want to monitor each extraction.
+                        </p>
+                      </div>
+                      <div className="p-3 border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Zap className="h-4 w-4 text-purple-600" />
+                          <span className="font-medium text-sm">Parallel</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Processes multiple documents simultaneously. Faster but uses more resources. Configure concurrent limit.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-3 border-t space-y-2">
+                      <h4 className="text-sm font-medium">Tips</h4>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li>Use auto-detect for mixed document batches</li>
+                        <li>Set a specific property if all docs are for same address</li>
+                        <li>Parallel mode is faster but may hit rate limits</li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
           
