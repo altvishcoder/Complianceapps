@@ -3,11 +3,14 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, 
-  insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema 
+  insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema,
+  extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties
 } from "@shared/schema";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
+import { db } from "./db";
+import { eq, desc, and, count, sql } from "drizzle-orm";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -355,6 +358,309 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error resetting demo:", error);
       res.status(500).json({ error: "Failed to reset demo" });
+    }
+  });
+  
+  // ===== LASHAN OWNED MODEL: MODEL INSIGHTS =====
+  app.get("/api/model-insights", async (req, res) => {
+    try {
+      const allRuns = await db.select().from(extractionRuns).orderBy(desc(extractionRuns.createdAt));
+      const allReviews = await db.select().from(humanReviews).orderBy(desc(humanReviews.reviewedAt));
+      
+      const totalRuns = allRuns.length;
+      const approvedRuns = allRuns.filter(r => r.status === 'APPROVED').length;
+      const accuracy = totalRuns > 0 ? approvedRuns / totalRuns : 0;
+      
+      const errorTags: Record<string, number> = {};
+      allReviews.forEach(review => {
+        (review.errorTags || []).forEach((tag: string) => {
+          errorTags[tag] = (errorTags[tag] || 0) + 1;
+        });
+      });
+      
+      const topTags = Object.entries(errorTags)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([tag, count]) => ({ tag, count, trend: 0 }));
+      
+      const byDocType = Object.entries(
+        allRuns.reduce((acc, run) => {
+          if (!acc[run.documentType]) acc[run.documentType] = { total: 0, approved: 0 };
+          acc[run.documentType].total++;
+          if (run.status === 'APPROVED') acc[run.documentType].approved++;
+          return acc;
+        }, {} as Record<string, { total: number; approved: number }>)
+      ).map(([type, data]) => ({
+        type: type.replace(/_/g, ' '),
+        accuracy: data.total > 0 ? (data.approved / data.total) * 100 : 0,
+        count: data.total
+      }));
+      
+      res.json({
+        accuracy: {
+          overall: accuracy,
+          trend: 0,
+          byDocType,
+          byWeek: [],
+        },
+        errors: {
+          topTags,
+          recentExamples: allReviews.slice(0, 10).map(r => ({
+            id: r.id,
+            field: 'various',
+            tag: (r.errorTags || [])[0] || 'unknown',
+            docType: 'Certificate'
+          })),
+        },
+        improvements: {
+          queue: topTags.slice(0, 5).map((t, i) => ({
+            id: `imp-${i}`,
+            issue: `Fix ${t.tag} errors`,
+            occurrences: t.count,
+            suggestedFix: `Review and update extraction prompt to handle ${t.tag.replace(/_/g, ' ')} cases`,
+            priority: i < 2 ? 'high' : 'medium'
+          })),
+          recentWins: [],
+        },
+        benchmarks: {
+          latest: { score: accuracy * 100, date: new Date().toISOString(), passed: accuracy >= 0.8 },
+          trend: [],
+        },
+        extractionStats: {
+          total: totalRuns,
+          pending: allRuns.filter(r => r.status === 'PENDING').length,
+          approved: approvedRuns,
+          awaitingReview: allRuns.filter(r => r.status === 'AWAITING_REVIEW').length,
+          failed: allRuns.filter(r => r.status === 'VALIDATION_FAILED' || r.status === 'REJECTED').length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching model insights:", error);
+      res.status(500).json({ error: "Failed to fetch insights" });
+    }
+  });
+  
+  app.post("/api/model-insights/run-benchmark", async (req, res) => {
+    try {
+      const allRuns = await db.select().from(extractionRuns);
+      const approved = allRuns.filter(r => r.status === 'APPROVED').length;
+      const score = allRuns.length > 0 ? (approved / allRuns.length) * 100 : 0;
+      res.json({ score, passed: score >= 80, date: new Date().toISOString() });
+    } catch (error) {
+      console.error("Error running benchmark:", error);
+      res.status(500).json({ error: "Failed to run benchmark" });
+    }
+  });
+  
+  app.post("/api/model-insights/export-training-data", async (req, res) => {
+    try {
+      const reviews = await db.select().from(humanReviews).orderBy(desc(humanReviews.reviewedAt));
+      const trainingData = reviews.map(r => JSON.stringify({
+        input: {},
+        output: r.approvedOutput,
+        changes: r.fieldChanges,
+        errorTags: r.errorTags,
+      })).join('\n');
+      
+      res.setHeader('Content-Type', 'application/jsonl');
+      res.setHeader('Content-Disposition', 'attachment; filename=training-data.jsonl');
+      res.send(trainingData || '{}');
+    } catch (error) {
+      console.error("Error exporting training data:", error);
+      res.status(500).json({ error: "Failed to export" });
+    }
+  });
+  
+  // ===== LASHAN OWNED MODEL: EXTRACTION RUNS =====
+  app.get("/api/extraction-runs", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      let query = db.select().from(extractionRuns).orderBy(desc(extractionRuns.createdAt));
+      
+      let runs;
+      if (status) {
+        runs = await db.select().from(extractionRuns)
+          .where(eq(extractionRuns.status, status as any))
+          .orderBy(desc(extractionRuns.createdAt));
+      } else {
+        runs = await db.select().from(extractionRuns).orderBy(desc(extractionRuns.createdAt));
+      }
+      
+      const enrichedRuns = await Promise.all(runs.map(async (run) => {
+        const cert = await db.select().from(certificates).where(eq(certificates.id, run.certificateId)).limit(1);
+        const certificate = cert[0];
+        let property = null;
+        if (certificate) {
+          const props = await db.select().from(properties).where(eq(properties.id, certificate.propertyId)).limit(1);
+          property = props[0];
+        }
+        return {
+          ...run,
+          certificate: certificate ? {
+            ...certificate,
+            property: property ? {
+              addressLine1: property.addressLine1,
+              postcode: property.postcode,
+            } : null,
+          } : null,
+        };
+      }));
+      
+      res.json(enrichedRuns);
+    } catch (error) {
+      console.error("Error fetching extraction runs:", error);
+      res.status(500).json({ error: "Failed to fetch extraction runs" });
+    }
+  });
+  
+  app.post("/api/extraction-runs/:id/approve", async (req, res) => {
+    try {
+      const { approvedOutput, errorTags, notes } = req.body;
+      
+      const [updated] = await db.update(extractionRuns)
+        .set({ 
+          status: 'APPROVED', 
+          finalOutput: approvedOutput,
+          updatedAt: new Date() 
+        })
+        .where(eq(extractionRuns.id, req.params.id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Extraction run not found" });
+      }
+      
+      await db.insert(humanReviews).values({
+        extractionRunId: req.params.id,
+        reviewerId: 'system',
+        organisationId: ORG_ID,
+        approvedOutput,
+        errorTags: errorTags || [],
+        wasCorrect: (errorTags || []).length === 0,
+        changeCount: 0,
+        reviewerNotes: notes,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error approving extraction:", error);
+      res.status(500).json({ error: "Failed to approve" });
+    }
+  });
+  
+  app.post("/api/extraction-runs/:id/reject", async (req, res) => {
+    try {
+      const { reason, errorTags } = req.body;
+      
+      const [updated] = await db.update(extractionRuns)
+        .set({ status: 'REJECTED', updatedAt: new Date() })
+        .where(eq(extractionRuns.id, req.params.id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Extraction run not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error rejecting extraction:", error);
+      res.status(500).json({ error: "Failed to reject" });
+    }
+  });
+  
+  // ===== LASHAN OWNED MODEL: COMPLIANCE RULES =====
+  app.get("/api/compliance-rules", async (req, res) => {
+    try {
+      const rules = await db.select().from(complianceRules).orderBy(desc(complianceRules.createdAt));
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching compliance rules:", error);
+      res.status(500).json({ error: "Failed to fetch rules" });
+    }
+  });
+  
+  app.post("/api/compliance-rules", async (req, res) => {
+    try {
+      const [rule] = await db.insert(complianceRules).values(req.body).returning();
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating compliance rule:", error);
+      res.status(500).json({ error: "Failed to create rule" });
+    }
+  });
+  
+  app.patch("/api/compliance-rules/:id", async (req, res) => {
+    try {
+      const [updated] = await db.update(complianceRules)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(complianceRules.id, req.params.id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating compliance rule:", error);
+      res.status(500).json({ error: "Failed to update rule" });
+    }
+  });
+  
+  app.delete("/api/compliance-rules/:id", async (req, res) => {
+    try {
+      await db.delete(complianceRules).where(eq(complianceRules.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting compliance rule:", error);
+      res.status(500).json({ error: "Failed to delete rule" });
+    }
+  });
+  
+  // ===== LASHAN OWNED MODEL: NORMALISATION RULES =====
+  app.get("/api/normalisation-rules", async (req, res) => {
+    try {
+      const rules = await db.select().from(normalisationRules).orderBy(desc(normalisationRules.priority));
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching normalisation rules:", error);
+      res.status(500).json({ error: "Failed to fetch rules" });
+    }
+  });
+  
+  app.post("/api/normalisation-rules", async (req, res) => {
+    try {
+      const [rule] = await db.insert(normalisationRules).values(req.body).returning();
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating normalisation rule:", error);
+      res.status(500).json({ error: "Failed to create rule" });
+    }
+  });
+  
+  app.patch("/api/normalisation-rules/:id", async (req, res) => {
+    try {
+      const [updated] = await db.update(normalisationRules)
+        .set(req.body)
+        .where(eq(normalisationRules.id, req.params.id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating normalisation rule:", error);
+      res.status(500).json({ error: "Failed to update rule" });
+    }
+  });
+  
+  app.delete("/api/normalisation-rules/:id", async (req, res) => {
+    try {
+      await db.delete(normalisationRules).where(eq(normalisationRules.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting normalisation rule:", error);
+      res.status(500).json({ error: "Failed to delete rule" });
     }
   });
   

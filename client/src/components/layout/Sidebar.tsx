@@ -11,7 +11,10 @@ import {
   Files,
   ClipboardCheck,
   Wrench,
-  Users
+  Users,
+  Brain,
+  Eye,
+  Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +30,12 @@ const navigation = [
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Settings", href: "/admin/setup", icon: Settings },
+];
+
+const aiNavigation = [
+  { name: "Model Insights", href: "/model-insights", icon: Brain },
+  { name: "Human Review", href: "/human-review", icon: Eye },
+  { name: "Domain Rules", href: "/domain-rules", icon: Settings2 },
 ];
 
 export function Sidebar() {
@@ -86,6 +95,37 @@ export function Sidebar() {
             );
           })}
         </nav>
+        
+        <div className="mt-6 px-3">
+          <h3 className="px-3 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
+            AI Model
+          </h3>
+          <nav className="mt-2 space-y-1">
+            {aiNavigation.map((item) => {
+              const isActive = location === item.href;
+              return (
+                <Link key={item.name} href={item.href}>
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
+                      isActive
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "mr-3 h-4 w-4 flex-shrink-0 transition-colors",
+                        isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground"
+                      )}
+                    />
+                    {item.name}
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
         
         <div className="mt-8 px-3">
           <h3 className="px-3 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">

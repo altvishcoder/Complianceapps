@@ -269,7 +269,7 @@ export const evalRuns = pgTable("eval_runs", {
   itemResults: json("item_results").notNull(), // Per-item scores
   
   // Comparison to previous
-  previousRunId: varchar("previous_run_id").references(() => evalRuns.id),
+  previousRunId: varchar("previous_run_id"),
   regressions: json("regressions").notNull().default([]),
   improvements: json("improvements").notNull().default([]),
   scoreDelta: real("score_delta"),
