@@ -251,7 +251,7 @@ export default function AdminSetup() {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base flex items-center gap-2">
                             <Play className="h-4 w-4 text-emerald-600" />
-                            Seed Demo Data
+                            Load Demo Data
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
@@ -268,12 +268,12 @@ export default function AdminSetup() {
                             {seedDemoMutation.isPending ? (
                               <>
                                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                Seeding...
+                                Loading...
                               </>
                             ) : (
                               <>
                                 <Play className="mr-2 h-4 w-4" />
-                                Seed Demo Data
+                                Load Demo Data
                               </>
                             )}
                           </Button>
@@ -284,19 +284,19 @@ export default function AdminSetup() {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base flex items-center gap-2">
                             <Trash2 className="h-4 w-4 text-orange-600" />
-                            Wipe Certificates
+                            Wipe Data
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <p className="text-sm text-muted-foreground">
-                            Remove all certificates, extractions, and remedial actions. Keep properties.
+                            Remove all certificates, extractions, AI model data, and remedial actions. Keep properties.
                           </p>
                           <Button 
                             className="w-full"
                             variant="outline"
                             onClick={() => wipeDataMutation.mutate(false)}
                             disabled={isLoading}
-                            data-testid="button-wipe-certificates"
+                            data-testid="button-wipe-data"
                           >
                             {wipeDataMutation.isPending ? (
                               <>
@@ -306,7 +306,7 @@ export default function AdminSetup() {
                             ) : (
                               <>
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Wipe Certificates
+                                Wipe Data
                               </>
                             )}
                           </Button>
