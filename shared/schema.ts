@@ -327,13 +327,15 @@ export const organisationRelations = relations(organisations, ({ many }) => ({
   users: many(users),
   schemes: many(schemes),
   certificates: many(certificates),
+  humanReviews: many(humanReviews),
 }));
 
-export const userRelations = relations(users, ({ one }) => ({
+export const userRelations = relations(users, ({ one, many }) => ({
   organisation: one(organisations, {
     fields: [users.organisationId],
     references: [organisations.id],
   }),
+  humanReviews: many(humanReviews),
 }));
 
 export const schemeRelations = relations(schemes, ({ one, many }) => ({
@@ -380,6 +382,8 @@ export const certificateRelations = relations(certificates, ({ one, many }) => (
   }),
   extractions: many(extractions),
   remedialActions: many(remedialActions),
+  extractionRuns: many(extractionRuns),
+  benchmarkItems: many(benchmarkItems),
 }));
 
 export const extractionRelations = relations(extractions, ({ one }) => ({
@@ -400,6 +404,65 @@ export const remedialActionRelations = relations(remedialActions, ({ one }) => (
   }),
 }));
 
+// Lashan Owned Model Relations
+export const extractionSchemaRelations = relations(extractionSchemas, ({ many }) => ({
+  extractionRuns: many(extractionRuns),
+}));
+
+export const extractionRunRelations = relations(extractionRuns, ({ one }) => ({
+  certificate: one(certificates, {
+    fields: [extractionRuns.certificateId],
+    references: [certificates.id],
+  }),
+  schema: one(extractionSchemas, {
+    fields: [extractionRuns.schemaId],
+    references: [extractionSchemas.id],
+  }),
+  humanReview: one(humanReviews),
+}));
+
+export const humanReviewRelations = relations(humanReviews, ({ one }) => ({
+  extractionRun: one(extractionRuns, {
+    fields: [humanReviews.extractionRunId],
+    references: [extractionRuns.id],
+  }),
+  reviewer: one(users, {
+    fields: [humanReviews.reviewerId],
+    references: [users.id],
+  }),
+  organisation: one(organisations, {
+    fields: [humanReviews.organisationId],
+    references: [organisations.id],
+  }),
+}));
+
+export const benchmarkSetRelations = relations(benchmarkSets, ({ many }) => ({
+  items: many(benchmarkItems),
+  evalRuns: many(evalRuns),
+}));
+
+export const benchmarkItemRelations = relations(benchmarkItems, ({ one }) => ({
+  benchmarkSet: one(benchmarkSets, {
+    fields: [benchmarkItems.benchmarkSetId],
+    references: [benchmarkSets.id],
+  }),
+  certificate: one(certificates, {
+    fields: [benchmarkItems.certificateId],
+    references: [certificates.id],
+  }),
+}));
+
+export const evalRunRelations = relations(evalRuns, ({ one }) => ({
+  benchmarkSet: one(benchmarkSets, {
+    fields: [evalRuns.benchmarkSetId],
+    references: [benchmarkSets.id],
+  }),
+  previousRun: one(evalRuns, {
+    fields: [evalRuns.previousRunId],
+    references: [evalRuns.id],
+  }),
+}));
+
 // Zod Schemas
 export const insertOrganisationSchema = createInsertSchema(organisations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -409,6 +472,16 @@ export const insertPropertySchema = createInsertSchema(properties).omit({ id: tr
 export const insertCertificateSchema = createInsertSchema(certificates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertExtractionSchema = createInsertSchema(extractions).omit({ id: true, createdAt: true });
 export const insertRemedialActionSchema = createInsertSchema(remedialActions).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Lashan Owned Model Insert Schemas
+export const insertExtractionSchemaSchema = createInsertSchema(extractionSchemas).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertExtractionRunSchema = createInsertSchema(extractionRuns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertHumanReviewSchema = createInsertSchema(humanReviews).omit({ id: true, reviewedAt: true });
+export const insertBenchmarkSetSchema = createInsertSchema(benchmarkSets).omit({ id: true, createdAt: true });
+export const insertBenchmarkItemSchema = createInsertSchema(benchmarkItems).omit({ id: true, createdAt: true });
+export const insertEvalRunSchema = createInsertSchema(evalRuns).omit({ id: true, createdAt: true });
+export const insertComplianceRuleSchema = createInsertSchema(complianceRules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertNormalisationRuleSchema = createInsertSchema(normalisationRules).omit({ id: true });
 
 // Types
 export type Organisation = typeof organisations.$inferSelect;
@@ -434,3 +507,28 @@ export type InsertExtraction = z.infer<typeof insertExtractionSchema>;
 
 export type RemedialAction = typeof remedialActions.$inferSelect;
 export type InsertRemedialAction = z.infer<typeof insertRemedialActionSchema>;
+
+// Lashan Owned Model Types
+export type ExtractionSchema = typeof extractionSchemas.$inferSelect;
+export type InsertExtractionSchema = z.infer<typeof insertExtractionSchemaSchema>;
+
+export type ExtractionRun = typeof extractionRuns.$inferSelect;
+export type InsertExtractionRun = z.infer<typeof insertExtractionRunSchema>;
+
+export type HumanReview = typeof humanReviews.$inferSelect;
+export type InsertHumanReview = z.infer<typeof insertHumanReviewSchema>;
+
+export type BenchmarkSet = typeof benchmarkSets.$inferSelect;
+export type InsertBenchmarkSet = z.infer<typeof insertBenchmarkSetSchema>;
+
+export type BenchmarkItem = typeof benchmarkItems.$inferSelect;
+export type InsertBenchmarkItem = z.infer<typeof insertBenchmarkItemSchema>;
+
+export type EvalRun = typeof evalRuns.$inferSelect;
+export type InsertEvalRun = z.infer<typeof insertEvalRunSchema>;
+
+export type ComplianceRule = typeof complianceRules.$inferSelect;
+export type InsertComplianceRule = z.infer<typeof insertComplianceRuleSchema>;
+
+export type NormalisationRule = typeof normalisationRules.$inferSelect;
+export type InsertNormalisationRule = z.infer<typeof insertNormalisationRuleSchema>;
