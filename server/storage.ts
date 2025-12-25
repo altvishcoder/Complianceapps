@@ -1,6 +1,8 @@
 // ComplianceAI Storage Interface - implements database operations using Drizzle ORM
 import { 
   users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions,
+  extractionRuns, humanReviews, complianceRules, normalisationRules, 
+  benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -269,6 +271,17 @@ export class DatabaseStorage implements IStorage {
   // Admin / Demo Data Management
   async wipeData(includeProperties: boolean = false): Promise<void> {
     // Delete in order of dependencies (children first)
+    // First, clear AI Model related tables
+    await db.delete(humanReviews);
+    await db.delete(evalRuns);
+    await db.delete(benchmarkItems);
+    await db.delete(benchmarkSets);
+    await db.delete(extractionRuns);
+    await db.delete(complianceRules);
+    await db.delete(normalisationRules);
+    await db.delete(extractionSchemas);
+    
+    // Then clear core certificate-related tables
     await db.delete(remedialActions);
     await db.delete(extractions);
     await db.delete(certificates);
