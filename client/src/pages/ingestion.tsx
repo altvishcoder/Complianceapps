@@ -46,8 +46,8 @@ export default function Ingestion() {
   const [processingStep, setProcessingStep] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileBase64, setFileBase64] = useState<string>("");
-  const [selectedPropertyId, setSelectedPropertyId] = useState("");
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("auto-detect");
+  const [selectedType, setSelectedType] = useState("auto-detect");
   const [extractedResult, setExtractedResult] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -130,7 +130,7 @@ export default function Ingestion() {
       clearInterval(interval);
       setUploadProgress(40);
       setProcessingState('analyzing');
-      setProcessingStep("Analyzing with Claude Vision AI...");
+      setProcessingStep("Analyzing document...");
       
       const actualPropertyId = isAutoDetectProperty 
         ? (properties.length > 0 ? properties[0].id : '') 
@@ -165,7 +165,7 @@ export default function Ingestion() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
         setUploadProgress(50 + Math.min(attempts * 1.5, 40));
-        setProcessingStep(`Analyzing with Claude Vision AI... (${attempts}s)`);
+        setProcessingStep(`Analyzing document... (${attempts}s)`);
         enrichedCert = await certificatesApi.get(certificate.id);
       }
       
@@ -246,7 +246,7 @@ export default function Ingestion() {
                 <Card className="h-full flex flex-col">
                   <CardHeader>
                     <CardTitle>Intelligent Ingestion</CardTitle>
-                    <CardDescription>Claude Vision AI powered extraction. Drag files here.</CardDescription>
+                    <CardDescription>AI-powered extraction. Drag files here.</CardDescription>
                   </CardHeader>
                   <CardContent className="flex-1 space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
@@ -320,11 +320,11 @@ export default function Ingestion() {
                         <h3 className="text-lg font-semibold mb-2">Drop Document Here</h3>
                         <p className="text-sm text-muted-foreground max-w-xs mb-4">
                           Supports PDF, JPG, PNG, WebP<br/>
-                          AI-powered extraction using Claude Vision
+                          AI-powered document extraction
                         </p>
                         <div className="flex gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
                            <BrainCircuit className="h-3 w-3" />
-                           <span>Anthropic Claude Vision Active</span>
+                           <span>AI Vision Active</span>
                         </div>
                       </div>
                     ) : (
@@ -428,7 +428,7 @@ export default function Ingestion() {
                           </div>
                           
                           <div className="flex items-center justify-between text-xs text-muted-foreground px-1 mt-3">
-                            <span>Claude Vision AI Analysis</span>
+                            <span>AI Document Analysis</span>
                             <span className={uploadProgress >= 70 ? "text-emerald-600" : "text-blue-600"}>
                               {uploadProgress >= 90 ? "Complete" : uploadProgress >= 40 ? "Processing..." : "Waiting..."}
                             </span>
@@ -546,7 +546,7 @@ export default function Ingestion() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Certificates</CardTitle>
-              <CardDescription>Recently processed certificates using Claude Vision AI</CardDescription>
+              <CardDescription>Recently processed certificates</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">
