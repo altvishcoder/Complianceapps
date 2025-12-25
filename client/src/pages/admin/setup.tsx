@@ -284,17 +284,17 @@ export default function AdminSetup() {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base flex items-center gap-2">
                             <Trash2 className="h-4 w-4 text-orange-600" />
-                            Wipe Data
+                            Wipe All Data
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <p className="text-sm text-muted-foreground">
-                            Remove all certificates, extractions, AI model data, and remedial actions. Keep properties.
+                            Remove all data including properties, schemes, blocks, certificates, and AI model data.
                           </p>
                           <Button 
                             className="w-full"
                             variant="outline"
-                            onClick={() => wipeDataMutation.mutate(false)}
+                            onClick={() => wipeDataMutation.mutate(true)}
                             disabled={isLoading}
                             data-testid="button-wipe-data"
                           >
@@ -306,7 +306,7 @@ export default function AdminSetup() {
                             ) : (
                               <>
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Wipe Data
+                                Wipe All Data
                               </>
                             )}
                           </Button>
