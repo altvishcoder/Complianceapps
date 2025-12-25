@@ -671,26 +671,47 @@ export default function Ingestion() {
                        />
                      </div>
                    </div>
-                   {(extractedResult.extractedData?.installationAddress || extractedResult.extractedData?.propertyAddress) && (
-                     <div className="grid gap-2">
-                       <Label>Address from Certificate (AI extracted)</Label>
-                       <div className="relative">
-                         <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                         <Input 
-                           value={
-                             typeof extractedResult.extractedData?.installationAddress === 'string' 
-                               ? extractedResult.extractedData.installationAddress
-                               : extractedResult.extractedData?.propertyAddress?.streetAddress 
-                                 ? `${extractedResult.extractedData.propertyAddress.streetAddress}, ${extractedResult.extractedData.propertyAddress.city || ''} ${extractedResult.extractedData.propertyAddress.postCode || ''}`
-                                 : 'Not extracted'
-                           } 
-                           readOnly
-                           className="pl-9 bg-amber-50/50 border-amber-200 text-amber-900" 
-                         />
+                   {(extractedResult.extractedData?.installationAddress || extractedResult.extractedData?.propertyAddress) && (() => {
+                     const addr = extractedResult.extractedData?.installationAddress;
+                     const propAddr = extractedResult.extractedData?.propertyAddress;
+                     let extractedAddress = 'Not extracted';
+                     
+                     if (typeof addr === 'string') {
+                       extractedAddress = addr;
+                     } else if (addr?.fullAddress) {
+                       extractedAddress = addr.fullAddress;
+                     } else if (propAddr?.streetAddress) {
+                       extractedAddress = `${propAddr.streetAddress}, ${propAddr.city || ''} ${propAddr.postCode || propAddr.postcode || ''}`;
+                     }
+                     
+                     const selectedAddr = `${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`.toLowerCase();
+                     const normalizedExtracted = extractedAddress.toLowerCase();
+                     const isMismatch = extractedAddress !== 'Not extracted' && 
+                       !normalizedExtracted.includes(selectedAddr.split(',')[0].trim()) &&
+                       !selectedAddr.includes(normalizedExtracted.split(',')[0].trim());
+                     
+                     return (
+                       <div className="grid gap-2">
+                         <Label className="flex items-center gap-2">
+                           Address from Certificate (AI extracted)
+                           {isMismatch && <Badge variant="destructive" className="text-xs">Mismatch!</Badge>}
+                         </Label>
+                         <div className="relative">
+                           <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                           <Input 
+                             value={extractedAddress} 
+                             readOnly
+                             className={`pl-9 ${isMismatch ? 'bg-red-50 border-red-300 text-red-900' : 'bg-amber-50/50 border-amber-200 text-amber-900'}`}
+                           />
+                         </div>
+                         {isMismatch ? (
+                           <p className="text-xs text-red-600 font-medium">Warning: The extracted address does not match the selected property!</p>
+                         ) : (
+                           <p className="text-xs text-amber-600">Please verify the selected property matches the certificate address</p>
+                         )}
                        </div>
-                       <p className="text-xs text-amber-600">Please verify the selected property matches the certificate address</p>
-                     </div>
-                   )}
+                     );
+                   })()}
                  </div>
 
                  <div className="space-y-4">
