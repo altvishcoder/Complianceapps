@@ -3,6 +3,8 @@ import { storage } from "./storage";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { db } from "./db";
+import { extractionRuns } from "@shared/schema";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -612,6 +614,25 @@ export async function processExtractionAndSave(
       extractedData: result.extractedData,
       confidence: result.confidence,
       textQuality: result.confidence > 0.7 ? "GOOD" : "FAIR"
+    });
+    
+    // Create extraction run for the AI Model insights
+    const docType = result.extractedData?.documentType || certificateType || 'UNKNOWN';
+    await db.insert(extractionRuns).values({
+      certificateId,
+      modelVersion: "claude-3-5-haiku-20241022",
+      promptVersion: `${certificateType?.toLowerCase() || 'general'}_v2.0`,
+      schemaVersion: "v1.0",
+      documentType: docType,
+      classificationConfidence: result.confidence,
+      rawOutput: result.extractedData,
+      validatedOutput: result.extractedData,
+      confidence: result.confidence,
+      processingTier: result.confidence >= 0.8 ? 1 : result.confidence >= 0.6 ? 2 : 3,
+      processingTimeMs: 0,
+      processingCost: 0,
+      validationPassed: result.confidence >= 0.6,
+      status: result.confidence >= 0.8 ? 'APPROVED' : 'AWAITING_REVIEW',
     });
 
     await storage.updateCertificate(certificateId, {
