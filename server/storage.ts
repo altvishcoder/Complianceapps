@@ -44,6 +44,9 @@ export interface IStorage {
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, updates: Partial<InsertProperty>): Promise<Property | undefined>;
   deleteProperty(id: string): Promise<boolean>;
+  bulkDeleteProperties(ids: string[]): Promise<number>;
+  bulkVerifyProperties(ids: string[]): Promise<number>;
+  getOrCreateAutoProperty(organisationId: string, addressData: { addressLine1: string; city?: string; postcode?: string }): Promise<Property>;
   
   // Certificates
   listCertificates(organisationId: string, filters?: { propertyId?: string; status?: string }): Promise<Certificate[]>;
@@ -180,6 +183,71 @@ export class DatabaseStorage implements IStorage {
   async deleteProperty(id: string): Promise<boolean> {
     const result = await db.delete(properties).where(eq(properties.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+  
+  async bulkDeleteProperties(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    let deleted = 0;
+    for (const id of ids) {
+      const result = await db.delete(properties).where(eq(properties.id, id));
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    }
+    return deleted;
+  }
+  
+  async bulkVerifyProperties(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    let verified = 0;
+    for (const id of ids) {
+      const result = await db.update(properties)
+        .set({ needsVerification: false, updatedAt: new Date() })
+        .where(eq(properties.id, id));
+      if (result.rowCount && result.rowCount > 0) verified++;
+    }
+    return verified;
+  }
+  
+  async getOrCreateAutoProperty(organisationId: string, addressData: { addressLine1: string; city?: string; postcode?: string }): Promise<Property> {
+    // First, try to get or create a default scheme and block for auto-extracted properties
+    let schemeList = await this.listSchemes(organisationId);
+    let autoScheme = schemeList.find(s => s.reference === 'AUTO-EXTRACT');
+    
+    if (!autoScheme) {
+      autoScheme = await this.createScheme({
+        organisationId,
+        name: 'Auto-Extracted Properties',
+        reference: 'AUTO-EXTRACT',
+      });
+    }
+    
+    let blockList = await this.listBlocks(autoScheme.id);
+    let autoBlock = blockList.find(b => b.reference === 'AUTO-BLOCK');
+    
+    if (!autoBlock) {
+      autoBlock = await this.createBlock({
+        schemeId: autoScheme.id,
+        name: 'Unverified Properties',
+        reference: 'AUTO-BLOCK',
+      });
+    }
+    
+    // Create the property with needsVerification flag
+    const property = await this.createProperty({
+      blockId: autoBlock.id,
+      uprn: `AUTO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      addressLine1: addressData.addressLine1 || 'Address To Be Verified',
+      city: addressData.city || 'Unknown',
+      postcode: addressData.postcode || 'UNKNOWN',
+      propertyType: 'FLAT',
+      tenure: 'SOCIAL_RENT',
+      bedrooms: 1,
+      hasGas: true,
+      source: 'AUTO_EXTRACTED',
+      needsVerification: true,
+      extractedMetadata: addressData,
+    });
+    
+    return property;
   }
   
   // Certificates

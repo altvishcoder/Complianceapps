@@ -14,6 +14,7 @@ export const certificateStatusEnum = pgEnum('certificate_status', ['UPLOADED', '
 export const certificateOutcomeEnum = pgEnum('certificate_outcome', ['SATISFACTORY', 'UNSATISFACTORY', 'PASS', 'FAIL', 'AT_RISK', 'IMMEDIATELY_DANGEROUS']);
 export const severityEnum = pgEnum('severity', ['IMMEDIATE', 'URGENT', 'PRIORITY', 'ROUTINE', 'ADVISORY']);
 export const actionStatusEnum = pgEnum('action_status', ['OPEN', 'IN_PROGRESS', 'SCHEDULED', 'COMPLETED', 'CANCELLED']);
+export const propertySourceEnum = pgEnum('property_source', ['MANUAL', 'AUTO_EXTRACTED', 'IMPORTED']);
 
 // Lashan Owned Model Enums
 export const extractionStatusEnum = pgEnum('extraction_status', [
@@ -77,6 +78,9 @@ export const properties = pgTable("properties", {
   bedrooms: integer("bedrooms").notNull().default(1),
   hasGas: boolean("has_gas").notNull().default(true),
   complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  source: propertySourceEnum("source").notNull().default('MANUAL'),
+  needsVerification: boolean("needs_verification").notNull().default(false),
+  extractedMetadata: json("extracted_metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

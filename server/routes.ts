@@ -164,6 +164,51 @@ export async function registerRoutes(
     }
   });
   
+  // Bulk delete properties
+  app.post("/api/properties/bulk-delete", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No property IDs provided" });
+      }
+      const deleted = await storage.bulkDeleteProperties(ids);
+      res.json({ success: true, deleted });
+    } catch (error) {
+      console.error("Error bulk deleting properties:", error);
+      res.status(500).json({ error: "Failed to delete properties" });
+    }
+  });
+  
+  // Bulk verify properties
+  app.post("/api/properties/bulk-verify", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No property IDs provided" });
+      }
+      const verified = await storage.bulkVerifyProperties(ids);
+      res.json({ success: true, verified });
+    } catch (error) {
+      console.error("Error bulk verifying properties:", error);
+      res.status(500).json({ error: "Failed to verify properties" });
+    }
+  });
+  
+  // Auto-create property from extracted address
+  app.post("/api/properties/auto-create", async (req, res) => {
+    try {
+      const { addressLine1, city, postcode } = req.body;
+      if (!addressLine1) {
+        return res.status(400).json({ error: "Address is required" });
+      }
+      const property = await storage.getOrCreateAutoProperty(ORG_ID, { addressLine1, city, postcode });
+      res.json(property);
+    } catch (error) {
+      console.error("Error auto-creating property:", error);
+      res.status(500).json({ error: "Failed to create property" });
+    }
+  });
+  
   // ===== CERTIFICATES =====
   app.get("/api/certificates", async (req, res) => {
     try {
