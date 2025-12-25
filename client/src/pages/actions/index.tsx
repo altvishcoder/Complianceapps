@@ -40,15 +40,27 @@ export default function ActionsPage() {
   const queryClient = useQueryClient();
   
   const { data: remedialActions = [] } = useQuery({
-    queryKey: ["remedial-actions"],
+    queryKey: ["actions"],
     queryFn: () => actionsApi.list(),
   });
+  
+  // Calculate stats from real data
+  const totalOpen = remedialActions.filter(a => a.status === 'OPEN').length;
+  const emergencyCount = remedialActions.filter(a => a.severity === 'IMMEDIATE' && a.status === 'OPEN').length;
+  const inProgressCount = remedialActions.filter(a => a.status === 'IN_PROGRESS').length;
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const resolvedCount = remedialActions.filter(a => {
+    if (a.status !== 'COMPLETED') return false;
+    if (!a.resolvedAt) return false;
+    return new Date(a.resolvedAt) >= thirtyDaysAgo;
+  }).length;
   
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
       actionsApi.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["remedial-actions"] });
+      queryClient.invalidateQueries({ queryKey: ["actions"] });
       toast({
         title: "Status Updated",
         description: "Action status has been changed",
@@ -106,7 +118,7 @@ export default function ActionsPage() {
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Open</p>
-                  <h3 className="text-2xl font-bold mt-1">24</h3>
+                  <h3 className="text-2xl font-bold mt-1">{totalOpen}</h3>
                 </div>
                 <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
                   <AlertTriangle className="h-5 w-5" />
@@ -117,7 +129,7 @@ export default function ActionsPage() {
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Emergency</p>
-                  <h3 className="text-2xl font-bold mt-1 text-rose-600">3</h3>
+                  <h3 className="text-2xl font-bold mt-1 text-rose-600">{emergencyCount}</h3>
                 </div>
                 <div className="h-10 w-10 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">
                   <AlertOctagon className="h-5 w-5" />
@@ -128,7 +140,7 @@ export default function ActionsPage() {
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                  <h3 className="text-2xl font-bold mt-1">8</h3>
+                  <h3 className="text-2xl font-bold mt-1">{inProgressCount}</h3>
                 </div>
                 <div className="h-10 w-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
                   <Wrench className="h-5 w-5" />
@@ -139,7 +151,7 @@ export default function ActionsPage() {
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Resolved (30d)</p>
-                  <h3 className="text-2xl font-bold mt-1 text-emerald-600">15</h3>
+                  <h3 className="text-2xl font-bold mt-1 text-emerald-600">{resolvedCount}</h3>
                 </div>
                 <div className="h-10 w-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="h-5 w-5" />
