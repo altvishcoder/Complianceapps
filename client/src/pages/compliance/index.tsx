@@ -3,10 +3,83 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertTriangle, AlertOctagon, TrendingUp, ArrowUpRight } from "lucide-react";
-import { ComplianceOverviewChart } from "@/components/dashboard/ComplianceChart";
+import { CheckCircle2, AlertTriangle, TrendingUp, ArrowUpRight, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { certificatesApi, actionsApi } from "@/lib/api";
 
 export default function CompliancePage() {
+  const { data: certificates = [], isLoading: certsLoading } = useQuery({
+    queryKey: ["certificates"],
+    queryFn: () => certificatesApi.list(),
+  });
+
+  const { data: actions = [], isLoading: actionsLoading } = useQuery({
+    queryKey: ["actions"],
+    queryFn: () => actionsApi.list(),
+  });
+
+  const isLoading = certsLoading || actionsLoading;
+
+  // Calculate compliance stats from real data
+  const totalCerts = certificates.length;
+  const satisfactoryCerts = certificates.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
+  const complianceRate = totalCerts > 0 ? ((satisfactoryCerts / totalCerts) * 100).toFixed(1) : '0';
+  
+  const atRiskProps = certificates.filter(c => {
+    if (!c.expiryDate) return false;
+    const daysUntilExpiry = Math.ceil((new Date(c.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+  }).length;
+
+  const nonCompliant = certificates.filter(c => c.outcome === 'UNSATISFACTORY').length;
+
+  // Compliance by stream
+  const streams = [
+    { name: "Gas Safety", key: "GAS_SAFETY" },
+    { name: "Electrical (EICR)", key: "EICR" },
+    { name: "Fire Safety (FRA)", key: "FIRE_RISK" },
+    { name: "Asbestos", key: "ASBESTOS_SURVEY" },
+    { name: "Legionella", key: "LEGIONELLA_ASSESSMENT" },
+    { name: "Lift (LOLER)", key: "LIFT_INSPECTION" },
+  ];
+
+  const complianceByStream = streams.map(stream => {
+    const streamCerts = certificates.filter(c => c.certificateType === stream.key);
+    const validCerts = streamCerts.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
+    const rate = streamCerts.length > 0 ? (validCerts / streamCerts.length) * 100 : 100;
+    return { ...stream, value: rate, count: streamCerts.length };
+  });
+
+  // Compliance gaps - overdue or unsatisfactory
+  const complianceGaps = certificates
+    .filter(c => {
+      if (c.outcome === 'UNSATISFACTORY') return true;
+      if (!c.expiryDate) return false;
+      return new Date(c.expiryDate) < new Date();
+    })
+    .slice(0, 10)
+    .map(c => ({
+      prop: c.fileName || 'Unknown Property',
+      issue: c.outcome === 'UNSATISFACTORY' ? 'Unsatisfactory Result' : 'Certificate Expired',
+      stream: c.certificateType?.replace(/_/g, ' ') || 'Unknown',
+      days: c.expiryDate ? Math.abs(Math.ceil((new Date(c.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0,
+      id: c.id,
+    }));
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Compliance Overview" />
+          <main className="flex-1 flex items-center justify-center">
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-muted/30">
       <Sidebar />
@@ -20,10 +93,9 @@ export default function CompliancePage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Big 6 Compliance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">98.5%</div>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1 text-emerald-500" />
-                  <span className="text-emerald-600 font-medium">+0.2%</span> from last month
+                <div className="text-2xl font-bold">{complianceRate}%</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {totalCerts > 0 ? `${satisfactoryCerts} of ${totalCerts} certificates compliant` : 'No certificates uploaded'}
                 </p>
               </CardContent>
             </Card>
@@ -32,7 +104,7 @@ export default function CompliancePage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">At Risk Properties</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">42</div>
+                <div className="text-2xl font-bold">{atRiskProps}</div>
                 <p className="text-xs text-muted-foreground mt-1">Expiring within 30 days</p>
               </CardContent>
             </Card>
@@ -41,7 +113,7 @@ export default function CompliancePage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Non-Compliant</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
+                <div className="text-2xl font-bold">{nonCompliant}</div>
                 <p className="text-xs text-muted-foreground mt-1">Requiring immediate action</p>
               </CardContent>
             </Card>
@@ -54,33 +126,59 @@ export default function CompliancePage() {
                 <CardDescription>Current compliance rates per statutory area</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { name: "Gas Safety", value: 99.2, status: "High" },
-                  { name: "Electrical (EICR)", value: 96.5, status: "Good" },
-                  { name: "Fire Safety (FRA)", value: 100.0, status: "High" },
-                  { name: "Asbestos", value: 98.8, status: "High" },
-                  { name: "Legionella", value: 94.2, status: "Warning" },
-                  { name: "Lift (LOLER)", value: 100.0, status: "High" },
-                ].map((item) => (
-                  <div key={item.name} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{item.name}</span>
-                      <span className={item.value < 95 ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
-                        {item.value}%
-                      </span>
+                {complianceByStream.length > 0 ? (
+                  complianceByStream.map((item) => (
+                    <div key={item.key} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{item.name}</span>
+                        <span className={item.value < 95 ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
+                          {item.value.toFixed(1)}% {item.count > 0 && <span className="text-muted-foreground font-normal">({item.count})</span>}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full ${item.value < 95 ? "bg-amber-500" : "bg-emerald-500"}`} 
+                          style={{ width: `${item.value}%` }} 
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${item.value < 95 ? "bg-amber-500" : "bg-emerald-500"}`} 
-                        style={{ width: `${item.value}%` }} 
-                      />
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No compliance data available. Upload certificates to see compliance rates.
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
 
-            <ComplianceOverviewChart />
+            <Card>
+              <CardHeader>
+                <CardTitle>Open Remedial Actions</CardTitle>
+                <CardDescription>Active issues requiring attention</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {actions.filter(a => a.status === 'OPEN').length > 0 ? (
+                  <div className="space-y-3">
+                    {actions.filter(a => a.status === 'OPEN').slice(0, 5).map((action) => (
+                      <div key={action.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
+                        <div>
+                          <p className="text-sm font-medium">{action.code}: {action.description?.slice(0, 50)}...</p>
+                          <p className="text-xs text-muted-foreground">{action.location}</p>
+                        </div>
+                        <Badge variant={action.severity === 'IMMEDIATE' ? 'destructive' : 'outline'}>
+                          {action.severity}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle2 className="w-12 h-12 mx-auto text-green-500 mb-2" />
+                    No open remedial actions
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
@@ -89,40 +187,43 @@ export default function CompliancePage() {
               <CardDescription>Properties requiring attention to achieve 100% compliance</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/50 text-muted-foreground font-medium">
-                    <tr>
-                      <th className="p-4">Property</th>
-                      <th className="p-4">Issue</th>
-                      <th className="p-4">Stream</th>
-                      <th className="p-4">Days Overdue</th>
-                      <th className="p-4 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {[
-                      { prop: "12 Green Lane", issue: "No valid CP12", stream: "Gas", days: 5 },
-                      { prop: "Flat 2b, The Towers", issue: "EICR Unsatisfactory", stream: "Electrical", days: 12 },
-                      { prop: "56 Maple Drive", issue: "Legionella RA Expired", stream: "Water", days: 2 },
-                    ].map((row, i) => (
-                      <tr key={i} className="hover:bg-muted/20">
-                        <td className="p-4 font-medium">{row.prop}</td>
-                        <td className="p-4 text-rose-600 font-medium">{row.issue}</td>
-                        <td className="p-4">
-                          <Badge variant="outline">{row.stream}</Badge>
-                        </td>
-                        <td className="p-4 text-rose-600">{row.days} days</td>
-                        <td className="p-4 text-right">
-                          <Button size="sm" variant="outline" className="gap-1">
-                            Resolve <ArrowUpRight className="h-3 w-3" />
-                          </Button>
-                        </td>
+              {complianceGaps.length > 0 ? (
+                <div className="rounded-md border">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/50 text-muted-foreground font-medium">
+                      <tr>
+                        <th className="p-4">Property</th>
+                        <th className="p-4">Issue</th>
+                        <th className="p-4">Stream</th>
+                        <th className="p-4">Days Overdue</th>
+                        <th className="p-4 text-right">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {complianceGaps.map((row) => (
+                        <tr key={row.id} className="hover:bg-muted/20">
+                          <td className="p-4 font-medium">{row.prop}</td>
+                          <td className="p-4 text-rose-600 font-medium">{row.issue}</td>
+                          <td className="p-4">
+                            <Badge variant="outline">{row.stream}</Badge>
+                          </td>
+                          <td className="p-4 text-rose-600">{row.days} days</td>
+                          <td className="p-4 text-right">
+                            <Button size="sm" variant="outline" className="gap-1">
+                              Resolve <ArrowUpRight className="h-3 w-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle2 className="w-12 h-12 mx-auto text-green-500 mb-2" />
+                  No compliance gaps - all properties are compliant
+                </div>
+              )}
             </CardContent>
           </Card>
 
