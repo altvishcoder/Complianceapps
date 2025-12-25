@@ -1,0 +1,268 @@
+Add new database tables to support the extraction schema system and model tracking.
+
+Update prisma/schema.prisma by ADDING these new models (keep all existing models):
+
+// ==========================================
+// EXTRACTION SCHEMAS (Behaviour Contract)
+// ==========================================
+
+model ExtractionSchema {
+  id              String   @id @default(cuid())
+  version         String   // "v1.0", "v1.1", etc.
+  documentType    String   // GAS_SAFETY, EICR, FRA, etc.
+  schemaJson      Json     // The actual JSON schema definition
+  promptTemplate  String?  @db.Text // Associated prompt template
+  isActive        Boolean  @default(false)
+  isDeprecated    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  extractionRuns  ExtractionRun[]
+  
+  @@unique([version, documentType])
+  @@index([documentType, isActive])
+}
+
+// ==========================================
+// EXTRACTION RUNS (Raw Model Output)
+// ==========================================
+
+model ExtractionRun {
+  id                String   @id @default(cuid())
+  certificateId     String
+  schemaId          String?
+  
+  // Model info
+  modelVersion      String   // "claude-sonnet-4-20250514"
+  promptVersion     String   // "gas_v1.0"
+  schemaVersion     String   // "v1.0"
+  
+  // Document classification
+  documentType      String
+  classificationConfidence Float @default(0)
+  
+  // Extraction outputs (progressive refinement)
+  rawOutput         Json     // First-pass extraction from AI
+  validatedOutput   Json?    // After schema validation
+  repairedOutput    Json?    // After repair prompts (Phase 3)
+  normalisedOutput  Json?    // After normalisation rules (Phase 6)
+  finalOutput       Json?    // After human review (Phase 4)
+  
+  // Quality metrics
+  confidence        Float    @default(0)
+  processingTier    Int      @default(4)
+  processingTimeMs  Int      @default(0)
+  processingCost    Float    @default(0)
+  
+  // Validation tracking
+  validationErrors  Json     @default("[]")
+  validationPassed  Boolean  @default(false)
+  repairAttempts    Int      @default(0)
+  
+  // Status
+  status            ExtractionStatus @default(PENDING)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  certificate       Certificate       @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  schema            ExtractionSchema? @relation(fields: [schemaId], references: [id])
+  humanReview       HumanReview?
+  
+  @@index([certificateId])
+  @@index([documentType, createdAt])
+  @@index([status])
+}
+
+enum ExtractionStatus {
+  PENDING
+  PROCESSING
+  VALIDATION_FAILED
+  REPAIR_IN_PROGRESS
+  AWAITING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ==========================================
+// HUMAN REVIEWS (Data Flywheel - Phase 4)
+// ==========================================
+
+model HumanReview {
+  id                String   @id @default(cuid())
+  extractionRunId   String   @unique
+  reviewerId        String
+  organisationId    String
+  
+  // The approved output
+  approvedOutput    Json
+  
+  // What changed (for learning)
+  fieldChanges      Json     @default("[]") // [{field, before, after, reason}]
+  addedItems        Json     @default("[]")
+  removedItems      Json     @default("[]")
+  
+  // Error categorisation for improvement targeting
+  errorTags         String[] // ["missed_table_row", "wrong_date_format"]
+  
+  // Quality indicators
+  wasCorrect        Boolean  @default(false) // No changes needed
+  changeCount       Int      @default(0)
+  reviewTimeSeconds Int?
+  
+  // Notes
+  reviewerNotes     String?
+  
+  reviewedAt        DateTime @default(now())
+  
+  extractionRun     ExtractionRun @relation(fields: [extractionRunId], references: [id], onDelete: Cascade)
+  reviewer          User          @relation(fields: [reviewerId], references: [id])
+  organisation      Organisation  @relation(fields: [organisationId], references: [id])
+  
+  @@index([organisationId, reviewedAt])
+  @@index([reviewerId])
+  @@index([errorTags])
+}
+
+// ==========================================
+// BENCHMARKS (Evaluation - Phase 5)
+// ==========================================
+
+model BenchmarkSet {
+  id              String   @id @default(cuid())
+  name            String   // "benchmark_v1", "eicr_edge_cases"
+  description     String?
+  documentTypes   String[] // Which doc types this covers
+  isLocked        Boolean  @default(false)
+  itemCount       Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  lockedAt        DateTime?
+  
+  items           BenchmarkItem[]
+  evalRuns        EvalRun[]
+}
+
+model BenchmarkItem {
+  id                String   @id @default(cuid())
+  benchmarkSetId    String
+  certificateId     String
+  
+  // The "gold standard" expected output
+  expectedOutput    Json
+  
+  // Metadata about difficulty
+  difficulty        String   @default("medium") // "easy", "medium", "hard"
+  challengeTypes    String[] // ["messy_scan", "handwritten", "multi_page"]
+  notes             String?
+  
+  createdAt         DateTime @default(now())
+  
+  benchmarkSet      BenchmarkSet @relation(fields: [benchmarkSetId], references: [id], onDelete: Cascade)
+  certificate       Certificate  @relation(fields: [certificateId], references: [id])
+  
+  @@unique([benchmarkSetId, certificateId])
+}
+
+model EvalRun {
+  id                String   @id @default(cuid())
+  benchmarkSetId    String
+  
+  // What was tested
+  modelVersion      String
+  promptVersion     String
+  schemaVersion     String
+  
+  // Aggregate scores
+  overallScore      Float
+  exactMatchRate    Float
+  evidenceAccuracy  Float
+  schemaValidRate   Float
+  
+  // Detailed results
+  scores            Json     // {by_field, by_doc_type}
+  itemResults       Json     // Per-item scores
+  
+  // Comparison to previous
+  previousRunId     String?
+  regressions       Json     @default("[]")
+  improvements      Json     @default("[]")
+  scoreDelta        Float?
+  
+  // Release decision
+  passedGating      Boolean?
+  gatingNotes       String?
+  
+  createdAt         DateTime @default(now())
+  
+  benchmarkSet      BenchmarkSet @relation(fields: [benchmarkSetId], references: [id])
+  previousRun       EvalRun?     @relation("EvalComparison", fields: [previousRunId], references: [id])
+  nextRuns          EvalRun[]    @relation("EvalComparison")
+  
+  @@index([benchmarkSetId, createdAt])
+}
+
+// ==========================================
+// COMPLIANCE RULES (Domain Logic - Phase 6)
+// ==========================================
+
+model ComplianceRule {
+  id                String   @id @default(cuid())
+  ruleCode          String   @unique  // "EICR_C1_URGENT"
+  ruleName          String
+  documentType      String
+  
+  // Rule definition
+  conditions        Json     // [{field, operator, value}]
+  conditionLogic    String   @default("AND") // "AND" or "OR"
+  
+  // Actions
+  action            String   // "FLAG_URGENT", "MARK_INCOMPLETE", "AUTO_FAIL", "INFO"
+  priority          String?  // "P1", "P2", "P3"
+  
+  // Documentation
+  description       String
+  legislation       String?
+  
+  isActive          Boolean  @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([documentType, isActive])
+}
+
+model NormalisationRule {
+  id              String   @id @default(cuid())
+  ruleName        String
+  fieldPath       String   // "engineer.company", "inspection.outcome"
+  ruleType        String   // "MAPPING", "REGEX", "TRANSFORM"
+  
+  // Rule definition
+  inputPatterns   String[] // Patterns to match
+  outputValue     String?  // Mapped value (for MAPPING type)
+  transformFn     String?  // Transform function name (for TRANSFORM type)
+  
+  priority        Int      @default(0) // Higher = applied first
+  isActive        Boolean  @default(true)
+  
+  @@index([fieldPath, isActive])
+}
+
+Also ADD these relations to EXISTING models:
+
+In the Certificate model, add:
+  extractionRuns  ExtractionRun[]
+  benchmarkItems  BenchmarkItem[]
+
+In the User model, add:
+  humanReviews    HumanReview[]
+
+In the Organisation model, add:
+  humanReviews    HumanReview[]
+
+After updating the schema, run:
+npx prisma migrate dev --name add_model_ownership_tables
+npx prisma generate
+
+Then verify the migration succeeded by checking that all new tables exist.

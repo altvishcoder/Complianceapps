@@ -15,6 +15,12 @@ export const certificateOutcomeEnum = pgEnum('certificate_outcome', ['SATISFACTO
 export const severityEnum = pgEnum('severity', ['IMMEDIATE', 'URGENT', 'PRIORITY', 'ROUTINE', 'ADVISORY']);
 export const actionStatusEnum = pgEnum('action_status', ['OPEN', 'IN_PROGRESS', 'SCHEDULED', 'COMPLETED', 'CANCELLED']);
 
+// Lashan Owned Model Enums
+export const extractionStatusEnum = pgEnum('extraction_status', [
+  'PENDING', 'PROCESSING', 'VALIDATION_FAILED', 'REPAIR_IN_PROGRESS', 
+  'AWAITING_REVIEW', 'APPROVED', 'REJECTED'
+]);
+
 // Tables
 export const organisations = pgTable("organisations", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -125,6 +131,195 @@ export const remedialActions = pgTable("remedial_actions", {
   costEstimate: text("cost_estimate"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// LASHAN OWNED MODEL TABLES
+// ==========================================
+
+// Extraction Schemas (Behaviour Contract)
+export const extractionSchemas = pgTable("extraction_schemas", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  version: text("version").notNull(), // "v1.0", "v1.1", etc.
+  documentType: text("document_type").notNull(), // GAS_SAFETY, EICR, FRA, etc.
+  schemaJson: json("schema_json").notNull(), // The actual JSON schema definition
+  promptTemplate: text("prompt_template"), // Associated prompt template
+  isActive: boolean("is_active").notNull().default(false),
+  isDeprecated: boolean("is_deprecated").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Extraction Runs (Raw Model Output with Progressive Refinement)
+export const extractionRuns = pgTable("extraction_runs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  certificateId: varchar("certificate_id").references(() => certificates.id, { onDelete: 'cascade' }).notNull(),
+  schemaId: varchar("schema_id").references(() => extractionSchemas.id),
+  
+  // Model info
+  modelVersion: text("model_version").notNull(), // "claude-sonnet-4-20250514"
+  promptVersion: text("prompt_version").notNull(), // "gas_v1.0"
+  schemaVersion: text("schema_version").notNull(), // "v1.0"
+  
+  // Document classification
+  documentType: text("document_type").notNull(),
+  classificationConfidence: real("classification_confidence").notNull().default(0),
+  
+  // Extraction outputs (progressive refinement)
+  rawOutput: json("raw_output").notNull(), // First-pass extraction from AI
+  validatedOutput: json("validated_output"), // After schema validation
+  repairedOutput: json("repaired_output"), // After repair prompts (Phase 3)
+  normalisedOutput: json("normalised_output"), // After normalisation rules (Phase 6)
+  finalOutput: json("final_output"), // After human review (Phase 4)
+  
+  // Quality metrics
+  confidence: real("confidence").notNull().default(0),
+  processingTier: integer("processing_tier").notNull().default(4),
+  processingTimeMs: integer("processing_time_ms").notNull().default(0),
+  processingCost: real("processing_cost").notNull().default(0),
+  
+  // Validation tracking
+  validationErrors: json("validation_errors").notNull().default([]),
+  validationPassed: boolean("validation_passed").notNull().default(false),
+  repairAttempts: integer("repair_attempts").notNull().default(0),
+  
+  // Status
+  status: extractionStatusEnum("status").notNull().default('PENDING'),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Human Reviews (Data Flywheel - Phase 4)
+export const humanReviews = pgTable("human_reviews", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  extractionRunId: varchar("extraction_run_id").references(() => extractionRuns.id, { onDelete: 'cascade' }).notNull().unique(),
+  reviewerId: varchar("reviewer_id").references(() => users.id).notNull(),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  // The approved output
+  approvedOutput: json("approved_output").notNull(),
+  
+  // What changed (for learning)
+  fieldChanges: json("field_changes").notNull().default([]), // [{field, before, after, reason}]
+  addedItems: json("added_items").notNull().default([]),
+  removedItems: json("removed_items").notNull().default([]),
+  
+  // Error categorisation for improvement targeting
+  errorTags: text("error_tags").array(), // ["missed_table_row", "wrong_date_format"]
+  
+  // Quality indicators
+  wasCorrect: boolean("was_correct").notNull().default(false), // No changes needed
+  changeCount: integer("change_count").notNull().default(0),
+  reviewTimeSeconds: integer("review_time_seconds"),
+  
+  // Notes
+  reviewerNotes: text("reviewer_notes"),
+  
+  reviewedAt: timestamp("reviewed_at").defaultNow().notNull(),
+});
+
+// Benchmark Sets (Evaluation - Phase 5)
+export const benchmarkSets = pgTable("benchmark_sets", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(), // "benchmark_v1", "eicr_edge_cases"
+  description: text("description"),
+  documentTypes: text("document_types").array(), // Which doc types this covers
+  isLocked: boolean("is_locked").notNull().default(false),
+  itemCount: integer("item_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lockedAt: timestamp("locked_at"),
+});
+
+// Benchmark Items
+export const benchmarkItems = pgTable("benchmark_items", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  benchmarkSetId: varchar("benchmark_set_id").references(() => benchmarkSets.id, { onDelete: 'cascade' }).notNull(),
+  certificateId: varchar("certificate_id").references(() => certificates.id).notNull(),
+  
+  // The "gold standard" expected output
+  expectedOutput: json("expected_output").notNull(),
+  
+  // Metadata about difficulty
+  difficulty: text("difficulty").notNull().default("medium"), // "easy", "medium", "hard"
+  challengeTypes: text("challenge_types").array(), // ["messy_scan", "handwritten", "multi_page"]
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Evaluation Runs
+export const evalRuns = pgTable("eval_runs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  benchmarkSetId: varchar("benchmark_set_id").references(() => benchmarkSets.id).notNull(),
+  
+  // What was tested
+  modelVersion: text("model_version").notNull(),
+  promptVersion: text("prompt_version").notNull(),
+  schemaVersion: text("schema_version").notNull(),
+  
+  // Aggregate scores
+  overallScore: real("overall_score").notNull(),
+  exactMatchRate: real("exact_match_rate").notNull(),
+  evidenceAccuracy: real("evidence_accuracy").notNull(),
+  schemaValidRate: real("schema_valid_rate").notNull(),
+  
+  // Detailed results
+  scores: json("scores").notNull(), // {by_field, by_doc_type}
+  itemResults: json("item_results").notNull(), // Per-item scores
+  
+  // Comparison to previous
+  previousRunId: varchar("previous_run_id"),
+  regressions: json("regressions").notNull().default([]),
+  improvements: json("improvements").notNull().default([]),
+  scoreDelta: real("score_delta"),
+  
+  // Release decision
+  passedGating: boolean("passed_gating"),
+  gatingNotes: text("gating_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Compliance Rules (Domain Logic - Phase 6)
+export const complianceRules = pgTable("compliance_rules", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ruleCode: text("rule_code").notNull().unique(), // "EICR_C1_URGENT"
+  ruleName: text("rule_name").notNull(),
+  documentType: text("document_type").notNull(),
+  
+  // Rule definition
+  conditions: json("conditions").notNull(), // [{field, operator, value}]
+  conditionLogic: text("condition_logic").notNull().default("AND"), // "AND" or "OR"
+  
+  // Actions
+  action: text("action").notNull(), // "FLAG_URGENT", "MARK_INCOMPLETE", "AUTO_FAIL", "INFO"
+  priority: text("priority"), // "P1", "P2", "P3"
+  
+  // Documentation
+  description: text("description").notNull(),
+  legislation: text("legislation"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Normalisation Rules (Domain Logic - Phase 6)
+export const normalisationRules = pgTable("normalisation_rules", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ruleName: text("rule_name").notNull(),
+  fieldPath: text("field_path").notNull(), // "engineer.company", "inspection.outcome"
+  ruleType: text("rule_type").notNull(), // "MAPPING", "REGEX", "TRANSFORM"
+  
+  // Rule definition
+  inputPatterns: text("input_patterns").array(), // Patterns to match
+  outputValue: text("output_value"), // Mapped value (for MAPPING type)
+  transformFn: text("transform_fn"), // Transform function name (for TRANSFORM type)
+  
+  priority: integer("priority").notNull().default(0), // Higher = applied first
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 // Relations
