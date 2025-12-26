@@ -385,8 +385,18 @@ export default function ActionsPage() {
 
                   <SheetFooter className="border-t pt-4">
                      <div className="flex gap-2 w-full">
-                        <Button className="flex-1" variant="outline">Re-assign</Button>
-                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700">Mark Complete</Button>
+                        <Button className="flex-1" variant="outline" onClick={() => setSelectedAction(null)}>Close</Button>
+                        <Button 
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => {
+                            handleUpdateStatus('COMPLETED');
+                            setSelectedAction(null);
+                          }}
+                          disabled={updateAction.isPending || selectedAction.status === 'COMPLETED'}
+                          data-testid="button-mark-complete"
+                        >
+                          {selectedAction.status === 'COMPLETED' ? 'Already Resolved' : 'Mark Complete'}
+                        </Button>
                      </div>
                   </SheetFooter>
                 </>

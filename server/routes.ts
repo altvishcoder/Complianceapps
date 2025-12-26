@@ -394,6 +394,13 @@ export async function registerRoutes(
   app.patch("/api/actions/:id", async (req, res) => {
     try {
       const updates = req.body;
+      
+      // Set resolvedAt when marking as completed
+      if (updates.status === 'COMPLETED' || updates.status === 'completed') {
+        updates.status = 'COMPLETED';
+        updates.resolvedAt = new Date().toISOString().split('T')[0];
+      }
+      
       const action = await storage.updateRemedialAction(req.params.id, updates);
       if (!action) {
         return res.status(404).json({ error: "Action not found" });
