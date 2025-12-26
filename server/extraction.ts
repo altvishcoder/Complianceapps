@@ -628,11 +628,11 @@ export async function processExtractionAndSave(
       rawOutput: result.extractedData,
       validatedOutput: result.extractedData,
       confidence: result.confidence,
-      processingTier: result.confidence >= 0.8 ? 1 : result.confidence >= 0.6 ? 2 : 3,
+      processingTier: result.confidence >= 0.95 ? 1 : result.confidence >= 0.8 ? 2 : 3,
       processingTimeMs: 0,
       processingCost: 0,
-      validationPassed: result.confidence >= 0.6,
-      status: result.confidence >= 0.8 ? 'APPROVED' : 'AWAITING_REVIEW',
+      validationPassed: result.confidence >= 0.7,
+      status: result.confidence >= 0.95 ? 'APPROVED' : 'AWAITING_REVIEW',
     });
 
     await storage.updateCertificate(certificateId, {
@@ -642,6 +642,51 @@ export async function processExtractionAndSave(
       expiryDate: result.expiryDate,
       outcome: result.outcome
     });
+    
+    // Update property address from extracted data if property needs verification
+    const property = await storage.getProperty(certificate.propertyId);
+    if (property?.needsVerification) {
+      const extractedAddress = result.extractedData?.installationAddress || 
+                               result.extractedData?.propertyAddress ||
+                               result.extractedData?.premisesAddress;
+      
+      if (extractedAddress) {
+        let addressLine1 = '';
+        let city = '';
+        let postcode = '';
+        
+        if (typeof extractedAddress === 'string') {
+          // Parse address string - extract postcode first
+          const postcodeMatch = extractedAddress.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2}/i);
+          if (postcodeMatch) {
+            postcode = postcodeMatch[0].toUpperCase();
+          }
+          // Remove postcode and split remaining address
+          const addressWithoutPostcode = extractedAddress.replace(postcodeMatch?.[0] || '', '').trim();
+          const parts = addressWithoutPostcode.split(',').map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            addressLine1 = parts.slice(0, -1).join(', ');
+            city = parts[parts.length - 1];
+          } else {
+            addressLine1 = addressWithoutPostcode;
+          }
+        } else if (extractedAddress.streetAddress || extractedAddress.fullAddress) {
+          addressLine1 = extractedAddress.streetAddress || extractedAddress.fullAddress || '';
+          city = extractedAddress.city || extractedAddress.town || '';
+          postcode = extractedAddress.postCode || extractedAddress.postcode || '';
+        }
+        
+        if (addressLine1) {
+          await storage.updateProperty(certificate.propertyId, {
+            addressLine1: addressLine1.substring(0, 255),
+            city: city || 'To Be Verified',
+            postcode: postcode || 'UNKNOWN',
+            extractedMetadata: result.extractedData
+          });
+          console.log(`Updated property ${certificate.propertyId} with extracted address: ${addressLine1}`);
+        }
+      }
+    }
 
     const severityMap: Record<string, "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY"> = {
       IMMEDIATE: "IMMEDIATE",
