@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, 
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema,
-  extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties
+  extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches
 } from "@shared/schema";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
@@ -260,12 +260,13 @@ export async function registerRoutes(
   
   app.post("/api/certificates", async (req, res) => {
     try {
-      const { fileBase64, mimeType, ...certificateData } = req.body;
+      const { fileBase64, mimeType, batchId, ...certificateData } = req.body;
       
       const data = insertCertificateSchema.parse({
         ...certificateData,
         organisationId: ORG_ID,
         status: "PROCESSING",
+        batchId: batchId || null,
       });
       
       const certificate = await storage.createCertificate(data);
@@ -645,6 +646,66 @@ export async function registerRoutes(
     }
   });
   
+  // ===== INGESTION BATCHES =====
+  // Create a new batch
+  app.post("/api/batches", async (req, res) => {
+    try {
+      const { name, totalFiles } = req.body;
+      const [batch] = await db.insert(ingestionBatches).values({
+        organisationId: ORG_ID,
+        name: name || `Batch ${new Date().toISOString()}`,
+        totalFiles: totalFiles || 0,
+        status: 'PENDING',
+      }).returning();
+      res.status(201).json(batch);
+    } catch (error) {
+      console.error("Error creating batch:", error);
+      res.status(500).json({ error: "Failed to create batch" });
+    }
+  });
+  
+  // Get batch progress
+  app.get("/api/batches/:id", async (req, res) => {
+    try {
+      const [batch] = await db.select().from(ingestionBatches).where(eq(ingestionBatches.id, req.params.id));
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      
+      // Get certificates in this batch
+      const batchCerts = await db.select().from(certificates).where(eq(certificates.batchId, req.params.id));
+      
+      const completed = batchCerts.filter(c => c.status === 'APPROVED' || c.status === 'NEEDS_REVIEW' || c.status === 'EXTRACTED').length;
+      const failed = batchCerts.filter(c => c.status === 'FAILED' || c.status === 'REJECTED').length;
+      const processing = batchCerts.filter(c => c.status === 'PROCESSING' || c.status === 'UPLOADED').length;
+      
+      res.json({
+        ...batch,
+        certificates: batchCerts,
+        progress: {
+          total: batchCerts.length,
+          completed,
+          failed,
+          processing,
+        },
+      });
+    } catch (error) {
+      console.error("Error getting batch:", error);
+      res.status(500).json({ error: "Failed to get batch" });
+    }
+  });
+  
+  // List active batches
+  app.get("/api/batches", async (req, res) => {
+    try {
+      const batches = await db.select().from(ingestionBatches).orderBy(desc(ingestionBatches.createdAt)).limit(20);
+      res.json(batches);
+    } catch (error) {
+      console.error("Error listing batches:", error);
+      res.status(500).json({ error: "Failed to list batches" });
+    }
+  });
+  
   // ===== LASHAN OWNED MODEL: COMPLIANCE RULES =====
   app.get("/api/compliance-rules", async (req, res) => {
     try {
@@ -766,16 +827,19 @@ export async function registerRoutes(
         c.status === 'UPLOADED' || c.status === 'PROCESSING' || c.status === 'NEEDS_REVIEW'
       ).length;
       
-      // Compliance by type
+      // Compliance by type - only show types with certificates
       const certTypes = ['GAS_SAFETY', 'EICR', 'FIRE_RISK', 'LEGIONELLA_ASSESSMENT', 'LIFT_INSPECTION', 'ASBESTOS_SURVEY'];
       const complianceByType = certTypes.map(type => {
         const typeCerts = allCertificates.filter(c => c.certificateType === type);
         const typeValid = typeCerts.filter(c => c.status === 'APPROVED' || c.outcome === 'SATISFACTORY').length;
         const typeInvalid = typeCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
+        const typePending = typeCerts.filter(c => c.status === 'NEEDS_REVIEW' || c.status === 'PROCESSING').length;
         return {
           type: type.replace(/_/g, ' '),
-          compliant: typeCerts.length > 0 ? Math.round((typeValid / typeCerts.length) * 100) : 100,
+          total: typeCerts.length,
+          compliant: typeCerts.length > 0 ? Math.round((typeValid / typeCerts.length) * 100) : 0,
           nonCompliant: typeCerts.length > 0 ? Math.round((typeInvalid / typeCerts.length) * 100) : 0,
+          pending: typeCerts.length > 0 ? Math.round((typePending / typeCerts.length) * 100) : 0,
         };
       });
       

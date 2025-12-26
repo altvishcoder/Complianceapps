@@ -5,6 +5,8 @@ interface ComplianceData {
   name: string;
   compliant: number;
   nonCompliant: number;
+  pending?: number;
+  total?: number;
 }
 
 interface ComplianceOverviewChartProps {
@@ -44,8 +46,9 @@ export function ComplianceOverviewChart({ data }: ComplianceOverviewChartProps) 
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
               <Legend />
-              <Bar dataKey="compliant" name="Compliant %" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
-              <Bar dataKey="nonCompliant" name="Non-Compliant %" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} barSize={40} />
+              <Bar dataKey="compliant" name="Compliant %" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={30} />
+              <Bar dataKey="pending" name="Pending Review %" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={30} />
+              <Bar dataKey="nonCompliant" name="Non-Compliant %" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} barSize={30} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

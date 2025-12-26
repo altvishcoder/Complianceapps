@@ -85,11 +85,25 @@ export const properties = pgTable("properties", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Ingestion batches for server-side batch processing
+export const ingestionBatches = pgTable("ingestion_batches", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  name: text("name"),
+  totalFiles: integer("total_files").notNull().default(0),
+  completedFiles: integer("completed_files").notNull().default(0),
+  failedFiles: integer("failed_files").notNull().default(0),
+  status: text("status").notNull().default('PENDING'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const certificates = pgTable("certificates", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
   propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }).notNull(),
   blockId: varchar("block_id").references(() => blocks.id),
+  batchId: varchar("batch_id").references(() => ingestionBatches.id),
   fileName: text("file_name").notNull(),
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size").notNull(),
