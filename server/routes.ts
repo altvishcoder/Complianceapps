@@ -613,6 +613,38 @@ export async function registerRoutes(
     }
   });
   
+  // Reset specific extraction runs to awaiting review (with audit)
+  app.post("/api/extraction-runs/reset-to-review", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      
+      let updated;
+      if (ids && Array.isArray(ids) && ids.length > 0) {
+        // Reset only specified runs
+        updated = [];
+        for (const id of ids) {
+          const [run] = await db.update(extractionRuns)
+            .set({ status: 'AWAITING_REVIEW', updatedAt: new Date() })
+            .where(eq(extractionRuns.id, id))
+            .returning();
+          if (run) updated.push(run);
+        }
+      } else {
+        // Reset all approved runs (bulk operation for initial setup)
+        updated = await db.update(extractionRuns)
+          .set({ status: 'AWAITING_REVIEW', updatedAt: new Date() })
+          .where(eq(extractionRuns.status, 'APPROVED'))
+          .returning();
+      }
+      
+      console.log(`Reset ${updated.length} extraction runs to AWAITING_REVIEW`);
+      res.json({ success: true, count: updated.length });
+    } catch (error) {
+      console.error("Error resetting extraction runs:", error);
+      res.status(500).json({ error: "Failed to reset" });
+    }
+  });
+  
   // ===== LASHAN OWNED MODEL: COMPLIANCE RULES =====
   app.get("/api/compliance-rules", async (req, res) => {
     try {

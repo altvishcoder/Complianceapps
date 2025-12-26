@@ -127,6 +127,24 @@ export default function HumanReviewPage() {
     },
   });
   
+  const resetApprovalsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/extraction-runs/reset-to-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error('Reset failed');
+      return res.json();
+    },
+    onSuccess: (data: { count: number }) => {
+      toast({ 
+        title: 'Approvals Reset', 
+        description: `${data.count} extractions moved to review queue` 
+      });
+      queryClient.invalidateQueries({ queryKey: ['extraction-runs'] });
+    },
+  });
+  
   useEffect(() => {
     if (selectedRun) {
       setEditedData(selectedRun.normalisedOutput || selectedRun.repairedOutput || selectedRun.validatedOutput || selectedRun.rawOutput);
@@ -177,10 +195,20 @@ export default function HumanReviewPage() {
               </h1>
               <p className="text-muted-foreground">Review and correct AI extractions to improve the model</p>
             </div>
-            <Button variant="outline" onClick={() => refetch()}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => resetApprovalsMutation.mutate()}
+                disabled={resetApprovalsMutation.isPending}
+                data-testid="button-reset-approvals"
+              >
+                Reset Approvals to Review
+              </Button>
+              <Button variant="outline" onClick={() => refetch()}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
           </div>
           
           <div className="flex gap-4 items-center">

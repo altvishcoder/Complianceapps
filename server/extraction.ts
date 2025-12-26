@@ -632,7 +632,7 @@ export async function processExtractionAndSave(
       processingTimeMs: 0,
       processingCost: 0,
       validationPassed: result.confidence >= 0.7,
-      status: result.confidence >= 0.95 ? 'APPROVED' : 'AWAITING_REVIEW',
+      status: 'AWAITING_REVIEW',
     });
 
     await storage.updateCertificate(certificateId, {
@@ -643,49 +643,38 @@ export async function processExtractionAndSave(
       outcome: result.outcome
     });
     
-    // Update property address from extracted data if property needs verification
+    // Update property with extracted metadata and address if it needs verification
     const property = await storage.getProperty(certificate.propertyId);
     if (property?.needsVerification) {
       const extractedAddress = result.extractedData?.installationAddress || 
                                result.extractedData?.propertyAddress ||
                                result.extractedData?.premisesAddress;
       
-      if (extractedAddress) {
-        let addressLine1 = '';
-        let city = '';
-        let postcode = '';
-        
-        if (typeof extractedAddress === 'string') {
-          // Parse address string - extract postcode first
-          const postcodeMatch = extractedAddress.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2}/i);
-          if (postcodeMatch) {
-            postcode = postcodeMatch[0].toUpperCase();
-          }
-          // Remove postcode and split remaining address
-          const addressWithoutPostcode = extractedAddress.replace(postcodeMatch?.[0] || '', '').trim();
-          const parts = addressWithoutPostcode.split(',').map(p => p.trim()).filter(Boolean);
-          if (parts.length >= 2) {
-            addressLine1 = parts.slice(0, -1).join(', ');
-            city = parts[parts.length - 1];
-          } else {
-            addressLine1 = addressWithoutPostcode;
-          }
-        } else if (extractedAddress.streetAddress || extractedAddress.fullAddress) {
-          addressLine1 = extractedAddress.streetAddress || extractedAddress.fullAddress || '';
-          city = extractedAddress.city || extractedAddress.town || '';
-          postcode = extractedAddress.postCode || extractedAddress.postcode || '';
+      // Only update address from structured data with clear fields, not raw strings
+      const updates: Record<string, any> = { 
+        extractedMetadata: result.extractedData 
+      };
+      
+      if (extractedAddress && typeof extractedAddress === 'object') {
+        // Only use structured address objects with explicit fields
+        if (extractedAddress.streetAddress) {
+          updates.addressLine1 = extractedAddress.streetAddress.substring(0, 255);
+        } else if (extractedAddress.fullAddress) {
+          updates.addressLine1 = extractedAddress.fullAddress.substring(0, 255);
         }
-        
-        if (addressLine1) {
-          await storage.updateProperty(certificate.propertyId, {
-            addressLine1: addressLine1.substring(0, 255),
-            city: city || 'To Be Verified',
-            postcode: postcode || 'UNKNOWN',
-            extractedMetadata: result.extractedData
-          });
-          console.log(`Updated property ${certificate.propertyId} with extracted address: ${addressLine1}`);
+        if (extractedAddress.city || extractedAddress.town) {
+          updates.city = extractedAddress.city || extractedAddress.town;
         }
+        if (extractedAddress.postCode || extractedAddress.postcode) {
+          updates.postcode = (extractedAddress.postCode || extractedAddress.postcode).toUpperCase();
+        }
+      } else if (typeof extractedAddress === 'string' && extractedAddress.length > 10) {
+        // Store raw string address for human review, don't parse automatically
+        updates.addressLine1 = extractedAddress.substring(0, 255);
       }
+      
+      await storage.updateProperty(certificate.propertyId, updates);
+      console.log(`Updated property ${certificate.propertyId} with extracted metadata`);
     }
 
     const severityMap: Record<string, "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY"> = {
