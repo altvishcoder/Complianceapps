@@ -194,6 +194,21 @@ export async function registerRoutes(
     }
   });
   
+  // Bulk reject properties (delete properties and associated data)
+  app.post("/api/properties/bulk-reject", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No property IDs provided" });
+      }
+      const rejected = await storage.bulkRejectProperties(ids);
+      res.json({ success: true, rejected });
+    } catch (error) {
+      console.error("Error bulk rejecting properties:", error);
+      res.status(500).json({ error: "Failed to reject properties" });
+    }
+  });
+  
   // Auto-create property from extracted address
   app.post("/api/properties/auto-create", async (req, res) => {
     try {

@@ -114,8 +114,24 @@ export default function Properties() {
       queryClient.invalidateQueries({ queryKey: ["properties"] });
       setSelectedIds(new Set());
       toast({
-        title: "Properties Verified",
-        description: `${data.verified} properties have been marked as verified.`,
+        title: "Properties Approved",
+        description: `${data.verified} properties have been verified and approved.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkRejectMutation = useMutation({
+    mutationFn: (ids: string[]) => propertiesApi.bulkReject(ids),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      queryClient.invalidateQueries({ queryKey: ["certificates"] });
+      setSelectedIds(new Set());
+      toast({
+        title: "Properties Rejected",
+        description: `${data.rejected} properties have been rejected and removed.`,
       });
     },
     onError: (error: Error) => {
@@ -261,7 +277,17 @@ export default function Properties() {
                      data-testid="button-bulk-verify"
                    >
                      <ShieldCheck className="h-4 w-4" />
-                     Verify ({selectedIds.size})
+                     Approve ({selectedIds.size})
+                   </Button>
+                   <Button 
+                     variant="outline" 
+                     className="gap-2 border-red-300 text-red-600 hover:bg-red-50"
+                     onClick={() => bulkRejectMutation.mutate(Array.from(selectedIds))}
+                     disabled={bulkRejectMutation.isPending}
+                     data-testid="button-bulk-reject"
+                   >
+                     <XCircle className="h-4 w-4" />
+                     Reject ({selectedIds.size})
                    </Button>
                    <Button 
                      variant="destructive" 
@@ -407,7 +433,7 @@ export default function Properties() {
                       <th className="p-4 pl-4 w-10">
                         <Checkbox 
                           checked={selectedIds.size === filteredProperties.length && filteredProperties.length > 0}
-                          onCheckedChange={toggleSelectAll}
+                          onChange={toggleSelectAll}
                           data-testid="checkbox-select-all"
                         />
                       </th>
@@ -436,7 +462,7 @@ export default function Properties() {
                           <td className="p-4 pl-4" onClick={(e) => e.stopPropagation()}>
                             <Checkbox 
                               checked={selectedIds.has(prop.id)}
-                              onCheckedChange={() => {
+                              onChange={() => {
                                 const newSelection = new Set(selectedIds);
                                 if (newSelection.has(prop.id)) {
                                   newSelection.delete(prop.id);

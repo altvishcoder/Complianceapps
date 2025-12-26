@@ -51,8 +51,6 @@ export interface EnrichedProperty extends Property {
   fullAddress?: string;
   certificates?: Certificate[];
   actions?: RemedialAction[];
-  needsVerification?: boolean;
-  source?: string;
 }
 
 export const propertiesApi = {
@@ -90,6 +88,11 @@ export const propertiesApi = {
   
   bulkVerify: (ids: string[]) => 
     fetchJSON<{ success: boolean; verified: number }>(`${API_BASE}/properties/bulk-verify`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  bulkReject: (ids: string[]) => 
+    fetchJSON<{ success: boolean; rejected: number }>(`${API_BASE}/properties/bulk-reject`, {
       method: "POST",
       body: JSON.stringify({ ids }),
     }),

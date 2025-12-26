@@ -46,6 +46,7 @@ export interface IStorage {
   deleteProperty(id: string): Promise<boolean>;
   bulkDeleteProperties(ids: string[]): Promise<number>;
   bulkVerifyProperties(ids: string[]): Promise<number>;
+  bulkRejectProperties(ids: string[]): Promise<number>;
   getOrCreateAutoProperty(organisationId: string, addressData: { addressLine1: string; city?: string; postcode?: string }): Promise<Property>;
   
   // Certificates
@@ -208,7 +209,28 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getOrCreateAutoProperty(organisationId: string, addressData: { addressLine1: string; city?: string; postcode?: string }): Promise<Property> {
-    // First, try to get or create a default scheme and block for auto-extracted properties
+    // Check if a property with the same address already exists (case-insensitive, trimmed)
+    const addressLine = (addressData.addressLine1 || 'Address To Be Verified').trim();
+    const normalizedAddress = addressLine.toLowerCase();
+    
+    // Get all properties in the organisation and check for matches
+    const allProps = await db.select()
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(schemes.organisationId, organisationId));
+    
+    // Find case-insensitive match
+    const existingProp = allProps.find(p => 
+      p.properties.addressLine1.trim().toLowerCase() === normalizedAddress
+    );
+    
+    if (existingProp) {
+      // Return the existing property
+      return existingProp.properties;
+    }
+    
+    // Get or create a default scheme and block for auto-extracted properties
     let schemeList = await this.listSchemes(organisationId);
     let autoScheme = schemeList.find(s => s.reference === 'AUTO-EXTRACT');
     
@@ -235,7 +257,7 @@ export class DatabaseStorage implements IStorage {
     const property = await this.createProperty({
       blockId: autoBlock.id,
       uprn: `AUTO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-      addressLine1: addressData.addressLine1 || 'Address To Be Verified',
+      addressLine1: addressLine,
       city: addressData.city || 'Unknown',
       postcode: addressData.postcode || 'UNKNOWN',
       propertyType: 'FLAT',
@@ -248,6 +270,39 @@ export class DatabaseStorage implements IStorage {
     });
     
     return property;
+  }
+  
+  async bulkRejectProperties(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    let deleted = 0;
+    for (const id of ids) {
+      // Get certificates for this property to delete their extractions
+      const propertyCerts = await db.select().from(certificates).where(eq(certificates.propertyId, id));
+      
+      for (const cert of propertyCerts) {
+        // Get extraction runs first (before deleting)
+        const certRuns = await db.select().from(extractionRuns).where(eq(extractionRuns.certificateId, cert.id));
+        
+        // Delete human reviews (via extraction runs)
+        for (const run of certRuns) {
+          await db.delete(humanReviews).where(eq(humanReviews.extractionRunId, run.id));
+        }
+        
+        // Delete extraction runs
+        await db.delete(extractionRuns).where(eq(extractionRuns.certificateId, cert.id));
+        // Delete extractions
+        await db.delete(extractions).where(eq(extractions.certificateId, cert.id));
+      }
+      
+      // Delete certificates
+      await db.delete(certificates).where(eq(certificates.propertyId, id));
+      // Delete remedial actions
+      await db.delete(remedialActions).where(eq(remedialActions.propertyId, id));
+      // Delete the property
+      const result = await db.delete(properties).where(eq(properties.id, id));
+      if (result.rowCount && result.rowCount > 0) deleted++;
+    }
+    return deleted;
   }
   
   // Certificates
