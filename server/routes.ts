@@ -301,8 +301,28 @@ export async function registerRoutes(
             mimeType,
             pdfBuffer
           );
+          
+          // Update batch progress on success
+          if (data.batchId) {
+            await db.update(ingestionBatches)
+              .set({ 
+                completedFiles: sql`${ingestionBatches.completedFiles} + 1`,
+                status: 'PROCESSING'
+              })
+              .where(eq(ingestionBatches.id, data.batchId));
+          }
         } catch (err) {
           console.error("Error in AI extraction:", err);
+          
+          // Update batch progress on failure
+          if (data.batchId) {
+            await db.update(ingestionBatches)
+              .set({ 
+                failedFiles: sql`${ingestionBatches.failedFiles} + 1`,
+                status: 'PROCESSING'
+              })
+              .where(eq(ingestionBatches.id, data.batchId));
+          }
         }
       })();
       
