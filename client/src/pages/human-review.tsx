@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -89,6 +90,7 @@ export default function HumanReviewPage() {
   const [reviewerNotes, setReviewerNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('AWAITING_REVIEW');
+  const [selectedRunIds, setSelectedRunIds] = useState<Set<string>>(new Set());
   
   const { data: runs = [], isLoading, refetch } = useQuery<ExtractionRun[]>({
     queryKey: ['extraction-runs', statusFilter],
@@ -150,6 +152,68 @@ export default function HumanReviewPage() {
       queryClient.invalidateQueries({ queryKey: ['extraction-runs'] });
     },
   });
+  
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.all(
+        ids.map(id => {
+          const run = runs.find(r => r.id === id);
+          const output = run?.normalisedOutput || run?.rawOutput || {};
+          return fetch(`/api/extraction-runs/${id}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approvedOutput: output, errorTags: [], notes: 'Bulk approved' }),
+          });
+        })
+      );
+      return results;
+    },
+    onSuccess: () => {
+      toast({ title: 'Bulk Approved', description: `${selectedRunIds.size} extractions approved` });
+      queryClient.invalidateQueries({ queryKey: ['extraction-runs'] });
+      setSelectedRunIds(new Set());
+    },
+  });
+  
+  const bulkRejectMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.all(
+        ids.map(id => 
+          fetch(`/api/extraction-runs/${id}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Bulk rejected', errorTags: [] }),
+          })
+        )
+      );
+      return results;
+    },
+    onSuccess: () => {
+      toast({ title: 'Bulk Rejected', description: `${selectedRunIds.size} extractions rejected` });
+      queryClient.invalidateQueries({ queryKey: ['extraction-runs'] });
+      setSelectedRunIds(new Set());
+    },
+  });
+  
+  const toggleRunSelection = (id: string) => {
+    setSelectedRunIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+  
+  const toggleSelectAll = () => {
+    if (selectedRunIds.size === filteredRuns.length) {
+      setSelectedRunIds(new Set());
+    } else {
+      setSelectedRunIds(new Set(filteredRuns.map(r => r.id)));
+    }
+  };
   
   useEffect(() => {
     if (selectedRun) {
@@ -254,23 +318,68 @@ export default function HumanReviewPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
+            <div className="space-y-4">
+              {/* Bulk actions bar */}
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    checked={selectedRunIds.size === filteredRuns.length && filteredRuns.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                    data-testid="checkbox-select-all"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {selectedRunIds.size} of {filteredRuns.length} selected
+                  </span>
+                </div>
+                {selectedRunIds.size > 0 && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => bulkApproveMutation.mutate(Array.from(selectedRunIds))}
+                      disabled={bulkApproveMutation.isPending}
+                      data-testid="button-bulk-approve"
+                    >
+                      <Check className="w-4 h-4 mr-1" />
+                      Approve All
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => bulkRejectMutation.mutate(Array.from(selectedRunIds))}
+                      disabled={bulkRejectMutation.isPending}
+                      data-testid="button-bulk-reject"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Reject All
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid gap-4">
               {filteredRuns.map((run) => (
                 <Card 
                   key={run.id} 
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => setSelectedRun(run)}
+                  className={`cursor-pointer hover:border-primary transition-colors ${selectedRunIds.has(run.id) ? 'border-primary' : ''}`}
                   data-testid={`card-extraction-${run.id}`}
                 >
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <FileText className="w-10 h-10 text-muted-foreground" />
-                        <div>
-                          <h3 className="font-medium">{run.certificate?.fileName || 'Unknown file'}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {run.certificate?.property?.addressLine1}, {run.certificate?.property?.postcode}
-                          </p>
+                        <Checkbox 
+                          checked={selectedRunIds.has(run.id)}
+                          onCheckedChange={() => toggleRunSelection(run.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`checkbox-select-${run.id}`}
+                        />
+                        <div onClick={() => setSelectedRun(run)} className="flex items-center gap-4 flex-1">
+                          <FileText className="w-10 h-10 text-muted-foreground" />
+                          <div>
+                            <h3 className="font-medium">{run.certificate?.fileName || 'Unknown file'}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {run.certificate?.property?.addressLine1}, {run.certificate?.property?.postcode}
+                            </p>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -308,6 +417,7 @@ export default function HumanReviewPage() {
                   </CardContent>
                 </Card>
               ))}
+              </div>
             </div>
           )}
         </div>
