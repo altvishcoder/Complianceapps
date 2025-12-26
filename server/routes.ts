@@ -622,6 +622,55 @@ export async function registerRoutes(
         reviewerNotes: notes,
       });
       
+      // Create remedial actions from approved output if there are defects/findings
+      if (updated.certificateId && approvedOutput) {
+        const certificate = await storage.getCertificate(updated.certificateId);
+        if (certificate) {
+          const { generateRemedialActions } = await import("./extraction");
+          const remedialActions = generateRemedialActions(
+            approvedOutput, 
+            certificate.certificateType || updated.documentType,
+            certificate.propertyId
+          );
+          
+          const severityMap: Record<string, string> = {
+            'IMMEDIATE': 'IMMEDIATE',
+            'URGENT': 'URGENT',
+            'ROUTINE': 'ROUTINE',
+            'ADVISORY': 'ADVISORY'
+          };
+          
+          for (const action of remedialActions) {
+            const daysToAdd = action.severity === "IMMEDIATE" ? 1 : 
+                              action.severity === "URGENT" ? 7 : 
+                              action.severity === "ROUTINE" ? 30 : 90;
+            
+            await storage.createRemedialAction({
+              certificateId: updated.certificateId,
+              propertyId: certificate.propertyId,
+              code: action.code,
+              description: action.description,
+              location: action.location,
+              severity: severityMap[action.severity] as any,
+              status: "OPEN",
+              dueDate: new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              costEstimate: action.costEstimate
+            });
+          }
+          
+          // Update certificate status and outcome if applicable
+          const outcome = approvedOutput.findings?.outcome || approvedOutput.inspection?.outcome;
+          if (outcome) {
+            await storage.updateCertificate(updated.certificateId, {
+              status: 'APPROVED',
+              outcome: outcome.toUpperCase().includes('UNSATISFACTORY') ? 'UNSATISFACTORY' : 'SATISFACTORY'
+            });
+          } else {
+            await storage.updateCertificate(updated.certificateId, { status: 'APPROVED' });
+          }
+        }
+      }
+      
       res.json(updated);
     } catch (error) {
       console.error("Error approving extraction:", error);

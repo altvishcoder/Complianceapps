@@ -400,7 +400,7 @@ function determineOutcome(data: Record<string, any>, certificateType: string): E
   return "SATISFACTORY";
 }
 
-function generateRemedialActions(
+export function generateRemedialActions(
   data: Record<string, any>, 
   certificateType: string,
   propertyId: string
