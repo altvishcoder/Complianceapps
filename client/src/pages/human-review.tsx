@@ -12,8 +12,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Sidebar } from '@/components/layout/Sidebar';
 import { 
   Check, X, AlertTriangle, Eye, Edit2, FileText, Clock,
-  ChevronLeft, ChevronRight, RefreshCw, Save, Tag, Search
+  ChevronLeft, ChevronRight, RefreshCw, Save, Tag, Search, ExternalLink, ImageIcon
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface ExtractionRun {
@@ -39,7 +40,12 @@ interface ExtractionRun {
 const ERROR_TAGS = [
   'missed_date', 'wrong_date_format', 'missed_table_row',
   'wrong_field_mapping', 'hallucinated_value', 'incomplete_extraction',
-  'address_error', 'name_error', 'outcome_error', 'registration_error'
+  'address_error', 'name_error', 'outcome_error', 'registration_error',
+  'missing_engineer_details', 'missing_property_address', 'wrong_certificate_type',
+  'missing_expiry_date', 'missing_next_due_date', 'incorrect_appliance_count',
+  'missing_defects', 'wrong_severity_classification', 'missing_gas_registration',
+  'missing_landlord_info', 'date_parsing_error', 'confidence_too_low',
+  'ocr_quality_issue', 'multi_page_extraction_error'
 ];
 
 function FieldEditor({ 
@@ -323,12 +329,36 @@ export default function HumanReviewPage() {
                       <Badge variant="outline">{selectedRun.documentType.replace(/_/g, ' ')}</Badge>
                       <span className="text-sm">{selectedRun.certificate?.fileName}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className={`w-2 h-2 rounded-full ${
-                        selectedRun.confidence >= 0.9 ? 'bg-green-500' : 
-                        selectedRun.confidence >= 0.7 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`} />
-                      <span className="text-sm">{(selectedRun.confidence * 100).toFixed(0)}% confidence</span>
+                    <div className="flex items-center gap-3">
+                      {selectedRun.certificate?.storageKey && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid="button-view-file">
+                              <ImageIcon className="w-4 h-4 mr-1" />
+                              View File
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+                            <DialogHeader>
+                              <DialogTitle>{selectedRun.certificate?.fileName}</DialogTitle>
+                            </DialogHeader>
+                            <div className="mt-4">
+                              <img 
+                                src={`/api/files/${selectedRun.certificate.storageKey}`}
+                                alt={selectedRun.certificate?.fileName || 'Certificate'}
+                                className="max-w-full h-auto rounded-lg border"
+                              />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full ${
+                          selectedRun.confidence >= 0.9 ? 'bg-green-500' : 
+                          selectedRun.confidence >= 0.7 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} />
+                        <span className="text-sm">{(selectedRun.confidence * 100).toFixed(0)}% confidence</span>
+                      </div>
                     </div>
                   </div>
                   
