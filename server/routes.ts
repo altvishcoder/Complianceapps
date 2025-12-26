@@ -650,6 +650,30 @@ export async function registerRoutes(
   });
   
   // Reset specific extraction runs to awaiting review (with audit)
+  // Migrate existing extraction runs to use normalized output
+  app.post("/api/extraction-runs/migrate-normalize", async (req, res) => {
+    try {
+      const { normalizeExtractionOutput } = await import("./extraction");
+      const runs = await db.select().from(extractionRuns);
+      let migrated = 0;
+      
+      for (const run of runs) {
+        if (run.rawOutput && (!run.normalisedOutput || Object.keys(run.normalisedOutput as any).length === 0)) {
+          const normalized = normalizeExtractionOutput(run.rawOutput as Record<string, any>);
+          await db.update(extractionRuns)
+            .set({ normalisedOutput: normalized, updatedAt: new Date() })
+            .where(eq(extractionRuns.id, run.id));
+          migrated++;
+        }
+      }
+      
+      res.json({ success: true, migrated, total: runs.length });
+    } catch (error) {
+      console.error("Error migrating extraction runs:", error);
+      res.status(500).json({ error: "Failed to migrate" });
+    }
+  });
+  
   app.post("/api/extraction-runs/reset-to-review", async (req, res) => {
     try {
       const { ids } = req.body;

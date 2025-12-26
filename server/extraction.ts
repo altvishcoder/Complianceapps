@@ -552,6 +552,88 @@ function generateRemedialActions(
   return actions;
 }
 
+// Normalize raw extraction output to the format expected by the human review form
+export function normalizeExtractionOutput(rawOutput: Record<string, any>): Record<string, any> {
+  // Parse address from string if needed
+  const parseAddress = (addressString: string | undefined | null): { address_line_1: string; address_line_2?: string; city?: string; postcode?: string } => {
+    if (!addressString) return { address_line_1: '' };
+    
+    // Try to extract postcode (UK format: e.g., "NG3 2DQ", "B5 4RN")
+    const postcodeMatch = addressString.match(/([A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2})/i);
+    const postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
+    
+    // Remove postcode from address to parse the rest
+    let addressWithoutPostcode = postcode ? addressString.replace(postcode, '').trim() : addressString;
+    addressWithoutPostcode = addressWithoutPostcode.replace(/,\s*$/, '').trim();
+    
+    // Split by comma and try to identify city (usually last part before postcode)
+    const parts = addressWithoutPostcode.split(',').map(p => p.trim()).filter(p => p);
+    
+    let address_line_1 = parts[0] || '';
+    let address_line_2 = '';
+    let city = '';
+    
+    if (parts.length >= 3) {
+      address_line_1 = parts.slice(0, -1).join(', ');
+      city = parts[parts.length - 1];
+    } else if (parts.length === 2) {
+      address_line_1 = parts[0];
+      city = parts[1];
+    }
+    
+    return { address_line_1, address_line_2, city, postcode };
+  };
+  
+  // Get address from various possible fields
+  const rawAddress = rawOutput.installationAddress || rawOutput.propertyAddress || rawOutput.premisesAddress;
+  const parsedAddress = typeof rawAddress === 'string' ? parseAddress(rawAddress) : 
+    (typeof rawAddress === 'object' ? rawAddress : { address_line_1: '' });
+  
+  // Get inspector/engineer details from various possible fields
+  const rawEngineer = rawOutput.engineer || rawOutput.inspector || rawOutput.assessor || rawOutput.surveyor || {};
+  
+  // Get outcome from various possible fields
+  const rawOutcome = rawOutput.overallOutcome || rawOutput.overallAssessment || rawOutput.outcome || rawOutput.riskLevel;
+  
+  // Get findings/observations/defects
+  const rawFindings = rawOutput.defects || rawOutput.observations || rawOutput.findings || rawOutput.acmItems || [];
+  const rawRemedialActions = rawOutput.recommendations || rawOutput.remedialActions || [];
+  
+  return {
+    property: {
+      address_line_1: parsedAddress.address_line_1 || '',
+      address_line_2: parsedAddress.address_line_2 || '',
+      city: parsedAddress.city || '',
+      postcode: parsedAddress.postcode || '',
+    },
+    inspection: {
+      date: rawOutput.issueDate || rawOutput.assessmentDate || rawOutput.surveyDate || '',
+      next_due_date: rawOutput.expiryDate || rawOutput.reviewDate || '',
+      outcome: rawOutcome || '',
+      certificate_number: rawOutput.certificateNumber || rawOutput.reportNumber || '',
+    },
+    engineer: {
+      name: rawEngineer.name || '',
+      company: rawEngineer.company || '',
+      registration_id: rawEngineer.gasSafeNumber || rawEngineer.registrationNumber || '',
+      registration_type: rawEngineer.qualifications || '',
+    },
+    findings: {
+      observations: Array.isArray(rawFindings) ? rawFindings.map((f: any) => ({
+        description: f.description || f.finding || JSON.stringify(f),
+        code: f.code || f.classification || f.priority || '',
+        location: f.location || '',
+      })) : [],
+      remedial_actions: Array.isArray(rawRemedialActions) ? rawRemedialActions.map((a: any) => ({
+        description: a.description || a.recommendation || JSON.stringify(a),
+        priority: a.priority || a.severity || '',
+      })) : [],
+    },
+    // Keep original raw data for reference
+    _raw: rawOutput,
+  };
+}
+
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
@@ -618,6 +700,10 @@ export async function processExtractionAndSave(
     
     // Create extraction run for the AI Model insights
     const docType = result.extractedData?.documentType || certificateType || 'UNKNOWN';
+    
+    // Normalize the raw output to the format expected by the human review form
+    const normalisedOutput = normalizeExtractionOutput(result.extractedData);
+    
     await db.insert(extractionRuns).values({
       certificateId,
       modelVersion: "claude-3-5-haiku-20241022",
@@ -627,6 +713,7 @@ export async function processExtractionAndSave(
       classificationConfidence: result.confidence,
       rawOutput: result.extractedData,
       validatedOutput: result.extractedData,
+      normalisedOutput: normalisedOutput,
       confidence: result.confidence,
       processingTier: result.confidence >= 0.95 ? 1 : result.confidence >= 0.8 ? 2 : 3,
       processingTimeMs: 0,

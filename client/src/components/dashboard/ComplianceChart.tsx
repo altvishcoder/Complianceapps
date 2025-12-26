@@ -15,17 +15,27 @@ interface ComplianceOverviewChartProps {
 
 export function ComplianceOverviewChart({ data }: ComplianceOverviewChartProps) {
   const chartData = data || [];
-  const hasData = chartData.some(d => d.compliant > 0 || d.nonCompliant > 0);
+  // Filter to only show categories that have certificates
+  const filteredData = chartData.filter(d => (d.total ?? 0) > 0);
+  const hasData = filteredData.length > 0;
+  const unassessedCount = chartData.length - filteredData.length;
 
   return (
     <Card className="col-span-4">
       <CardHeader>
-        <CardTitle>Compliance Overview (Big 6)</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Compliance Overview (Big 6)</span>
+          {unassessedCount > 0 && (
+            <span className="text-sm font-normal text-muted-foreground">
+              {unassessedCount} category{unassessedCount !== 1 ? 'ies' : 'y'} not assessed
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="pl-2">
         {hasData ? (
           <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={chartData}>
+            <BarChart data={filteredData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
               <XAxis 
                 dataKey="name" 
