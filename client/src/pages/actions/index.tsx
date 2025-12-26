@@ -98,12 +98,16 @@ export default function ActionsPage() {
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
       actionsApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["actions"] });
+      const isComplete = variables.data.status === 'COMPLETED';
       toast({
-        title: "Status Updated",
-        description: "Action status has been changed",
+        title: isComplete ? "Action Resolved" : "Status Updated",
+        description: isComplete ? "Remedial action marked as complete" : "Action status has been changed",
       });
+      if (isComplete) {
+        setSelectedAction(null);
+      }
     },
   });
 
@@ -388,14 +392,11 @@ export default function ActionsPage() {
                         <Button className="flex-1" variant="outline" onClick={() => setSelectedAction(null)}>Close</Button>
                         <Button 
                           className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => {
-                            handleUpdateStatus('COMPLETED');
-                            setSelectedAction(null);
-                          }}
+                          onClick={() => handleUpdateStatus('COMPLETED')}
                           disabled={updateAction.isPending || selectedAction.status === 'COMPLETED'}
                           data-testid="button-mark-complete"
                         >
-                          {selectedAction.status === 'COMPLETED' ? 'Already Resolved' : 'Mark Complete'}
+                          {updateAction.isPending ? 'Saving...' : selectedAction.status === 'COMPLETED' ? 'Already Resolved' : 'Mark Complete'}
                         </Button>
                      </div>
                   </SheetFooter>

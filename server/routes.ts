@@ -398,7 +398,7 @@ export async function registerRoutes(
       // Set resolvedAt when marking as completed
       if (updates.status === 'COMPLETED' || updates.status === 'completed') {
         updates.status = 'COMPLETED';
-        updates.resolvedAt = new Date().toISOString().split('T')[0];
+        updates.resolvedAt = new Date().toISOString();
       }
       
       const action = await storage.updateRemedialAction(req.params.id, updates);
