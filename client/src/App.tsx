@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useExtractionEvents } from "@/hooks/useExtractionEvents";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Ingestion from "@/pages/ingestion";
@@ -55,12 +56,21 @@ function Router() {
   );
 }
 
+function AppContent() {
+  useExtractionEvents();
+  return (
+    <>
+      <Toaster />
+      <Router />
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <AppContent />
       </TooltipProvider>
     </QueryClientProvider>
   );

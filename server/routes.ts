@@ -11,6 +11,7 @@ import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { db } from "./db";
 import { eq, desc, and, count, sql } from "drizzle-orm";
+import { addSSEClient, removeSSEClient } from "./events";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -28,6 +29,30 @@ export async function registerRoutes(
   // Health check
   app.get("/api/health", async (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+  
+  // ===== SSE EVENTS FOR REAL-TIME UPDATES =====
+  app.get("/api/events", (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    
+    const clientId = Date.now().toString();
+    addSSEClient(clientId, res);
+    
+    // Send initial connection message
+    res.write(`data: ${JSON.stringify({ type: 'connected', clientId })}\n\n`);
+    
+    // Keep-alive ping every 30 seconds
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ type: 'ping' })}\n\n`);
+    }, 30000);
+    
+    req.on('close', () => {
+      clearInterval(keepAlive);
+      removeSSEClient(clientId);
+    });
   });
   
   // ===== SCHEMES =====

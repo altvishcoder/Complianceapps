@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { join } from "path";
 import { db } from "./db";
 import { extractionRuns } from "@shared/schema";
+import { broadcastExtractionEvent } from "./events";
 
 // Dynamic import pdfjs-dist for PDF processing
 let pdfjs: any = null;
@@ -859,10 +860,25 @@ export async function processExtractionAndSave(
     }
 
     console.log(`Extraction complete for certificate ${certificateId}: ${result.outcome}, ${result.remedialActions.length} actions created`);
+    
+    // Broadcast real-time update events
+    broadcastExtractionEvent({ 
+      type: 'extraction_complete', 
+      certificateId, 
+      propertyId: certificate.propertyId,
+      status: 'NEEDS_REVIEW'
+    });
   } catch (error) {
     console.error("Extraction failed:", error);
     await storage.updateCertificate(certificateId, { 
       status: "FAILED" 
+    });
+    
+    // Broadcast failure event
+    broadcastExtractionEvent({ 
+      type: 'extraction_complete', 
+      certificateId, 
+      status: 'FAILED'
     });
   }
 }
