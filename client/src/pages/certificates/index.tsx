@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,9 +13,11 @@ import {
   Eye, 
   MoreHorizontal,
   FileCheck,
-  Plus
+  Plus,
+  AlertTriangle,
+  X
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { certificatesApi } from "@/lib/api";
 import type { EnrichedCertificate } from "@/lib/api";
@@ -38,15 +40,29 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 export default function CertificatesPage() {
+  const searchString = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [overdueFilter, setOverdueFilter] = useState(false);
   const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    if (params.get("filter") === "overdue") {
+      setOverdueFilter(true);
+    }
+  }, [searchString]);
   
   const { data: certificates = [] } = useQuery({
     queryKey: ["certificates"],
     queryFn: () => certificatesApi.list(),
   });
+  
+  const isOverdue = (cert: EnrichedCertificate) => {
+    if (!cert.expiryDate) return false;
+    return new Date(cert.expiryDate) < new Date();
+  };
   
   const filteredCertificates = certificates.filter((cert) => {
     const matchesSearch = searchTerm === '' || 
@@ -55,8 +71,9 @@ export default function CertificatesPage() {
       cert.fileName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = !statusFilter || cert.status === statusFilter;
+    const matchesOverdue = !overdueFilter || isOverdue(cert);
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesOverdue;
   });
   
   const handleStatusClick = (e: React.MouseEvent, status: string) => {
@@ -106,6 +123,18 @@ export default function CertificatesPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              {overdueFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  onClick={() => setOverdueFilter(false)}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  Overdue Only
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
               {statusFilter && (
                 <Button 
                   variant="outline" 

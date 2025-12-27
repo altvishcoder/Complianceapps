@@ -173,7 +173,7 @@ export function Sidebar() {
               </Link>
             )}
             {overdueGasCerts > 0 && (
-              <Link href="/certificates">
+              <Link href="/certificates?filter=overdue">
                 <div className="flex items-center gap-3 px-3 py-3 text-sm rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-500/5 border border-amber-500/20 cursor-pointer hover:from-amber-500/20 hover:to-amber-500/10 transition-all group">
                   <div className="p-1.5 rounded-lg bg-amber-500/20">
                     <AlertTriangle className="h-4 w-4 text-amber-400" />
