@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -32,8 +33,14 @@ export default function Configuration() {
   const { toast } = useToast();
   const [editingCertType, setEditingCertType] = useState<CertificateType | null>(null);
   const [editingCode, setEditingCode] = useState<ClassificationCode | null>(null);
+  const [editingSchema, setEditingSchema] = useState<ExtractionSchema | null>(null);
+  const [editingRule, setEditingRule] = useState<ComplianceRule | null>(null);
+  const [editingNormRule, setEditingNormRule] = useState<NormalisationRule | null>(null);
   const [showCertTypeDialog, setShowCertTypeDialog] = useState(false);
   const [showCodeDialog, setShowCodeDialog] = useState(false);
+  const [showSchemaDialog, setShowSchemaDialog] = useState(false);
+  const [showRuleDialog, setShowRuleDialog] = useState(false);
+  const [showNormRuleDialog, setShowNormRuleDialog] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem("user_role");
@@ -148,6 +155,48 @@ export default function Configuration() {
     },
   });
 
+  const updateSchemaMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      extractionSchemasApi.update(id, data),
+    onSuccess: () => {
+      toast({ title: "Schema Deployed", description: "Extraction schema updated and deployed" });
+      queryClient.invalidateQueries({ queryKey: ["extractionSchemas"] });
+      setShowSchemaDialog(false);
+      setEditingSchema(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateRuleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      complianceRulesApi.update(id, data),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Compliance rule updated" });
+      queryClient.invalidateQueries({ queryKey: ["complianceRules"] });
+      setShowRuleDialog(false);
+      setEditingRule(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateNormRuleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      normalisationRulesApi.update(id, data),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Normalisation rule updated" });
+      queryClient.invalidateQueries({ queryKey: ["normalisationRules"] });
+      setShowNormRuleDialog(false);
+      setEditingNormRule(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleSaveCertType = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -191,6 +240,61 @@ export default function Configuration() {
     } else {
       createCodeMutation.mutate(data);
     }
+  };
+
+  const handleSaveSchema = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingSchema) return;
+    const formData = new FormData(e.currentTarget);
+    try {
+      const schemaJson = JSON.parse(formData.get("schemaJson") as string);
+      const data = {
+        promptTemplate: formData.get("promptTemplate") as string || undefined,
+        schemaJson,
+        isActive: formData.get("isActive") === "on",
+      };
+      updateSchemaMutation.mutate({ id: editingSchema.id, data });
+    } catch {
+      toast({ title: "Invalid JSON", description: "Please enter valid JSON for the schema", variant: "destructive" });
+    }
+  };
+
+  const handleSaveRule = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingRule) return;
+    const formData = new FormData(e.currentTarget);
+    try {
+      const conditions = JSON.parse(formData.get("conditions") as string);
+      const data = {
+        ruleName: formData.get("ruleName") as string,
+        description: formData.get("description") as string,
+        action: formData.get("action") as string,
+        priority: formData.get("priority") as string,
+        conditions,
+        isActive: formData.get("isActive") === "on",
+      };
+      updateRuleMutation.mutate({ id: editingRule.id, data });
+    } catch {
+      toast({ title: "Invalid JSON", description: "Please enter valid JSON for conditions", variant: "destructive" });
+    }
+  };
+
+  const handleSaveNormRule = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingNormRule) return;
+    const formData = new FormData(e.currentTarget);
+    const inputPatternsStr = formData.get("inputPatterns") as string;
+    const inputPatterns = inputPatternsStr.split(",").map(s => s.trim()).filter(Boolean);
+    const data = {
+      ruleName: formData.get("ruleName") as string,
+      fieldPath: formData.get("fieldPath") as string,
+      ruleType: formData.get("ruleType") as string,
+      inputPatterns,
+      outputValue: formData.get("outputValue") as string || undefined,
+      transformFn: formData.get("transformFn") as string || undefined,
+      isActive: formData.get("isActive") === "on",
+    };
+    updateNormRuleMutation.mutate({ id: editingNormRule.id, data });
   };
 
   const getSeverityBadge = (severity: string) => {
@@ -241,7 +345,7 @@ export default function Configuration() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight font-display" data-testid="text-config-title">Configuration</h2>
-                <p className="text-muted-foreground">Manage certificate types, classification codes, and extraction rules.</p>
+                <p className="text-muted-foreground">Manage certificate types, classification codes, extraction schemas, and domain rules.</p>
               </div>
               <Settings className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -267,6 +371,14 @@ export default function Configuration() {
               </TabsList>
 
               <TabsContent value="cert-types" className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Certificate Types</strong> define the compliance documents your organisation tracks (e.g., Gas Safety, EICR, Fire Risk). 
+                    Each type has a validity period and warning threshold. When you upload a document, you select its type from this list. 
+                    Changes here immediately update all dropdowns in the Upload and Ingestion Hub pages.
+                  </AlertDescription>
+                </Alert>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
@@ -411,6 +523,13 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="codes" className="space-y-4">
+                <Alert className="bg-amber-50 border-amber-200">
+                  <Tags className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>Classification Codes</strong> represent outcomes or defect categories found in certificates (e.g., C1 = Immediately Dangerous, C2 = At Risk for gas; SATISFACTORY/UNSATISFACTORY for EICR). 
+                    Each code has a severity level and required action timeframe. When AI extracts a certificate, it identifies these codes and the system automatically generates remedial actions based on their severity.
+                  </AlertDescription>
+                </Alert>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
@@ -572,10 +691,18 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="schemas" className="space-y-4">
+                <Alert className="bg-purple-50 border-purple-200">
+                  <Code className="h-4 w-4 text-purple-600" />
+                  <AlertDescription className="text-purple-800">
+                    <strong>Extraction Schemas</strong> define what data the AI should extract from each document type. 
+                    Each schema specifies the fields to extract (e.g., engineer name, issue date, defects), their types, and whether they're required. 
+                    The prompt template guides the AI on how to interpret the document. When you deploy a schema change, all future document extractions will use the updated schema.
+                  </AlertDescription>
+                </Alert>
                 <Card>
                   <CardHeader>
                     <CardTitle>Extraction Schemas</CardTitle>
-                    <CardDescription>Define the data extraction schemas for AI-powered document processing.</CardDescription>
+                    <CardDescription>Define the data extraction schemas for AI-powered document processing. Click on a schema to edit and deploy changes.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {schemasLoading ? (
@@ -609,6 +736,10 @@ export default function Configuration() {
                                 {schema.isDeprecated && (
                                   <Badge variant="destructive">Deprecated</Badge>
                                 )}
+                                <Button variant="outline" size="sm" onClick={() => { setEditingSchema(schema); setShowSchemaDialog(true); }}>
+                                  <Pencil className="h-3 w-3 mr-1" />
+                                  Edit & Deploy
+                                </Button>
                               </div>
                             </div>
                             {schema.promptTemplate && (
@@ -635,14 +766,76 @@ export default function Configuration() {
                     )}
                   </CardContent>
                 </Card>
+
+                <Dialog open={showSchemaDialog} onOpenChange={(open) => {
+                  setShowSchemaDialog(open);
+                  if (!open) setEditingSchema(null);
+                }}>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Edit Extraction Schema: {editingSchema?.documentType}</DialogTitle>
+                      <DialogDescription>
+                        Modify the schema JSON and prompt template. Changes will be deployed immediately when saved.
+                      </DialogDescription>
+                    </DialogHeader>
+                    {editingSchema && (
+                      <form onSubmit={handleSaveSchema} className="space-y-4">
+                        <div>
+                          <Label htmlFor="promptTemplate">Prompt Template</Label>
+                          <Textarea 
+                            id="promptTemplate" 
+                            name="promptTemplate" 
+                            rows={3}
+                            defaultValue={editingSchema.promptTemplate || ""} 
+                            placeholder="Instructions for AI extraction..."
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Guide the AI on how to interpret and extract data from this document type.</p>
+                        </div>
+                        <div>
+                          <Label htmlFor="schemaJson">Schema JSON</Label>
+                          <Textarea 
+                            id="schemaJson" 
+                            name="schemaJson" 
+                            rows={15}
+                            className="font-mono text-sm"
+                            defaultValue={JSON.stringify(editingSchema.schemaJson, null, 2)} 
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Define the fields to extract, their types, and validation rules.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch id="isActive" name="isActive" defaultChecked={editingSchema.isActive} />
+                          <Label htmlFor="isActive">Active (used for new extractions)</Label>
+                        </div>
+                        <DialogFooter>
+                          <Button type="submit" disabled={updateSchemaMutation.isPending}>
+                            {updateSchemaMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Zap className="h-4 w-4 mr-2" />
+                            )}
+                            Deploy Schema
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
 
               <TabsContent value="rules" className="space-y-4">
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    <strong>Domain Rules</strong> automate compliance actions based on extracted data. <strong>Compliance Rules</strong> detect issues (e.g., "if C1 defect found, flag as urgent and create immediate action"). 
+                    <strong>Normalisation Rules</strong> standardise data formats (e.g., convert "ID" to "C1", format dates to ISO standard). 
+                    These rules run automatically after AI extraction to ensure consistent data and appropriate responses.
+                  </AlertDescription>
+                </Alert>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Card>
                     <CardHeader>
                       <CardTitle>Compliance Rules</CardTitle>
-                      <CardDescription>Rules that validate certificate data against compliance requirements.</CardDescription>
+                      <CardDescription>Rules that validate certificate data and trigger actions based on compliance requirements.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       {rulesLoading ? (
@@ -657,14 +850,27 @@ export default function Configuration() {
                       ) : (
                         <div className="space-y-2">
                           {complianceRules.map((rule) => (
-                            <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`row-rule-${rule.id}`}>
-                              <div>
-                                <div className="font-medium text-sm">{rule.ruleName}</div>
-                                <div className="text-xs text-muted-foreground">{rule.ruleCode}</div>
+                            <div key={rule.id} className="p-3 border rounded-lg space-y-2" data-testid={`row-rule-${rule.id}`}>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-sm">{rule.ruleName}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{rule.ruleCode}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={rule.isActive ? "default" : "secondary"}>
+                                    {rule.isActive ? "Active" : "Inactive"}
+                                  </Badge>
+                                  <Button variant="ghost" size="icon" onClick={() => { setEditingRule(rule); setShowRuleDialog(true); }}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <Badge variant={rule.isActive ? "default" : "secondary"}>
-                                {rule.isActive ? "Active" : "Inactive"}
-                              </Badge>
+                              <p className="text-xs text-muted-foreground">{rule.description}</p>
+                              <div className="flex gap-2">
+                                <Badge variant="outline" className="text-xs">{rule.documentType}</Badge>
+                                {rule.priority && <Badge variant="outline" className="text-xs">{rule.priority}</Badge>}
+                                <Badge variant="outline" className="text-xs">{rule.action}</Badge>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -690,14 +896,27 @@ export default function Configuration() {
                       ) : (
                         <div className="space-y-2">
                           {normalisationRules.map((rule) => (
-                            <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`row-norm-rule-${rule.id}`}>
-                              <div>
-                                <div className="font-medium text-sm">{rule.ruleName}</div>
-                                <div className="text-xs text-muted-foreground">{rule.fieldPath} ({rule.ruleType})</div>
+                            <div key={rule.id} className="p-3 border rounded-lg space-y-2" data-testid={`row-norm-rule-${rule.id}`}>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-sm">{rule.ruleName}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{rule.fieldPath}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={rule.isActive ? "default" : "secondary"}>
+                                    {rule.isActive ? "Active" : "Inactive"}
+                                  </Badge>
+                                  <Button variant="ghost" size="icon" onClick={() => { setEditingNormRule(rule); setShowNormRuleDialog(true); }}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <Badge variant={rule.isActive ? "default" : "secondary"}>
-                                {rule.isActive ? "Active" : "Inactive"}
-                              </Badge>
+                              <div className="flex gap-2">
+                                <Badge variant="outline" className="text-xs">{rule.ruleType}</Badge>
+                                {rule.outputValue && (
+                                  <span className="text-xs text-muted-foreground">→ {rule.outputValue}</span>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -705,6 +924,151 @@ export default function Configuration() {
                     </CardContent>
                   </Card>
                 </div>
+
+                <Dialog open={showRuleDialog} onOpenChange={(open) => {
+                  setShowRuleDialog(open);
+                  if (!open) setEditingRule(null);
+                }}>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Edit Compliance Rule</DialogTitle>
+                      <DialogDescription>
+                        Modify the rule conditions and actions.
+                      </DialogDescription>
+                    </DialogHeader>
+                    {editingRule && (
+                      <form onSubmit={handleSaveRule} className="space-y-4">
+                        <div>
+                          <Label htmlFor="ruleName">Rule Name</Label>
+                          <Input id="ruleName" name="ruleName" defaultValue={editingRule.ruleName} required />
+                        </div>
+                        <div>
+                          <Label htmlFor="description">Description</Label>
+                          <Textarea id="description" name="description" defaultValue={editingRule.description} rows={2} required />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="action">Action</Label>
+                            <Select name="action" defaultValue={editingRule.action}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="FLAG_URGENT">Flag Urgent</SelectItem>
+                                <SelectItem value="MARK_INCOMPLETE">Mark Incomplete</SelectItem>
+                                <SelectItem value="AUTO_FAIL">Auto Fail</SelectItem>
+                                <SelectItem value="INFO">Info Only</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="priority">Priority</Label>
+                            <Select name="priority" defaultValue={editingRule.priority || "P2"}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="P1">P1 - Critical</SelectItem>
+                                <SelectItem value="P2">P2 - High</SelectItem>
+                                <SelectItem value="P3">P3 - Medium</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="conditions">Conditions (JSON)</Label>
+                          <Textarea 
+                            id="conditions" 
+                            name="conditions" 
+                            className="font-mono text-sm"
+                            rows={4}
+                            defaultValue={JSON.stringify(editingRule.conditions, null, 2)} 
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch id="isActive" name="isActive" defaultChecked={editingRule.isActive} />
+                          <Label htmlFor="isActive">Active</Label>
+                        </div>
+                        <DialogFooter>
+                          <Button type="submit" disabled={updateRuleMutation.isPending}>
+                            {updateRuleMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Save Rule
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={showNormRuleDialog} onOpenChange={(open) => {
+                  setShowNormRuleDialog(open);
+                  if (!open) setEditingNormRule(null);
+                }}>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Edit Normalisation Rule</DialogTitle>
+                      <DialogDescription>
+                        Modify how extracted data is transformed.
+                      </DialogDescription>
+                    </DialogHeader>
+                    {editingNormRule && (
+                      <form onSubmit={handleSaveNormRule} className="space-y-4">
+                        <div>
+                          <Label htmlFor="ruleName">Rule Name</Label>
+                          <Input id="ruleName" name="ruleName" defaultValue={editingNormRule.ruleName} required />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="fieldPath">Field Path</Label>
+                            <Input id="fieldPath" name="fieldPath" defaultValue={editingNormRule.fieldPath} required placeholder="defects.code" />
+                          </div>
+                          <div>
+                            <Label htmlFor="ruleType">Rule Type</Label>
+                            <Select name="ruleType" defaultValue={editingNormRule.ruleType}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="MAPPING">Mapping</SelectItem>
+                                <SelectItem value="REGEX">Regex</SelectItem>
+                                <SelectItem value="TRANSFORM">Transform</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="inputPatterns">Input Patterns (comma-separated)</Label>
+                          <Input 
+                            id="inputPatterns" 
+                            name="inputPatterns" 
+                            defaultValue={editingNormRule.inputPatterns?.join(", ") || ""} 
+                            placeholder="ID, immediately dangerous, IMMEDIATELY DANGEROUS"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="outputValue">Output Value</Label>
+                            <Input id="outputValue" name="outputValue" defaultValue={editingNormRule.outputValue || ""} placeholder="C1" />
+                          </div>
+                          <div>
+                            <Label htmlFor="transformFn">Transform Function</Label>
+                            <Input id="transformFn" name="transformFn" defaultValue={editingNormRule.transformFn || ""} placeholder="UPPERCASE" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch id="isActive" name="isActive" defaultChecked={editingNormRule.isActive} />
+                          <Label htmlFor="isActive">Active</Label>
+                        </div>
+                        <DialogFooter>
+                          <Button type="submit" disabled={updateNormRuleMutation.isPending}>
+                            {updateNormRuleMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Save Rule
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
             </Tabs>
           </div>
