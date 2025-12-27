@@ -134,9 +134,5 @@ export async function seedDatabase() {
   }
 }
 
-// Run seed if called directly via: npx tsx server/seed.ts
-// Note: This check only works in ESM mode (development)
-const isMainModule = typeof require !== 'undefined' && require.main === module;
-if (isMainModule) {
-  seedDatabase().then(() => process.exit(0)).catch(() => process.exit(1));
-}
+// Seed is exported for use by routes - do not auto-run
+// To seed manually, call the /api/seed endpoint or import and call seedDatabase()

@@ -1,9 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { join } from "path";
 import { db } from "./db";
 import { extractionRuns } from "@shared/schema";
+
+// Dynamic import pdfjs-dist for PDF processing
+let pdfjs: any = null;
+async function getPdfjs() {
+  if (!pdfjs) {
+    pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  }
+  return pdfjs;
+}
 
 // Configure pdfjs-dist with standard font data to avoid font warnings
 const standardFontDataUrl = join(process.cwd(), "node_modules/pdfjs-dist/standard_fonts/");
@@ -691,8 +699,9 @@ export function normalizeExtractionOutput(rawOutput: Record<string, any>): Recor
 
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
+    const pdfjsLib = await getPdfjs();
     const uint8Array = new Uint8Array(pdfBuffer);
-    const loadingTask = pdfjs.getDocument({ 
+    const loadingTask = pdfjsLib.getDocument({ 
       data: uint8Array,
       standardFontDataUrl,
       useSystemFonts: true
