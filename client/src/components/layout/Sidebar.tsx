@@ -38,6 +38,7 @@ const aiNavigation = [
   { name: "Model Insights", href: "/model-insights", icon: Brain },
   { name: "Human Review", href: "/human-review", icon: Eye },
   { name: "Domain Rules", href: "/domain-rules", icon: Settings2 },
+  { name: "Configuration", href: "/admin/configuration", icon: Settings },
 ];
 
 export function Sidebar() {

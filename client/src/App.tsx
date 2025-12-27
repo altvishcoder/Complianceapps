@@ -21,6 +21,7 @@ import RegisterPage from "@/pages/auth/register";
 import MFAPage from "@/pages/mfa";
 import AdminSetup from "@/pages/admin/setup";
 import AdminUsersPage from "@/pages/admin/users";
+import AdminConfiguration from "@/pages/admin/configuration";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import DomainRulesPage from "@/pages/domain-rules";
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/admin/setup" component={AdminSetup} />
       <Route path="/admin/users" component={AdminUsersPage} />
+      <Route path="/admin/configuration" component={AdminConfiguration} />
       <Route path="/model-insights" component={ModelInsightsPage} />
       <Route path="/human-review" component={HumanReviewPage} />
       <Route path="/domain-rules" component={DomainRulesPage} />

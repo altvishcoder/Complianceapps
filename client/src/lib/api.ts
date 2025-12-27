@@ -1,7 +1,10 @@
 // ComplianceAI API Client
 import type { 
   Property, Certificate, RemedialAction,
-  Scheme, Block, InsertProperty, InsertCertificate, Contractor, InsertContractor 
+  Scheme, Block, InsertProperty, InsertCertificate, Contractor, InsertContractor,
+  CertificateType, InsertCertificateType, ClassificationCode, InsertClassificationCode,
+  ExtractionSchema, InsertExtractionSchema, ComplianceRule, InsertComplianceRule,
+  NormalisationRule, InsertNormalisationRule
 } from "@shared/schema";
 
 const API_BASE = "/api";
@@ -234,4 +237,112 @@ export const contractorsApi = {
       method: "POST",
       body: JSON.stringify({ ids }),
     }),
+};
+
+// Configuration - Certificate Types
+export const certificateTypesApi = {
+  list: () => fetchJSON<CertificateType[]>(`${API_BASE}/config/certificate-types`),
+  
+  get: (id: string) => fetchJSON<CertificateType>(`${API_BASE}/config/certificate-types/${id}`),
+  
+  create: (data: InsertCertificateType) => fetchJSON<CertificateType>(`${API_BASE}/config/certificate-types`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertCertificateType>) => fetchJSON<CertificateType>(`${API_BASE}/config/certificate-types/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/certificate-types/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// Configuration - Classification Codes
+export const classificationCodesApi = {
+  list: (certificateTypeId?: string) => {
+    const params = certificateTypeId ? `?certificateTypeId=${certificateTypeId}` : "";
+    return fetchJSON<ClassificationCode[]>(`${API_BASE}/config/classification-codes${params}`);
+  },
+  
+  get: (id: string) => fetchJSON<ClassificationCode>(`${API_BASE}/config/classification-codes/${id}`),
+  
+  create: (data: InsertClassificationCode) => fetchJSON<ClassificationCode>(`${API_BASE}/config/classification-codes`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertClassificationCode>) => fetchJSON<ClassificationCode>(`${API_BASE}/config/classification-codes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/classification-codes/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// Configuration - Extraction Schemas
+export const extractionSchemasApi = {
+  list: () => fetchJSON<ExtractionSchema[]>(`${API_BASE}/config/extraction-schemas`),
+  
+  get: (id: string) => fetchJSON<ExtractionSchema>(`${API_BASE}/config/extraction-schemas/${id}`),
+  
+  create: (data: InsertExtractionSchema) => fetchJSON<ExtractionSchema>(`${API_BASE}/config/extraction-schemas`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertExtractionSchema>) => fetchJSON<ExtractionSchema>(`${API_BASE}/config/extraction-schemas/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/extraction-schemas/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// Configuration - Compliance Rules
+export const complianceRulesApi = {
+  list: () => fetchJSON<ComplianceRule[]>(`${API_BASE}/config/compliance-rules`),
+  
+  get: (id: string) => fetchJSON<ComplianceRule>(`${API_BASE}/config/compliance-rules/${id}`),
+  
+  create: (data: InsertComplianceRule) => fetchJSON<ComplianceRule>(`${API_BASE}/config/compliance-rules`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertComplianceRule>) => fetchJSON<ComplianceRule>(`${API_BASE}/config/compliance-rules/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/compliance-rules/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// Configuration - Normalisation Rules
+export const normalisationRulesApi = {
+  list: () => fetchJSON<NormalisationRule[]>(`${API_BASE}/config/normalisation-rules`),
+  
+  get: (id: string) => fetchJSON<NormalisationRule>(`${API_BASE}/config/normalisation-rules/${id}`),
+  
+  create: (data: InsertNormalisationRule) => fetchJSON<NormalisationRule>(`${API_BASE}/config/normalisation-rules`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertNormalisationRule>) => fetchJSON<NormalisationRule>(`${API_BASE}/config/normalisation-rules/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/normalisation-rules/${id}`, {
+    method: "DELETE",
+  }),
 };
