@@ -359,6 +359,55 @@ export const normalisationRules = pgTable("normalisation_rules", {
   isActive: boolean("is_active").notNull().default(true),
 });
 
+// ==========================================
+// SYSTEM CONFIGURATION TABLES
+// ==========================================
+
+// Certificate Types Configuration
+export const certificateTypes = pgTable("certificate_types", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  code: text("code").notNull().unique(), // "GAS_SAFETY", "EICR", etc.
+  name: text("name").notNull(), // "Gas Safety Certificate (CP12)"
+  shortName: text("short_name").notNull(), // "Gas Safety"
+  complianceStream: text("compliance_stream").notNull(), // "GAS", "ELECTRICAL", "FIRE", etc.
+  description: text("description"),
+  
+  // Validity configuration
+  validityMonths: integer("validity_months").notNull().default(12),
+  warningDays: integer("warning_days").notNull().default(30),
+  
+  // Required fields for extraction
+  requiredFields: text("required_fields").array(), // ["issueDate", "expiryDate", "engineerName"]
+  
+  // Display order and status
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Classification Codes Configuration (C1, C2, FI, etc.)
+export const classificationCodes = pgTable("classification_codes", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  code: text("code").notNull(), // "C1", "C2", "C3", "FI", "LIM", "N/A"
+  name: text("name").notNull(), // "Danger Present"
+  certificateTypeId: varchar("certificate_type_id").references(() => certificateTypes.id),
+  
+  // Classification details
+  severity: text("severity").notNull(), // "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"
+  colorCode: text("color_code"), // Hex color for UI display
+  description: text("description").notNull(),
+  actionRequired: text("action_required"), // What action is required for this code
+  timeframeHours: integer("timeframe_hours"), // Time to remediate (null = no deadline)
+  
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const organisationRelations = relations(organisations, ({ many }) => ({
   users: many(users),
@@ -520,6 +569,10 @@ export const insertEvalRunSchema = createInsertSchema(evalRuns).omit({ id: true,
 export const insertComplianceRuleSchema = createInsertSchema(complianceRules).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertNormalisationRuleSchema = createInsertSchema(normalisationRules).omit({ id: true });
 
+// Configuration Insert Schemas
+export const insertCertificateTypeSchema = createInsertSchema(certificateTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClassificationCodeSchema = createInsertSchema(classificationCodes).omit({ id: true, createdAt: true, updatedAt: true });
+
 // Types
 export type Organisation = typeof organisations.$inferSelect;
 export type InsertOrganisation = z.infer<typeof insertOrganisationSchema>;
@@ -572,3 +625,10 @@ export type InsertComplianceRule = z.infer<typeof insertComplianceRuleSchema>;
 
 export type NormalisationRule = typeof normalisationRules.$inferSelect;
 export type InsertNormalisationRule = z.infer<typeof insertNormalisationRuleSchema>;
+
+// Configuration Types
+export type CertificateType = typeof certificateTypes.$inferSelect;
+export type InsertCertificateType = z.infer<typeof insertCertificateTypeSchema>;
+
+export type ClassificationCode = typeof classificationCodes.$inferSelect;
+export type InsertClassificationCode = z.infer<typeof insertClassificationCodeSchema>;
