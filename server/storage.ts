@@ -20,6 +20,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  listUsers(organisationId: string): Promise<User[]>;
+  updateUserRole(userId: string, newRole: string, requesterId: string): Promise<User | undefined>;
+  getSuperAdmin(organisationId: string): Promise<User | undefined>;
   
   // Organisations
   getOrganisation(id: string): Promise<Organisation | undefined>;
@@ -82,6 +85,36 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async listUsers(organisationId: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.organisationId, organisationId));
+  }
+
+  async updateUserRole(userId: string, newRole: string, requesterId: string): Promise<User | undefined> {
+    const requester = await this.getUser(requesterId);
+    if (!requester || requester.role !== 'SUPER_ADMIN') {
+      throw new Error('Only super admins can change user roles');
+    }
+    
+    if (newRole === 'SUPER_ADMIN') {
+      const existingSuperAdmin = await this.getSuperAdmin(requester.organisationId);
+      if (existingSuperAdmin && existingSuperAdmin.id !== userId) {
+        throw new Error('Only one super admin is allowed per organisation');
+      }
+    }
+    
+    const [updated] = await db.update(users)
+      .set({ role: newRole as any })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getSuperAdmin(organisationId: string): Promise<User | undefined> {
+    const [superAdmin] = await db.select().from(users)
+      .where(and(eq(users.organisationId, organisationId), eq(users.role, 'SUPER_ADMIN')));
+    return superAdmin || undefined;
   }
   
   // Organisations

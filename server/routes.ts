@@ -535,6 +535,44 @@ export async function registerRoutes(
     }
   });
 
+  // ===== USER MANAGEMENT =====
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.listUsers(ORG_ID);
+      // Return users without password
+      const safeUsers = users.map(({ password, ...user }) => user);
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+  
+  app.patch("/api/users/:id/role", async (req, res) => {
+    try {
+      const { role, requesterId } = req.body;
+      if (!role || !requesterId) {
+        return res.status(400).json({ error: "Role and requesterId are required" });
+      }
+      
+      const validRoles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OFFICER', 'VIEWER'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      
+      const updatedUser = await storage.updateUserRole(req.params.id, role, requesterId);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { password, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } catch (error: any) {
+      console.error("Error updating user role:", error);
+      res.status(400).json({ error: error.message || "Failed to update user role" });
+    }
+  });
+
   // ===== LASHAN OWNED MODEL: MODEL INSIGHTS =====
   app.get("/api/model-insights", async (req, res) => {
     try {
