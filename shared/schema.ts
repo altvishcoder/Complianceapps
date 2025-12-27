@@ -151,6 +151,25 @@ export const remedialActions = pgTable("remedial_actions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Contractor Status Enum
+export const contractorStatusEnum = pgEnum('contractor_status', ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED']);
+
+// Contractors Table
+export const contractors = pgTable("contractors", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  companyName: text("company_name").notNull(),
+  tradeType: text("trade_type").notNull(),
+  registrationNumber: text("registration_number"),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone"),
+  gasRegistration: text("gas_registration"),
+  electricalRegistration: text("electrical_registration"),
+  status: contractorStatusEnum("status").notNull().default('PENDING'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ==========================================
 // LASHAN OWNED MODEL TABLES
 // ==========================================
@@ -489,6 +508,7 @@ export const insertPropertySchema = createInsertSchema(properties).omit({ id: tr
 export const insertCertificateSchema = createInsertSchema(certificates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertExtractionSchema = createInsertSchema(extractions).omit({ id: true, createdAt: true });
 export const insertRemedialActionSchema = createInsertSchema(remedialActions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertContractorSchema = createInsertSchema(contractors).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Lashan Owned Model Insert Schemas
 export const insertExtractionSchemaSchema = createInsertSchema(extractionSchemas).omit({ id: true, createdAt: true, updatedAt: true });
@@ -524,6 +544,9 @@ export type InsertExtraction = z.infer<typeof insertExtractionSchema>;
 
 export type RemedialAction = typeof remedialActions.$inferSelect;
 export type InsertRemedialAction = z.infer<typeof insertRemedialActionSchema>;
+
+export type Contractor = typeof contractors.$inferSelect;
+export type InsertContractor = z.infer<typeof insertContractorSchema>;
 
 // Lashan Owned Model Types
 export type ExtractionSchema = typeof extractionSchemas.$inferSelect;

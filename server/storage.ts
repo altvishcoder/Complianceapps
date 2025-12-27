@@ -1,6 +1,6 @@
 // ComplianceAI Storage Interface - implements database operations using Drizzle ORM
 import { 
-  users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions,
+  users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions, contractors,
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
   type User, type InsertUser,
@@ -10,7 +10,8 @@ import {
   type Property, type InsertProperty,
   type Certificate, type InsertCertificate,
   type Extraction, type InsertExtraction,
-  type RemedialAction, type InsertRemedialAction
+  type RemedialAction, type InsertRemedialAction,
+  type Contractor, type InsertContractor
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -68,6 +69,15 @@ export interface IStorage {
   getRemedialAction(id: string): Promise<RemedialAction | undefined>;
   createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction>;
   updateRemedialAction(id: string, updates: Partial<InsertRemedialAction>): Promise<RemedialAction | undefined>;
+  
+  // Contractors
+  listContractors(organisationId: string): Promise<Contractor[]>;
+  getContractor(id: string): Promise<Contractor | undefined>;
+  createContractor(contractor: InsertContractor): Promise<Contractor>;
+  updateContractor(id: string, updates: Partial<InsertContractor>): Promise<Contractor | undefined>;
+  updateContractorStatus(id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'): Promise<Contractor | undefined>;
+  bulkApproveContractors(ids: string[]): Promise<number>;
+  bulkRejectContractors(ids: string[]): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -437,6 +447,55 @@ export class DatabaseStorage implements IStorage {
   async updateRemedialAction(id: string, updates: Partial<InsertRemedialAction>): Promise<RemedialAction | undefined> {
     const [updated] = await db.update(remedialActions).set({ ...updates, updatedAt: new Date() }).where(eq(remedialActions.id, id)).returning();
     return updated || undefined;
+  }
+  
+  // Contractors
+  async listContractors(organisationId: string): Promise<Contractor[]> {
+    return db.select().from(contractors).where(eq(contractors.organisationId, organisationId)).orderBy(desc(contractors.createdAt));
+  }
+  
+  async getContractor(id: string): Promise<Contractor | undefined> {
+    const [contractor] = await db.select().from(contractors).where(eq(contractors.id, id));
+    return contractor || undefined;
+  }
+  
+  async createContractor(contractor: InsertContractor): Promise<Contractor> {
+    const [newContractor] = await db.insert(contractors).values(contractor).returning();
+    return newContractor;
+  }
+  
+  async updateContractor(id: string, updates: Partial<InsertContractor>): Promise<Contractor | undefined> {
+    const [updated] = await db.update(contractors).set({ ...updates, updatedAt: new Date() }).where(eq(contractors.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  async updateContractorStatus(id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'): Promise<Contractor | undefined> {
+    const [updated] = await db.update(contractors).set({ status, updatedAt: new Date() }).where(eq(contractors.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  async bulkApproveContractors(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    let approved = 0;
+    for (const id of ids) {
+      const result = await db.update(contractors)
+        .set({ status: 'APPROVED', updatedAt: new Date() })
+        .where(eq(contractors.id, id));
+      if (result.rowCount && result.rowCount > 0) approved++;
+    }
+    return approved;
+  }
+  
+  async bulkRejectContractors(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    let rejected = 0;
+    for (const id of ids) {
+      const result = await db.update(contractors)
+        .set({ status: 'REJECTED', updatedAt: new Date() })
+        .where(eq(contractors.id, id));
+      if (result.rowCount && result.rowCount > 0) rejected++;
+    }
+    return rejected;
   }
   
   // Admin / Demo Data Management

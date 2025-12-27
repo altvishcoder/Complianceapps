@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, 
-  insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema,
+  insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches
 } from "@shared/schema";
 import { z } from "zod";
@@ -246,6 +246,106 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error auto-creating property:", error);
       res.status(500).json({ error: "Failed to create property" });
+    }
+  });
+  
+  // ===== CONTRACTORS =====
+  app.get("/api/contractors", async (req, res) => {
+    try {
+      const contractors = await storage.listContractors(ORG_ID);
+      res.json(contractors);
+    } catch (error) {
+      console.error("Error fetching contractors:", error);
+      res.status(500).json({ error: "Failed to fetch contractors" });
+    }
+  });
+  
+  app.get("/api/contractors/:id", async (req, res) => {
+    try {
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      res.json(contractor);
+    } catch (error) {
+      console.error("Error fetching contractor:", error);
+      res.status(500).json({ error: "Failed to fetch contractor" });
+    }
+  });
+  
+  app.post("/api/contractors", async (req, res) => {
+    try {
+      const data = insertContractorSchema.parse({ ...req.body, organisationId: ORG_ID });
+      const contractor = await storage.createContractor(data);
+      res.status(201).json(contractor);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error creating contractor:", error);
+      res.status(500).json({ error: "Failed to create contractor" });
+    }
+  });
+  
+  app.patch("/api/contractors/:id", async (req, res) => {
+    try {
+      const updateData = insertContractorSchema.partial().parse(req.body);
+      const contractor = await storage.updateContractor(req.params.id, updateData);
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      res.json(contractor);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error updating contractor:", error);
+      res.status(500).json({ error: "Failed to update contractor" });
+    }
+  });
+  
+  app.post("/api/contractors/:id/status", async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      const contractor = await storage.updateContractorStatus(req.params.id, status);
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      res.json(contractor);
+    } catch (error) {
+      console.error("Error updating contractor status:", error);
+      res.status(500).json({ error: "Failed to update contractor status" });
+    }
+  });
+  
+  app.post("/api/contractors/bulk-approve", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No contractor IDs provided" });
+      }
+      const approved = await storage.bulkApproveContractors(ids);
+      res.json({ success: true, approved });
+    } catch (error) {
+      console.error("Error bulk approving contractors:", error);
+      res.status(500).json({ error: "Failed to approve contractors" });
+    }
+  });
+  
+  app.post("/api/contractors/bulk-reject", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No contractor IDs provided" });
+      }
+      const rejected = await storage.bulkRejectContractors(ids);
+      res.json({ success: true, rejected });
+    } catch (error) {
+      console.error("Error bulk rejecting contractors:", error);
+      res.status(500).json({ error: "Failed to reject contractors" });
     }
   });
   

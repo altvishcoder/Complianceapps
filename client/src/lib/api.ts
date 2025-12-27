@@ -1,7 +1,7 @@
 // ComplianceAI API Client
 import type { 
   Property, Certificate, RemedialAction,
-  Scheme, Block, InsertProperty, InsertCertificate 
+  Scheme, Block, InsertProperty, InsertCertificate, Contractor, InsertContractor 
 } from "@shared/schema";
 
 const API_BASE = "/api";
@@ -198,5 +198,40 @@ export const usersApi = {
     fetchJSON<SafeUser>(`${API_BASE}/users/${userId}/role`, {
       method: "PATCH",
       body: JSON.stringify({ role, requesterId }),
+    }),
+};
+
+// Contractors
+export const contractorsApi = {
+  list: () => fetchJSON<Contractor[]>(`${API_BASE}/contractors`),
+  
+  get: (id: string) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`),
+  
+  create: (data: Omit<InsertContractor, 'organisationId'>) => fetchJSON<Contractor>(`${API_BASE}/contractors`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<Contractor>) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  updateStatus: (id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED') => 
+    fetchJSON<Contractor>(`${API_BASE}/contractors/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
+  
+  bulkApprove: (ids: string[]) => 
+    fetchJSON<{ success: boolean; approved: number }>(`${API_BASE}/contractors/bulk-approve`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  
+  bulkReject: (ids: string[]) => 
+    fetchJSON<{ success: boolean; rejected: number }>(`${API_BASE}/contractors/bulk-reject`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
     }),
 };
