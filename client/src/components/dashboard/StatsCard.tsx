@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
+import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface StatsCardProps {
   title: string;
@@ -69,7 +69,9 @@ export function StatsCard({
               trend === "down" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400" : 
               "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
             )}>
-              {trend === "up" ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {trend === "up" ? <TrendingUp className="h-3 w-3" /> : 
+               trend === "down" ? <TrendingDown className="h-3 w-3" /> : 
+               <Minus className="h-3 w-3" />}
               {trendValue}
             </div>
           )}
