@@ -31,6 +31,7 @@ const navigation = [
   { name: "Actions", href: "/actions", icon: Wrench },
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Settings", href: "/admin/setup", icon: Settings },
 ];
 
 const aiNavigation = [
