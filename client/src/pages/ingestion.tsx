@@ -23,20 +23,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDropzone } from "react-dropzone";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { propertiesApi, certificatesApi } from "@/lib/api";
+import { propertiesApi, certificatesApi, certificateTypesApi } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
 import type { EnrichedCertificate } from "@/lib/api";
-
-const CERTIFICATE_TYPES = [
-  { value: "GAS_SAFETY", label: "Gas Safety (CP12)" },
-  { value: "EICR", label: "Electrical (EICR)" },
-  { value: "FIRE_RISK_ASSESSMENT", label: "Fire Risk Assessment" },
-  { value: "ASBESTOS_SURVEY", label: "Asbestos Survey" },
-  { value: "LEGIONELLA_ASSESSMENT", label: "Legionella Assessment" },
-  { value: "LIFT_LOLER", label: "Lift (LOLER)" },
-  { value: "EPC", label: "Energy Performance (EPC)" },
-  { value: "OTHER", label: "Other" },
-];
 
 // Helper function to extract address from certificate data
 function getExtractedAddress(extractedData: any): string {
@@ -196,6 +185,11 @@ export default function Ingestion() {
   const { data: properties = [] } = useQuery({
     queryKey: ["properties"],
     queryFn: () => propertiesApi.list(),
+  });
+
+  const { data: certificateTypes = [] } = useQuery({
+    queryKey: ["certificateTypes"],
+    queryFn: certificateTypesApi.list,
   });
 
   const { data: recentCertificates = [] } = useQuery({
@@ -663,8 +657,8 @@ export default function Ingestion() {
                               </div>
                             </SelectItem>
                             <div className="my-1 border-t" />
-                            {CERTIFICATE_TYPES.map(t => (
-                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            {certificateTypes.filter(t => t.isActive).map(t => (
+                              <SelectItem key={t.code} value={t.code}>{t.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -812,7 +806,7 @@ export default function Ingestion() {
 
                         <div className="p-4 bg-slate-950 rounded-md font-mono text-xs text-slate-200 space-y-1 border border-slate-800">
                           <p className="text-emerald-400">{'>'} Model: claude-3-5-haiku-20241022</p>
-                          <p>{'>'} Document Type: {CERTIFICATE_TYPES.find(t => t.value === selectedType)?.label || selectedType}</p>
+                          <p>{'>'} Document Type: {certificateTypes.find(t => t.code === selectedType)?.name || selectedType}</p>
                           <p className="animate-pulse text-blue-400">{'>'} {processingStep}</p>
                         </div>
                       </div>
@@ -1006,8 +1000,8 @@ export default function Ingestion() {
                               </div>
                             </SelectItem>
                             <div className="my-1 border-t" />
-                            {CERTIFICATE_TYPES.map(t => (
-                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            {certificateTypes.filter(t => t.isActive).map(t => (
+                              <SelectItem key={t.code} value={t.code}>{t.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

@@ -589,30 +589,49 @@ export default function Configuration() {
                         <p className="text-sm">Schemas define what data to extract from certificates.</p>
                       </div>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Document Type</TableHead>
-                            <TableHead>Version</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {extractionSchemas.map((schema) => (
-                            <TableRow key={schema.id} data-testid={`row-schema-${schema.id}`}>
-                              <TableCell className="font-medium">{schema.documentType}</TableCell>
-                              <TableCell>{schema.version}</TableCell>
-                              <TableCell>
+                      <div className="space-y-4">
+                        {extractionSchemas.map((schema) => (
+                          <div key={schema.id} className="border rounded-lg p-4 space-y-3" data-testid={`row-schema-${schema.id}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-primary/10 rounded-lg">
+                                  <Code className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{schema.documentType}</p>
+                                  <p className="text-sm text-muted-foreground">Version {schema.version}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
                                 <Badge variant={schema.isActive ? "default" : "secondary"}>
                                   {schema.isActive ? "Active" : "Inactive"}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>{new Date(schema.createdAt).toLocaleDateString()}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                                {schema.isDeprecated && (
+                                  <Badge variant="destructive">Deprecated</Badge>
+                                )}
+                              </div>
+                            </div>
+                            {schema.promptTemplate && (
+                              <div className="p-3 bg-muted/50 rounded-lg">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Prompt Template</p>
+                                <p className="text-sm">{schema.promptTemplate}</p>
+                              </div>
+                            )}
+                            <details className="group">
+                              <summary className="cursor-pointer text-sm text-primary hover:underline list-none flex items-center gap-1">
+                                <span className="group-open:rotate-90 transition-transform">▸</span>
+                                View Schema JSON ({Object.keys(schema.schemaJson as object || {}).length} fields)
+                              </summary>
+                              <pre className="mt-2 p-3 bg-slate-950 text-slate-200 rounded-lg text-xs overflow-x-auto max-h-64">
+                                {JSON.stringify(schema.schemaJson, null, 2)}
+                              </pre>
+                            </details>
+                            <p className="text-xs text-muted-foreground">
+                              Created: {new Date(schema.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </CardContent>
                 </Card>
