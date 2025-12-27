@@ -59,8 +59,7 @@ export function Sidebar() {
   });
   
   const emergencyHazards = actionsError ? 0 : actions.filter(a => a.severity === 'IMMEDIATE' && a.status === 'OPEN').length;
-  const overdueGasCerts = certsError ? 0 : certificates.filter(c => {
-    if (c.certificateType !== 'GAS_SAFETY') return false;
+  const overdueCerts = certsError ? 0 : certificates.filter(c => {
     if (!c.expiryDate) return false;
     return new Date(c.expiryDate) < new Date();
   }).length;
@@ -172,20 +171,20 @@ export function Sidebar() {
                 </div>
               </Link>
             )}
-            {overdueGasCerts > 0 && (
+            {overdueCerts > 0 && (
               <Link href="/certificates?filter=overdue">
                 <div className="flex items-center gap-3 px-3 py-3 text-sm rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-500/5 border border-amber-500/20 cursor-pointer hover:from-amber-500/20 hover:to-amber-500/10 transition-all group">
                   <div className="p-1.5 rounded-lg bg-amber-500/20">
                     <AlertTriangle className="h-4 w-4 text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-amber-300 font-medium">{overdueGasCerts} Overdue</p>
-                    <p className="text-[11px] text-amber-400/60">CP12 certificates expired</p>
+                    <p className="text-amber-300 font-medium">{overdueCerts} Overdue</p>
+                    <p className="text-[11px] text-amber-400/60">Certificates past expiry</p>
                   </div>
                 </div>
               </Link>
             )}
-            {emergencyHazards === 0 && overdueGasCerts === 0 && (
+            {emergencyHazards === 0 && overdueCerts === 0 && (
               <div className="flex items-center gap-3 px-3 py-3 text-sm rounded-xl bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
                 <div className="p-1.5 rounded-lg bg-emerald-500/20">
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />
