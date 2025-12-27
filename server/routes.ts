@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, 
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
+  insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
+  insertComplianceRuleSchema, insertNormalisationRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches
 } from "@shared/schema";
 import { z } from "zod";
@@ -592,7 +594,7 @@ export async function registerRoutes(
         
         // Look for extracted document type in property metadata
         const property = await storage.getProperty(cert.propertyId);
-        const docType = property?.extractedMetadata?.documentType || 
+        const docType = (property?.extractedMetadata as any)?.documentType || 
                         (cert as any).extractedData?.documentType;
         
         if (!docType) {
@@ -1267,6 +1269,357 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+  
+  // ===== CONFIGURATION - CERTIFICATE TYPES =====
+  app.get("/api/config/certificate-types", async (req, res) => {
+    try {
+      const types = await storage.listCertificateTypes();
+      res.json(types);
+    } catch (error) {
+      console.error("Error fetching certificate types:", error);
+      res.status(500).json({ error: "Failed to fetch certificate types" });
+    }
+  });
+  
+  app.get("/api/config/certificate-types/:id", async (req, res) => {
+    try {
+      const certType = await storage.getCertificateType(req.params.id);
+      if (!certType) {
+        return res.status(404).json({ error: "Certificate type not found" });
+      }
+      res.json(certType);
+    } catch (error) {
+      console.error("Error fetching certificate type:", error);
+      res.status(500).json({ error: "Failed to fetch certificate type" });
+    }
+  });
+  
+  app.post("/api/config/certificate-types", async (req, res) => {
+    try {
+      const data = insertCertificateTypeSchema.parse(req.body);
+      const certType = await storage.createCertificateType(data);
+      res.status(201).json(certType);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating certificate type:", error);
+        res.status(500).json({ error: "Failed to create certificate type" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/certificate-types/:id", async (req, res) => {
+    try {
+      const updateData = insertCertificateTypeSchema.partial().parse(req.body);
+      const updated = await storage.updateCertificateType(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Certificate type not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating certificate type:", error);
+        res.status(500).json({ error: "Failed to update certificate type" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/certificate-types/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCertificateType(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Certificate type not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting certificate type:", error);
+      res.status(500).json({ error: "Failed to delete certificate type" });
+    }
+  });
+  
+  // ===== CONFIGURATION - CLASSIFICATION CODES =====
+  app.get("/api/config/classification-codes", async (req, res) => {
+    try {
+      const certificateTypeId = req.query.certificateTypeId as string | undefined;
+      const codes = await storage.listClassificationCodes(certificateTypeId);
+      res.json(codes);
+    } catch (error) {
+      console.error("Error fetching classification codes:", error);
+      res.status(500).json({ error: "Failed to fetch classification codes" });
+    }
+  });
+  
+  app.get("/api/config/classification-codes/:id", async (req, res) => {
+    try {
+      const code = await storage.getClassificationCode(req.params.id);
+      if (!code) {
+        return res.status(404).json({ error: "Classification code not found" });
+      }
+      res.json(code);
+    } catch (error) {
+      console.error("Error fetching classification code:", error);
+      res.status(500).json({ error: "Failed to fetch classification code" });
+    }
+  });
+  
+  app.post("/api/config/classification-codes", async (req, res) => {
+    try {
+      const data = insertClassificationCodeSchema.parse(req.body);
+      const code = await storage.createClassificationCode(data);
+      res.status(201).json(code);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating classification code:", error);
+        res.status(500).json({ error: "Failed to create classification code" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/classification-codes/:id", async (req, res) => {
+    try {
+      const updateData = insertClassificationCodeSchema.partial().parse(req.body);
+      const updated = await storage.updateClassificationCode(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Classification code not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating classification code:", error);
+        res.status(500).json({ error: "Failed to update classification code" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/classification-codes/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteClassificationCode(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Classification code not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting classification code:", error);
+      res.status(500).json({ error: "Failed to delete classification code" });
+    }
+  });
+  
+  // ===== CONFIGURATION - EXTRACTION SCHEMAS =====
+  app.get("/api/config/extraction-schemas", async (req, res) => {
+    try {
+      const schemas = await storage.listExtractionSchemas();
+      res.json(schemas);
+    } catch (error) {
+      console.error("Error fetching extraction schemas:", error);
+      res.status(500).json({ error: "Failed to fetch extraction schemas" });
+    }
+  });
+  
+  app.get("/api/config/extraction-schemas/:id", async (req, res) => {
+    try {
+      const schema = await storage.getExtractionSchema(req.params.id);
+      if (!schema) {
+        return res.status(404).json({ error: "Extraction schema not found" });
+      }
+      res.json(schema);
+    } catch (error) {
+      console.error("Error fetching extraction schema:", error);
+      res.status(500).json({ error: "Failed to fetch extraction schema" });
+    }
+  });
+  
+  app.post("/api/config/extraction-schemas", async (req, res) => {
+    try {
+      const data = insertExtractionSchemaSchema.parse(req.body);
+      const schema = await storage.createExtractionSchema(data);
+      res.status(201).json(schema);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating extraction schema:", error);
+        res.status(500).json({ error: "Failed to create extraction schema" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/extraction-schemas/:id", async (req, res) => {
+    try {
+      const updateData = insertExtractionSchemaSchema.partial().parse(req.body);
+      const updated = await storage.updateExtractionSchema(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Extraction schema not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating extraction schema:", error);
+        res.status(500).json({ error: "Failed to update extraction schema" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/extraction-schemas/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteExtractionSchema(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Extraction schema not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting extraction schema:", error);
+      res.status(500).json({ error: "Failed to delete extraction schema" });
+    }
+  });
+  
+  // ===== CONFIGURATION - COMPLIANCE RULES =====
+  app.get("/api/config/compliance-rules", async (req, res) => {
+    try {
+      const rules = await storage.listComplianceRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching compliance rules:", error);
+      res.status(500).json({ error: "Failed to fetch compliance rules" });
+    }
+  });
+  
+  app.get("/api/config/compliance-rules/:id", async (req, res) => {
+    try {
+      const rule = await storage.getComplianceRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Compliance rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error fetching compliance rule:", error);
+      res.status(500).json({ error: "Failed to fetch compliance rule" });
+    }
+  });
+  
+  app.post("/api/config/compliance-rules", async (req, res) => {
+    try {
+      const data = insertComplianceRuleSchema.parse(req.body);
+      const rule = await storage.createComplianceRule(data);
+      res.status(201).json(rule);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating compliance rule:", error);
+        res.status(500).json({ error: "Failed to create compliance rule" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/compliance-rules/:id", async (req, res) => {
+    try {
+      const updateData = insertComplianceRuleSchema.partial().parse(req.body);
+      const updated = await storage.updateComplianceRule(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Compliance rule not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating compliance rule:", error);
+        res.status(500).json({ error: "Failed to update compliance rule" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/compliance-rules/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteComplianceRule(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Compliance rule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting compliance rule:", error);
+      res.status(500).json({ error: "Failed to delete compliance rule" });
+    }
+  });
+  
+  // ===== CONFIGURATION - NORMALISATION RULES =====
+  app.get("/api/config/normalisation-rules", async (req, res) => {
+    try {
+      const rules = await storage.listNormalisationRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching normalisation rules:", error);
+      res.status(500).json({ error: "Failed to fetch normalisation rules" });
+    }
+  });
+  
+  app.get("/api/config/normalisation-rules/:id", async (req, res) => {
+    try {
+      const rule = await storage.getNormalisationRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Normalisation rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error fetching normalisation rule:", error);
+      res.status(500).json({ error: "Failed to fetch normalisation rule" });
+    }
+  });
+  
+  app.post("/api/config/normalisation-rules", async (req, res) => {
+    try {
+      const data = insertNormalisationRuleSchema.parse(req.body);
+      const rule = await storage.createNormalisationRule(data);
+      res.status(201).json(rule);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating normalisation rule:", error);
+        res.status(500).json({ error: "Failed to create normalisation rule" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/normalisation-rules/:id", async (req, res) => {
+    try {
+      const updateData = insertNormalisationRuleSchema.partial().parse(req.body);
+      const updated = await storage.updateNormalisationRule(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Normalisation rule not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating normalisation rule:", error);
+        res.status(500).json({ error: "Failed to update normalisation rule" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/normalisation-rules/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteNormalisationRule(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Normalisation rule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting normalisation rule:", error);
+      res.status(500).json({ error: "Failed to delete normalisation rule" });
     }
   });
   
