@@ -956,7 +956,7 @@ export async function registerRoutes(
           nonCompliant: typeCerts.length > 0 ? Math.round((typeInvalid / typeCerts.length) * 100) : 0,
           pending: typeCerts.length > 0 ? Math.round((typePending / typeCerts.length) * 100) : 0,
         };
-      });
+      }).filter(t => t.total > 0); // Only include types that have at least 1 certificate
       
       // Hazard distribution by category
       const hazardCategories = allActions.filter(a => a.status === 'OPEN').reduce((acc, action) => {

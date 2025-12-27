@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertTriangle, TrendingUp, ArrowUpRight, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { certificatesApi, actionsApi } from "@/lib/api";
+import { useLocation } from "wouter";
 
 export default function CompliancePage() {
+  const [, navigate] = useLocation();
+  
   const { data: certificates = [], isLoading: certsLoading } = useQuery({
     queryKey: ["certificates"],
     queryFn: () => certificatesApi.list(),
@@ -46,8 +49,9 @@ export default function CompliancePage() {
   const complianceByStream = streams.map(stream => {
     const streamCerts = certificates.filter(c => c.certificateType === stream.key);
     const validCerts = streamCerts.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
-    const rate = streamCerts.length > 0 ? (validCerts / streamCerts.length) * 100 : 100;
-    return { ...stream, value: rate, count: streamCerts.length };
+    // Show 0% when no certificates, not 100%
+    const rate = streamCerts.length > 0 ? (validCerts / streamCerts.length) * 100 : 0;
+    return { ...stream, value: rate, count: streamCerts.length, hasData: streamCerts.length > 0 };
   });
 
   // Compliance gaps - overdue or unsatisfactory
@@ -126,28 +130,30 @@ export default function CompliancePage() {
                 <CardDescription>Current compliance rates per statutory area</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {complianceByStream.length > 0 ? (
-                  complianceByStream.map((item) => (
-                    <div key={item.key} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{item.name}</span>
+                {complianceByStream.map((item) => (
+                  <div key={item.key} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{item.name}</span>
+                      {item.hasData ? (
                         <span className={item.value < 95 ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
-                          {item.value.toFixed(1)}% {item.count > 0 && <span className="text-muted-foreground font-normal">({item.count})</span>}
+                          {item.value.toFixed(1)}% <span className="text-muted-foreground font-normal">({item.count})</span>
                         </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      ) : (
+                        <span className="text-muted-foreground italic">Not assessed</span>
+                      )}
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      {item.hasData ? (
                         <div 
                           className={`h-full rounded-full ${item.value < 95 ? "bg-amber-500" : "bg-emerald-500"}`} 
                           style={{ width: `${item.value}%` }} 
                         />
-                      </div>
+                      ) : (
+                        <div className="h-full w-full bg-muted" />
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No compliance data available. Upload certificates to see compliance rates.
                   </div>
-                )}
+                ))}
               </CardContent>
             </Card>
 
@@ -209,7 +215,13 @@ export default function CompliancePage() {
                           </td>
                           <td className="p-4 text-rose-600">{row.days} days</td>
                           <td className="p-4 text-right">
-                            <Button size="sm" variant="outline" className="gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="gap-1"
+                              onClick={() => navigate(`/certificates/${row.id}`)}
+                              data-testid={`button-resolve-${row.id}`}
+                            >
                               Resolve <ArrowUpRight className="h-3 w-3" />
                             </Button>
                           </td>
