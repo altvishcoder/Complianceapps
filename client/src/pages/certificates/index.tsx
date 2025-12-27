@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 
 export default function CertificatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
   
@@ -46,6 +47,26 @@ export default function CertificatesPage() {
     queryKey: ["certificates"],
     queryFn: () => certificatesApi.list(),
   });
+  
+  const filteredCertificates = certificates.filter((cert) => {
+    const matchesSearch = searchTerm === '' || 
+      cert.property?.addressLine1?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cert.certificateType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cert.fileName?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = !statusFilter || cert.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+  
+  const handleStatusClick = (e: React.MouseEvent, status: string) => {
+    e.stopPropagation();
+    if (statusFilter === status) {
+      setStatusFilter(null);
+    } else {
+      setStatusFilter(status);
+    }
+  };
   
   const selectedProp = selectedCert?.property;
 
@@ -85,6 +106,17 @@ export default function CertificatesPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              {statusFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => setStatusFilter(null)}
+                >
+                  Status: {statusFilter.replace('_', ' ')}
+                  <span className="text-muted-foreground">&times;</span>
+                </Button>
+              )}
               <Button variant="outline" size="icon">
                 <Filter className="h-4 w-4" />
               </Button>
@@ -115,7 +147,7 @@ export default function CertificatesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {certificates.map((cert) => {
+                    {filteredCertificates.map((cert) => {
                       return (
                       <tr key={cert.id} className="hover:bg-muted/20 cursor-pointer" onClick={() => setSelectedCert(cert)}>
                         <td className="p-4">
@@ -131,9 +163,12 @@ export default function CertificatesPage() {
                         </td>
                         <td className="p-4 font-medium">{cert.property?.addressLine1}</td>
                         <td className="p-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(cert.status)}`}>
+                          <button
+                            onClick={(e) => handleStatusClick(e, cert.status)}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all ${getStatusColor(cert.status)} ${statusFilter === cert.status ? 'ring-2 ring-primary' : ''}`}
+                          >
                             {cert.status.replace('_', ' ')}
-                          </span>
+                          </button>
                         </td>
                         <td className="p-4 text-muted-foreground">{cert.expiryDate}</td>
                         <td className="p-4">

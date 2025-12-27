@@ -371,8 +371,8 @@ export default function Ingestion() {
       progress: 0,
     }));
     
-    // Read base64 for each file
-    newBatchFiles.forEach((bf, index) => {
+    newBatchFiles.forEach((bf) => {
+      if (!bf.file) return;
       const reader = new FileReader();
       reader.onload = () => {
         const base64 = (reader.result as string).split(',')[1];
@@ -415,27 +415,33 @@ export default function Ingestion() {
   const hasFailedFiles = batchFiles.some(f => f.status === 'error');
 
   const processSingleBatchFile = async (bf: BatchFile): Promise<void> => {
+    if (!bf.file) {
+      setBatchFiles(prev => prev.map(f => 
+        f.id === bf.id ? { ...f, status: 'error', error: 'No file data available' } : f
+      ));
+      return;
+    }
+    const file = bf.file;
+    
     try {
-      // Update status to uploading
       setBatchFiles(prev => prev.map(f => 
         f.id === bf.id ? { ...f, status: 'uploading', progress: 10 } : f
       ));
 
-      const mimeType = bf.file.type;
-      const uploadResult = await uploadFile(bf.file);
+      const mimeType = file.type;
+      const uploadResult = await uploadFile(file);
       const storageKey = uploadResult?.objectPath || null;
 
       setBatchFiles(prev => prev.map(f => 
         f.id === bf.id ? { ...f, status: 'processing', progress: 40 } : f
       ));
 
-      let actualPropertyId = batchPropertyId === 'auto-detect' 
-        ? (properties.length > 0 ? properties[0].id : '') 
-        : batchPropertyId;
+      let actualPropertyId = batchPropertyId === 'auto-detect' ? '' : batchPropertyId;
         
       if (!actualPropertyId) {
+        const cleanFileName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
         const autoProperty = await propertiesApi.autoCreate({
-          addressLine1: bf.file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+          addressLine1: cleanFileName,
           city: 'To Be Verified',
           postcode: 'UNKNOWN',
         });
@@ -447,9 +453,9 @@ export default function Ingestion() {
 
       const certificate = await createCertificate.mutateAsync({
         propertyId: actualPropertyId,
-        fileName: bf.file.name,
+        fileName: file.name,
         fileType: mimeType,
-        fileSize: bf.file.size,
+        fileSize: file.size,
         certificateType: actualType as any,
         storageKey: storageKey,
         fileBase64: mimeType.startsWith('image/') ? bf.base64 : undefined,
@@ -1090,11 +1096,11 @@ export default function Ingestion() {
                             <div key={bf.id} className="px-4 py-3 flex items-center gap-3 hover:bg-muted/30">
                               {getStatusIcon(bf.status)}
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{bf.file.name}</p>
+                                <p className="text-sm font-medium truncate">{bf.fileName || bf.file?.name || 'Unknown file'}</p>
                                 <div className="flex items-center gap-2 mt-1">
                                   {getStatusBadge(bf.status)}
                                   <span className="text-xs text-muted-foreground">
-                                    {(bf.file.size / 1024).toFixed(1)} KB
+                                    {(((bf.fileSize || bf.file?.size) || 0) / 1024).toFixed(1)} KB
                                   </span>
                                   {bf.error && (
                                     <span className="text-xs text-red-600">{bf.error}</span>
