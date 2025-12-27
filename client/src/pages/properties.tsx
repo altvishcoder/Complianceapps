@@ -433,7 +433,7 @@ export default function Properties() {
                       <th className="p-4 pl-4 w-10">
                         <Checkbox 
                           checked={selectedIds.size === filteredProperties.length && filteredProperties.length > 0}
-                          onChange={toggleSelectAll}
+                          onCheckedChange={toggleSelectAll}
                           data-testid="checkbox-select-all"
                         />
                       </th>
@@ -462,7 +462,7 @@ export default function Properties() {
                           <td className="p-4 pl-4" onClick={(e) => e.stopPropagation()}>
                             <Checkbox 
                               checked={selectedIds.has(prop.id)}
-                              onChange={() => {
+                              onCheckedChange={() => {
                                 const newSelection = new Set(selectedIds);
                                 if (newSelection.has(prop.id)) {
                                   newSelection.delete(prop.id);
