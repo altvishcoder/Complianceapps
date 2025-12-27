@@ -3,6 +3,7 @@ import {
   users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions, contractors,
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
+  certificateTypes, classificationCodes,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -11,7 +12,12 @@ import {
   type Certificate, type InsertCertificate,
   type Extraction, type InsertExtraction,
   type RemedialAction, type InsertRemedialAction,
-  type Contractor, type InsertContractor
+  type Contractor, type InsertContractor,
+  type CertificateType, type InsertCertificateType,
+  type ClassificationCode, type InsertClassificationCode,
+  type ExtractionSchema, type InsertExtractionSchema,
+  type ComplianceRule, type InsertComplianceRule,
+  type NormalisationRule, type InsertNormalisationRule
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -78,6 +84,41 @@ export interface IStorage {
   updateContractorStatus(id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'): Promise<Contractor | undefined>;
   bulkApproveContractors(ids: string[]): Promise<number>;
   bulkRejectContractors(ids: string[]): Promise<number>;
+  
+  // Configuration - Certificate Types
+  listCertificateTypes(): Promise<CertificateType[]>;
+  getCertificateType(id: string): Promise<CertificateType | undefined>;
+  createCertificateType(certType: InsertCertificateType): Promise<CertificateType>;
+  updateCertificateType(id: string, updates: Partial<InsertCertificateType>): Promise<CertificateType | undefined>;
+  deleteCertificateType(id: string): Promise<boolean>;
+  
+  // Configuration - Classification Codes
+  listClassificationCodes(certificateTypeId?: string): Promise<ClassificationCode[]>;
+  getClassificationCode(id: string): Promise<ClassificationCode | undefined>;
+  createClassificationCode(code: InsertClassificationCode): Promise<ClassificationCode>;
+  updateClassificationCode(id: string, updates: Partial<InsertClassificationCode>): Promise<ClassificationCode | undefined>;
+  deleteClassificationCode(id: string): Promise<boolean>;
+  
+  // Configuration - Extraction Schemas
+  listExtractionSchemas(): Promise<ExtractionSchema[]>;
+  getExtractionSchema(id: string): Promise<ExtractionSchema | undefined>;
+  createExtractionSchema(schema: InsertExtractionSchema): Promise<ExtractionSchema>;
+  updateExtractionSchema(id: string, updates: Partial<InsertExtractionSchema>): Promise<ExtractionSchema | undefined>;
+  deleteExtractionSchema(id: string): Promise<boolean>;
+  
+  // Configuration - Compliance Rules
+  listComplianceRules(): Promise<ComplianceRule[]>;
+  getComplianceRule(id: string): Promise<ComplianceRule | undefined>;
+  createComplianceRule(rule: InsertComplianceRule): Promise<ComplianceRule>;
+  updateComplianceRule(id: string, updates: Partial<InsertComplianceRule>): Promise<ComplianceRule | undefined>;
+  deleteComplianceRule(id: string): Promise<boolean>;
+  
+  // Configuration - Normalisation Rules
+  listNormalisationRules(): Promise<NormalisationRule[]>;
+  getNormalisationRule(id: string): Promise<NormalisationRule | undefined>;
+  createNormalisationRule(rule: InsertNormalisationRule): Promise<NormalisationRule>;
+  updateNormalisationRule(id: string, updates: Partial<InsertNormalisationRule>): Promise<NormalisationRule | undefined>;
+  deleteNormalisationRule(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -605,6 +646,151 @@ export class DatabaseStorage implements IStorage {
     ]);
     
     console.log("Demo data seeded successfully");
+  }
+  
+  // Configuration - Certificate Types
+  async listCertificateTypes(): Promise<CertificateType[]> {
+    return db.select().from(certificateTypes).orderBy(certificateTypes.displayOrder);
+  }
+  
+  async getCertificateType(id: string): Promise<CertificateType | undefined> {
+    const [certType] = await db.select().from(certificateTypes).where(eq(certificateTypes.id, id));
+    return certType || undefined;
+  }
+  
+  async createCertificateType(certType: InsertCertificateType): Promise<CertificateType> {
+    const [created] = await db.insert(certificateTypes).values(certType).returning();
+    return created;
+  }
+  
+  async updateCertificateType(id: string, updates: Partial<InsertCertificateType>): Promise<CertificateType | undefined> {
+    const [updated] = await db.update(certificateTypes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(certificateTypes.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteCertificateType(id: string): Promise<boolean> {
+    const result = await db.delete(certificateTypes).where(eq(certificateTypes.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // Configuration - Classification Codes
+  async listClassificationCodes(certificateTypeId?: string): Promise<ClassificationCode[]> {
+    if (certificateTypeId) {
+      return db.select().from(classificationCodes)
+        .where(eq(classificationCodes.certificateTypeId, certificateTypeId))
+        .orderBy(classificationCodes.displayOrder);
+    }
+    return db.select().from(classificationCodes).orderBy(classificationCodes.displayOrder);
+  }
+  
+  async getClassificationCode(id: string): Promise<ClassificationCode | undefined> {
+    const [code] = await db.select().from(classificationCodes).where(eq(classificationCodes.id, id));
+    return code || undefined;
+  }
+  
+  async createClassificationCode(code: InsertClassificationCode): Promise<ClassificationCode> {
+    const [created] = await db.insert(classificationCodes).values(code).returning();
+    return created;
+  }
+  
+  async updateClassificationCode(id: string, updates: Partial<InsertClassificationCode>): Promise<ClassificationCode | undefined> {
+    const [updated] = await db.update(classificationCodes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(classificationCodes.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteClassificationCode(id: string): Promise<boolean> {
+    const result = await db.delete(classificationCodes).where(eq(classificationCodes.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // Configuration - Extraction Schemas
+  async listExtractionSchemas(): Promise<ExtractionSchema[]> {
+    return db.select().from(extractionSchemas).orderBy(desc(extractionSchemas.createdAt));
+  }
+  
+  async getExtractionSchema(id: string): Promise<ExtractionSchema | undefined> {
+    const [schema] = await db.select().from(extractionSchemas).where(eq(extractionSchemas.id, id));
+    return schema || undefined;
+  }
+  
+  async createExtractionSchema(schema: InsertExtractionSchema): Promise<ExtractionSchema> {
+    const [created] = await db.insert(extractionSchemas).values(schema).returning();
+    return created;
+  }
+  
+  async updateExtractionSchema(id: string, updates: Partial<InsertExtractionSchema>): Promise<ExtractionSchema | undefined> {
+    const [updated] = await db.update(extractionSchemas)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(extractionSchemas.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteExtractionSchema(id: string): Promise<boolean> {
+    const result = await db.delete(extractionSchemas).where(eq(extractionSchemas.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // Configuration - Compliance Rules
+  async listComplianceRules(): Promise<ComplianceRule[]> {
+    return db.select().from(complianceRules).orderBy(complianceRules.ruleCode);
+  }
+  
+  async getComplianceRule(id: string): Promise<ComplianceRule | undefined> {
+    const [rule] = await db.select().from(complianceRules).where(eq(complianceRules.id, id));
+    return rule || undefined;
+  }
+  
+  async createComplianceRule(rule: InsertComplianceRule): Promise<ComplianceRule> {
+    const [created] = await db.insert(complianceRules).values(rule).returning();
+    return created;
+  }
+  
+  async updateComplianceRule(id: string, updates: Partial<InsertComplianceRule>): Promise<ComplianceRule | undefined> {
+    const [updated] = await db.update(complianceRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(complianceRules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteComplianceRule(id: string): Promise<boolean> {
+    const result = await db.delete(complianceRules).where(eq(complianceRules.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // Configuration - Normalisation Rules
+  async listNormalisationRules(): Promise<NormalisationRule[]> {
+    return db.select().from(normalisationRules).orderBy(desc(normalisationRules.priority));
+  }
+  
+  async getNormalisationRule(id: string): Promise<NormalisationRule | undefined> {
+    const [rule] = await db.select().from(normalisationRules).where(eq(normalisationRules.id, id));
+    return rule || undefined;
+  }
+  
+  async createNormalisationRule(rule: InsertNormalisationRule): Promise<NormalisationRule> {
+    const [created] = await db.insert(normalisationRules).values(rule).returning();
+    return created;
+  }
+  
+  async updateNormalisationRule(id: string, updates: Partial<InsertNormalisationRule>): Promise<NormalisationRule | undefined> {
+    const [updated] = await db.update(normalisationRules)
+      .set(updates)
+      .where(eq(normalisationRules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteNormalisationRule(id: string): Promise<boolean> {
+    const result = await db.delete(normalisationRules).where(eq(normalisationRules.id, id)).returning();
+    return result.length > 0;
   }
 }
 
