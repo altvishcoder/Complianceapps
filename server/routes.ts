@@ -518,7 +518,21 @@ export async function registerRoutes(
       
       const totalRuns = allRuns.length;
       const approvedRuns = allRuns.filter(r => r.status === 'APPROVED').length;
-      const accuracy = totalRuns > 0 ? approvedRuns / totalRuns : 0;
+      const rejectedRuns = allRuns.filter(r => r.status === 'REJECTED' || r.status === 'VALIDATION_FAILED').length;
+      const awaitingReviewRuns = allRuns.filter(r => r.status === 'AWAITING_REVIEW').length;
+      
+      // Calculate accuracy based on reviewed extractions (approved / (approved + rejected))
+      const reviewedRuns = approvedRuns + rejectedRuns;
+      const accuracy = reviewedRuns > 0 ? approvedRuns / reviewedRuns : 0;
+      
+      // Calculate confidence-based accuracy for extractions not yet reviewed
+      // Use confidence scores from awaiting_review runs as a proxy for expected accuracy
+      const avgConfidence = allRuns.length > 0 
+        ? allRuns.reduce((sum, r) => sum + (r.confidence || 0), 0) / allRuns.length 
+        : 0;
+      
+      // Blend reviewed accuracy with confidence scores for overall metric
+      const overallAccuracy = reviewedRuns > 0 ? accuracy : avgConfidence;
       
       const errorTags: Record<string, number> = {};
       allReviews.forEach(review => {
@@ -527,30 +541,70 @@ export async function registerRoutes(
         });
       });
       
+      // Also count rejections as implicit errors
+      if (rejectedRuns > 0 && Object.keys(errorTags).length === 0) {
+        errorTags['extraction_rejected'] = rejectedRuns;
+      }
+      
       const topTags = Object.entries(errorTags)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10)
         .map(([tag, count]) => ({ tag, count, trend: 0 }));
       
+      // Calculate accuracy by document type - include confidence for unreviewed
       const byDocType = Object.entries(
         allRuns.reduce((acc, run) => {
-          if (!acc[run.documentType]) acc[run.documentType] = { total: 0, approved: 0 };
-          acc[run.documentType].total++;
-          if (run.status === 'APPROVED') acc[run.documentType].approved++;
+          const docType = run.documentType || 'Unknown';
+          if (!acc[docType]) acc[docType] = { total: 0, approved: 0, rejected: 0, confidenceSum: 0 };
+          acc[docType].total++;
+          acc[docType].confidenceSum += (run.confidence || 0);
+          if (run.status === 'APPROVED') acc[docType].approved++;
+          if (run.status === 'REJECTED' || run.status === 'VALIDATION_FAILED') acc[docType].rejected++;
           return acc;
-        }, {} as Record<string, { total: number; approved: number }>)
-      ).map(([type, data]) => ({
-        type: type.replace(/_/g, ' '),
-        accuracy: data.total > 0 ? (data.approved / data.total) * 100 : 0,
-        count: data.total
-      }));
+        }, {} as Record<string, { total: number; approved: number; rejected: number; confidenceSum: number }>)
+      ).map(([type, data]) => {
+        const reviewed = data.approved + data.rejected;
+        // If we have reviewed runs, use real accuracy; otherwise use average confidence
+        const acc = reviewed > 0 
+          ? (data.approved / reviewed) * 100 
+          : (data.confidenceSum / data.total) * 100;
+        return {
+          type: type.length > 30 ? type.substring(0, 27) + '...' : type,
+          accuracy: Math.round(acc),
+          count: data.total
+        };
+      });
+      
+      // Calculate weekly trend data based on creation dates
+      const weeklyData: Record<string, { total: number; approved: number; avgConf: number }> = {};
+      allRuns.forEach(run => {
+        const weekStart = new Date(run.createdAt || new Date());
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const weekKey = weekStart.toISOString().split('T')[0];
+        if (!weeklyData[weekKey]) weeklyData[weekKey] = { total: 0, approved: 0, avgConf: 0 };
+        weeklyData[weekKey].total++;
+        weeklyData[weekKey].avgConf += (run.confidence || 0);
+        if (run.status === 'APPROVED') weeklyData[weekKey].approved++;
+      });
+      
+      const byWeek = Object.entries(weeklyData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-8)
+        .map(([week, data]) => ({
+          week: new Date(week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+          accuracy: data.total > 0 ? (data.avgConf / data.total) : 0
+        }));
+      
+      // Calculate benchmark score based on confidence and validation pass rate
+      const validationPassRate = allRuns.filter(r => r.validationPassed).length / Math.max(totalRuns, 1);
+      const benchmarkScore = Math.round((avgConfidence * 0.5 + validationPassRate * 0.5) * 100);
       
       res.json({
         accuracy: {
-          overall: accuracy,
+          overall: overallAccuracy,
           trend: 0,
           byDocType,
-          byWeek: [],
+          byWeek,
         },
         errors: {
           topTags,
@@ -564,7 +618,7 @@ export async function registerRoutes(
         improvements: {
           queue: topTags.slice(0, 5).map((t, i) => ({
             id: `imp-${i}`,
-            issue: `Fix ${t.tag} errors`,
+            issue: `Fix ${t.tag.replace(/_/g, ' ')} errors`,
             occurrences: t.count,
             suggestedFix: `Review and update extraction prompt to handle ${t.tag.replace(/_/g, ' ')} cases`,
             priority: i < 2 ? 'high' : 'medium'
@@ -572,15 +626,19 @@ export async function registerRoutes(
           recentWins: [],
         },
         benchmarks: {
-          latest: { score: accuracy * 100, date: new Date().toISOString(), passed: accuracy >= 0.8 },
+          latest: { 
+            score: benchmarkScore, 
+            date: new Date().toISOString(), 
+            passed: benchmarkScore >= 80 
+          },
           trend: [],
         },
         extractionStats: {
           total: totalRuns,
           pending: allRuns.filter(r => r.status === 'PENDING').length,
           approved: approvedRuns,
-          awaitingReview: allRuns.filter(r => r.status === 'AWAITING_REVIEW').length,
-          failed: allRuns.filter(r => r.status === 'VALIDATION_FAILED' || r.status === 'REJECTED').length,
+          awaitingReview: awaitingReviewRuns,
+          failed: rejectedRuns,
         },
       });
     } catch (error) {
