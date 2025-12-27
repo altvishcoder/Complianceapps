@@ -1,16 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { join } from "path";
 import { db } from "./db";
 import { extractionRuns } from "@shared/schema";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Configure pdfjs-dist with standard font data to avoid font warnings
-const standardFontDataUrl = join(__dirname, "../node_modules/pdfjs-dist/standard_fonts/");
+const standardFontDataUrl = join(process.cwd(), "node_modules/pdfjs-dist/standard_fonts/");
 
 const anthropic = new Anthropic();
 

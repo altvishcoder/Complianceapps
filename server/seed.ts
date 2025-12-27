@@ -134,7 +134,9 @@ export async function seedDatabase() {
   }
 }
 
-// Run seed if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run seed if called directly via: npx tsx server/seed.ts
+// Note: This check only works in ESM mode (development)
+const isMainModule = typeof require !== 'undefined' && require.main === module;
+if (isMainModule) {
   seedDatabase().then(() => process.exit(0)).catch(() => process.exit(1));
 }
