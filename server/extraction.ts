@@ -14,6 +14,65 @@ const standardFontDataUrl = join(__dirname, "../node_modules/pdfjs-dist/standard
 
 const anthropic = new Anthropic();
 
+// Certificate type enum values: 'GAS_SAFETY' | 'EICR' | 'EPC' | 'FIRE_RISK_ASSESSMENT' | 'LEGIONELLA_ASSESSMENT' | 'ASBESTOS_SURVEY' | 'LIFT_LOLER' | 'OTHER'
+type CertificateType = 'GAS_SAFETY' | 'EICR' | 'EPC' | 'FIRE_RISK_ASSESSMENT' | 'LEGIONELLA_ASSESSMENT' | 'ASBESTOS_SURVEY' | 'LIFT_LOLER' | 'OTHER';
+
+// Map detected document types to certificate type enum values
+function mapDocumentTypeToCertificateType(documentType: string | undefined): CertificateType | undefined {
+  if (!documentType) return undefined;
+  
+  const docTypeLower = documentType.toLowerCase();
+  
+  // Gas Safety mappings
+  if (docTypeLower.includes('gas safety') || 
+      docTypeLower.includes('lgsr') || 
+      docTypeLower.includes('cp12') ||
+      docTypeLower.includes('landlord gas')) {
+    return 'GAS_SAFETY';
+  }
+  
+  // EICR / Electrical mappings
+  if (docTypeLower.includes('eicr') || 
+      docTypeLower.includes('electrical installation') ||
+      docTypeLower.includes('electrical condition')) {
+    return 'EICR';
+  }
+  
+  // Fire Risk mappings
+  if (docTypeLower.includes('fire risk') || 
+      docTypeLower.includes('fra') ||
+      docTypeLower.includes('fire safety')) {
+    return 'FIRE_RISK_ASSESSMENT';
+  }
+  
+  // Asbestos mappings
+  if (docTypeLower.includes('asbestos')) {
+    return 'ASBESTOS_SURVEY';
+  }
+  
+  // Legionella mappings
+  if (docTypeLower.includes('legionella') || 
+      docTypeLower.includes('water hygiene') ||
+      docTypeLower.includes('water risk')) {
+    return 'LEGIONELLA_ASSESSMENT';
+  }
+  
+  // Lift / LOLER mappings
+  if (docTypeLower.includes('lift') || 
+      docTypeLower.includes('loler') ||
+      docTypeLower.includes('elevator')) {
+    return 'LIFT_LOLER';
+  }
+  
+  // EPC mappings
+  if (docTypeLower.includes('energy performance') || 
+      docTypeLower.includes('epc')) {
+    return 'EPC';
+  }
+  
+  return undefined;
+}
+
 interface ExtractionResult {
   extractedData: Record<string, any>;
   outcome: "SATISFACTORY" | "UNSATISFACTORY";
@@ -722,12 +781,17 @@ export async function processExtractionAndSave(
       status: 'AWAITING_REVIEW',
     });
 
+    // Map detected document type to certificate type enum
+    const detectedCertType = mapDocumentTypeToCertificateType(result.extractedData?.documentType);
+    
     await storage.updateCertificate(certificateId, {
       status: "NEEDS_REVIEW",
       certificateNumber: result.certificateNumber,
       issueDate: result.issueDate,
       expiryDate: result.expiryDate,
-      outcome: result.outcome
+      outcome: result.outcome,
+      // Update certificate type if we detected a specific type
+      ...(detectedCertType && { certificateType: detectedCertType })
     });
     
     // Update property with extracted metadata and address if it needs verification

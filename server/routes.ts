@@ -449,6 +449,67 @@ export async function registerRoutes(
     }
   });
   
+  // Reclassify existing certificates based on extracted document type
+  app.post("/api/admin/reclassify-certificates", async (req, res) => {
+    try {
+      const allCertificates = await storage.listCertificates(ORG_ID);
+      let updated = 0;
+      let skipped = 0;
+      
+      const typeMap: Record<string, 'GAS_SAFETY' | 'EICR' | 'EPC' | 'FIRE_RISK_ASSESSMENT' | 'LEGIONELLA_ASSESSMENT' | 'ASBESTOS_SURVEY' | 'LIFT_LOLER'> = {};
+      
+      for (const cert of allCertificates) {
+        // Skip if already classified
+        if (cert.certificateType !== 'OTHER') {
+          skipped++;
+          continue;
+        }
+        
+        // Look for extracted document type in property metadata
+        const property = await storage.getProperty(cert.propertyId);
+        const docType = property?.extractedMetadata?.documentType || 
+                        (cert as any).extractedData?.documentType;
+        
+        if (!docType) {
+          skipped++;
+          continue;
+        }
+        
+        const docTypeLower = docType.toLowerCase();
+        let newType: typeof typeMap[string] | undefined;
+        
+        if (docTypeLower.includes('gas safety') || docTypeLower.includes('lgsr') || docTypeLower.includes('cp12') || docTypeLower.includes('landlord gas')) {
+          newType = 'GAS_SAFETY';
+        } else if (docTypeLower.includes('eicr') || docTypeLower.includes('electrical installation') || docTypeLower.includes('electrical condition')) {
+          newType = 'EICR';
+        } else if (docTypeLower.includes('fire risk') || docTypeLower.includes('fra') || docTypeLower.includes('fire safety')) {
+          newType = 'FIRE_RISK_ASSESSMENT';
+        } else if (docTypeLower.includes('asbestos')) {
+          newType = 'ASBESTOS_SURVEY';
+        } else if (docTypeLower.includes('legionella') || docTypeLower.includes('water hygiene') || docTypeLower.includes('water risk')) {
+          newType = 'LEGIONELLA_ASSESSMENT';
+        } else if (docTypeLower.includes('lift') || docTypeLower.includes('loler') || docTypeLower.includes('elevator')) {
+          newType = 'LIFT_LOLER';
+        } else if (docTypeLower.includes('energy performance') || docTypeLower.includes('epc')) {
+          newType = 'EPC';
+        }
+        
+        if (newType) {
+          await storage.updateCertificate(cert.id, { certificateType: newType });
+          updated++;
+          console.log(`Reclassified certificate ${cert.id}: ${docType} -> ${newType}`);
+        } else {
+          skipped++;
+        }
+      }
+      
+      res.json({ success: true, updated, skipped, total: allCertificates.length });
+    } catch (error) {
+      console.error("Error reclassifying certificates:", error);
+      res.status(500).json({ error: "Failed to reclassify certificates" });
+    }
+  });
+
   // ===== LASHAN OWNED MODEL: MODEL INSIGHTS =====
   app.get("/api/model-insights", async (req, res) => {
     try {
@@ -942,8 +1003,8 @@ export async function registerRoutes(
         c.status === 'UPLOADED' || c.status === 'PROCESSING' || c.status === 'NEEDS_REVIEW'
       ).length;
       
-      // Compliance by type - only show types with certificates
-      const certTypes = ['GAS_SAFETY', 'EICR', 'FIRE_RISK', 'LEGIONELLA_ASSESSMENT', 'LIFT_INSPECTION', 'ASBESTOS_SURVEY'];
+      // Compliance by type - use correct enum values: 'GAS_SAFETY' | 'EICR' | 'EPC' | 'FIRE_RISK_ASSESSMENT' | 'LEGIONELLA_ASSESSMENT' | 'ASBESTOS_SURVEY' | 'LIFT_LOLER'
+      const certTypes = ['GAS_SAFETY', 'EICR', 'FIRE_RISK_ASSESSMENT', 'LEGIONELLA_ASSESSMENT', 'LIFT_LOLER', 'ASBESTOS_SURVEY'];
       const complianceByType = certTypes.map(type => {
         const typeCerts = allCertificates.filter(c => c.certificateType === type);
         const typeValid = typeCerts.filter(c => c.status === 'APPROVED' || c.outcome === 'SATISFACTORY').length;

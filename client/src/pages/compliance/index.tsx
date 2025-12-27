@@ -36,14 +36,14 @@ export default function CompliancePage() {
 
   const nonCompliant = certificates.filter(c => c.outcome === 'UNSATISFACTORY').length;
 
-  // Compliance by stream
+  // Compliance by stream - match certificate type enum values
   const streams = [
     { name: "Gas Safety", key: "GAS_SAFETY" },
     { name: "Electrical (EICR)", key: "EICR" },
-    { name: "Fire Safety (FRA)", key: "FIRE_RISK" },
+    { name: "Fire Safety (FRA)", key: "FIRE_RISK_ASSESSMENT" },
     { name: "Asbestos", key: "ASBESTOS_SURVEY" },
     { name: "Legionella", key: "LEGIONELLA_ASSESSMENT" },
-    { name: "Lift (LOLER)", key: "LIFT_INSPECTION" },
+    { name: "Lift (LOLER)", key: "LIFT_LOLER" },
   ];
 
   const complianceByStream = streams.map(stream => {
