@@ -6,27 +6,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle, Database, Trash2, RefreshCw, Play } from "lucide-react";
+import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle, Database, Trash2, RefreshCw, Play, Crown, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminApi } from "@/lib/api";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { adminApi, usersApi, type SafeUser } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSetup() {
   const [, setLocation] = useLocation();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useEffect(() => {
     const role = localStorage.getItem("user_role");
-    if (role === "super_admin") {
+    const userId = localStorage.getItem("user_id");
+    if (role === "super_admin" || role === "SUPER_ADMIN") {
       setIsAuthorized(true);
+      setCurrentUserId(userId);
     } else {
       setIsAuthorized(false);
     }
   }, []);
+
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => usersApi.list(),
+    enabled: isAuthorized,
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: string }) => 
+      usersApi.updateRole(userId, role, currentUserId || ''),
+    onSuccess: () => {
+      toast({ title: "Success", description: "User role updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const wipeDataMutation = useMutation({
     mutationFn: (includeProperties: boolean) => adminApi.wipeData(includeProperties),
@@ -121,9 +142,18 @@ export default function AdminSetup() {
                 <Card>
                   <CardHeader>
                     <CardTitle>System Accounts</CardTitle>
-                    <CardDescription>Manage user access levels and authentication methods.</CardDescription>
+                    <CardDescription>Manage user access levels and authentication methods. Only the Super Admin can change user roles.</CardDescription>
                   </CardHeader>
                   <CardContent>
+                    {usersLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : users.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No users found. Create users through the registration system.
+                      </div>
+                    ) : (
                     <div className="rounded-md border">
                       <table className="w-full text-sm text-left">
                         <thead className="bg-muted/50 text-muted-foreground font-medium">
@@ -131,47 +161,68 @@ export default function AdminSetup() {
                             <th className="p-4">User</th>
                             <th className="p-4">Role</th>
                             <th className="p-4">Status</th>
-                            <th className="p-4">Last Active</th>
-                            <th className="p-4 text-right">Actions</th>
+                            <th className="p-4 text-right">Change Role</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {[
-                            { name: "Sarah Jenkins", email: "sarah.j@compliance.co.uk", role: "Admin", status: "Active", last: "Just now" },
-                            { name: "Mike Ross", email: "mike.r@compliance.co.uk", role: "Surveyor", status: "Active", last: "2h ago" },
-                            { name: "Compliance Team", email: "team@compliance.co.uk", role: "Viewer", status: "Invited", last: "-" },
-                          ].map((user, i) => (
-                            <tr key={i} className="hover:bg-muted/20">
+                          {users.map((user) => (
+                            <tr key={user.id} className="hover:bg-muted/20">
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                                    {user.name.charAt(0)}
+                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${user.role === 'SUPER_ADMIN' ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white' : 'bg-primary/10 text-primary'}`}>
+                                    {user.role === 'SUPER_ADMIN' ? <Crown className="h-4 w-4" /> : user.name.charAt(0)}
                                   </div>
                                   <div>
-                                    <div className="font-medium">{user.name}</div>
+                                    <div className="font-medium flex items-center gap-2">
+                                      {user.name}
+                                      {user.role === 'SUPER_ADMIN' && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">SUPER ADMIN</span>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-muted-foreground">{user.email}</div>
                                   </div>
                                 </div>
                               </td>
                               <td className="p-4">
-                                <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                                  {user.role}
+                                <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                                  user.role === 'SUPER_ADMIN' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                  user.role === 'ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  user.role === 'MANAGER' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                  user.role === 'OFFICER' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  'bg-slate-50 text-slate-700 border-slate-200'
+                                }`}>
+                                  {user.role.replace('_', ' ')}
                                 </div>
                               </td>
                               <td className="p-4">
                                 <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ring-emerald-600/20 bg-emerald-50 text-emerald-700">
-                                  {user.status}
+                                  Active
                                 </span>
                               </td>
-                              <td className="p-4 text-muted-foreground">{user.last}</td>
                               <td className="p-4 text-right">
-                                <Button variant="ghost" size="sm">Edit</Button>
+                                <Select
+                                  value={user.role}
+                                  onValueChange={(newRole) => updateRoleMutation.mutate({ userId: user.id, role: newRole })}
+                                  disabled={updateRoleMutation.isPending || user.id === currentUserId}
+                                >
+                                  <SelectTrigger className="w-[140px]" data-testid={`role-select-${user.id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                                    <SelectItem value="ADMIN">Admin</SelectItem>
+                                    <SelectItem value="MANAGER">Manager</SelectItem>
+                                    <SelectItem value="OFFICER">Officer</SelectItem>
+                                    <SelectItem value="VIEWER">Viewer</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

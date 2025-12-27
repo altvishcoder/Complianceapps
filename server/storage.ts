@@ -97,10 +97,25 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Only super admins can change user roles');
     }
     
+    const targetUser = await this.getUser(userId);
+    if (!targetUser) {
+      throw new Error('User not found');
+    }
+    
+    if (targetUser.organisationId !== requester.organisationId) {
+      throw new Error('Cannot modify users from other organisations');
+    }
+    
+    if (requesterId === userId && requester.role === 'SUPER_ADMIN' && newRole !== 'SUPER_ADMIN') {
+      throw new Error('Super admin cannot demote themselves. Promote another user to super admin first.');
+    }
+    
     if (newRole === 'SUPER_ADMIN') {
       const existingSuperAdmin = await this.getSuperAdmin(requester.organisationId);
       if (existingSuperAdmin && existingSuperAdmin.id !== userId) {
-        throw new Error('Only one super admin is allowed per organisation');
+        await db.update(users)
+          .set({ role: 'ADMIN' as any })
+          .where(eq(users.id, existingSuperAdmin.id));
       }
     }
     

@@ -179,3 +179,24 @@ export const adminApi = {
       method: "POST",
     }),
 };
+
+// User Types and API
+export interface SafeUser {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'OFFICER' | 'VIEWER';
+  organisationId: string;
+  createdAt: string;
+}
+
+export const usersApi = {
+  list: () => fetchJSON<SafeUser[]>(`${API_BASE}/users`),
+  
+  updateRole: (userId: string, role: string, requesterId: string) => 
+    fetchJSON<SafeUser>(`${API_BASE}/users/${userId}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, requesterId }),
+    }),
+};
