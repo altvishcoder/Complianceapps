@@ -1003,19 +1003,25 @@ export async function registerRoutes(
         c.status === 'UPLOADED' || c.status === 'PROCESSING' || c.status === 'NEEDS_REVIEW'
       ).length;
       
-      // Compliance by type - use correct enum values: 'GAS_SAFETY' | 'EICR' | 'EPC' | 'FIRE_RISK_ASSESSMENT' | 'LEGIONELLA_ASSESSMENT' | 'ASBESTOS_SURVEY' | 'LIFT_LOLER'
-      const certTypes = ['GAS_SAFETY', 'EICR', 'FIRE_RISK_ASSESSMENT', 'LEGIONELLA_ASSESSMENT', 'LIFT_LOLER', 'ASBESTOS_SURVEY'];
+      // Compliance by type - use correct enum values
+      const certTypes = ['GAS_SAFETY', 'EICR', 'EPC', 'FIRE_RISK_ASSESSMENT', 'LEGIONELLA_ASSESSMENT', 'LIFT_LOLER', 'ASBESTOS_SURVEY'];
       const complianceByType = certTypes.map(type => {
         const typeCerts = allCertificates.filter(c => c.certificateType === type);
-        const typeValid = typeCerts.filter(c => c.status === 'APPROVED' || c.outcome === 'SATISFACTORY').length;
-        const typeInvalid = typeCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
-        const typePending = typeCerts.filter(c => c.status === 'NEEDS_REVIEW' || c.status === 'PROCESSING').length;
+        // Count certificates with clear outcomes
+        const satisfactory = typeCerts.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
+        const unsatisfactory = typeCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
+        // Certificates without clear outcome yet (still processing or failed)
+        const unclear = typeCerts.length - satisfactory - unsatisfactory;
+        
         return {
           type: type.replace(/_/g, ' '),
           total: typeCerts.length,
-          compliant: typeCerts.length > 0 ? Math.round((typeValid / typeCerts.length) * 100) : 0,
-          nonCompliant: typeCerts.length > 0 ? Math.round((typeInvalid / typeCerts.length) * 100) : 0,
-          pending: typeCerts.length > 0 ? Math.round((typePending / typeCerts.length) * 100) : 0,
+          satisfactory,
+          unsatisfactory,
+          unclear,
+          // Compliance rate based on certificates with outcomes
+          compliant: typeCerts.length > 0 ? Math.round((satisfactory / typeCerts.length) * 100) : 0,
+          nonCompliant: typeCerts.length > 0 ? Math.round((unsatisfactory / typeCerts.length) * 100) : 0,
         };
       }).filter(t => t.total > 0); // Only include types that have at least 1 certificate
       
