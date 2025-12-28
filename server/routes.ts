@@ -921,9 +921,11 @@ export async function registerRoutes(
     }
   });
   
-  // ===== AI-POWERED ACCURACY SUGGESTIONS =====
+  // ===== AI-POWERED ACCURACY SUGGESTIONS (DYNAMIC & PERSISTENT) =====
   app.get("/api/model-insights/ai-suggestions", async (req, res) => {
     try {
+      const organisationId = req.query.organisationId as string || 'default-org';
+      
       const allRuns = await db.select().from(extractionRuns).orderBy(desc(extractionRuns.createdAt)).limit(100);
       const allReviews = await db.select().from(humanReviews).orderBy(desc(humanReviews.reviewedAt)).limit(50);
       
@@ -949,7 +951,7 @@ export async function registerRoutes(
         if (run.status === 'REJECTED' || run.status === 'VALIDATION_FAILED') docTypeStats[docType].rejected++;
       });
       
-      // Build analysis context for AI
+      // Build analysis context
       const analysisContext = {
         totalExtractions: allRuns.length,
         averageConfidence: allRuns.length > 0 
@@ -958,6 +960,7 @@ export async function registerRoutes(
         rejectionRate: allRuns.length > 0 
           ? allRuns.filter(r => r.status === 'REJECTED' || r.status === 'VALIDATION_FAILED').length / allRuns.length 
           : 0,
+        reviewCoverage: allRuns.length > 0 ? allReviews.length / allRuns.length : 0,
         topErrorPatterns: Object.entries(errorPatterns)
           .sort((a, b) => b[1].count - a[1].count)
           .slice(0, 5)
@@ -971,153 +974,188 @@ export async function registerRoutes(
           .sort((a, b) => b.errorRate - a.errorRate)
       };
       
-      // Generate AI-powered suggestions using Anthropic
-      const suggestions: Array<{
-        id: string;
-        category: 'prompt' | 'preprocessing' | 'validation' | 'training' | 'quality';
+      // Auto-resolve any suggestions that have met their targets
+      await storage.autoResolveAiSuggestions(organisationId);
+      
+      // Generate dynamic suggestions with progress tracking
+      const suggestionDefinitions: Array<{
+        key: string;
+        category: string;
         title: string;
         description: string;
-        impact: 'high' | 'medium' | 'low';
-        effort: 'low' | 'medium' | 'high';
+        impact: string;
+        effort: string;
         actionable: boolean;
-        metrics?: { current: number; potential: number };
+        shouldCreate: boolean;
+        currentValue: number;
+        targetValue: number;
+        actionLabel?: string;
+        actionRoute?: string;
       }> = [];
       
-      // Rule-based suggestions first (always available)
-      if (analysisContext.averageConfidence < 0.75) {
-        suggestions.push({
-          id: 'sug-confidence-1',
-          category: 'prompt',
+      // Confidence improvement suggestion
+      const confidenceCurrent = Math.round(analysisContext.averageConfidence * 100);
+      const confidenceTarget = 85;
+      if (confidenceCurrent < confidenceTarget) {
+        suggestionDefinitions.push({
+          key: 'improve-confidence',
+          category: 'PROMPT',
           title: 'Improve extraction prompt specificity',
-          description: `Average confidence is ${(analysisContext.averageConfidence * 100).toFixed(1)}%. Consider adding more specific field descriptions and examples to the extraction prompt.`,
-          impact: 'high',
-          effort: 'medium',
+          description: `Average confidence is ${confidenceCurrent}%. Consider adding more specific field descriptions and examples to the extraction prompt.`,
+          impact: 'HIGH',
+          effort: 'MEDIUM',
           actionable: true,
-          metrics: { current: Math.round(analysisContext.averageConfidence * 100), potential: 85 }
+          shouldCreate: true,
+          currentValue: confidenceCurrent,
+          targetValue: confidenceTarget,
+          actionLabel: 'Edit Extraction Schema',
+          actionRoute: '/extraction-schemas'
         });
       }
       
+      // Rejection rate suggestion
+      const acceptanceRate = Math.round((1 - analysisContext.rejectionRate) * 100);
+      const acceptanceTarget = 85;
       if (analysisContext.rejectionRate > 0.15) {
-        suggestions.push({
-          id: 'sug-rejection-1',
-          category: 'validation',
+        suggestionDefinitions.push({
+          key: 'reduce-rejections',
+          category: 'VALIDATION',
           title: 'Review validation rules',
-          description: `Rejection rate is ${(analysisContext.rejectionRate * 100).toFixed(1)}%. Some validation rules may be too strict or extraction prompts may need refinement.`,
-          impact: 'high',
-          effort: 'low',
+          description: `Rejection rate is ${Math.round(analysisContext.rejectionRate * 100)}%. Some validation rules may be too strict or extraction prompts may need refinement.`,
+          impact: 'HIGH',
+          effort: 'LOW',
           actionable: true,
-          metrics: { current: Math.round((1 - analysisContext.rejectionRate) * 100), potential: 90 }
+          shouldCreate: true,
+          currentValue: acceptanceRate,
+          targetValue: acceptanceTarget,
+          actionLabel: 'Configure Validation',
+          actionRoute: '/compliance-rules'
         });
       }
       
-      // Add suggestions based on error patterns
+      // Review coverage suggestion
+      const reviewCurrent = allReviews.length;
+      const reviewTarget = Math.max(5, Math.ceil(allRuns.length * 0.1));
+      if (allRuns.length > 0 && reviewCurrent < reviewTarget) {
+        suggestionDefinitions.push({
+          key: 'increase-reviews',
+          category: 'QUALITY',
+          title: 'Increase human review coverage',
+          description: `Only ${reviewCurrent} of ${allRuns.length} extractions have been reviewed. More human feedback will improve accuracy metrics and training data quality.`,
+          impact: 'MEDIUM',
+          effort: 'MEDIUM',
+          actionable: true,
+          shouldCreate: true,
+          currentValue: reviewCurrent,
+          targetValue: reviewTarget,
+          actionLabel: 'Review Extractions',
+          actionRoute: '/human-review'
+        });
+      }
+      
+      // Error pattern suggestions
       analysisContext.topErrorPatterns.forEach((pattern, idx) => {
         if (pattern.count >= 3) {
-          suggestions.push({
-            id: `sug-error-${idx}`,
-            category: 'training',
+          suggestionDefinitions.push({
+            key: `error-pattern-${pattern.tag}`,
+            category: 'TRAINING',
             title: `Address "${pattern.tag.replace(/_/g, ' ')}" errors`,
             description: `Found ${pattern.count} occurrences. Review extraction examples and add specific handling for this error type.`,
-            impact: pattern.count > 10 ? 'high' : pattern.count > 5 ? 'medium' : 'low',
-            effort: 'medium',
-            actionable: true
-          });
-        }
-      });
-      
-      // Add doc type specific suggestions
-      analysisContext.docTypePerformance.forEach((perf, idx) => {
-        if (perf.errorRate > 20 && perf.total >= 3) {
-          suggestions.push({
-            id: `sug-doctype-${idx}`,
-            category: 'preprocessing',
-            title: `Improve ${perf.type} extraction`,
-            description: `This document type has a ${perf.errorRate.toFixed(1)}% error rate. Consider adding document-specific preprocessing or custom extraction rules.`,
-            impact: perf.errorRate > 30 ? 'high' : 'medium',
-            effort: 'high',
+            impact: pattern.count > 10 ? 'HIGH' : pattern.count > 5 ? 'MEDIUM' : 'LOW',
+            effort: 'MEDIUM',
             actionable: true,
-            metrics: { current: Math.round(100 - perf.errorRate), potential: 90 }
+            shouldCreate: true,
+            currentValue: pattern.count,
+            targetValue: 0,
+            actionLabel: 'Review Errors',
+            actionRoute: '/human-review'
           });
         }
       });
       
-      // Add general quality suggestions
-      if (allRuns.length > 0 && allReviews.length < allRuns.length * 0.1) {
-        suggestions.push({
-          id: 'sug-review-1',
-          category: 'quality',
-          title: 'Increase human review coverage',
-          description: `Only ${allReviews.length} of ${allRuns.length} extractions have been reviewed. More human feedback will improve accuracy metrics and training data quality.`,
-          impact: 'medium',
-          effort: 'medium',
-          actionable: true
-        });
-      }
-      
-      if (analysisContext.topErrorPatterns.length === 0 && analysisContext.averageConfidence > 0.8) {
-        suggestions.push({
-          id: 'sug-quality-1',
-          category: 'quality',
-          title: 'Extraction quality is excellent',
-          description: 'No significant error patterns detected and confidence is high. Continue monitoring for edge cases.',
-          impact: 'low',
-          effort: 'low',
-          actionable: false
-        });
-      }
-      
-      // Try to get AI-enhanced suggestions if API key is available
-      let aiInsight: string | null = null;
-      if (process.env.ANTHROPIC_API_KEY && suggestions.length > 0) {
-        try {
-          const Anthropic = (await import('@anthropic-ai/sdk')).default;
-          const anthropic = new Anthropic();
+      // Persist suggestions to database (upsert pattern)
+      const persistedSuggestions: any[] = [];
+      for (const def of suggestionDefinitions) {
+        if (!def.shouldCreate) continue;
+        
+        let existing = await storage.getAiSuggestionByKey(organisationId, def.key);
+        
+        if (existing) {
+          // Update progress on existing suggestion
+          const progress = def.targetValue > 0 
+            ? Math.min(100, Math.round((def.currentValue / def.targetValue) * 100))
+            : (def.currentValue === 0 ? 100 : 0);
           
-          const message = await anthropic.messages.create({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 500,
-            messages: [{
-              role: "user",
-              content: `You are an AI extraction quality expert. Based on this analysis data, provide 2-3 brief, actionable tips to improve document extraction accuracy. Keep each tip under 50 words.
-
-Analysis:
-- Average confidence: ${(analysisContext.averageConfidence * 100).toFixed(1)}%
-- Rejection rate: ${(analysisContext.rejectionRate * 100).toFixed(1)}%
-- Top errors: ${analysisContext.topErrorPatterns.map(p => p.tag).join(', ') || 'None identified'}
-- Problematic doc types: ${analysisContext.docTypePerformance.filter(p => p.errorRate > 15).map(p => p.type).join(', ') || 'None'}
-
-Respond in JSON format: {"tips": ["tip1", "tip2", "tip3"]}`
-            }]
+          existing = await storage.updateAiSuggestion(existing.id, {
+            currentValue: def.currentValue,
+            targetValue: def.targetValue,
+            progressPercent: progress,
+            description: def.description,
+            lastCheckedAt: new Date()
           });
+          persistedSuggestions.push(existing);
+        } else {
+          // Create new suggestion
+          const progress = def.targetValue > 0 
+            ? Math.min(100, Math.round((def.currentValue / def.targetValue) * 100))
+            : 0;
           
-          const textContent = message.content.find((c: any) => c.type === 'text');
-          if (textContent && textContent.type === 'text') {
-            const parsed = JSON.parse(textContent.text);
-            if (parsed.tips && Array.isArray(parsed.tips)) {
-              parsed.tips.forEach((tip: string, idx: number) => {
-                suggestions.unshift({
-                  id: `sug-ai-${idx}`,
-                  category: 'prompt',
-                  title: `AI Recommendation ${idx + 1}`,
-                  description: tip,
-                  impact: 'high',
-                  effort: 'medium',
-                  actionable: true
-                });
-              });
-            }
-          }
-        } catch (aiError) {
-          console.log("AI suggestions unavailable, using rule-based suggestions only");
+          const created = await storage.createAiSuggestion({
+            organisationId,
+            suggestionKey: def.key,
+            category: def.category as any,
+            title: def.title,
+            description: def.description,
+            impact: def.impact as any,
+            effort: def.effort as any,
+            actionable: def.actionable,
+            currentValue: def.currentValue,
+            targetValue: def.targetValue,
+            progressPercent: progress,
+            status: 'ACTIVE' as any,
+            actionLabel: def.actionLabel,
+            actionRoute: def.actionRoute
+          });
+          persistedSuggestions.push(created);
         }
       }
+      
+      // Also return any existing active suggestions not regenerated this cycle
+      const allActive = await storage.listAiSuggestions(organisationId, 'ACTIVE');
+      const allInProgress = await storage.listAiSuggestions(organisationId, 'IN_PROGRESS');
+      const combinedSuggestions = [...allActive, ...allInProgress];
+      
+      // Format response
+      const formattedSuggestions = combinedSuggestions.map(s => ({
+        id: s.id,
+        suggestionKey: s.suggestionKey,
+        category: s.category?.toLowerCase() || 'quality',
+        title: s.title,
+        description: s.description,
+        impact: s.impact?.toLowerCase() || 'medium',
+        effort: s.effort?.toLowerCase() || 'medium',
+        actionable: s.actionable,
+        status: s.status,
+        progress: {
+          current: s.currentValue || 0,
+          target: s.targetValue || 0,
+          percent: s.progressPercent || 0
+        },
+        action: s.actionLabel ? {
+          label: s.actionLabel,
+          route: s.actionRoute
+        } : null,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt
+      }));
       
       res.json({
-        suggestions: suggestions.slice(0, 10),
+        suggestions: formattedSuggestions.slice(0, 10),
         context: {
           totalExtractions: analysisContext.totalExtractions,
           averageConfidence: Math.round(analysisContext.averageConfidence * 100),
           rejectionRate: Math.round(analysisContext.rejectionRate * 100),
+          reviewCoverage: Math.round(analysisContext.reviewCoverage * 100),
           errorPatternsCount: analysisContext.topErrorPatterns.length
         },
         generatedAt: new Date().toISOString()
@@ -1125,6 +1163,75 @@ Respond in JSON format: {"tips": ["tip1", "tip2", "tip3"]}`
     } catch (error) {
       console.error("Error generating AI suggestions:", error);
       res.status(500).json({ error: "Failed to generate suggestions" });
+    }
+  });
+  
+  // Dismiss a suggestion
+  app.post("/api/model-insights/ai-suggestions/:id/dismiss", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const updated = await storage.dismissAiSuggestion(id, reason);
+      if (!updated) {
+        return res.status(404).json({ error: "Suggestion not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error dismissing suggestion:", error);
+      res.status(500).json({ error: "Failed to dismiss suggestion" });
+    }
+  });
+  
+  // Start working on a suggestion (mark as in-progress)
+  app.post("/api/model-insights/ai-suggestions/:id/start", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateAiSuggestion(id, {
+        status: 'IN_PROGRESS' as any,
+        actionedAt: new Date()
+      });
+      if (!updated) {
+        return res.status(404).json({ error: "Suggestion not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error starting suggestion:", error);
+      res.status(500).json({ error: "Failed to start suggestion" });
+    }
+  });
+  
+  // Manually resolve a suggestion
+  app.post("/api/model-insights/ai-suggestions/:id/resolve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.resolveAiSuggestion(id);
+      if (!updated) {
+        return res.status(404).json({ error: "Suggestion not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resolving suggestion:", error);
+      res.status(500).json({ error: "Failed to resolve suggestion" });
+    }
+  });
+  
+  // Get suggestion history (all statuses)
+  app.get("/api/model-insights/ai-suggestions/history", async (req, res) => {
+    try {
+      const organisationId = req.query.organisationId as string || 'default-org';
+      const allSuggestions = await storage.listAiSuggestions(organisationId);
+      res.json({
+        suggestions: allSuggestions,
+        counts: {
+          active: allSuggestions.filter(s => s.status === 'ACTIVE').length,
+          inProgress: allSuggestions.filter(s => s.status === 'IN_PROGRESS').length,
+          resolved: allSuggestions.filter(s => s.status === 'RESOLVED' || s.status === 'AUTO_RESOLVED').length,
+          dismissed: allSuggestions.filter(s => s.status === 'DISMISSED').length
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching suggestion history:", error);
+      res.status(500).json({ error: "Failed to fetch history" });
     }
   });
   

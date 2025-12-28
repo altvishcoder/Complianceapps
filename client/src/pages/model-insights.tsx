@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { 
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
   Download, Play, RefreshCw, Target, Zap, Brain, Eye, Settings2,
-  Lightbulb, Sparkles, ArrowRight, Wrench, BookOpen, Shield
+  Lightbulb, Sparkles, ArrowRight, Wrench, BookOpen, Shield,
+  X, ExternalLink, Clock
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, 
@@ -53,13 +55,25 @@ interface InsightsData {
 
 interface AISuggestion {
   id: string;
+  suggestionKey: string;
   category: 'prompt' | 'preprocessing' | 'validation' | 'training' | 'quality';
   title: string;
   description: string;
   impact: 'high' | 'medium' | 'low';
   effort: 'low' | 'medium' | 'high';
   actionable: boolean;
-  metrics?: { current: number; potential: number };
+  status: 'ACTIVE' | 'IN_PROGRESS' | 'RESOLVED' | 'DISMISSED' | 'AUTO_RESOLVED';
+  progress: {
+    current: number;
+    target: number;
+    percent: number;
+  };
+  action: {
+    label: string;
+    route: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AISuggestionsData {
@@ -68,6 +82,7 @@ interface AISuggestionsData {
     totalExtractions: number;
     averageConfidence: number;
     rejectionRate: number;
+    reviewCoverage: number;
     errorPatternsCount: number;
   };
   generatedAt: string;
@@ -140,6 +155,8 @@ const impactColors: Record<string, string> = {
 
 export default function ModelInsightsPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState('30d');
   
   const { data, isLoading, refetch } = useQuery<InsightsData>({
@@ -189,6 +206,46 @@ export default function ModelInsightsPage() {
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: 'Export Complete', description: 'Training data downloaded' });
+    },
+  });
+  
+  const dismissSuggestionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/model-insights/ai-suggestions/${id}/dismiss`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'User dismissed' })
+      });
+      if (!res.ok) throw new Error('Dismiss failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
+      toast({ title: 'Suggestion dismissed' });
+    },
+  });
+  
+  const startSuggestionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/model-insights/ai-suggestions/${id}/start`, { method: 'POST' });
+      if (!res.ok) throw new Error('Start failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
+      toast({ title: 'Suggestion marked as in progress' });
+    },
+  });
+  
+  const resolveSuggestionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/model-insights/ai-suggestions/${id}/resolve`, { method: 'POST' });
+      if (!res.ok) throw new Error('Resolve failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
+      toast({ title: 'Suggestion resolved' });
     },
   });
   
@@ -373,16 +430,29 @@ export default function ModelInsightsPage() {
                           <div className="space-y-3">
                             {suggestionsData.suggestions.map((suggestion) => {
                               const CategoryIcon = categoryIcons[suggestion.category] || Lightbulb;
+                              const isInProgress = suggestion.status === 'IN_PROGRESS';
+                              const hasProgress = suggestion.progress && suggestion.progress.target > 0;
+                              
                               return (
-                                <Card key={suggestion.id} className="hover:shadow-md transition-shadow" data-testid={`suggestion-${suggestion.id}`}>
+                                <Card 
+                                  key={suggestion.id} 
+                                  className={`hover:shadow-md transition-shadow ${isInProgress ? 'border-emerald-300 bg-emerald-50/30' : ''}`} 
+                                  data-testid={`suggestion-${suggestion.id}`}
+                                >
                                   <CardContent className="pt-4 pb-4">
                                     <div className="flex items-start gap-4">
                                       <div className={`p-2 rounded-lg ${categoryColors[suggestion.category]}`}>
                                         <CategoryIcon className="w-5 h-5" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                                           <h4 className="font-medium">{suggestion.title}</h4>
+                                          {isInProgress && (
+                                            <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+                                              <Clock className="w-3 h-3 mr-1" />
+                                              In Progress
+                                            </Badge>
+                                          )}
                                           <Badge variant="outline" className={`text-xs ${impactColors[suggestion.impact]}`}>
                                             {suggestion.impact} impact
                                           </Badge>
@@ -391,30 +461,59 @@ export default function ModelInsightsPage() {
                                           </Badge>
                                         </div>
                                         <p className="text-sm text-muted-foreground">{suggestion.description}</p>
-                                        {suggestion.metrics && (
-                                          <div className="mt-3 flex items-center gap-4">
-                                            <div className="flex-1">
-                                              <div className="flex items-center justify-between text-xs mb-1">
-                                                <span>Current: {suggestion.metrics.current}%</span>
-                                                <span className="text-emerald-600">Target: {suggestion.metrics.potential}%</span>
-                                              </div>
-                                              <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                <div 
-                                                  className="absolute h-full bg-gray-300 rounded-full" 
-                                                  style={{ width: `${suggestion.metrics.current}%` }}
-                                                />
-                                                <div 
-                                                  className="absolute h-full bg-emerald-500/30 rounded-full" 
-                                                  style={{ width: `${suggestion.metrics.potential}%` }}
-                                                />
-                                              </div>
+                                        
+                                        {hasProgress && (
+                                          <div className="mt-3">
+                                            <div className="flex items-center justify-between text-xs mb-1">
+                                              <span>Progress: {suggestion.progress.current} / {suggestion.progress.target}</span>
+                                              <span className="text-emerald-600 font-medium">{suggestion.progress.percent}%</span>
                                             </div>
-                                            <ArrowRight className="w-4 h-4 text-emerald-600" />
-                                            <span className="text-sm font-medium text-emerald-600">
-                                              +{suggestion.metrics.potential - suggestion.metrics.current}%
-                                            </span>
+                                            <Progress 
+                                              value={suggestion.progress.percent} 
+                                              className="h-2"
+                                            />
                                           </div>
                                         )}
+                                        
+                                        <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                          {suggestion.action && (
+                                            <Button 
+                                              size="sm" 
+                                              className="bg-emerald-600 hover:bg-emerald-700"
+                                              onClick={() => {
+                                                startSuggestionMutation.mutate(suggestion.id);
+                                                if (suggestion.action?.route) {
+                                                  setLocation(suggestion.action.route);
+                                                }
+                                              }}
+                                              data-testid={`button-action-${suggestion.id}`}
+                                            >
+                                              <ExternalLink className="w-3 h-3 mr-1" />
+                                              {suggestion.action.label}
+                                            </Button>
+                                          )}
+                                          {isInProgress && (
+                                            <Button 
+                                              size="sm" 
+                                              variant="outline"
+                                              onClick={() => resolveSuggestionMutation.mutate(suggestion.id)}
+                                              data-testid={`button-resolve-${suggestion.id}`}
+                                            >
+                                              <CheckCircle className="w-3 h-3 mr-1" />
+                                              Mark Complete
+                                            </Button>
+                                          )}
+                                          <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            className="text-muted-foreground hover:text-destructive"
+                                            onClick={() => dismissSuggestionMutation.mutate(suggestion.id)}
+                                            data-testid={`button-dismiss-${suggestion.id}`}
+                                          >
+                                            <X className="w-3 h-3 mr-1" />
+                                            Dismiss
+                                          </Button>
+                                        </div>
                                       </div>
                                     </div>
                                   </CardContent>
