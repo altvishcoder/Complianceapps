@@ -396,6 +396,7 @@ export const unitsApi = {
 // HACT Architecture - Components (Assets)
 export interface EnrichedComponent extends Component {
   componentType?: ComponentType;
+  property?: { id: string; addressLine1: string; postcode: string };
 }
 
 export const componentsApi = {

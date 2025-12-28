@@ -1832,10 +1832,11 @@ export async function registerRoutes(
       };
       const componentsList = await storage.listComponents(filters);
       
-      // Enrich with component type info
+      // Enrich with component type and property info
       const enriched = await Promise.all(componentsList.map(async (comp) => {
         const type = await storage.getComponentType(comp.componentTypeId);
-        return { ...comp, componentType: type };
+        const property = comp.propertyId ? await storage.getProperty(comp.propertyId) : undefined;
+        return { ...comp, componentType: type, property: property ? { id: property.id, addressLine1: property.addressLine1, postcode: property.postcode } : undefined };
       }));
       
       res.json(enriched);

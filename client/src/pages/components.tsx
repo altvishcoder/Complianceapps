@@ -415,11 +415,11 @@ export default function ComponentsPage() {
                   </TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Asset Tag</TableHead>
+                  <TableHead>Property</TableHead>
                   <TableHead>Manufacturer / Model</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Condition</TableHead>
-                  <TableHead>Install Date</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -441,8 +441,14 @@ export default function ComponentsPage() {
                         {comp.componentType?.category || "OTHER"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {comp.assetTag || "-"}
+                    <TableCell className="max-w-[200px] truncate text-sm">
+                      {comp.property ? (
+                        <span title={`${comp.property.addressLine1}, ${comp.property.postcode}`}>
+                          {comp.property.addressLine1?.substring(0, 30)}{comp.property.addressLine1?.length > 30 ? '...' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Not linked</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {comp.manufacturer || comp.model ? (
@@ -464,8 +470,16 @@ export default function ComponentsPage() {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {comp.installDate || "-"}
+                    <TableCell>
+                      {comp.needsVerification ? (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                          Pending Review
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          Verified
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Button

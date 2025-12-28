@@ -851,8 +851,10 @@ async function autoCreateComponentFromCertificate(
     console.log(`[Component Auto-Create] Found equipment: ${JSON.stringify(equipmentInfo).substring(0, 200)}`);
     
     // Create components for each identified appliance
+    // If no specific equipment found, create a single placeholder component for the property
     const items = appliances.length > 0 ? appliances : 
-                  equipmentInfo.length > 0 ? equipmentInfo : [{ type: certificateType }];
+                  (Array.isArray(equipmentInfo) && equipmentInfo.length > 0) ? equipmentInfo : 
+                  [{ _placeholder: true }];
     console.log(`[Component Auto-Create] Processing ${items.length} items`);
     
     for (const item of items) {
@@ -874,12 +876,20 @@ async function autoCreateComponentFromCertificate(
       }
       
       if (existing.length === 0) {
+        // Extract manufacturer and model properly - don't use certificate type as model
+        const manufacturer = item.manufacturer || item.make || null;
+        // Only use model/type if it's actual equipment info, not a certificate type
+        const modelValue = item.model || 
+                          (item.type && !['GAS_SAFETY', 'EICR', 'EPC', 'FIRE_RISK_ASSESSMENT', 
+                           'LEGIONELLA_ASSESSMENT', 'ASBESTOS_SURVEY', 'LIFT_LOLER', 'OTHER'].includes(item.type) 
+                           ? item.type : null);
+        
         console.log(`[Component Auto-Create] Creating new component: type=${compType.name}, location=${item.location || item.room || 'N/A'}`);
         const created = await storage.createComponent({
           propertyId: certificate.propertyId,
           componentTypeId: compType.id,
-          manufacturer: item.manufacturer || item.make || null,
-          model: item.model || item.type || null,
+          manufacturer: manufacturer,
+          model: modelValue,
           serialNumber: item.serialNumber || null,
           location: item.location || item.room || null,
           condition: null,
