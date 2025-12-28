@@ -5,6 +5,7 @@ import {
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
   certificateTypes, classificationCodes,
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
+  apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -24,10 +25,17 @@ import {
   type Component, type InsertComponent,
   type ComponentCertificate, type InsertComponentCertificate,
   type DataImport, type InsertDataImport,
-  type DataImportRow, type InsertDataImportRow
+  type DataImportRow, type InsertDataImportRow,
+  type ApiLog, type InsertApiLog,
+  type ApiMetric, type InsertApiMetric,
+  type WebhookEndpoint, type InsertWebhookEndpoint,
+  type WebhookEvent, type InsertWebhookEvent,
+  type WebhookDelivery, type InsertWebhookDelivery,
+  type IncomingWebhookLog, type InsertIncomingWebhookLog,
+  type ApiKey, type InsertApiKey
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray, count } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, count, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -169,6 +177,48 @@ export interface IStorage {
   bulkCreateDataImportRows(rows: InsertDataImportRow[]): Promise<DataImportRow[]>;
   updateDataImportRow(id: string, updates: Partial<InsertDataImportRow>): Promise<DataImportRow | undefined>;
   getDataImportRowCounts(importId: string): Promise<{ total: number; valid: number; invalid: number; imported: number }>;
+  
+  // API Monitoring - Logs
+  listApiLogs(limit?: number, offset?: number): Promise<ApiLog[]>;
+  createApiLog(log: InsertApiLog): Promise<ApiLog>;
+  getApiLogStats(): Promise<{ total: number; errors: number; avgDuration: number }>;
+  
+  // API Monitoring - Metrics
+  listApiMetrics(startDate?: string, endDate?: string): Promise<ApiMetric[]>;
+  getOrCreateApiMetric(endpoint: string, method: string, date: string): Promise<ApiMetric>;
+  updateApiMetric(id: string, updates: Partial<ApiMetric>): Promise<ApiMetric | undefined>;
+  
+  // Webhooks - Endpoints
+  listWebhookEndpoints(organisationId: string): Promise<WebhookEndpoint[]>;
+  getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined>;
+  createWebhookEndpoint(endpoint: InsertWebhookEndpoint): Promise<WebhookEndpoint>;
+  updateWebhookEndpoint(id: string, updates: Partial<InsertWebhookEndpoint>): Promise<WebhookEndpoint | undefined>;
+  deleteWebhookEndpoint(id: string): Promise<boolean>;
+  getActiveWebhooksForEvent(eventType: string): Promise<WebhookEndpoint[]>;
+  
+  // Webhooks - Events
+  listWebhookEvents(limit?: number): Promise<WebhookEvent[]>;
+  createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
+  markWebhookEventProcessed(id: string): Promise<boolean>;
+  getPendingWebhookEvents(): Promise<WebhookEvent[]>;
+  
+  // Webhooks - Deliveries
+  listWebhookDeliveries(webhookEndpointId?: string, limit?: number): Promise<WebhookDelivery[]>;
+  createWebhookDelivery(delivery: InsertWebhookDelivery): Promise<WebhookDelivery>;
+  updateWebhookDelivery(id: string, updates: Partial<WebhookDelivery>): Promise<WebhookDelivery | undefined>;
+  
+  // Incoming Webhooks
+  listIncomingWebhookLogs(limit?: number): Promise<IncomingWebhookLog[]>;
+  createIncomingWebhookLog(log: InsertIncomingWebhookLog): Promise<IncomingWebhookLog>;
+  updateIncomingWebhookLog(id: string, updates: Partial<IncomingWebhookLog>): Promise<IncomingWebhookLog | undefined>;
+  
+  // API Keys
+  listApiKeys(organisationId: string): Promise<ApiKey[]>;
+  getApiKey(id: string): Promise<ApiKey | undefined>;
+  getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined>;
+  createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
+  updateApiKey(id: string, updates: Partial<ApiKey>): Promise<ApiKey | undefined>;
+  deleteApiKey(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1050,6 +1100,216 @@ export class DatabaseStorage implements IStorage {
       invalid: rows.filter(r => r.status === 'INVALID').length,
       imported: rows.filter(r => r.status === 'IMPORTED').length,
     };
+  }
+  
+  // API Monitoring - Logs
+  async listApiLogs(limit: number = 100, offset: number = 0): Promise<ApiLog[]> {
+    return db.select().from(apiLogs)
+      .orderBy(desc(apiLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+  
+  async createApiLog(log: InsertApiLog): Promise<ApiLog> {
+    const [created] = await db.insert(apiLogs).values(log).returning();
+    return created;
+  }
+  
+  async getApiLogStats(): Promise<{ total: number; errors: number; avgDuration: number }> {
+    const logs = await db.select().from(apiLogs);
+    const total = logs.length;
+    const errors = logs.filter(l => l.statusCode >= 400).length;
+    const avgDuration = total > 0 ? Math.round(logs.reduce((sum, l) => sum + l.duration, 0) / total) : 0;
+    return { total, errors, avgDuration };
+  }
+  
+  // API Monitoring - Metrics
+  async listApiMetrics(startDate?: string, endDate?: string): Promise<ApiMetric[]> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(apiMetrics.date, startDate));
+    if (endDate) conditions.push(lte(apiMetrics.date, endDate));
+    
+    if (conditions.length > 0) {
+      return db.select().from(apiMetrics)
+        .where(and(...conditions))
+        .orderBy(desc(apiMetrics.date));
+    }
+    return db.select().from(apiMetrics).orderBy(desc(apiMetrics.date));
+  }
+  
+  async getOrCreateApiMetric(endpoint: string, method: string, date: string): Promise<ApiMetric> {
+    const [existing] = await db.select().from(apiMetrics)
+      .where(and(
+        eq(apiMetrics.endpoint, endpoint),
+        eq(apiMetrics.method, method),
+        eq(apiMetrics.date, date)
+      ));
+    
+    if (existing) return existing;
+    
+    const [created] = await db.insert(apiMetrics).values({
+      endpoint,
+      method,
+      date,
+      requestCount: 0,
+      errorCount: 0,
+      avgDuration: 0,
+      p95Duration: 0,
+      minDuration: 0,
+      maxDuration: 0,
+    }).returning();
+    return created;
+  }
+  
+  async updateApiMetric(id: string, updates: Partial<ApiMetric>): Promise<ApiMetric | undefined> {
+    const [updated] = await db.update(apiMetrics)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(apiMetrics.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Webhooks - Endpoints
+  async listWebhookEndpoints(organisationId: string): Promise<WebhookEndpoint[]> {
+    return db.select().from(webhookEndpoints)
+      .where(eq(webhookEndpoints.organisationId, organisationId))
+      .orderBy(desc(webhookEndpoints.createdAt));
+  }
+  
+  async getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined> {
+    const [endpoint] = await db.select().from(webhookEndpoints).where(eq(webhookEndpoints.id, id));
+    return endpoint || undefined;
+  }
+  
+  async createWebhookEndpoint(endpoint: InsertWebhookEndpoint): Promise<WebhookEndpoint> {
+    const [created] = await db.insert(webhookEndpoints).values(endpoint).returning();
+    return created;
+  }
+  
+  async updateWebhookEndpoint(id: string, updates: Partial<InsertWebhookEndpoint>): Promise<WebhookEndpoint | undefined> {
+    const [updated] = await db.update(webhookEndpoints)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(webhookEndpoints.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteWebhookEndpoint(id: string): Promise<boolean> {
+    const result = await db.delete(webhookEndpoints).where(eq(webhookEndpoints.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  async getActiveWebhooksForEvent(eventType: string): Promise<WebhookEndpoint[]> {
+    const endpoints = await db.select().from(webhookEndpoints)
+      .where(eq(webhookEndpoints.status, 'ACTIVE'));
+    return endpoints.filter(e => e.events.includes(eventType));
+  }
+  
+  // Webhooks - Events
+  async listWebhookEvents(limit: number = 100): Promise<WebhookEvent[]> {
+    return db.select().from(webhookEvents)
+      .orderBy(desc(webhookEvents.createdAt))
+      .limit(limit);
+  }
+  
+  async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
+    const [created] = await db.insert(webhookEvents).values(event).returning();
+    return created;
+  }
+  
+  async markWebhookEventProcessed(id: string): Promise<boolean> {
+    const [updated] = await db.update(webhookEvents)
+      .set({ processed: true })
+      .where(eq(webhookEvents.id, id))
+      .returning();
+    return !!updated;
+  }
+  
+  async getPendingWebhookEvents(): Promise<WebhookEvent[]> {
+    return db.select().from(webhookEvents)
+      .where(eq(webhookEvents.processed, false))
+      .orderBy(webhookEvents.createdAt);
+  }
+  
+  // Webhooks - Deliveries
+  async listWebhookDeliveries(webhookEndpointId?: string, limit: number = 100): Promise<WebhookDelivery[]> {
+    if (webhookEndpointId) {
+      return db.select().from(webhookDeliveries)
+        .where(eq(webhookDeliveries.webhookEndpointId, webhookEndpointId))
+        .orderBy(desc(webhookDeliveries.createdAt))
+        .limit(limit);
+    }
+    return db.select().from(webhookDeliveries)
+      .orderBy(desc(webhookDeliveries.createdAt))
+      .limit(limit);
+  }
+  
+  async createWebhookDelivery(delivery: InsertWebhookDelivery): Promise<WebhookDelivery> {
+    const [created] = await db.insert(webhookDeliveries).values(delivery).returning();
+    return created;
+  }
+  
+  async updateWebhookDelivery(id: string, updates: Partial<WebhookDelivery>): Promise<WebhookDelivery | undefined> {
+    const [updated] = await db.update(webhookDeliveries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(webhookDeliveries.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Incoming Webhooks
+  async listIncomingWebhookLogs(limit: number = 100): Promise<IncomingWebhookLog[]> {
+    return db.select().from(incomingWebhookLogs)
+      .orderBy(desc(incomingWebhookLogs.createdAt))
+      .limit(limit);
+  }
+  
+  async createIncomingWebhookLog(log: InsertIncomingWebhookLog): Promise<IncomingWebhookLog> {
+    const [created] = await db.insert(incomingWebhookLogs).values(log).returning();
+    return created;
+  }
+  
+  async updateIncomingWebhookLog(id: string, updates: Partial<IncomingWebhookLog>): Promise<IncomingWebhookLog | undefined> {
+    const [updated] = await db.update(incomingWebhookLogs)
+      .set(updates)
+      .where(eq(incomingWebhookLogs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // API Keys
+  async listApiKeys(organisationId: string): Promise<ApiKey[]> {
+    return db.select().from(apiKeys)
+      .where(eq(apiKeys.organisationId, organisationId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+  
+  async getApiKey(id: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, id));
+    return key || undefined;
+  }
+  
+  async getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.keyPrefix, prefix));
+    return key || undefined;
+  }
+  
+  async createApiKey(apiKey: InsertApiKey): Promise<ApiKey> {
+    const [created] = await db.insert(apiKeys).values(apiKey).returning();
+    return created;
+  }
+  
+  async updateApiKey(id: string, updates: Partial<ApiKey>): Promise<ApiKey | undefined> {
+    const [updated] = await db.update(apiKeys)
+      .set(updates)
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteApiKey(id: string): Promise<boolean> {
+    const result = await db.delete(apiKeys).where(eq(apiKeys.id, id)).returning();
+    return result.length > 0;
   }
 }
 
