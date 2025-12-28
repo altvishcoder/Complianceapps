@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -125,32 +127,36 @@ export default function TestSuite() {
   };
 
   return (
-    <div className="p-8 space-y-6" data-testid="test-suite-page">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Test Suite</h1>
-          <p className="text-muted-foreground mt-1">
-            Comprehensive test coverage for ComplianceAI
-          </p>
-        </div>
-        <Button 
-          onClick={runTests} 
-          disabled={isRunning}
-          data-testid="button-run-tests"
-        >
-          {isRunning ? (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-4 w-4" />
-              Run All Tests
-            </>
-          )}
-        </Button>
-      </div>
+    <div className="flex h-screen bg-muted/30">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Test Suite" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6" data-testid="test-suite-page">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Test Results</h1>
+              <p className="text-muted-foreground mt-1">
+                Comprehensive test coverage for ComplianceAI
+              </p>
+            </div>
+            <Button 
+              onClick={runTests} 
+              disabled={isRunning}
+              data-testid="button-run-tests"
+            >
+              {isRunning ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Run All Tests
+                </>
+              )}
+            </Button>
+          </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -259,6 +265,8 @@ export default function TestSuite() {
             </CardContent>
           </Card>
         ))}
+      </div>
+        </main>
       </div>
     </div>
   );
