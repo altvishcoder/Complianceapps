@@ -431,7 +431,7 @@ export default function ModelInsightsPage() {
                             {suggestionsData.suggestions.map((suggestion) => {
                               const CategoryIcon = categoryIcons[suggestion.category] || Lightbulb;
                               const isInProgress = suggestion.status === 'IN_PROGRESS';
-                              const hasProgress = suggestion.progress && suggestion.progress.target > 0;
+                              const hasProgress = suggestion.progress && suggestion.progress.target > 0 && suggestion.progress.current < suggestion.progress.target;
                               
                               return (
                                 <Card 
