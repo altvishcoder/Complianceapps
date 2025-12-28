@@ -42,20 +42,27 @@ const navigation = [
 const aiNavigation = [
   { name: "Model Insights", href: "/model-insights", icon: Brain },
   { name: "Human Review", href: "/human-review", icon: Eye },
-  { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
 ];
 
-const adminNavigation = [
+// Admin-only items in Admin Panel
+const adminOnlyNavigation = [
   { name: "Settings", href: "/admin/setup", icon: Settings },
   { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
+];
+
+// Configuration visible to both admin and compliance manager
+const configurationNav = [
+  { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
 ];
 
 export function Sidebar() {
   const [location, setLocation] = useLocation();
   
   const userRole = typeof window !== 'undefined' ? localStorage.getItem("user_role") : null;
-  const canAccessAITools = userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER" || 
-                           userRole === "super_admin" || userRole === "SUPER_ADMIN";
+  const isAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
+  const isComplianceManager = userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER";
+  const canAccessAITools = isAdmin || isComplianceManager;
+  const canAccessAdminPanel = isAdmin || isComplianceManager; // Both see Admin Panel, but different items
   
   const { data: actions = [], isError: actionsError } = useQuery({
     queryKey: ["actions"],
@@ -168,42 +175,74 @@ export function Sidebar() {
           </div>
         )}
         
-        <div className="mt-8">
-          <div className="mb-2 px-3 flex items-center gap-2">
-            <Shield className="h-3 w-3 text-violet-400" />
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin Panel</span>
-          </div>
-          <nav className="space-y-1">
-            {adminNavigation.map((item) => {
-              const isActive = location === item.href;
-              return (
-                <Link key={item.name} href={item.href}>
-                  <div
-                    className={cn(
-                      "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
-                      isActive
-                        ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
-                        : "text-slate-400 hover:text-white hover:bg-white/5"
-                    )}
-                  >
-                    <div className="flex items-center">
-                      <item.icon
-                        className={cn(
-                          "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                          isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
-                        )}
-                      />
-                      {item.name}
+        {canAccessAdminPanel && (
+          <div className="mt-8">
+            <div className="mb-2 px-3 flex items-center gap-2">
+              <Shield className="h-3 w-3 text-violet-400" />
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin Panel</span>
+            </div>
+            <nav className="space-y-1">
+              {/* Admin-only items: Settings and Test Suite */}
+              {isAdmin && adminOnlyNavigation.map((item) => {
+                const isActive = location === item.href;
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <div
+                      className={cn(
+                        "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
+                        isActive
+                          ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <div className="flex items-center">
+                        <item.icon
+                          className={cn(
+                            "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                            isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                          )}
+                        />
+                        {item.name}
+                      </div>
+                      {isActive && (
+                        <ChevronRight className="h-4 w-4 text-white/70" />
+                      )}
                     </div>
-                    {isActive && (
-                      <ChevronRight className="h-4 w-4 text-white/70" />
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+                  </Link>
+                );
+              })}
+              {/* Configuration visible to both admin and compliance manager */}
+              {configurationNav.map((item) => {
+                const isActive = location === item.href;
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <div
+                      className={cn(
+                        "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
+                        isActive
+                          ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <div className="flex items-center">
+                        <item.icon
+                          className={cn(
+                            "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                            isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                          )}
+                        />
+                        {item.name}
+                      </div>
+                      {isActive && (
+                        <ChevronRight className="h-4 w-4 text-white/70" />
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        )}
         
         <div className="mt-8">
           <div className="mb-2 px-3">
