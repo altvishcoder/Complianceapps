@@ -767,7 +767,7 @@ export async function registerRoutes(
         .slice(-8)
         .map(([week, data]) => ({
           week: new Date(week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-          accuracy: data.total > 0 ? (data.avgConf / data.total) : 0
+          accuracy: data.total > 0 ? Math.round((data.avgConf / data.total) * 100) : 0
         }));
       
       // Calculate benchmark score based on confidence and validation pass rate
@@ -776,7 +776,7 @@ export async function registerRoutes(
       
       res.json({
         accuracy: {
-          overall: overallAccuracy,
+          overall: Math.round(overallAccuracy * 100),
           trend: 0,
           byDocType,
           byWeek,

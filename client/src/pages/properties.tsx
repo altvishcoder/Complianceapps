@@ -24,6 +24,9 @@ export default function Properties() {
   const [, navigate] = useLocation();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState("all");
+  const [schemeFilter, setSchemeFilter] = useState("all");
+  const [blockFilter, setBlockFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { data: properties = [] } = useQuery({
     queryKey: ["properties"],
@@ -192,10 +195,39 @@ export default function Properties() {
     setSelectedIds(newSelection);
   };
 
+  // Get block's scheme for filtering
+  const blockToScheme = new Map(blocks.map(b => [b.id, b.schemeId]));
+  
+  // Filter blocks by selected scheme
+  const filteredBlockOptions = schemeFilter !== "all" 
+    ? blocks.filter(b => b.schemeId === schemeFilter)
+    : blocks;
+  
   const filteredProperties = properties.filter(p => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      if (!p.addressLine1.toLowerCase().includes(query) && 
+          !p.postcode.toLowerCase().includes(query) &&
+          !p.uprn.toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+    
+    // Scheme filter (through block)
+    if (schemeFilter !== "all") {
+      const blockScheme = blockToScheme.get(p.blockId);
+      if (blockScheme !== schemeFilter) return false;
+    }
+    
+    // Block filter
+    if (blockFilter !== "all" && p.blockId !== blockFilter) return false;
+    
+    // Status filter
     if (statusFilter === "unverified") return p.needsVerification;
     if (statusFilter === "compliant") return p.complianceStatus === "COMPLIANT" && !p.needsVerification;
     if (statusFilter === "non-compliant") return p.complianceStatus === "NON_COMPLIANT" || p.complianceStatus === "OVERDUE";
+    
     return true;
   });
 
@@ -248,13 +280,41 @@ export default function Properties() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-             <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-72">
-                  <Input placeholder="Search address, postcode or UPRN..." className="pl-9" />
+             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Input 
+                    placeholder="Search address, postcode or UPRN..." 
+                    className="pl-9" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    data-testid="input-search-properties"
+                  />
                   <Filter className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 </div>
+                <Select value={schemeFilter} onValueChange={(v) => { setSchemeFilter(v); setBlockFilter("all"); }}>
+                  <SelectTrigger className="w-[150px]" data-testid="filter-scheme">
+                    <SelectValue placeholder="Scheme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Schemes</SelectItem>
+                    {schemes.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={blockFilter} onValueChange={setBlockFilter}>
+                  <SelectTrigger className="w-[150px]" data-testid="filter-block">
+                    <SelectValue placeholder="Block" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Blocks</SelectItem>
+                    {filteredBlockOptions.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[150px]" data-testid="filter-status">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>

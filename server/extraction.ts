@@ -2,7 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import { join } from "path";
 import { db } from "./db";
-import { extractionRuns } from "@shared/schema";
+import { extractionRuns, componentTypes, components, contractors } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { broadcastExtractionEvent } from "./events";
 
 // Dynamic import pdfjs-dist for PDF processing
@@ -729,6 +730,136 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   }
 }
 
+// Maps certificate type to component type for auto-creation
+const CERT_TYPE_TO_COMPONENT_CATEGORY: Record<string, string> = {
+  'GAS_SAFETY': 'HEATING',
+  'EICR': 'ELECTRICAL',
+  'EPC': 'HEATING',
+  'FIRE_RISK_ASSESSMENT': 'FIRE_SAFETY',
+  'LEGIONELLA_ASSESSMENT': 'WATER',
+  'ASBESTOS_SURVEY': 'STRUCTURE',
+  'LIFT_LOLER': 'LIFTS',
+};
+
+async function autoCreateComponentFromCertificate(
+  certificate: any,
+  certificateType: string,
+  extractedData: Record<string, any>
+): Promise<void> {
+  try {
+    const category = CERT_TYPE_TO_COMPONENT_CATEGORY[certificateType];
+    if (!category) return;
+    
+    // Find matching component type
+    const matchingTypes = await db.select().from(componentTypes)
+      .where(eq(componentTypes.category, category as any));
+    
+    if (matchingTypes.length === 0) return;
+    
+    // Use first matching type or find specific one based on extraction
+    let compType = matchingTypes[0];
+    
+    // Try to find more specific type based on extracted data
+    if (certificateType === 'GAS_SAFETY' && extractedData?.appliances) {
+      const boilerType = matchingTypes.find(t => t.name.toLowerCase().includes('boiler'));
+      if (boilerType) compType = boilerType;
+    }
+    
+    // Get appliance/equipment info from extraction
+    const appliances = extractedData?.appliances || [];
+    const equipmentInfo = extractedData?.equipment || extractedData?.installations || [];
+    
+    // Create components for each identified appliance
+    const items = appliances.length > 0 ? appliances : 
+                  equipmentInfo.length > 0 ? equipmentInfo : [{ type: certificateType }];
+    
+    for (const item of items) {
+      // Check if component already exists to avoid duplicates
+      let existing: any[] = [];
+      if (item.serialNumber) {
+        existing = await db.select().from(components)
+          .where(and(
+            eq(components.propertyId, certificate.propertyId),
+            eq(components.componentTypeId, compType.id),
+            eq(components.serialNumber, item.serialNumber)
+          ));
+      } else {
+        existing = await db.select().from(components)
+          .where(and(
+            eq(components.propertyId, certificate.propertyId),
+            eq(components.componentTypeId, compType.id)
+          ));
+      }
+      
+      if (existing.length === 0) {
+        await storage.createComponent({
+          propertyId: certificate.propertyId,
+          componentTypeId: compType.id,
+          manufacturer: item.manufacturer || item.make || null,
+          model: item.model || item.type || null,
+          serialNumber: item.serialNumber || null,
+          location: item.location || item.room || null,
+          condition: null,
+          isActive: true,
+          source: 'AUTO_EXTRACTED',
+          needsVerification: true,
+        });
+        console.log(`Auto-created component: ${compType.name} for property ${certificate.propertyId}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error auto-creating component:', error);
+  }
+}
+
+async function autoCreateContractorFromExtraction(
+  organisationId: string,
+  extractedData: Record<string, any>
+): Promise<void> {
+  try {
+    const engineerInfo = extractedData?.engineer || extractedData?.inspector || 
+                         extractedData?.assessor || extractedData?.examiner;
+    
+    if (!engineerInfo) return;
+    
+    const companyName = engineerInfo.company || engineerInfo.employerName || 
+                        extractedData?.gasBusinessName || extractedData?.companyName;
+    const engineerName = engineerInfo.name || engineerInfo.fullName || engineerInfo.engineerName;
+    const registrationNumber = engineerInfo.registrationNumber || engineerInfo.gasRegNo ||
+                               engineerInfo.napit || engineerInfo.nicEic;
+    const contactEmail = engineerInfo.email || engineerInfo.contactEmail || '';
+    
+    if (!companyName && !engineerName) return;
+    
+    const name = companyName || engineerName;
+    
+    // Check if contractor already exists
+    const existingContractors = await db.select().from(contractors)
+      .where(eq(contractors.organisationId, organisationId));
+    
+    const existing = existingContractors.find(c => 
+      c.companyName.toLowerCase().includes(name.toLowerCase()) ||
+      (registrationNumber && c.registrationNumber === registrationNumber)
+    );
+    
+    if (!existing) {
+      await storage.createContractor({
+        organisationId,
+        companyName: name.substring(0, 255),
+        tradeType: 'GENERAL',
+        contactEmail: contactEmail || 'pending@verification.required',
+        registrationNumber: registrationNumber || null,
+        gasRegistration: engineerInfo.gasRegNo || null,
+        electricalRegistration: engineerInfo.napit || engineerInfo.nicEic || null,
+        status: 'PENDING',
+      });
+      console.log(`Auto-created contractor: ${name}`);
+    }
+  } catch (error) {
+    console.error('Error auto-creating contractor:', error);
+  }
+}
+
 export async function processExtractionAndSave(
   certificateId: string,
   certificateType: string,
@@ -859,6 +990,12 @@ export async function processExtractionAndSave(
       });
     }
 
+    // Auto-create component with pending verification based on certificate type
+    await autoCreateComponentFromCertificate(certificate, certificateType, result.extractedData);
+    
+    // Auto-create/update contractor from engineer info
+    await autoCreateContractorFromExtraction(certificate.organisationId, result.extractedData);
+    
     console.log(`Extraction complete for certificate ${certificateId}: ${result.outcome}, ${result.remedialActions.length} actions created`);
     
     // Broadcast real-time update events
