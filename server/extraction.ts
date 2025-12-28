@@ -79,6 +79,74 @@ function mapDocumentTypeToCertificateType(documentType: string | undefined): Cer
   return undefined;
 }
 
+// Normalize address from various Claude response formats
+function normalizeExtractedAddress(rawAddress: any): { addressLine1: string; city: string; postcode: string } {
+  const result = { addressLine1: '', city: '', postcode: '' };
+  
+  if (!rawAddress) return result;
+  
+  // Handle string address
+  if (typeof rawAddress === 'string') {
+    result.addressLine1 = rawAddress.substring(0, 255);
+    // Try to extract postcode from string (UK format)
+    const postcodeMatch = rawAddress.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2}/i);
+    if (postcodeMatch) {
+      result.postcode = postcodeMatch[0].toUpperCase();
+    }
+    return result;
+  }
+  
+  // Handle object address - Claude returns many different formats
+  if (typeof rawAddress === 'object') {
+    // Try various field names for address line
+    const addressFields = ['street', 'streetAddress', 'name', 'addressLine1', 'address_line_1', 
+                           'fullAddress', 'property', 'line1', 'address1'];
+    for (const field of addressFields) {
+      if (rawAddress[field]) {
+        result.addressLine1 = String(rawAddress[field]).substring(0, 255);
+        break;
+      }
+    }
+    
+    // If no specific field, try to build from components
+    if (!result.addressLine1) {
+      const parts = [];
+      if (rawAddress.tenantUnit || rawAddress.unit) parts.push(rawAddress.tenantUnit || rawAddress.unit);
+      if (rawAddress.buildingName) parts.push(rawAddress.buildingName);
+      if (rawAddress.buildingNumber) parts.push(rawAddress.buildingNumber);
+      if (rawAddress.street) parts.push(rawAddress.street);
+      if (parts.length > 0) {
+        result.addressLine1 = parts.join(', ').substring(0, 255);
+      }
+    }
+    
+    // Try various field names for city
+    const cityFields = ['city', 'town', 'locality', 'district', 'area'];
+    for (const field of cityFields) {
+      if (rawAddress[field]) {
+        result.city = String(rawAddress[field]);
+        break;
+      }
+    }
+    
+    // Try various field names for postcode
+    const postcodeFields = ['postcode', 'postCode', 'postalCode', 'postal_code', 'zip'];
+    for (const field of postcodeFields) {
+      if (rawAddress[field]) {
+        result.postcode = String(rawAddress[field]).toUpperCase();
+        break;
+      }
+    }
+    
+    // If address has uprn, add it
+    if (rawAddress.uprn && !result.addressLine1.includes(rawAddress.uprn)) {
+      // Don't use UPRN as address
+    }
+  }
+  
+  return result;
+}
+
 interface ExtractionResult {
   extractedData: Record<string, any>;
   outcome: "SATISFACTORY" | "UNSATISFACTORY";
@@ -738,7 +806,7 @@ const CERT_TYPE_TO_COMPONENT_CATEGORY: Record<string, string> = {
   'FIRE_RISK_ASSESSMENT': 'FIRE_SAFETY',
   'LEGIONELLA_ASSESSMENT': 'WATER',
   'ASBESTOS_SURVEY': 'STRUCTURE',
-  'LIFT_LOLER': 'LIFTS',
+  'LIFT_LOLER': 'ACCESS',
 };
 
 async function autoCreateComponentFromCertificate(
@@ -748,13 +816,20 @@ async function autoCreateComponentFromCertificate(
 ): Promise<void> {
   try {
     const category = CERT_TYPE_TO_COMPONENT_CATEGORY[certificateType];
-    if (!category) return;
+    if (!category) {
+      console.log(`No component category mapping for certificate type: ${certificateType}`);
+      return;
+    }
     
     // Find matching component type
     const matchingTypes = await db.select().from(componentTypes)
       .where(eq(componentTypes.category, category as any));
     
-    if (matchingTypes.length === 0) return;
+    if (matchingTypes.length === 0) {
+      console.log(`No component types found for category: ${category}. Skipping component auto-creation.`);
+      return;
+    }
+    console.log(`Found ${matchingTypes.length} component types for category ${category}`);
     
     // Use first matching type or find specific one based on extraction
     let compType = matchingTypes[0];
@@ -931,38 +1006,31 @@ export async function processExtractionAndSave(
       ...(detectedCertType && { certificateType: detectedCertType })
     });
     
-    // Update property with extracted metadata and address if it needs verification
+    // Update property with extracted metadata and address
     const property = await storage.getProperty(certificate.propertyId);
-    if (property?.needsVerification) {
+    if (property) {
       const extractedAddress = result.extractedData?.installationAddress || 
                                result.extractedData?.propertyAddress ||
                                result.extractedData?.premisesAddress;
       
-      // Only update address from structured data with clear fields, not raw strings
       const updates: Record<string, any> = { 
         extractedMetadata: result.extractedData 
       };
       
-      if (extractedAddress && typeof extractedAddress === 'object') {
-        // Only use structured address objects with explicit fields
-        if (extractedAddress.streetAddress) {
-          updates.addressLine1 = extractedAddress.streetAddress.substring(0, 255);
-        } else if (extractedAddress.fullAddress) {
-          updates.addressLine1 = extractedAddress.fullAddress.substring(0, 255);
-        }
-        if (extractedAddress.city || extractedAddress.town) {
-          updates.city = extractedAddress.city || extractedAddress.town;
-        }
-        if (extractedAddress.postCode || extractedAddress.postcode) {
-          updates.postcode = (extractedAddress.postCode || extractedAddress.postcode).toUpperCase();
-        }
-      } else if (typeof extractedAddress === 'string' && extractedAddress.length > 10) {
-        // Store raw string address for human review, don't parse automatically
-        updates.addressLine1 = extractedAddress.substring(0, 255);
+      // Normalize address from various Claude formats
+      const normalized = normalizeExtractedAddress(extractedAddress);
+      if (normalized.addressLine1 && normalized.addressLine1.length > 5) {
+        updates.addressLine1 = normalized.addressLine1;
+      }
+      if (normalized.city && normalized.city !== 'To Be Verified') {
+        updates.city = normalized.city;
+      }
+      if (normalized.postcode && normalized.postcode !== 'UNKNOWN') {
+        updates.postcode = normalized.postcode;
       }
       
       await storage.updateProperty(certificate.propertyId, updates);
-      console.log(`Updated property ${certificate.propertyId} with extracted metadata`);
+      console.log(`Updated property ${certificate.propertyId} with extracted address: ${normalized.addressLine1}`);
     }
 
     const severityMap: Record<string, "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY"> = {
