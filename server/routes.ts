@@ -2748,7 +2748,9 @@ export async function registerRoutes(
   // ===== VIDEO LIBRARY =====
   app.get("/api/videos", async (req, res) => {
     try {
-      const orgId = (req.query.organisationId as string) || DEMO_ORG_ID;
+      const orgs = await storage.listOrganisations();
+      const defaultOrgId = orgs[0]?.id || '';
+      const orgId = (req.query.organisationId as string) || defaultOrgId;
       const videoList = await storage.listVideos(orgId);
       res.json(videoList);
     } catch (error) {
@@ -2773,9 +2775,11 @@ export async function registerRoutes(
   
   app.post("/api/videos", async (req, res) => {
     try {
+      const orgs = await storage.listOrganisations();
+      const defaultOrgId = orgs[0]?.id || '';
       const video = await storage.createVideo({
         ...req.body,
-        organisationId: req.body.organisationId || DEMO_ORG_ID
+        organisationId: req.body.organisationId || defaultOrgId
       });
       res.status(201).json(video);
     } catch (error) {

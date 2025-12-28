@@ -21,7 +21,8 @@ import {
   Database,
   FlaskConical,
   Shield,
-  Webhook
+  Webhook,
+  Film
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -38,6 +39,7 @@ const navigation = [
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Data Import", href: "/admin/imports", icon: Database },
+  { name: "Video Library", href: "/video-library", icon: Film },
 ];
 
 const aiNavigation = [

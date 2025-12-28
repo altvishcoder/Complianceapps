@@ -28,6 +28,7 @@ import AdminIntegrationsPage from "@/pages/admin/integrations";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
+import VideoLibrary from "@/pages/video-library";
 
 import LandingPage from "@/pages/landing";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
@@ -60,6 +61,7 @@ function Router() {
       <Route path="/human-review" component={HumanReviewPage} />
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
       <Route path="/components" component={ComponentsPage} />
+      <Route path="/video-library" component={VideoLibrary} />
       
       <Route component={NotFound} />
     </Switch>
