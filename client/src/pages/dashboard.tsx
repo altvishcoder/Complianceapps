@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
@@ -24,6 +25,10 @@ interface DashboardStats {
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
 
 export default function Dashboard() {
+  useEffect(() => {
+    document.title = "Dashboard - ComplianceAI";
+  }, []);
+
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
@@ -37,11 +42,13 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Dashboard" />
-          <main className="flex-1 flex items-center justify-center">
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Dashboard content">
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
+            <span className="sr-only">Loading dashboard data</span>
           </main>
         </div>
       </div>
@@ -53,10 +60,11 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Dashboard" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Dashboard content">
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard 

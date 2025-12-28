@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,6 +110,10 @@ const initialTestSuites: TestSuite[] = [
 ];
 
 export default function TestSuite() {
+  useEffect(() => {
+    document.title = "Test Suite - ComplianceAI";
+  }, []);
+
   const [testSuites, setTestSuites] = useState<TestSuite[]>(initialTestSuites);
   const [isRunning, setIsRunning] = useState(false);
   const [lastRun, setLastRun] = useState<Date | null>(new Date());
@@ -128,10 +132,11 @@ export default function TestSuite() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Test Suite" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6" data-testid="test-suite-page">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Test suite content" data-testid="test-suite-page">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Test Results</h1>

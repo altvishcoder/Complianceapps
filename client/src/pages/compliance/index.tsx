@@ -5,10 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertTriangle, TrendingUp, ArrowUpRight, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { certificatesApi, actionsApi } from "@/lib/api";
 import { useLocation } from "wouter";
 
 export default function CompliancePage() {
+  useEffect(() => {
+    document.title = "Compliance Overview - ComplianceAI";
+  }, []);
+
   const [, navigate] = useLocation();
   
   const { data: certificates = [], isLoading: certsLoading } = useQuery({
@@ -74,11 +79,13 @@ export default function CompliancePage() {
   if (isLoading) {
     return (
       <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Compliance Overview" />
-          <main className="flex-1 flex items-center justify-center">
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Compliance overview content">
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
+            <span className="sr-only">Loading compliance data</span>
           </main>
         </div>
       </div>
@@ -87,10 +94,11 @@ export default function CompliancePage() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Compliance Overview" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Compliance overview content">
           
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="border-l-4 border-l-emerald-500">

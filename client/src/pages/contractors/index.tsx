@@ -17,7 +17,7 @@ import {
   Mail,
   Phone
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Dialog,
   DialogContent,
@@ -35,6 +35,10 @@ import { contractorsApi } from "@/lib/api";
 import type { Contractor } from "@shared/schema";
 
 export default function ContractorsPage() {
+  useEffect(() => {
+    document.title = "Contractor Management - ComplianceAI";
+  }, []);
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -170,10 +174,11 @@ export default function ContractorsPage() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Contractor Management" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Contractor management content">
           
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="relative w-full sm:w-72">

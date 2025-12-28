@@ -116,6 +116,10 @@ interface BatchFile {
 }
 
 export default function Ingestion() {
+  useEffect(() => {
+    document.title = "Cert Hub - ComplianceAI";
+  }, []);
+
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingState, setProcessingState] = useState<'idle' | 'uploading' | 'analyzing' | 'complete' | 'error'>('idle');
@@ -581,10 +585,11 @@ export default function Ingestion() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Cert Hub - Advanced Document Center" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificate hub content">
           
           <Tabs defaultValue="upload" className="w-full">
             <div className="flex justify-between items-center mb-4">

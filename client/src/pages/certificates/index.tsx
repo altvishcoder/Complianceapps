@@ -40,6 +40,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 export default function CertificatesPage() {
+  useEffect(() => {
+    document.title = "Certificates - ComplianceAI";
+  }, []);
+
   const searchString = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -107,10 +111,11 @@ export default function CertificatesPage() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Certificates" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificates content">
           
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-2 w-full max-w-md">

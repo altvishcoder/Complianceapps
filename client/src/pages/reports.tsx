@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,6 +31,10 @@ const METRIC_COLORS: Record<string, string> = {
 };
 
 export default function Reports() {
+  useEffect(() => {
+    document.title = "Regulatory Reports - ComplianceAI";
+  }, []);
+
   const { data: tsmReport, isLoading, error } = useQuery({
     queryKey: ["tsm-report"],
     queryFn: () => reportsApi.getTSMBuildingSafety(),
@@ -61,10 +66,11 @@ export default function Reports() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Regulatory Reports" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Regulatory reports content">
           
           <Alert>
             <Info className="h-4 w-4" />
@@ -84,7 +90,8 @@ export default function Reports() {
             <TabsContent value="tsm" className="space-y-6">
               {isLoading ? (
                 <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+                  <span className="sr-only">Loading report data</span>
                 </div>
               ) : error ? (
                 <Alert variant="destructive">

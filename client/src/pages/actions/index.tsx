@@ -17,7 +17,7 @@ import {
   Calendar,
   User
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { actionsApi } from "@/lib/api";
 import type { EnrichedRemedialAction } from "@/lib/api";
@@ -37,6 +37,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved';
 
 export default function ActionsPage() {
+  useEffect(() => {
+    document.title = "Remedial Actions - ComplianceAI";
+  }, []);
+
   const [selectedAction, setSelectedAction] = useState<EnrichedRemedialAction | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,10 +126,11 @@ export default function ActionsPage() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Remedial Actions" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Remedial actions content">
           
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="flex gap-4 flex-1">

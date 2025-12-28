@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLayoutEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { 
@@ -27,6 +28,10 @@ import type {
 import { useToast } from "@/hooks/use-toast";
 
 export default function Configuration() {
+  useEffect(() => {
+    document.title = "System Configuration - ComplianceAI";
+  }, []);
+
   const [, setLocation] = useLocation();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const queryClient = useQueryClient();
@@ -338,10 +343,11 @@ export default function Configuration() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="System Configuration" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="System configuration content">
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
               <div>

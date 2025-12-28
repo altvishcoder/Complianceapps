@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -34,6 +34,10 @@ const STATUS_BADGES: Record<string, { variant: "default" | "secondary" | "destru
 };
 
 export default function ImportsPage() {
+  useEffect(() => {
+    document.title = "Data Import - ComplianceAI";
+  }, []);
+
   const [activeTab, setActiveTab] = useState<"new" | "history">("new");
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [importType, setImportType] = useState<ImportType>("properties");
@@ -126,10 +130,11 @@ export default function ImportsPage() {
   
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Data Import" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Data import content">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Data Import</h1>

@@ -85,10 +85,13 @@ export function Sidebar() {
   }).length;
 
   return (
-    <div className="flex h-screen w-72 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white border-r border-white/5">
+    <aside 
+      className="flex h-screen w-72 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white border-r border-white/5"
+      aria-label="Main navigation"
+    >
       <div className="flex h-20 items-center px-6 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="relative">
+          <div className="relative" aria-hidden="true">
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl blur-lg opacity-60"></div>
             <div className="relative bg-gradient-to-br from-violet-500 to-purple-600 p-2.5 rounded-xl">
               <ShieldCheck className="h-6 w-6 text-white" />
@@ -105,11 +108,11 @@ export function Sidebar() {
         <div className="mb-2 px-3">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Main Menu</span>
         </div>
-        <nav className="space-y-1">
+        <nav className="space-y-1" aria-label="Main menu">
           {navigation.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link key={item.name} href={item.href}>
+              <Link key={item.name} href={item.href} aria-current={isActive ? "page" : undefined}>
                 <div
                   className={cn(
                     "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
@@ -124,11 +127,12 @@ export function Sidebar() {
                         "mr-3 h-5 w-5 flex-shrink-0 transition-all duration-200",
                         isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
                       )}
+                      aria-hidden="true"
                     />
                     {item.name}
                   </div>
                   {isActive && (
-                    <ChevronRight className="h-4 w-4 text-white/70" />
+                    <ChevronRight className="h-4 w-4 text-white/70" aria-hidden="true" />
                   )}
                 </div>
               </Link>
@@ -139,7 +143,7 @@ export function Sidebar() {
         {canAccessAITools && (
           <div className="mt-8">
             <div className="mb-2 px-3 flex items-center gap-2">
-              <Sparkles className="h-3 w-3 text-violet-400" />
+              <Sparkles className="h-3 w-3 text-violet-400" aria-hidden="true" />
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">AI Tools</span>
             </div>
             <nav className="space-y-1">
@@ -178,7 +182,7 @@ export function Sidebar() {
         {canAccessAdminPanel && (
           <div className="mt-8">
             <div className="mb-2 px-3 flex items-center gap-2">
-              <Shield className="h-3 w-3 text-violet-400" />
+              <Shield className="h-3 w-3 text-violet-400" aria-hidden="true" />
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin Panel</span>
             </div>
             <nav className="space-y-1">
@@ -303,11 +307,12 @@ export function Sidebar() {
         <button 
           onClick={() => setLocation("/login")}
           className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+          aria-label="Sign out of your account"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4 w-4" aria-hidden="true" />
           Sign Out
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

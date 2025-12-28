@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -26,6 +26,10 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 export default function ComponentsPage() {
+  useEffect(() => {
+    document.title = "Components & Assets - ComplianceAI";
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -187,10 +191,11 @@ export default function ComponentsPage() {
   
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Components & Assets" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Components and assets content">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Components & Assets</h1>
@@ -432,7 +437,8 @@ export default function ComponentsPage() {
         <CardContent>
           {componentsLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
+              <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+              <span className="sr-only">Loading components</span>
             </div>
           ) : filteredComponents.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

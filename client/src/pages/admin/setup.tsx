@@ -8,12 +8,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle, Database, Trash2, RefreshCw, Play, Crown, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLayoutEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { adminApi, usersApi, type SafeUser } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSetup() {
+  useEffect(() => {
+    document.title = "System Administration - ComplianceAI";
+  }, []);
+
   const [, setLocation] = useLocation();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -113,10 +118,11 @@ export default function AdminSetup() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="System Administration" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="System administration content">
           
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">

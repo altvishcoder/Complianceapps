@@ -17,12 +17,17 @@ import {
   Wrench
 } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { certificatesApi, actionsApi } from "@/lib/api";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CertificateDetailPage() {
+  useEffect(() => {
+    document.title = "Certificate Details - ComplianceAI";
+  }, []);
+
   const { id } = useParams<{ id: string }>();
   
   const { data: certificate, isLoading } = useQuery({
@@ -58,13 +63,15 @@ export default function CertificateDetailPage() {
   if (isLoading) {
     return (
       <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Certificate Details" />
-          <main className="flex-1 overflow-y-auto p-6">
+          <main id="main-content" className="flex-1 overflow-y-auto p-6" role="main" aria-label="Certificate details content">
             <div className="space-y-6">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-[400px] w-full" />
+              <Skeleton className="h-8 w-48" aria-hidden="true" />
+              <Skeleton className="h-[400px] w-full" aria-hidden="true" />
+              <span className="sr-only">Loading certificate details</span>
             </div>
           </main>
         </div>
@@ -75,10 +82,11 @@ export default function CertificateDetailPage() {
   if (!certificate) {
     return (
       <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Certificate Not Found" />
-          <main className="flex-1 overflow-y-auto p-6">
+          <main id="main-content" className="flex-1 overflow-y-auto p-6" role="main" aria-label="Certificate not found">
             <Card>
               <CardContent className="py-12 text-center">
                 <XCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -103,10 +111,11 @@ export default function CertificateDetailPage() {
 
   return (
     <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Certificate Details" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificate details content">
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
