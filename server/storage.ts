@@ -192,7 +192,7 @@ export interface IStorage {
   listWebhookEndpoints(organisationId: string): Promise<WebhookEndpoint[]>;
   getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined>;
   createWebhookEndpoint(endpoint: InsertWebhookEndpoint): Promise<WebhookEndpoint>;
-  updateWebhookEndpoint(id: string, updates: Partial<InsertWebhookEndpoint>): Promise<WebhookEndpoint | undefined>;
+  updateWebhookEndpoint(id: string, updates: Partial<WebhookEndpoint>): Promise<WebhookEndpoint | undefined>;
   deleteWebhookEndpoint(id: string): Promise<boolean>;
   getActiveWebhooksForEvent(eventType: string): Promise<WebhookEndpoint[]>;
   
@@ -1186,7 +1186,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   
-  async updateWebhookEndpoint(id: string, updates: Partial<InsertWebhookEndpoint>): Promise<WebhookEndpoint | undefined> {
+  async updateWebhookEndpoint(id: string, updates: Partial<WebhookEndpoint>): Promise<WebhookEndpoint | undefined> {
     const [updated] = await db.update(webhookEndpoints)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(webhookEndpoints.id, id))
