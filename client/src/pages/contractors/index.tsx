@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -336,39 +337,29 @@ export default function ContractorsPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Contractors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-contractors">{contractors.length}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {contractors.length === 0 ? "No contractors registered" : "Registered suppliers"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-emerald-600" data-testid="text-approved-count">{approvedCount}</div>
-                <p className="text-xs text-muted-foreground mt-1">Active contractors</p>
-              </CardContent>
-            </Card>
-            <Card className={pendingCount > 0 ? "border-orange-300" : ""}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Pending Verification</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${pendingCount > 0 ? 'text-orange-600' : ''}`} data-testid="text-pending-count">
-                  {pendingCount}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {pendingCount === 0 ? "All contractors verified" : "Awaiting review"}
-                </p>
-              </CardContent>
-            </Card>
+            <StatsCard 
+              title="Total Contractors" 
+              value={String(contractors.length)}
+              description={contractors.length === 0 ? "No contractors registered" : "Registered suppliers"}
+              icon={Users}
+              data-testid="card-total-contractors"
+            />
+            <StatsCard 
+              title="Approved" 
+              value={String(approvedCount)}
+              description="Active contractors"
+              icon={ShieldCheck}
+              status="success"
+              data-testid="card-approved-count"
+            />
+            <StatsCard 
+              title="Pending Verification" 
+              value={String(pendingCount)}
+              description={pendingCount === 0 ? "All contractors verified" : "Awaiting review"}
+              icon={Clock}
+              status={pendingCount > 0 ? "warning" : "success"}
+              data-testid="card-pending-count"
+            />
           </div>
 
           <Card>

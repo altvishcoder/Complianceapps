@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FlaskConical, Play, CheckCircle, XCircle, Clock, RefreshCw } from "lucide-react";
@@ -163,55 +164,37 @@ export default function TestSuite() {
             </Button>
           </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tests</CardTitle>
-            <FlaskConical className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-tests">{totalTests}</div>
-            <p className="text-xs text-muted-foreground">
-              Across {testSuites.length} test files
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Passed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600" data-testid="text-passed-tests">{passedTests}</div>
-            <p className="text-xs text-muted-foreground">
-              {((passedTests / totalTests) * 100).toFixed(1)}% pass rate
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Failed</CardTitle>
-            <XCircle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600" data-testid="text-failed-tests">{failedTests}</div>
-            <p className="text-xs text-muted-foreground">
-              {failedTests === 0 ? "All tests passing" : "Needs attention"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Duration</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-duration">{(totalDuration / 1000).toFixed(2)}s</div>
-            <p className="text-xs text-muted-foreground">
-              {lastRun ? `Last run: ${lastRun.toLocaleTimeString()}` : "Not run yet"}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatsCard 
+          title="Total Tests" 
+          value={String(totalTests)}
+          description={`Across ${testSuites.length} test files`}
+          icon={FlaskConical}
+          data-testid="card-total-tests"
+        />
+        <StatsCard 
+          title="Passed" 
+          value={String(passedTests)}
+          description={`${((passedTests / totalTests) * 100).toFixed(1)}% pass rate`}
+          icon={CheckCircle}
+          status="success"
+          data-testid="card-passed-tests"
+        />
+        <StatsCard 
+          title="Failed" 
+          value={String(failedTests)}
+          description={failedTests === 0 ? "All tests passing" : "Needs attention"}
+          icon={XCircle}
+          status={failedTests > 0 ? "danger" : "success"}
+          data-testid="card-failed-tests"
+        />
+        <StatsCard 
+          title="Duration" 
+          value={`${(totalDuration / 1000).toFixed(2)}s`}
+          description={lastRun ? `Last run: ${lastRun.toLocaleTimeString()}` : "Not run yet"}
+          icon={Clock}
+          data-testid="card-duration"
+        />
       </div>
 
       <div className="space-y-4">

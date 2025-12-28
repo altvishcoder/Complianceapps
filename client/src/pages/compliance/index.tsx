@@ -1,9 +1,10 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertTriangle, TrendingUp, ArrowUpRight, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertTriangle, TrendingUp, ArrowUpRight, RefreshCw, ShieldCheck, Clock, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { certificatesApi, actionsApi } from "@/lib/api";
@@ -101,35 +102,30 @@ export default function CompliancePage() {
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Compliance overview content">
           
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="border-l-4 border-l-emerald-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Big 6 Compliance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{complianceRate}%</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {totalCerts > 0 ? `${satisfactoryCerts} of ${totalCerts} certificates compliant` : 'No certificates uploaded'}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-amber-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">At Risk Properties</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{atRiskProps}</div>
-                <p className="text-xs text-muted-foreground mt-1">Expiring within 30 days</p>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-rose-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Non-Compliant</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{nonCompliant}</div>
-                <p className="text-xs text-muted-foreground mt-1">Requiring immediate action</p>
-              </CardContent>
-            </Card>
+            <StatsCard 
+              title="Big 6 Compliance" 
+              value={`${complianceRate}%`}
+              description={totalCerts > 0 ? `${satisfactoryCerts} of ${totalCerts} certificates compliant` : 'No certificates uploaded'}
+              icon={ShieldCheck}
+              status={parseFloat(complianceRate) >= 90 ? "success" : parseFloat(complianceRate) >= 70 ? "warning" : "danger"}
+              data-testid="card-compliance-rate"
+            />
+            <StatsCard 
+              title="At Risk Properties" 
+              value={String(atRiskProps)}
+              description="Expiring within 30 days"
+              icon={Clock}
+              status={atRiskProps > 0 ? "warning" : "success"}
+              data-testid="card-at-risk"
+            />
+            <StatsCard 
+              title="Non-Compliant" 
+              value={String(nonCompliant)}
+              description="Requiring immediate action"
+              icon={XCircle}
+              status={nonCompliant > 0 ? "danger" : "success"}
+              data-testid="card-non-compliant"
+            />
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">

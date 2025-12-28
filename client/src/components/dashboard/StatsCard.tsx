@@ -8,7 +8,10 @@ interface StatsCardProps {
   icon: LucideIcon;
   trend?: "up" | "down" | "neutral";
   trendValue?: string;
-  status?: "default" | "success" | "warning" | "danger";
+  status?: "default" | "success" | "warning" | "danger" | "info";
+  onClick?: () => void;
+  isActive?: boolean;
+  "data-testid"?: string;
 }
 
 export function StatsCard({ 
@@ -18,13 +21,17 @@ export function StatsCard({
   icon: Icon, 
   trend, 
   trendValue,
-  status = "default" 
+  status = "default",
+  onClick,
+  isActive = false,
+  "data-testid": testId
 }: StatsCardProps) {
   const gradients = {
     default: "from-slate-500 to-slate-600",
     success: "from-emerald-500 to-teal-600",
     warning: "from-amber-500 to-orange-600",
     danger: "from-rose-500 to-red-600",
+    info: "from-blue-500 to-indigo-600",
   };
 
   const bgColors = {
@@ -32,6 +39,7 @@ export function StatsCard({
     success: "bg-emerald-50 dark:bg-emerald-950/30",
     warning: "bg-amber-50 dark:bg-amber-950/30",
     danger: "bg-rose-50 dark:bg-rose-950/30",
+    info: "bg-blue-50 dark:bg-blue-950/30",
   };
 
   const borderColors = {
@@ -39,14 +47,33 @@ export function StatsCard({
     success: "border-emerald-200/50 dark:border-emerald-900/50",
     warning: "border-amber-200/50 dark:border-amber-900/50",
     danger: "border-rose-200/50 dark:border-rose-900/50",
+    info: "border-blue-200/50 dark:border-blue-900/50",
+  };
+
+  const ringColors = {
+    default: "ring-slate-500",
+    success: "ring-emerald-500",
+    warning: "ring-amber-500",
+    danger: "ring-rose-500",
+    info: "ring-blue-500",
   };
 
   return (
-    <div className={cn(
-      "relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border",
-      bgColors[status],
-      borderColors[status]
-    )}>
+    <div 
+      className={cn(
+        "relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border",
+        bgColors[status],
+        borderColors[status],
+        onClick && "cursor-pointer",
+        isActive && `ring-2 ${ringColors[status]}`
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? isActive : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      data-testid={testId}
+    >
       <div className="absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8">
         <div className={cn(
           "w-full h-full rounded-full bg-gradient-to-br opacity-10",

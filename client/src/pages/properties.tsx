@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -245,43 +246,36 @@ export default function Properties() {
         <Header title="Property Management" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Property management content">
           
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-                  <Home className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{properties.length}</div>
-                </CardContent>
-             </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Blocks</CardTitle>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{blocks.length}</div>
-                </CardContent>
-             </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Schemes</CardTitle>
-                  <Layers className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{schemes.length}</div>
-                </CardContent>
-             </Card>
-             <Card className={unverifiedCount > 0 ? "border-orange-300" : ""}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Needs Verification</CardTitle>
-                  <AlertCircle className={`h-4 w-4 ${unverifiedCount > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${unverifiedCount > 0 ? 'text-orange-600' : ''}`}>{unverifiedCount}</div>
-                </CardContent>
-             </Card>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            <StatsCard 
+              title="Total Properties" 
+              value={String(properties.length)}
+              description="Across all schemes"
+              icon={Home}
+              data-testid="card-total-properties"
+            />
+            <StatsCard 
+              title="Total Blocks" 
+              value={String(blocks.length)}
+              description="Building groupings"
+              icon={Building2}
+              data-testid="card-total-blocks"
+            />
+            <StatsCard 
+              title="Schemes" 
+              value={String(schemes.length)}
+              description="Estate groupings"
+              icon={Layers}
+              data-testid="card-schemes"
+            />
+            <StatsCard 
+              title="Needs Verification" 
+              value={String(unverifiedCount)}
+              description={unverifiedCount > 0 ? "Properties to review" : "All properties verified"}
+              icon={AlertCircle}
+              status={unverifiedCount > 0 ? "warning" : "success"}
+              data-testid="card-needs-verification"
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">

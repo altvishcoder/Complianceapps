@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -169,67 +170,47 @@ export default function ActionsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card 
-              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-blue-500' : ''}`}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <StatsCard 
+              title="Total Open" 
+              value={String(totalOpen)}
+              description="Actions awaiting resolution"
+              icon={AlertTriangle}
+              status="info"
               onClick={() => setActiveFilter(activeFilter === 'open' ? 'all' : 'open')}
+              isActive={activeFilter === 'open'}
               data-testid="card-total-open"
-            >
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Open</p>
-                  <h3 className="text-2xl font-bold mt-1">{totalOpen}</h3>
-                </div>
-                <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card 
-              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'emergency' ? 'ring-2 ring-rose-500' : ''}`}
+            />
+            <StatsCard 
+              title="Emergency" 
+              value={String(emergencyCount)}
+              description="Requiring immediate action"
+              icon={AlertOctagon}
+              status="danger"
               onClick={() => setActiveFilter(activeFilter === 'emergency' ? 'all' : 'emergency')}
+              isActive={activeFilter === 'emergency'}
               data-testid="card-emergency"
-            >
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Emergency</p>
-                  <h3 className="text-2xl font-bold mt-1 text-rose-600">{emergencyCount}</h3>
-                </div>
-                <div className="h-10 w-10 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">
-                  <AlertOctagon className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card 
-              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'in_progress' ? 'ring-2 ring-amber-500' : ''}`}
+            />
+            <StatsCard 
+              title="In Progress" 
+              value={String(inProgressCount)}
+              description="Currently being worked on"
+              icon={Wrench}
+              status="warning"
               onClick={() => setActiveFilter(activeFilter === 'in_progress' ? 'all' : 'in_progress')}
+              isActive={activeFilter === 'in_progress'}
               data-testid="card-in-progress"
-            >
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                  <h3 className="text-2xl font-bold mt-1">{inProgressCount}</h3>
-                </div>
-                <div className="h-10 w-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
-                  <Wrench className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card 
-              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'resolved' ? 'ring-2 ring-emerald-500' : ''}`}
+            />
+            <StatsCard 
+              title="Resolved (30d)" 
+              value={String(resolvedCount)}
+              description="Completed in last 30 days"
+              icon={CheckCircle2}
+              status="success"
               onClick={() => setActiveFilter(activeFilter === 'resolved' ? 'all' : 'resolved')}
+              isActive={activeFilter === 'resolved'}
               data-testid="card-resolved"
-            >
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Resolved (30d)</p>
-                  <h3 className="text-2xl font-bold mt-1 text-emerald-600">{resolvedCount}</h3>
-                </div>
-                <div className="h-10 w-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
+            />
           </div>
 
           <Card>
