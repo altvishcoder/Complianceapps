@@ -424,6 +424,21 @@ export const componentsApi = {
   delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/components/${id}`, {
     method: "DELETE",
   }),
+  
+  bulkApprove: (ids: string[]) => fetchJSON<{ success: boolean; approved: number }>(`${API_BASE}/components/bulk-approve`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  }),
+  
+  bulkReject: (ids: string[]) => fetchJSON<{ success: boolean; rejected: number }>(`${API_BASE}/components/bulk-reject`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  }),
+  
+  bulkDelete: (ids: string[]) => fetchJSON<{ success: boolean; deleted: number }>(`${API_BASE}/components/bulk-delete`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  }),
 };
 
 // Data Imports

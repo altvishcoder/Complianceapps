@@ -1858,6 +1858,63 @@ export async function registerRoutes(
     }
   });
   
+  // Bulk approve components (set condition to GOOD and status to active)
+  app.post("/api/components/bulk-approve", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array required" });
+      }
+      let approved = 0;
+      for (const id of ids) {
+        const updated = await storage.updateComponent(id, { condition: "GOOD", isActive: true });
+        if (updated) approved++;
+      }
+      res.json({ success: true, approved });
+    } catch (error) {
+      console.error("Error bulk approving components:", error);
+      res.status(500).json({ error: "Failed to bulk approve components" });
+    }
+  });
+  
+  // Bulk reject/deactivate components
+  app.post("/api/components/bulk-reject", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array required" });
+      }
+      let rejected = 0;
+      for (const id of ids) {
+        const updated = await storage.updateComponent(id, { isActive: false });
+        if (updated) rejected++;
+      }
+      res.json({ success: true, rejected });
+    } catch (error) {
+      console.error("Error bulk rejecting components:", error);
+      res.status(500).json({ error: "Failed to bulk reject components" });
+    }
+  });
+  
+  // Bulk delete components
+  app.post("/api/components/bulk-delete", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "ids array required" });
+      }
+      let deleted = 0;
+      for (const id of ids) {
+        const result = await storage.deleteComponent(id);
+        if (result) deleted++;
+      }
+      res.json({ success: true, deleted });
+    } catch (error) {
+      console.error("Error bulk deleting components:", error);
+      res.status(500).json({ error: "Failed to bulk delete components" });
+    }
+  });
+  
   // ===== DATA IMPORTS =====
   app.get("/api/imports", async (req, res) => {
     try {

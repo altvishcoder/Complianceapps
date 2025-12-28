@@ -11,8 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { componentsApi, componentTypesApi, propertiesApi } from "@/lib/api";
-import { Plus, Search, Settings, Wrench, Info, Loader2, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { InsertComponent } from "@shared/schema";
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -28,8 +30,10 @@ export default function ComponentsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newComponent, setNewComponent] = useState<Partial<InsertComponent>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const { data: components = [], isLoading: componentsLoading } = useQuery({
     queryKey: ["components", propertyFilter, typeFilter],
@@ -64,6 +68,51 @@ export default function ComponentsPage() {
       queryClient.invalidateQueries({ queryKey: ["components"] });
     },
   });
+  
+  const bulkApproveMutation = useMutation({
+    mutationFn: componentsApi.bulkApprove,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["components"] });
+      setSelectedIds(new Set());
+      toast({ title: "Components Approved", description: `${data.approved} components approved successfully.` });
+    },
+  });
+  
+  const bulkRejectMutation = useMutation({
+    mutationFn: componentsApi.bulkReject,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["components"] });
+      setSelectedIds(new Set());
+      toast({ title: "Components Rejected", description: `${data.rejected} components rejected/deactivated.` });
+    },
+  });
+  
+  const bulkDeleteMutation = useMutation({
+    mutationFn: componentsApi.bulkDelete,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["components"] });
+      setSelectedIds(new Set());
+      toast({ title: "Components Deleted", description: `${data.deleted} components deleted.` });
+    },
+  });
+  
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+  
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredComponents.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredComponents.map(c => c.id)));
+    }
+  };
   
   const filteredComponents = components.filter((comp) => {
     if (!searchQuery) return true;
@@ -305,6 +354,43 @@ export default function ComponentsPage() {
               </Select>
             </div>
           </div>
+          
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 mt-4 p-3 bg-muted rounded-lg">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <div className="flex-1" />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bulkApproveMutation.mutate(Array.from(selectedIds))}
+                disabled={bulkApproveMutation.isPending}
+                data-testid="button-bulk-approve"
+              >
+                {bulkApproveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bulkRejectMutation.mutate(Array.from(selectedIds))}
+                disabled={bulkRejectMutation.isPending}
+                data-testid="button-bulk-reject"
+              >
+                {bulkRejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                Reject
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+                disabled={bulkDeleteMutation.isPending}
+                data-testid="button-bulk-delete"
+              >
+                {bulkDeleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Delete
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {componentsLoading ? (
@@ -320,6 +406,13 @@ export default function ComponentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedIds.size === filteredComponents.length && filteredComponents.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  </TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Asset Tag</TableHead>
@@ -333,6 +426,13 @@ export default function ComponentsPage() {
               <TableBody>
                 {filteredComponents.map((comp) => (
                   <TableRow key={comp.id} data-testid={`component-row-${comp.id}`}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(comp.id)}
+                        onCheckedChange={() => toggleSelect(comp.id)}
+                        data-testid={`checkbox-${comp.id}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {comp.componentType?.name || "Unknown"}
                     </TableCell>

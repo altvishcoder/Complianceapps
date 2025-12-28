@@ -1,6 +1,6 @@
 // Seed script for initial ComplianceAI data
 import { db } from "./db";
-import { organisations, schemes, blocks, properties, users, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules } from "@shared/schema";
+import { organisations, schemes, blocks, properties, users, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const ORG_ID = "default-org";
@@ -738,6 +738,66 @@ async function seedConfiguration() {
   
   await db.insert(normalisationRules).values(normalisationRulesData);
   console.log("✓ Created normalisation rules");
+  
+  // Seed Component Types for HACT-aligned asset management
+  const [existingComponentType] = await db.select().from(componentTypes).limit(1);
+  if (!existingComponentType) {
+    const componentTypesData: Array<{
+      code: string;
+      name: string;
+      category: "HEATING" | "ELECTRICAL" | "FIRE_SAFETY" | "WATER" | "VENTILATION" | "STRUCTURE" | "ACCESS" | "SECURITY" | "EXTERNAL" | "OTHER";
+      description: string;
+      hactElementCode: string;
+      expectedLifespanYears: number;
+      relatedCertificateTypes: string[];
+      inspectionFrequencyMonths: number;
+      isHighRisk: boolean;
+      buildingSafetyRelevant: boolean;
+      displayOrder: number;
+      isActive: boolean;
+    }> = [
+      // Heating Components
+      { code: "GAS_BOILER", name: "Gas Boiler", category: "HEATING", description: "Domestic gas boiler for heating and hot water", hactElementCode: "HE-01", expectedLifespanYears: 15, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 1, isActive: true },
+      { code: "CENTRAL_HEATING", name: "Central Heating System", category: "HEATING", description: "Complete central heating system including radiators", hactElementCode: "HE-02", expectedLifespanYears: 20, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 2, isActive: true },
+      { code: "STORAGE_HEATER", name: "Storage Heater", category: "HEATING", description: "Electric storage heater", hactElementCode: "HE-03", expectedLifespanYears: 15, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 3, isActive: true },
+      
+      // Electrical Components
+      { code: "CONSUMER_UNIT", name: "Consumer Unit", category: "ELECTRICAL", description: "Main electrical consumer unit (fuse box)", hactElementCode: "EL-01", expectedLifespanYears: 25, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 10, isActive: true },
+      { code: "ELECTRICAL_WIRING", name: "Electrical Wiring", category: "ELECTRICAL", description: "Fixed electrical wiring installation", hactElementCode: "EL-02", expectedLifespanYears: 30, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 11, isActive: true },
+      { code: "SMOKE_DETECTOR", name: "Smoke Detector", category: "ELECTRICAL", description: "Smoke/heat detector (mains or battery)", hactElementCode: "EL-03", expectedLifespanYears: 10, relatedCertificateTypes: ["EICR", "FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 12, isActive: true },
+      { code: "CO_DETECTOR", name: "Carbon Monoxide Detector", category: "ELECTRICAL", description: "Carbon monoxide detector", hactElementCode: "EL-04", expectedLifespanYears: 7, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 13, isActive: true },
+      
+      // Fire Safety Components
+      { code: "FIRE_DOOR", name: "Fire Door", category: "FIRE_SAFETY", description: "Fire-rated door assembly", hactElementCode: "FS-01", expectedLifespanYears: 25, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 20, isActive: true },
+      { code: "FIRE_ALARM", name: "Fire Alarm System", category: "FIRE_SAFETY", description: "Fire alarm detection and warning system", hactElementCode: "FS-02", expectedLifespanYears: 15, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 21, isActive: true },
+      { code: "EMERGENCY_LIGHTING", name: "Emergency Lighting", category: "FIRE_SAFETY", description: "Emergency escape lighting", hactElementCode: "FS-03", expectedLifespanYears: 10, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 22, isActive: true },
+      { code: "FIRE_EXTINGUISHER", name: "Fire Extinguisher", category: "FIRE_SAFETY", description: "Portable fire extinguisher", hactElementCode: "FS-04", expectedLifespanYears: 5, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 23, isActive: true },
+      { code: "DRY_RISER", name: "Dry Riser", category: "FIRE_SAFETY", description: "Dry riser system for fire brigade access", hactElementCode: "FS-05", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 6, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 24, isActive: true },
+      { code: "SPRINKLER", name: "Sprinkler System", category: "FIRE_SAFETY", description: "Automatic fire sprinkler system", hactElementCode: "FS-06", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 25, isActive: true },
+      
+      // Water Components
+      { code: "WATER_TANK", name: "Cold Water Storage Tank", category: "WATER", description: "Cold water storage tank", hactElementCode: "WA-01", expectedLifespanYears: 25, relatedCertificateTypes: ["LEGIONELLA"], inspectionFrequencyMonths: 24, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 30, isActive: true },
+      { code: "HOT_WATER_CYLINDER", name: "Hot Water Cylinder", category: "WATER", description: "Hot water storage cylinder", hactElementCode: "WA-02", expectedLifespanYears: 15, relatedCertificateTypes: ["LEGIONELLA"], inspectionFrequencyMonths: 24, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 31, isActive: true },
+      
+      // Access/Lifts
+      { code: "PASSENGER_LIFT", name: "Passenger Lift", category: "ACCESS", description: "Passenger lift/elevator", hactElementCode: "AC-01", expectedLifespanYears: 25, relatedCertificateTypes: ["LOLER"], inspectionFrequencyMonths: 6, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 40, isActive: true },
+      { code: "STAIRLIFT", name: "Stairlift", category: "ACCESS", description: "Domestic stairlift", hactElementCode: "AC-02", expectedLifespanYears: 15, relatedCertificateTypes: ["LOLER"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 41, isActive: true },
+      
+      // Ventilation
+      { code: "EXTRACTOR_FAN", name: "Extractor Fan", category: "VENTILATION", description: "Bathroom/kitchen extractor fan", hactElementCode: "VE-01", expectedLifespanYears: 10, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 50, isActive: true },
+      { code: "COMMUNAL_VENTILATION", name: "Communal Ventilation System", category: "VENTILATION", description: "Communal mechanical ventilation system", hactElementCode: "VE-02", expectedLifespanYears: 20, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 51, isActive: true },
+      
+      // Structure/External
+      { code: "EXTERNAL_CLADDING", name: "External Cladding", category: "EXTERNAL", description: "External wall cladding system", hactElementCode: "EX-01", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 60, isActive: true },
+      { code: "BALCONY", name: "Balcony", category: "EXTERNAL", description: "External balcony structure", hactElementCode: "EX-02", expectedLifespanYears: 40, relatedCertificateTypes: [], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 61, isActive: true },
+      
+      // Security
+      { code: "DOOR_ENTRY", name: "Door Entry System", category: "SECURITY", description: "Communal door entry/intercom system", hactElementCode: "SE-01", expectedLifespanYears: 15, relatedCertificateTypes: [], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 70, isActive: true },
+    ];
+    
+    await db.insert(componentTypes).values(componentTypesData);
+    console.log("✓ Created component types");
+  }
   
   console.log("✓ Configuration data seeded successfully!");
 }
