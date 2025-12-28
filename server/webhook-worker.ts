@@ -183,6 +183,13 @@ async function retryDelivery(
     lastAttemptAt: new Date()
   });
   
+  const payload = {
+    event: event.eventType,
+    timestamp: new Date().toISOString(),
+    deliveryId,
+    data: event.payload
+  };
+  
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Webhook-Source': 'ComplianceAI',
@@ -196,14 +203,10 @@ async function retryDelivery(
     headers['X-API-Key'] = webhook.authValue;
   } else if (webhook.authType === 'BEARER' && webhook.authValue) {
     headers['Authorization'] = `Bearer ${webhook.authValue}`;
+  } else if (webhook.authType === 'HMAC_SHA256' && webhook.authValue) {
+    const signature = await signPayload(JSON.stringify(payload), webhook.authValue);
+    headers['X-Webhook-Signature'] = signature;
   }
-  
-  const payload = {
-    event: event.eventType,
-    timestamp: new Date().toISOString(),
-    deliveryId,
-    data: event.payload
-  };
   
   const startTime = Date.now();
   

@@ -20,7 +20,8 @@ import {
   Package,
   Database,
   FlaskConical,
-  Shield
+  Shield,
+  Webhook
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ const aiNavigation = [
 // Admin-only items in Admin Panel
 const adminOnlyNavigation = [
   { name: "Settings", href: "/admin/setup", icon: Settings },
+  { name: "Integrations", href: "/admin/integrations", icon: Webhook },
   { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
 ];
 

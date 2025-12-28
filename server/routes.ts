@@ -24,6 +24,7 @@ import {
   processComponentImport,
   generateCSVTemplate
 } from "./import-parser";
+import { enqueueWebhookEvent } from "./webhook-worker";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -597,6 +598,18 @@ export async function registerRoutes(
       if (!action) {
         return res.status(404).json({ error: "Action not found" });
       }
+      
+      const eventType = updates.status === 'COMPLETED' ? 'action.completed' : 'action.updated';
+      enqueueWebhookEvent(eventType, 'remedialAction', action.id, {
+        id: action.id,
+        propertyId: action.propertyId,
+        code: action.code,
+        description: action.description,
+        severity: action.severity,
+        status: action.status,
+        dueDate: action.dueDate
+      });
+      
       res.json(action);
     } catch (error) {
       console.error("Error updating action:", error);
@@ -1001,7 +1014,7 @@ export async function registerRoutes(
                               action.severity === "URGENT" ? 7 : 
                               action.severity === "ROUTINE" ? 30 : 90;
             
-            await storage.createRemedialAction({
+            const createdAction = await storage.createRemedialAction({
               certificateId: updated.certificateId,
               propertyId: certificate.propertyId,
               code: action.code,
@@ -1011,6 +1024,16 @@ export async function registerRoutes(
               status: "OPEN",
               dueDate: new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
               costEstimate: action.costEstimate
+            });
+            
+            enqueueWebhookEvent('action.created', 'remedialAction', createdAction.id, {
+              id: createdAction.id,
+              propertyId: createdAction.propertyId,
+              code: createdAction.code,
+              description: createdAction.description,
+              severity: createdAction.severity,
+              status: createdAction.status,
+              dueDate: createdAction.dueDate
             });
           }
           
