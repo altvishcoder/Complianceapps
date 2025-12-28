@@ -1072,9 +1072,11 @@ export async function processExtractionAndSave(
     console.log(`[DEBUG] Remedial actions created, now creating components`);
 
     // Auto-create component with pending verification based on certificate type
-    console.log(`[DEBUG] About to call autoCreateComponentFromCertificate for cert ${certificateId}`);
+    // Use the DETECTED certificate type, not the initial type (which may be "OTHER")
+    const effectiveCertType = detectedCertType || certificateType;
+    console.log(`[DEBUG] About to call autoCreateComponentFromCertificate for cert ${certificateId}, type: ${effectiveCertType}`);
     try {
-      await autoCreateComponentFromCertificate(certificate, certificateType, result.extractedData);
+      await autoCreateComponentFromCertificate(certificate, effectiveCertType, result.extractedData);
       console.log(`[DEBUG] autoCreateComponentFromCertificate completed for cert ${certificateId}`);
     } catch (compErr) {
       console.error(`[DEBUG] autoCreateComponentFromCertificate failed:`, compErr);
