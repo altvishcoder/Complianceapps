@@ -814,22 +814,24 @@ async function autoCreateComponentFromCertificate(
   certificateType: string,
   extractedData: Record<string, any>
 ): Promise<void> {
+  console.log(`[Component Auto-Create] Starting for cert type: ${certificateType}, propertyId: ${certificate.propertyId}`);
   try {
     const category = CERT_TYPE_TO_COMPONENT_CATEGORY[certificateType];
     if (!category) {
-      console.log(`No component category mapping for certificate type: ${certificateType}`);
+      console.log(`[Component Auto-Create] No component category mapping for certificate type: ${certificateType}`);
       return;
     }
+    console.log(`[Component Auto-Create] Mapped to category: ${category}`);
     
     // Find matching component type
     const matchingTypes = await db.select().from(componentTypes)
       .where(eq(componentTypes.category, category as any));
     
     if (matchingTypes.length === 0) {
-      console.log(`No component types found for category: ${category}. Skipping component auto-creation.`);
+      console.log(`[Component Auto-Create] No component types found for category: ${category}. Skipping.`);
       return;
     }
-    console.log(`Found ${matchingTypes.length} component types for category ${category}`);
+    console.log(`[Component Auto-Create] Found ${matchingTypes.length} component types for category ${category}`);
     
     // Use first matching type or find specific one based on extraction
     let compType = matchingTypes[0];
@@ -845,9 +847,13 @@ async function autoCreateComponentFromCertificate(
     const equipmentInfo = extractedData?.equipment || extractedData?.installations || 
                           extractedData?.systemDetails || extractedData?.testResults || [];
     
+    console.log(`[Component Auto-Create] Found appliances: ${JSON.stringify(appliances).substring(0, 200)}`);
+    console.log(`[Component Auto-Create] Found equipment: ${JSON.stringify(equipmentInfo).substring(0, 200)}`);
+    
     // Create components for each identified appliance
     const items = appliances.length > 0 ? appliances : 
                   equipmentInfo.length > 0 ? equipmentInfo : [{ type: certificateType }];
+    console.log(`[Component Auto-Create] Processing ${items.length} items`);
     
     for (const item of items) {
       // Check if component already exists to avoid duplicates
@@ -868,7 +874,8 @@ async function autoCreateComponentFromCertificate(
       }
       
       if (existing.length === 0) {
-        await storage.createComponent({
+        console.log(`[Component Auto-Create] Creating new component: type=${compType.name}, location=${item.location || item.room || 'N/A'}`);
+        const created = await storage.createComponent({
           propertyId: certificate.propertyId,
           componentTypeId: compType.id,
           manufacturer: item.manufacturer || item.make || null,
@@ -880,11 +887,14 @@ async function autoCreateComponentFromCertificate(
           source: 'AUTO_EXTRACTED',
           needsVerification: true,
         });
-        console.log(`Auto-created component: ${compType.name} for property ${certificate.propertyId}`);
+        console.log(`[Component Auto-Create] SUCCESS - Created component: ${compType.name} with ID ${created.id}`);
+      } else {
+        console.log(`[Component Auto-Create] Component already exists, skipping: ${compType.name}`);
       }
     }
+    console.log(`[Component Auto-Create] Completed for certificate type ${certificateType}`);
   } catch (error) {
-    console.error('Error auto-creating component:', error);
+    console.error('[Component Auto-Create] ERROR:', error);
   }
 }
 
