@@ -674,38 +674,104 @@ export default function Ingestion() {
                     {!file ? (
                       <div 
                         {...getRootProps()}
-                        className={`h-full min-h-[220px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 text-center transition-colors cursor-pointer group
-                          ${isDragActive ? 'border-primary bg-primary/5' : 'border-border bg-muted/20 hover:bg-muted/40'}
+                        className={`group relative h-full min-h-[260px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out
+                          ${isDragActive 
+                            ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 scale-[1.02] shadow-lg shadow-blue-500/20' 
+                            : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 hover:border-blue-300 hover:shadow-md'}
                         `}
+                        data-testid="dropzone-ingestion"
                       >
                         <input {...getInputProps()} data-testid="file-input-ingestion" />
-                        <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                          <Scan className="h-8 w-8" />
+                        
+                        {isDragActive && (
+                          <div className="absolute inset-0 pointer-events-none">
+                            <div className="absolute top-4 left-4 w-3 h-3 border-t-2 border-l-2 border-blue-500 rounded-tl-lg animate-pulse" />
+                            <div className="absolute top-4 right-4 w-3 h-3 border-t-2 border-r-2 border-blue-500 rounded-tr-lg animate-pulse" />
+                            <div className="absolute bottom-4 left-4 w-3 h-3 border-b-2 border-l-2 border-blue-500 rounded-bl-lg animate-pulse" />
+                            <div className="absolute bottom-4 right-4 w-3 h-3 border-b-2 border-r-2 border-blue-500 rounded-br-lg animate-pulse" />
+                          </div>
+                        )}
+                        
+                        <div className={`relative transition-all duration-300 ${isDragActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+                          <div className={`h-20 w-20 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300
+                            ${isDragActive 
+                              ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40 rotate-6' 
+                              : 'bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 dark:from-blue-900/50 dark:to-indigo-900/50'}`}
+                          >
+                            {isDragActive ? (
+                              <UploadCloud className="h-10 w-10 animate-bounce" />
+                            ) : (
+                              <Scan className="h-10 w-10" />
+                            )}
+                          </div>
+                          {isDragActive && (
+                            <div className="absolute -inset-2 bg-blue-500/20 rounded-3xl blur-xl animate-pulse" />
+                          )}
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Drop Document Here</h3>
-                        <p className="text-sm text-muted-foreground max-w-xs mb-4">
-                          Supports PDF, JPG, PNG, WebP<br/>
-                          AI-powered document extraction
+                        
+                        <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300
+                          ${isDragActive ? 'text-blue-600' : 'text-foreground'}`}>
+                          {isDragActive ? 'Release to Upload!' : 'Drop Documents Here'}
+                        </h3>
+                        <p className="text-sm text-muted-foreground max-w-xs mb-5">
+                          {isDragActive 
+                            ? 'Your document will be processed with AI' 
+                            : 'Drag & drop or click to browse\nPDF, JPG, PNG, WebP supported'}
                         </p>
-                        <div className="flex gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                           <BrainCircuit className="h-3 w-3" />
-                           <span>AI Vision Active</span>
+                        
+                        <div className="flex flex-wrap justify-center gap-2 mb-4">
+                          <div className="flex items-center gap-1.5 text-xs bg-white/80 dark:bg-gray-800/80 px-3 py-1.5 rounded-full border shadow-sm">
+                            <FileText className="h-3.5 w-3.5 text-red-500" />
+                            <span>PDF</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs bg-white/80 dark:bg-gray-800/80 px-3 py-1.5 rounded-full border shadow-sm">
+                            <FileText className="h-3.5 w-3.5 text-green-500" />
+                            <span>JPG</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs bg-white/80 dark:bg-gray-800/80 px-3 py-1.5 rounded-full border shadow-sm">
+                            <FileText className="h-3.5 w-3.5 text-blue-500" />
+                            <span>PNG</span>
+                          </div>
+                        </div>
+                        
+                        <div className={`flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all duration-300
+                          ${isDragActive 
+                            ? 'bg-blue-500 text-white border-blue-600 shadow-lg' 
+                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 border-blue-200 dark:from-blue-950/50 dark:to-indigo-950/50 dark:border-blue-800'}`}>
+                          <BrainCircuit className={`h-4 w-4 ${isDragActive ? 'animate-pulse' : ''}`} />
+                          <span className="font-medium">AI Vision Ready</span>
+                          <Zap className="h-3 w-3" />
                         </div>
                       </div>
                     ) : (
-                      <div className="border rounded-lg p-4 space-y-4">
+                      <div className="border-2 border-blue-200 dark:border-blue-800 rounded-xl p-5 space-y-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/30 dark:to-gray-900 shadow-sm">
                         <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                              <FileText className="h-6 w-6" />
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-xl shadow-lg shadow-blue-500/30">
+                                <FileText className="h-7 w-7" />
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+                                <CheckCircle2 className="h-3 w-3 text-white" />
+                              </div>
                             </div>
                             <div>
-                              <p className="font-medium">{file.name}</p>
-                              <p className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                              <p className="font-semibold text-lg">{file.name}</p>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+                                <span className="text-green-600 dark:text-green-400">Ready for processing</span>
+                              </div>
                             </div>
                           </div>
                           {processingState === 'idle' && (
-                            <Button variant="ghost" size="icon" onClick={resetUpload} data-testid="remove-file-ingestion">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={resetUpload} 
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              data-testid="remove-file-ingestion"
+                            >
                               <X className="h-5 w-5" />
                             </Button>
                           )}
@@ -713,13 +779,14 @@ export default function Ingestion() {
                         
                         {processingState === 'idle' && (
                           <Button 
-                            className="w-full gap-2" 
+                            className="w-full gap-2 h-12 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30 transition-all hover:shadow-xl hover:shadow-blue-500/40" 
                             onClick={handleProcessDocument}
                             disabled={!selectedPropertyId || !selectedType}
                             data-testid="start-processing-ingestion"
                           >
-                            <BrainCircuit className="h-4 w-4" />
+                            <BrainCircuit className="h-5 w-5" />
                             Start AI Processing
+                            <ArrowRight className="h-4 w-4 ml-1" />
                           </Button>
                         )}
                       </div>
@@ -1034,16 +1101,50 @@ export default function Ingestion() {
                     {/* Dropzone */}
                     <div 
                       {...getBatchRootProps()}
-                      className={`min-h-[150px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 text-center transition-colors cursor-pointer
-                        ${isBatchDragActive ? 'border-primary bg-primary/5' : 'border-border bg-muted/20 hover:bg-muted/40'}
+                      className={`relative min-h-[180px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out
+                        ${isBatchDragActive 
+                          ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 scale-[1.01] shadow-lg shadow-indigo-500/20' 
+                          : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-indigo-50/50 hover:to-purple-50/50 dark:hover:from-indigo-950/20 dark:hover:to-purple-950/20 hover:border-indigo-300 hover:shadow-md'}
                         ${isBatchProcessing ? 'opacity-50 cursor-not-allowed' : ''}
                       `}
+                      data-testid="batch-dropzone"
                     >
                       <input {...getBatchInputProps()} data-testid="batch-file-input" />
-                      <UploadCloud className="h-10 w-10 text-muted-foreground mb-3" />
-                      <h3 className="text-md font-semibold mb-1">Drop Multiple Documents</h3>
+                      
+                      {isBatchDragActive && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-indigo-500 rounded-tl-lg animate-pulse" />
+                          <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-indigo-500 rounded-tr-lg animate-pulse" />
+                          <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-indigo-500 rounded-bl-lg animate-pulse" />
+                          <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-indigo-500 rounded-br-lg animate-pulse" />
+                        </div>
+                      )}
+                      
+                      <div className={`relative transition-all duration-300 ${isBatchDragActive ? 'scale-110' : ''}`}>
+                        <div className={`h-16 w-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300
+                          ${isBatchDragActive 
+                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' 
+                            : 'bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 dark:from-indigo-900/50 dark:to-purple-900/50'}`}
+                        >
+                          {isBatchDragActive ? (
+                            <Layers className="h-8 w-8 animate-pulse" />
+                          ) : (
+                            <UploadCloud className="h-8 w-8" />
+                          )}
+                        </div>
+                        {isBatchDragActive && (
+                          <div className="absolute -inset-2 bg-indigo-500/20 rounded-3xl blur-xl animate-pulse" />
+                        )}
+                      </div>
+                      
+                      <h3 className={`text-lg font-semibold mb-1 transition-colors duration-300
+                        ${isBatchDragActive ? 'text-indigo-600' : 'text-foreground'}`}>
+                        {isBatchDragActive ? 'Drop Files Here!' : 'Drop Multiple Documents'}
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        PDF, JPG, PNG, WebP supported
+                        {isBatchDragActive 
+                          ? `${batchFiles.length} file${batchFiles.length !== 1 ? 's' : ''} will be added` 
+                          : 'PDF, JPG, PNG, WebP supported'}
                       </p>
                     </div>
 
