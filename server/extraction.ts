@@ -840,9 +840,10 @@ async function autoCreateComponentFromCertificate(
       if (boilerType) compType = boilerType;
     }
     
-    // Get appliance/equipment info from extraction
-    const appliances = extractedData?.appliances || [];
-    const equipmentInfo = extractedData?.equipment || extractedData?.installations || [];
+    // Get appliance/equipment info from extraction - check multiple field names
+    const appliances = extractedData?.appliances || extractedData?.applianceDetails || [];
+    const equipmentInfo = extractedData?.equipment || extractedData?.installations || 
+                          extractedData?.systemDetails || extractedData?.testResults || [];
     
     // Create components for each identified appliance
     const items = appliances.length > 0 ? appliances : 
