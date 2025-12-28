@@ -565,7 +565,7 @@ export default function Ingestion() {
   const getStatusIcon = (status: BatchFileStatus) => {
     switch (status) {
       case 'pending': return <Clock className="h-4 w-4 text-muted-foreground" />;
-      case 'uploading': return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'uploading': return <Loader2 className="h-4 w-4 text-emerald-500 animate-spin" />;
       case 'processing': return <BrainCircuit className="h-4 w-4 text-emerald-500 animate-pulse" />;
       case 'complete': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
@@ -575,7 +575,7 @@ export default function Ingestion() {
   const getStatusBadge = (status: BatchFileStatus) => {
     const variants: Record<BatchFileStatus, string> = {
       pending: 'bg-gray-100 text-gray-700',
-      uploading: 'bg-blue-100 text-blue-700',
+      uploading: 'bg-emerald-100 text-emerald-700',
       processing: 'bg-emerald-100 text-emerald-700',
       complete: 'bg-green-100 text-green-700',
       error: 'bg-red-100 text-red-700',
@@ -629,8 +629,8 @@ export default function Ingestion() {
                           <SelectContent className="max-h-[300px]">
                             <SelectItem value="auto-detect">
                               <div className="flex items-center gap-2">
-                                <BrainCircuit className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium text-blue-600">Auto-detect from document</span>
+                                <BrainCircuit className="h-4 w-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-600">Auto-detect from document</span>
                               </div>
                             </SelectItem>
                             <div className="my-1 border-t" />
@@ -642,7 +642,7 @@ export default function Ingestion() {
                           </SelectContent>
                         </Select>
                         {selectedPropertyId === 'auto-detect' && (
-                          <p className="text-xs text-blue-600 flex items-center gap-1">
+                          <p className="text-xs text-emerald-600 flex items-center gap-1">
                             <BrainCircuit className="h-3 w-3" />
                             AI will extract address and match to properties
                           </p>
@@ -657,8 +657,8 @@ export default function Ingestion() {
                           <SelectContent>
                             <SelectItem value="auto-detect">
                               <div className="flex items-center gap-2">
-                                <BrainCircuit className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium text-blue-600">Auto-detect from document</span>
+                                <BrainCircuit className="h-4 w-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-600">Auto-detect from document</span>
                               </div>
                             </SelectItem>
                             <div className="my-1 border-t" />
@@ -668,7 +668,7 @@ export default function Ingestion() {
                           </SelectContent>
                         </Select>
                         {selectedType === 'auto-detect' && (
-                          <p className="text-xs text-blue-600 flex items-center gap-1">
+                          <p className="text-xs text-emerald-600 flex items-center gap-1">
                             <BrainCircuit className="h-3 w-3" />
                             AI will identify the certificate type
                           </p>
@@ -681,8 +681,8 @@ export default function Ingestion() {
                         {...getRootProps()}
                         className={`group relative h-full min-h-[260px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out
                           ${isDragActive 
-                            ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 scale-[1.02] shadow-lg shadow-blue-500/20' 
-                            : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 hover:border-blue-300 hover:shadow-md'}
+                            ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 scale-[1.02] shadow-lg shadow-emerald-500/20' 
+                            : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-emerald-50/50 hover:to-green-50/50 dark:hover:from-emerald-950/20 dark:hover:to-green-950/20 hover:border-emerald-300 hover:shadow-md'}
                         `}
                         data-testid="dropzone-ingestion"
                       >
@@ -690,18 +690,18 @@ export default function Ingestion() {
                         
                         {isDragActive && (
                           <div className="absolute inset-0 pointer-events-none">
-                            <div className="absolute top-4 left-4 w-3 h-3 border-t-2 border-l-2 border-blue-500 rounded-tl-lg animate-pulse" />
-                            <div className="absolute top-4 right-4 w-3 h-3 border-t-2 border-r-2 border-blue-500 rounded-tr-lg animate-pulse" />
-                            <div className="absolute bottom-4 left-4 w-3 h-3 border-b-2 border-l-2 border-blue-500 rounded-bl-lg animate-pulse" />
-                            <div className="absolute bottom-4 right-4 w-3 h-3 border-b-2 border-r-2 border-blue-500 rounded-br-lg animate-pulse" />
+                            <div className="absolute top-4 left-4 w-3 h-3 border-t-2 border-l-2 border-emerald-500 rounded-tl-lg animate-pulse" />
+                            <div className="absolute top-4 right-4 w-3 h-3 border-t-2 border-r-2 border-emerald-500 rounded-tr-lg animate-pulse" />
+                            <div className="absolute bottom-4 left-4 w-3 h-3 border-b-2 border-l-2 border-emerald-500 rounded-bl-lg animate-pulse" />
+                            <div className="absolute bottom-4 right-4 w-3 h-3 border-b-2 border-r-2 border-emerald-500 rounded-br-lg animate-pulse" />
                           </div>
                         )}
                         
                         <div className={`relative transition-all duration-300 ${isDragActive ? 'scale-110' : 'group-hover:scale-105'}`}>
                           <div className={`h-20 w-20 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300
                             ${isDragActive 
-                              ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40 rotate-6' 
-                              : 'bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 dark:from-blue-900/50 dark:to-indigo-900/50'}`}
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 rotate-6' 
+                              : 'bg-gradient-to-br from-emerald-100 to-green-100 text-emerald-600 dark:from-emerald-900/50 dark:to-green-900/50'}`}
                           >
                             {isDragActive ? (
                               <UploadCloud className="h-10 w-10 animate-bounce" />
@@ -710,12 +710,12 @@ export default function Ingestion() {
                             )}
                           </div>
                           {isDragActive && (
-                            <div className="absolute -inset-2 bg-blue-500/20 rounded-3xl blur-xl animate-pulse" />
+                            <div className="absolute -inset-2 bg-emerald-500/20 rounded-3xl blur-xl animate-pulse" />
                           )}
                         </div>
                         
                         <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300
-                          ${isDragActive ? 'text-blue-600' : 'text-foreground'}`}>
+                          ${isDragActive ? 'text-emerald-600' : 'text-foreground'}`}>
                           {isDragActive ? 'Release to Upload!' : 'Drop Documents Here'}
                         </h3>
                         <p className="text-sm text-muted-foreground max-w-xs mb-5">
@@ -734,26 +734,26 @@ export default function Ingestion() {
                             <span>JPG</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs bg-white/80 dark:bg-gray-800/80 px-3 py-1.5 rounded-full border shadow-sm">
-                            <FileText className="h-3.5 w-3.5 text-blue-500" />
+                            <FileText className="h-3.5 w-3.5 text-emerald-500" />
                             <span>PNG</span>
                           </div>
                         </div>
                         
                         <div className={`flex items-center gap-2 text-xs px-4 py-2 rounded-full border transition-all duration-300
                           ${isDragActive 
-                            ? 'bg-blue-500 text-white border-blue-600 shadow-lg' 
-                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 border-blue-200 dark:from-blue-950/50 dark:to-indigo-950/50 dark:border-blue-800'}`}>
+                            ? 'bg-emerald-500 text-white border-emerald-600 shadow-lg' 
+                            : 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-600 border-emerald-200 dark:from-emerald-950/50 dark:to-green-950/50 dark:border-emerald-800'}`}>
                           <BrainCircuit className={`h-4 w-4 ${isDragActive ? 'animate-pulse' : ''}`} />
                           <span className="font-medium">AI Vision Ready</span>
                           <Zap className="h-3 w-3" />
                         </div>
                       </div>
                     ) : (
-                      <div className="border-2 border-blue-200 dark:border-blue-800 rounded-xl p-5 space-y-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/30 dark:to-gray-900 shadow-sm">
+                      <div className="border-2 border-emerald-200 dark:border-emerald-800 rounded-xl p-5 space-y-4 bg-gradient-to-br from-emerald-50/50 to-white dark:from-emerald-950/30 dark:to-gray-900 shadow-sm">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-4">
                             <div className="relative">
-                              <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-xl shadow-lg shadow-blue-500/30">
+                              <div className="p-4 bg-gradient-to-br from-emerald-500 to-green-500 text-white rounded-xl shadow-lg shadow-emerald-500/30">
                                 <FileText className="h-7 w-7" />
                               </div>
                               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md">
@@ -784,7 +784,7 @@ export default function Ingestion() {
                         
                         {processingState === 'idle' && (
                           <Button 
-                            className="w-full gap-2 h-12 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30 transition-all hover:shadow-xl hover:shadow-blue-500/40" 
+                            className="w-full gap-2 h-12 text-base bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg shadow-emerald-500/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40" 
                             onClick={handleProcessDocument}
                             disabled={!selectedPropertyId || !selectedType}
                             data-testid="start-processing-ingestion"
@@ -800,7 +800,7 @@ export default function Ingestion() {
                 </Card>
 
                 {/* AI Processing View */}
-                <Card className="h-full flex flex-col relative overflow-hidden border-blue-200/50 dark:border-blue-800/50">
+                <Card className="h-full flex flex-col relative overflow-hidden border-emerald-200/50 dark:border-emerald-800/50">
                   {/* Background Image for AI Feel */}
                   <div 
                     className="absolute inset-0 z-0 opacity-10 pointer-events-none"
@@ -815,15 +815,15 @@ export default function Ingestion() {
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle className="flex items-center gap-2">
-                          <BrainCircuit className="h-5 w-5 text-blue-600" />
+                          <BrainCircuit className="h-5 w-5 text-emerald-600" />
                           Cert Hub Intelligence
                         </CardTitle>
                         <CardDescription>Real-time extraction and validation</CardDescription>
                       </div>
-                      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100">
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         Engine Active
                       </div>
@@ -840,12 +840,12 @@ export default function Ingestion() {
 
                     {(processingState === 'uploading' || processingState === 'analyzing') && (
                       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-lg border border-blue-100 shadow-sm">
+                        <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-lg border border-emerald-100 shadow-sm">
                           <div className="flex items-center gap-3">
-                            <FileText className="h-8 w-8 text-blue-500" />
+                            <FileText className="h-8 w-8 text-emerald-500" />
                             <div>
                               <p className="font-medium text-sm">{file?.name || "Document"}</p>
-                              <p className="text-xs text-blue-600 flex items-center gap-1">
+                              <p className="text-xs text-emerald-600 flex items-center gap-1">
                                 <Loader2 className="h-3 w-3 animate-spin" />
                                 {processingStep}
                               </p>
@@ -856,7 +856,7 @@ export default function Ingestion() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                             <span>Upload & Storage</span>
-                            <span className={uploadProgress >= 40 ? "text-emerald-600" : "text-blue-600"}>
+                            <span className={uploadProgress >= 40 ? "text-emerald-600" : "text-emerald-500"}>
                               {uploadProgress >= 40 ? "Complete" : "Processing..."}
                             </span>
                           </div>
@@ -866,12 +866,12 @@ export default function Ingestion() {
                           
                           <div className="flex items-center justify-between text-xs text-muted-foreground px-1 mt-3">
                             <span>AI Document Analysis</span>
-                            <span className={uploadProgress >= 70 ? "text-emerald-600" : "text-blue-600"}>
+                            <span className={uploadProgress >= 70 ? "text-emerald-600" : "text-emerald-500"}>
                               {uploadProgress >= 90 ? "Complete" : uploadProgress >= 40 ? "Processing..." : "Waiting..."}
                             </span>
                           </div>
                           <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full transition-all ${uploadProgress >= 40 ? 'bg-blue-500' : 'bg-slate-200'}`} 
+                            <div className={`h-full transition-all ${uploadProgress >= 40 ? 'bg-emerald-500' : 'bg-slate-200'}`} 
                                  style={{ width: `${Math.max(0, (uploadProgress - 40) * 1.67)}%` }} />
                           </div>
                         </div>
@@ -879,7 +879,7 @@ export default function Ingestion() {
                         <div className="p-4 bg-slate-950 rounded-md font-mono text-xs text-slate-200 space-y-1 border border-slate-800">
                           <p className="text-emerald-400">{'>'} Model: claude-3-5-haiku-20241022</p>
                           <p>{'>'} Document Type: {certificateTypes.find(t => t.code === selectedType)?.name || selectedType}</p>
-                          <p className="animate-pulse text-blue-400">{'>'} {processingStep}</p>
+                          <p className="animate-pulse text-emerald-400">{'>'} {processingStep}</p>
                         </div>
                       </div>
                     )}
@@ -1045,8 +1045,8 @@ export default function Ingestion() {
                           <SelectContent className="max-h-[300px]">
                             <SelectItem value="auto-detect">
                               <div className="flex items-center gap-2">
-                                <BrainCircuit className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium text-blue-600">Auto-detect</span>
+                                <BrainCircuit className="h-4 w-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-600">Auto-detect</span>
                               </div>
                             </SelectItem>
                             <div className="my-1 border-t" />
@@ -1067,8 +1067,8 @@ export default function Ingestion() {
                           <SelectContent>
                             <SelectItem value="auto-detect">
                               <div className="flex items-center gap-2">
-                                <BrainCircuit className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium text-blue-600">Auto-detect</span>
+                                <BrainCircuit className="h-4 w-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-600">Auto-detect</span>
                               </div>
                             </SelectItem>
                             <div className="my-1 border-t" />
@@ -1081,14 +1081,14 @@ export default function Ingestion() {
                     </div>
 
                     {batchProcessingMode === 'parallel' && (
-                      <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                        <Zap className="h-5 w-5 text-blue-600" />
+                      <div className="flex items-center gap-4 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <Zap className="h-5 w-5 text-emerald-600" />
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-blue-900">Parallel Processing</p>
-                          <p className="text-xs text-blue-700">Process up to {parallelLimit} documents simultaneously</p>
+                          <p className="text-sm font-medium text-emerald-900">Parallel Processing</p>
+                          <p className="text-xs text-emerald-700">Process up to {parallelLimit} documents simultaneously</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Label className="text-xs text-blue-700">Concurrent:</Label>
+                          <Label className="text-xs text-emerald-700">Concurrent:</Label>
                           <Select value={String(parallelLimit)} onValueChange={(v) => setParallelLimit(Number(v))} disabled={isBatchProcessing}>
                             <SelectTrigger className="w-16 h-8">
                               <SelectValue />
@@ -1108,8 +1108,8 @@ export default function Ingestion() {
                       {...getBatchRootProps()}
                       className={`relative min-h-[180px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out
                         ${isBatchDragActive 
-                          ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 scale-[1.01] shadow-lg shadow-indigo-500/20' 
-                          : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-indigo-50/50 hover:to-purple-50/50 dark:hover:from-indigo-950/20 dark:hover:to-purple-950/20 hover:border-indigo-300 hover:shadow-md'}
+                          ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 scale-[1.01] shadow-lg shadow-emerald-500/20' 
+                          : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-emerald-50/50 hover:to-green-50/50 dark:hover:from-emerald-950/20 dark:hover:to-green-950/20 hover:border-emerald-300 hover:shadow-md'}
                         ${isBatchProcessing ? 'opacity-50 cursor-not-allowed' : ''}
                       `}
                       data-testid="batch-dropzone"
@@ -1118,18 +1118,18 @@ export default function Ingestion() {
                       
                       {isBatchDragActive && (
                         <div className="absolute inset-0 pointer-events-none">
-                          <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-indigo-500 rounded-tl-lg animate-pulse" />
-                          <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-indigo-500 rounded-tr-lg animate-pulse" />
-                          <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-indigo-500 rounded-bl-lg animate-pulse" />
-                          <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-indigo-500 rounded-br-lg animate-pulse" />
+                          <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-emerald-500 rounded-tl-lg animate-pulse" />
+                          <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-emerald-500 rounded-tr-lg animate-pulse" />
+                          <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-emerald-500 rounded-bl-lg animate-pulse" />
+                          <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-emerald-500 rounded-br-lg animate-pulse" />
                         </div>
                       )}
                       
                       <div className={`relative transition-all duration-300 ${isBatchDragActive ? 'scale-110' : ''}`}>
                         <div className={`h-16 w-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300
                           ${isBatchDragActive 
-                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' 
-                            : 'bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 dark:from-indigo-900/50 dark:to-purple-900/50'}`}
+                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40' 
+                            : 'bg-gradient-to-br from-emerald-100 to-green-100 text-emerald-600 dark:from-emerald-900/50 dark:to-green-900/50'}`}
                         >
                           {isBatchDragActive ? (
                             <Layers className="h-8 w-8 animate-pulse" />
@@ -1138,12 +1138,12 @@ export default function Ingestion() {
                           )}
                         </div>
                         {isBatchDragActive && (
-                          <div className="absolute -inset-2 bg-indigo-500/20 rounded-3xl blur-xl animate-pulse" />
+                          <div className="absolute -inset-2 bg-emerald-500/20 rounded-3xl blur-xl animate-pulse" />
                         )}
                       </div>
                       
                       <h3 className={`text-lg font-semibold mb-1 transition-colors duration-300
-                        ${isBatchDragActive ? 'text-indigo-600' : 'text-foreground'}`}>
+                        ${isBatchDragActive ? 'text-emerald-600' : 'text-foreground'}`}>
                         {isBatchDragActive ? 'Drop Files Here!' : 'Drop Multiple Documents'}
                       </h3>
                       <p className="text-sm text-muted-foreground">
@@ -1262,7 +1262,7 @@ export default function Ingestion() {
                     <div className="space-y-3">
                       <div className="p-3 border rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <ListOrdered className="h-4 w-4 text-blue-600" />
+                          <ListOrdered className="h-4 w-4 text-emerald-600" />
                           <span className="font-medium text-sm">Sequential</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -1326,7 +1326,7 @@ export default function Ingestion() {
                               : cert.status === 'NEEDS_REVIEW'
                               ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
                               : cert.status === 'PROCESSING'
-                              ? 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20'
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
                               : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20'
                           }`}>
                             {cert.status?.replace(/_/g, ' ')}
@@ -1397,7 +1397,7 @@ export default function Ingestion() {
                        href={`/api/object-storage/url/${encodeURIComponent(extractedResult.storageKey)}`}
                        target="_blank"
                        rel="noopener noreferrer"
-                       className="text-sm text-blue-400 hover:text-blue-300 underline"
+                       className="text-sm text-emerald-400 hover:text-emerald-300 underline"
                      >
                        Open in new tab
                      </a>
@@ -1436,7 +1436,7 @@ export default function Ingestion() {
                          <Input 
                            value={`${extractedResult.property?.addressLine1 || ''}, ${extractedResult.property?.postcode || ''}`} 
                            readOnly
-                           className="pl-9 bg-blue-50/50 border-blue-200" 
+                           className="pl-9 bg-emerald-50/50 border-emerald-200" 
                          />
                        </div>
                      </div>
@@ -1479,7 +1479,7 @@ export default function Ingestion() {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label>Type (you selected)</Label>
-                        <Input value={extractedResult.certificateType?.replace(/_/g, ' ') || 'Unknown'} readOnly className="bg-blue-50/50 border-blue-200" />
+                        <Input value={extractedResult.certificateType?.replace(/_/g, ' ') || 'Unknown'} readOnly className="bg-emerald-50/50 border-emerald-200" />
                       </div>
                       <div className="grid gap-2">
                         <Label>Reference Number</Label>
