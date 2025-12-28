@@ -943,3 +943,150 @@ export type InsertDataImport = z.infer<typeof insertDataImportSchema>;
 
 export type DataImportRow = typeof dataImportRows.$inferSelect;
 export type InsertDataImportRow = z.infer<typeof insertDataImportRowSchema>;
+
+// ==========================================
+// API MONITORING & INTEGRATIONS
+// ==========================================
+
+// Webhook auth types
+export const webhookAuthTypeEnum = pgEnum('webhook_auth_type', ['NONE', 'API_KEY', 'BEARER', 'HMAC_SHA256']);
+export const webhookStatusEnum = pgEnum('webhook_status', ['ACTIVE', 'PAUSED', 'FAILED', 'DISABLED']);
+export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', ['PENDING', 'SENT', 'FAILED', 'RETRYING']);
+
+// API Request Logs - Track individual API requests
+export const apiLogs = pgTable("api_logs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  method: text("method").notNull(),
+  path: text("path").notNull(),
+  statusCode: integer("status_code").notNull(),
+  duration: integer("duration").notNull(),
+  requestBody: json("request_body"),
+  responseBody: json("response_body"),
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  userId: varchar("user_id").references(() => users.id),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// API Metrics - Aggregated metrics per endpoint/day
+export const apiMetrics = pgTable("api_metrics", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(),
+  date: text("date").notNull(),
+  requestCount: integer("request_count").notNull().default(0),
+  errorCount: integer("error_count").notNull().default(0),
+  avgDuration: integer("avg_duration").notNull().default(0),
+  p95Duration: integer("p95_duration").notNull().default(0),
+  minDuration: integer("min_duration").notNull().default(0),
+  maxDuration: integer("max_duration").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Webhook Endpoints - Outbound webhook configurations
+export const webhookEndpoints = pgTable("webhook_endpoints", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  authType: webhookAuthTypeEnum("auth_type").notNull().default('NONE'),
+  authValue: text("auth_value"),
+  headers: json("headers"),
+  events: text("events").array().notNull(),
+  status: webhookStatusEnum("status").notNull().default('ACTIVE'),
+  retryCount: integer("retry_count").notNull().default(3),
+  timeoutMs: integer("timeout_ms").notNull().default(30000),
+  lastDeliveryAt: timestamp("last_delivery_at"),
+  lastDeliveryStatus: text("last_delivery_status"),
+  failureCount: integer("failure_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Webhook Events - Queue of events to be delivered
+export const webhookEvents = pgTable("webhook_events", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eventType: text("event_type").notNull(),
+  payload: json("payload").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  processed: boolean("processed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Webhook Deliveries - Track each delivery attempt
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  webhookEndpointId: varchar("webhook_endpoint_id").references(() => webhookEndpoints.id, { onDelete: 'cascade' }).notNull(),
+  eventId: varchar("event_id").references(() => webhookEvents.id).notNull(),
+  status: webhookDeliveryStatusEnum("status").notNull().default('PENDING'),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  nextRetryAt: timestamp("next_retry_at"),
+  responseStatus: integer("response_status"),
+  responseBody: text("response_body"),
+  errorMessage: text("error_message"),
+  duration: integer("duration"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Incoming Webhook Logs - Log received webhooks from external systems
+export const incomingWebhookLogs = pgTable("incoming_webhook_logs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  source: text("source").notNull(),
+  eventType: text("event_type"),
+  payload: json("payload").notNull(),
+  headers: json("headers"),
+  processed: boolean("processed").notNull().default(false),
+  processedAt: timestamp("processed_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// API Keys for external integrations
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  scopes: text("scopes").array().notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert Schemas for new tables
+export const insertApiLogSchema = createInsertSchema(apiLogs).omit({ id: true, createdAt: true });
+export const insertApiMetricSchema = createInsertSchema(apiMetrics).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWebhookEndpointSchema = createInsertSchema(webhookEndpoints).omit({ id: true, createdAt: true, updatedAt: true, lastDeliveryAt: true, lastDeliveryStatus: true, failureCount: true });
+export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({ id: true, createdAt: true, processed: true });
+export const insertWebhookDeliverySchema = createInsertSchema(webhookDeliveries).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertIncomingWebhookLogSchema = createInsertSchema(incomingWebhookLogs).omit({ id: true, createdAt: true });
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, lastUsedAt: true });
+
+// Types for new tables
+export type ApiLog = typeof apiLogs.$inferSelect;
+export type InsertApiLog = z.infer<typeof insertApiLogSchema>;
+
+export type ApiMetric = typeof apiMetrics.$inferSelect;
+export type InsertApiMetric = z.infer<typeof insertApiMetricSchema>;
+
+export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
+export type InsertWebhookEndpoint = z.infer<typeof insertWebhookEndpointSchema>;
+
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
+
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+export type InsertWebhookDelivery = z.infer<typeof insertWebhookDeliverySchema>;
+
+export type IncomingWebhookLog = typeof incomingWebhookLogs.$inferSelect;
+export type InsertIncomingWebhookLog = z.infer<typeof insertIncomingWebhookLogSchema>;
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
