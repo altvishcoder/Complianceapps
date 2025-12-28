@@ -566,7 +566,7 @@ export default function Ingestion() {
     switch (status) {
       case 'pending': return <Clock className="h-4 w-4 text-muted-foreground" />;
       case 'uploading': return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
-      case 'processing': return <BrainCircuit className="h-4 w-4 text-purple-500 animate-pulse" />;
+      case 'processing': return <BrainCircuit className="h-4 w-4 text-emerald-500 animate-pulse" />;
       case 'complete': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
     }
@@ -576,7 +576,7 @@ export default function Ingestion() {
     const variants: Record<BatchFileStatus, string> = {
       pending: 'bg-gray-100 text-gray-700',
       uploading: 'bg-blue-100 text-blue-700',
-      processing: 'bg-purple-100 text-purple-700',
+      processing: 'bg-emerald-100 text-emerald-700',
       complete: 'bg-green-100 text-green-700',
       error: 'bg-red-100 text-red-700',
     };
@@ -958,7 +958,7 @@ export default function Ingestion() {
                                   {counts['FI'] > 0 && (
                                     <div className="p-3 flex justify-between">
                                       <span className="text-muted-foreground">FI (Further Investigation)</span>
-                                      <span className="font-medium text-purple-600">{counts['FI']}</span>
+                                      <span className="font-medium text-emerald-600">{counts['FI']}</span>
                                     </div>
                                   )}
                                   {counts['LIM'] > 0 && (
@@ -1271,7 +1271,7 @@ export default function Ingestion() {
                       </div>
                       <div className="p-3 border rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <Zap className="h-4 w-4 text-purple-600" />
+                          <Zap className="h-4 w-4 text-emerald-600" />
                           <span className="font-medium text-sm">Parallel</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -1579,7 +1579,7 @@ export default function Ingestion() {
                                    <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">C3: {counts['C3']} (Improvement)</Badge>
                                  )}
                                  {counts['FI'] > 0 && (
-                                   <Badge className="bg-purple-500 hover:bg-purple-600">FI: {counts['FI']} (Further Investigation)</Badge>
+                                   <Badge className="bg-emerald-500 hover:bg-emerald-600">FI: {counts['FI']} (Further Investigation)</Badge>
                                  )}
                                  {counts['LIM'] > 0 && (
                                    <Badge className="bg-slate-500 hover:bg-slate-600">LIM: {counts['LIM']} (Limitation)</Badge>

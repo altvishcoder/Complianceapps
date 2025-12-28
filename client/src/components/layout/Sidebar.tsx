@@ -94,8 +94,8 @@ export function Sidebar() {
       <div className="flex h-20 items-center px-6 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="relative" aria-hidden="true">
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl blur-lg opacity-60"></div>
-            <div className="relative bg-gradient-to-br from-violet-500 to-purple-600 p-2.5 rounded-xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl blur-lg opacity-60"></div>
+            <div className="relative bg-gradient-to-br from-emerald-500 to-green-600 p-2.5 rounded-xl">
               <ShieldCheck className="h-6 w-6 text-white" />
             </div>
           </div>
@@ -119,7 +119,7 @@ export function Sidebar() {
                   className={cn(
                     "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
                     isActive
-                      ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                      ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
                       : "text-slate-400 hover:text-white hover:bg-white/5"
                   )}
                 >
@@ -127,7 +127,7 @@ export function Sidebar() {
                     <item.icon
                       className={cn(
                         "mr-3 h-5 w-5 flex-shrink-0 transition-all duration-200",
-                        isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                        isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
                       )}
                       aria-hidden="true"
                     />
@@ -145,7 +145,7 @@ export function Sidebar() {
         {canAccessAITools && (
           <div className="mt-8">
             <div className="mb-2 px-3 flex items-center gap-2">
-              <Sparkles className="h-3 w-3 text-violet-400" aria-hidden="true" />
+              <Sparkles className="h-3 w-3 text-emerald-400" aria-hidden="true" />
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">AI Tools</span>
             </div>
             <nav className="space-y-1">
@@ -157,7 +157,7 @@ export function Sidebar() {
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
                         isActive
-                          ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                          ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
                           : "text-slate-400 hover:text-white hover:bg-white/5"
                       )}
                     >
@@ -165,7 +165,7 @@ export function Sidebar() {
                         <item.icon
                           className={cn(
                             "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                            isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                            isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
                           )}
                         />
                         {item.name}
@@ -184,7 +184,7 @@ export function Sidebar() {
         {canAccessAdminPanel && (
           <div className="mt-8">
             <div className="mb-2 px-3 flex items-center gap-2">
-              <Shield className="h-3 w-3 text-violet-400" aria-hidden="true" />
+              <Shield className="h-3 w-3 text-emerald-400" aria-hidden="true" />
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin Panel</span>
             </div>
             <nav className="space-y-1">
@@ -197,7 +197,7 @@ export function Sidebar() {
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
                         isActive
-                          ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                          ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
                           : "text-slate-400 hover:text-white hover:bg-white/5"
                       )}
                     >
@@ -205,7 +205,7 @@ export function Sidebar() {
                         <item.icon
                           className={cn(
                             "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                            isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                            isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
                           )}
                         />
                         {item.name}
@@ -226,7 +226,7 @@ export function Sidebar() {
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
                         isActive
-                          ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                          ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
                           : "text-slate-400 hover:text-white hover:bg-white/5"
                       )}
                     >
@@ -234,7 +234,7 @@ export function Sidebar() {
                         <item.icon
                           className={cn(
                             "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                            isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                            isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
                           )}
                         />
                         {item.name}
@@ -298,7 +298,7 @@ export function Sidebar() {
 
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-white/5">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-sm font-bold">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-sm font-bold">
             A
           </div>
           <div className="flex-1 min-w-0">

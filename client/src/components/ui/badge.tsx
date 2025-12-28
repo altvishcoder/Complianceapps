@@ -9,7 +9,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-sm",
+          "border-transparent bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-sm",
         secondary:
           "border-transparent bg-secondary text-secondary-foreground",
         destructive:

@@ -175,14 +175,14 @@ export default function AdminSetup() {
                             <tr key={user.id} className="hover:bg-muted/20">
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
-                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${user.role === 'SUPER_ADMIN' ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white' : 'bg-primary/10 text-primary'}`}>
+                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${user.role === 'SUPER_ADMIN' ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white' : 'bg-primary/10 text-primary'}`}>
                                     {user.role === 'SUPER_ADMIN' ? <Crown className="h-4 w-4" /> : user.name.charAt(0)}
                                   </div>
                                   <div>
                                     <div className="font-medium flex items-center gap-2">
                                       {user.name}
                                       {user.role === 'SUPER_ADMIN' && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">SUPER ADMIN</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">SUPER ADMIN</span>
                                       )}
                                     </div>
                                     <div className="text-xs text-muted-foreground">{user.email}</div>
@@ -191,7 +191,7 @@ export default function AdminSetup() {
                               </td>
                               <td className="p-4">
                                 <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                  user.role === 'SUPER_ADMIN' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                  user.role === 'SUPER_ADMIN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                   user.role === 'ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                   user.role === 'MANAGER' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                   user.role === 'OFFICER' ? 'bg-amber-50 text-amber-700 border-amber-200' :

@@ -181,7 +181,7 @@ export default function ComponentsPage() {
       WATER: "bg-blue-100 text-blue-800",
       VENTILATION: "bg-cyan-100 text-cyan-800",
       STRUCTURE: "bg-gray-100 text-gray-800",
-      ACCESS: "bg-purple-100 text-purple-800",
+      ACCESS: "bg-emerald-100 text-emerald-800",
       SECURITY: "bg-indigo-100 text-indigo-800",
       EXTERNAL: "bg-green-100 text-green-800",
       OTHER: "bg-slate-100 text-slate-800",

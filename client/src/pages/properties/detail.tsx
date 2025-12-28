@@ -168,7 +168,7 @@ export default function PropertyDetail() {
                                 components.map((comp: any) => (
                                    <div key={comp.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/10 transition-colors">
                                       <div className="flex items-center gap-4">
-                                         <div className="h-10 w-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                                         <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
                                             <Wrench className="h-5 w-5" />
                                          </div>
                                          <div>

@@ -698,9 +698,9 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="schemas" className="space-y-4">
-                <Alert className="bg-purple-50 border-purple-200">
-                  <Code className="h-4 w-4 text-purple-600" />
-                  <AlertDescription className="text-purple-800">
+                <Alert className="bg-emerald-50 border-emerald-200">
+                  <Code className="h-4 w-4 text-emerald-600" />
+                  <AlertDescription className="text-emerald-800">
                     <strong>Extraction Schemas</strong> define what data the AI should extract from each document type. 
                     Each schema specifies the fields to extract (e.g., engineer name, issue date, defects), their types, and whether they're required. 
                     The prompt template guides the AI on how to interpret the document. When you deploy a schema change, all future document extractions will use the updated schema.

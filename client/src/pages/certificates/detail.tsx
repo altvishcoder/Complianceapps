@@ -54,7 +54,7 @@ export default function CertificateDetailPage() {
       case "APPROVED": return "bg-emerald-50 text-emerald-700";
       case "EXTRACTED": return "bg-blue-50 text-blue-700";
       case "NEEDS_REVIEW": return "bg-amber-50 text-amber-700";
-      case "PROCESSING": return "bg-purple-50 text-purple-700";
+      case "PROCESSING": return "bg-emerald-50 text-emerald-700";
       case "REJECTED": return "bg-rose-50 text-rose-700";
       default: return "bg-slate-50 text-slate-700";
     }
