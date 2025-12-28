@@ -6,7 +6,7 @@ import {
   certificateTypes, classificationCodes,
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
-  videos,
+  videos, aiSuggestions,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -34,7 +34,8 @@ import {
   type WebhookDelivery, type InsertWebhookDelivery,
   type IncomingWebhookLog, type InsertIncomingWebhookLog,
   type ApiKey, type InsertApiKey,
-  type Video, type InsertVideo
+  type Video, type InsertVideo,
+  type AiSuggestion, type InsertAiSuggestion
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte } from "drizzle-orm";
@@ -230,6 +231,17 @@ export interface IStorage {
   deleteVideo(id: string): Promise<boolean>;
   incrementVideoView(id: string): Promise<void>;
   incrementVideoDownload(id: string): Promise<void>;
+  
+  // AI Suggestions
+  listAiSuggestions(organisationId: string, status?: string): Promise<AiSuggestion[]>;
+  getAiSuggestion(id: string): Promise<AiSuggestion | undefined>;
+  getAiSuggestionByKey(organisationId: string, suggestionKey: string): Promise<AiSuggestion | undefined>;
+  createAiSuggestion(suggestion: InsertAiSuggestion): Promise<AiSuggestion>;
+  updateAiSuggestion(id: string, updates: Partial<AiSuggestion>): Promise<AiSuggestion | undefined>;
+  deleteAiSuggestion(id: string): Promise<boolean>;
+  dismissAiSuggestion(id: string, reason?: string): Promise<AiSuggestion | undefined>;
+  resolveAiSuggestion(id: string, userId?: string): Promise<AiSuggestion | undefined>;
+  autoResolveAiSuggestions(organisationId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1363,6 +1375,103 @@ export class DatabaseStorage implements IStorage {
     await db.update(videos)
       .set({ downloadCount: sql`${videos.downloadCount} + 1` })
       .where(eq(videos.id, id));
+  }
+  
+  // AI Suggestions
+  async listAiSuggestions(organisationId: string, status?: string): Promise<AiSuggestion[]> {
+    if (status) {
+      return db.select().from(aiSuggestions)
+        .where(and(eq(aiSuggestions.organisationId, organisationId), eq(aiSuggestions.status, status as any)))
+        .orderBy(desc(aiSuggestions.createdAt));
+    }
+    return db.select().from(aiSuggestions)
+      .where(eq(aiSuggestions.organisationId, organisationId))
+      .orderBy(desc(aiSuggestions.createdAt));
+  }
+  
+  async getAiSuggestion(id: string): Promise<AiSuggestion | undefined> {
+    const [suggestion] = await db.select().from(aiSuggestions).where(eq(aiSuggestions.id, id));
+    return suggestion || undefined;
+  }
+  
+  async getAiSuggestionByKey(organisationId: string, suggestionKey: string): Promise<AiSuggestion | undefined> {
+    const [suggestion] = await db.select().from(aiSuggestions)
+      .where(and(
+        eq(aiSuggestions.organisationId, organisationId),
+        eq(aiSuggestions.suggestionKey, suggestionKey)
+      ));
+    return suggestion || undefined;
+  }
+  
+  async createAiSuggestion(suggestion: InsertAiSuggestion): Promise<AiSuggestion> {
+    const [created] = await db.insert(aiSuggestions).values(suggestion).returning();
+    return created;
+  }
+  
+  async updateAiSuggestion(id: string, updates: Partial<AiSuggestion>): Promise<AiSuggestion | undefined> {
+    const [updated] = await db.update(aiSuggestions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(aiSuggestions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteAiSuggestion(id: string): Promise<boolean> {
+    const result = await db.delete(aiSuggestions).where(eq(aiSuggestions.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  async dismissAiSuggestion(id: string, reason?: string): Promise<AiSuggestion | undefined> {
+    const [updated] = await db.update(aiSuggestions)
+      .set({ 
+        status: 'DISMISSED' as any,
+        dismissedAt: new Date(),
+        dismissReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(aiSuggestions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async resolveAiSuggestion(id: string, userId?: string): Promise<AiSuggestion | undefined> {
+    const [updated] = await db.update(aiSuggestions)
+      .set({ 
+        status: 'RESOLVED' as any,
+        resolvedAt: new Date(),
+        actionedById: userId,
+        progressPercent: 100,
+        updatedAt: new Date()
+      })
+      .where(eq(aiSuggestions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async autoResolveAiSuggestions(organisationId: string): Promise<number> {
+    const activeSuggestions = await db.select().from(aiSuggestions)
+      .where(and(
+        eq(aiSuggestions.organisationId, organisationId),
+        eq(aiSuggestions.status, 'ACTIVE' as any)
+      ));
+    
+    let resolvedCount = 0;
+    for (const suggestion of activeSuggestions) {
+      if (suggestion.currentValue !== null && suggestion.targetValue !== null) {
+        if (suggestion.currentValue >= suggestion.targetValue) {
+          await db.update(aiSuggestions)
+            .set({ 
+              status: 'AUTO_RESOLVED' as any,
+              resolvedAt: new Date(),
+              progressPercent: 100,
+              updatedAt: new Date()
+            })
+            .where(eq(aiSuggestions.id, suggestion.id));
+          resolvedCount++;
+        }
+      }
+    }
+    return resolvedCount;
   }
 }
 

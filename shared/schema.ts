@@ -591,6 +591,62 @@ export const videos = pgTable("videos", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// AI Suggestions (tracking recommendation lifecycle)
+export const suggestionStatusEnum = pgEnum("suggestion_status", [
+  "ACTIVE",
+  "IN_PROGRESS",
+  "RESOLVED",
+  "DISMISSED",
+  "AUTO_RESOLVED"
+]);
+
+export const suggestionCategoryEnum = pgEnum("suggestion_category", [
+  "PROMPT",
+  "PREPROCESSING",
+  "VALIDATION",
+  "TRAINING",
+  "QUALITY",
+  "REVIEW"
+]);
+
+export const aiSuggestions = pgTable("ai_suggestions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  // Suggestion details
+  suggestionKey: text("suggestion_key").notNull(),
+  category: suggestionCategoryEnum("category").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  
+  // Impact and effort
+  impact: text("impact").notNull(),
+  effort: text("effort").notNull(),
+  
+  // Progress tracking
+  status: suggestionStatusEnum("status").notNull().default("ACTIVE"),
+  currentValue: integer("current_value"),
+  targetValue: integer("target_value"),
+  progressPercent: integer("progress_percent").default(0),
+  
+  // Metrics at time of creation
+  snapshotMetrics: json("snapshot_metrics"),
+  
+  // Action tracking
+  actionedAt: timestamp("actioned_at"),
+  actionedById: varchar("actioned_by_id").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  dismissedAt: timestamp("dismissed_at"),
+  dismissReason: text("dismiss_reason"),
+  
+  // Auto-resolution
+  autoResolveCondition: text("auto_resolve_condition"),
+  lastCheckedAt: timestamp("last_checked_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Data Imports (tracking CSV/Excel imports)
 export const dataImports = pgTable("data_imports", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -971,6 +1027,18 @@ export type InsertDataImportRow = z.infer<typeof insertDataImportRowSchema>;
 export const insertVideoSchema = createInsertSchema(videos).omit({ id: true, createdAt: true, updatedAt: true, viewCount: true, downloadCount: true });
 export type Video = typeof videos.$inferSelect;
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
+
+export const insertAiSuggestionSchema = createInsertSchema(aiSuggestions).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  actionedAt: true,
+  resolvedAt: true,
+  dismissedAt: true,
+  lastCheckedAt: true
+});
+export type AiSuggestion = typeof aiSuggestions.$inferSelect;
+export type InsertAiSuggestion = z.infer<typeof insertAiSuggestionSchema>;
 
 // ==========================================
 // API MONITORING & INTEGRATIONS
