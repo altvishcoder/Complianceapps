@@ -165,14 +165,14 @@ export default function Properties() {
 
   const getStatusBadge = (status: string, needsVerification?: boolean) => {
     if (needsVerification) {
-      return <Badge className="bg-orange-500 hover:bg-orange-600">Needs Verification</Badge>;
+      return <Badge className="bg-orange-500 hover:bg-orange-600">Pending Review</Badge>;
     }
     switch (status) {
-      case "COMPLIANT": return <Badge className="bg-emerald-500 hover:bg-emerald-600">Compliant</Badge>;
-      case "NON_COMPLIANT": return <Badge variant="destructive">Non-Compliant</Badge>;
-      case "OVERDUE": return <Badge variant="destructive">Overdue</Badge>;
-      case "EXPIRING_SOON": return <Badge className="bg-amber-500 hover:bg-amber-600">Expiring Soon</Badge>;
-      default: return <Badge variant="outline">Unknown</Badge>;
+      case "COMPLIANT": return <Badge className="bg-emerald-500 hover:bg-emerald-600">Verified - Compliant</Badge>;
+      case "NON_COMPLIANT": return <Badge variant="destructive">Verified - Non-Compliant</Badge>;
+      case "OVERDUE": return <Badge variant="destructive">Verified - Overdue</Badge>;
+      case "EXPIRING_SOON": return <Badge className="bg-amber-500 hover:bg-amber-600">Verified - Expiring Soon</Badge>;
+      default: return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Verified</Badge>;
     }
   };
 
@@ -321,7 +321,7 @@ export default function Properties() {
                     <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="compliant">Compliant</SelectItem>
                     <SelectItem value="non-compliant">Non-Compliant</SelectItem>
-                    <SelectItem value="unverified">Needs Verification</SelectItem>
+                    <SelectItem value="unverified">Pending Review</SelectItem>
                   </SelectContent>
                 </Select>
              </div>
