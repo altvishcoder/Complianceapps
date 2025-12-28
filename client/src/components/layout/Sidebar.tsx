@@ -18,7 +18,9 @@ import {
   ChevronRight,
   Sparkles,
   Package,
-  Database
+  Database,
+  FlaskConical,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -35,14 +37,18 @@ const navigation = [
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Data Import", href: "/admin/imports", icon: Database },
-  { name: "Settings", href: "/admin/setup", icon: Settings },
 ];
 
 const aiNavigation = [
   { name: "Model Insights", href: "/model-insights", icon: Brain },
   { name: "Human Review", href: "/human-review", icon: Eye },
   { name: "Domain Rules", href: "/domain-rules", icon: Settings2 },
-  { name: "Configuration", href: "/admin/configuration", icon: Settings },
+];
+
+const adminNavigation = [
+  { name: "Settings", href: "/admin/setup", icon: Settings },
+  { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
+  { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
 ];
 
 export function Sidebar() {
@@ -127,6 +133,43 @@ export function Sidebar() {
           </div>
           <nav className="space-y-1">
             {aiNavigation.map((item) => {
+              const isActive = location === item.href;
+              return (
+                <Link key={item.name} href={item.href}>
+                  <div
+                    className={cn(
+                      "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
+                      isActive
+                        ? "bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white shadow-lg shadow-purple-500/20"
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <div className="flex items-center">
+                      <item.icon
+                        className={cn(
+                          "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                          isActive ? "text-white" : "text-slate-500 group-hover:text-violet-400"
+                        )}
+                      />
+                      {item.name}
+                    </div>
+                    {isActive && (
+                      <ChevronRight className="h-4 w-4 text-white/70" />
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+        
+        <div className="mt-8">
+          <div className="mb-2 px-3 flex items-center gap-2">
+            <Shield className="h-3 w-3 text-violet-400" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin Panel</span>
+          </div>
+          <nav className="space-y-1">
+            {adminNavigation.map((item) => {
               const isActive = location === item.href;
               return (
                 <Link key={item.name} href={item.href}>
