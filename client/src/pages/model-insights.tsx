@@ -274,7 +274,7 @@ export default function ModelInsightsPage() {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="week" fontSize={12} />
                                 <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} fontSize={12} />
-                                <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} />
+                                <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
                                 <Line type="monotone" dataKey="accuracy" stroke="#2563eb" strokeWidth={2} />
                               </LineChart>
                             </ResponsiveContainer>
