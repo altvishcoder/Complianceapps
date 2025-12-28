@@ -2745,6 +2745,85 @@ export async function registerRoutes(
     }
   });
   
+  // ===== VIDEO LIBRARY =====
+  app.get("/api/videos", async (req, res) => {
+    try {
+      const orgId = (req.query.organisationId as string) || DEMO_ORG_ID;
+      const videoList = await storage.listVideos(orgId);
+      res.json(videoList);
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+      res.status(500).json({ error: "Failed to fetch videos" });
+    }
+  });
+  
+  app.get("/api/videos/:id", async (req, res) => {
+    try {
+      const video = await storage.getVideo(req.params.id);
+      if (!video) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+      await storage.incrementVideoView(video.id);
+      res.json(video);
+    } catch (error) {
+      console.error("Error fetching video:", error);
+      res.status(500).json({ error: "Failed to fetch video" });
+    }
+  });
+  
+  app.post("/api/videos", async (req, res) => {
+    try {
+      const video = await storage.createVideo({
+        ...req.body,
+        organisationId: req.body.organisationId || DEMO_ORG_ID
+      });
+      res.status(201).json(video);
+    } catch (error) {
+      console.error("Error creating video:", error);
+      res.status(500).json({ error: "Failed to create video" });
+    }
+  });
+  
+  app.patch("/api/videos/:id", async (req, res) => {
+    try {
+      const video = await storage.updateVideo(req.params.id, req.body);
+      if (!video) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+      res.json(video);
+    } catch (error) {
+      console.error("Error updating video:", error);
+      res.status(500).json({ error: "Failed to update video" });
+    }
+  });
+  
+  app.delete("/api/videos/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteVideo(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      res.status(500).json({ error: "Failed to delete video" });
+    }
+  });
+  
+  app.post("/api/videos/:id/download", async (req, res) => {
+    try {
+      const video = await storage.getVideo(req.params.id);
+      if (!video) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+      await storage.incrementVideoDownload(video.id);
+      res.json({ storageKey: video.storageKey });
+    } catch (error) {
+      console.error("Error tracking download:", error);
+      res.status(500).json({ error: "Failed to track download" });
+    }
+  });
+  
   // ===== API DOCUMENTATION ENDPOINT =====
   app.get("/api/admin/openapi", (req, res) => {
     const openApiSpec = {
