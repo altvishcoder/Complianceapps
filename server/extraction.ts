@@ -682,6 +682,36 @@ export function generateRemedialActions(
     }
   }
 
+  // Handle generic recommendations/findings if present
+  if (data.recommendations && Array.isArray(data.recommendations)) {
+    for (const rec of data.recommendations) {
+      const description = typeof rec === 'string' ? rec : rec.description || rec.recommendation;
+      const priority = typeof rec === 'object' ? rec.priority : undefined;
+      if (description && !actions.some(a => a.description === description)) {
+        actions.push({
+          code: `REC-${actions.length + 1}`,
+          description: description,
+          location: (typeof rec === 'object' ? rec.location : undefined) || "Property",
+          severity: priority?.toUpperCase() === "HIGH" || priority?.toUpperCase() === "IMMEDIATE" ? "URGENT" : "ROUTINE",
+          costEstimate: "TBD"
+        });
+      }
+    }
+  }
+
+  // Fallback: If outcome is UNSATISFACTORY but no actions were generated, create a generic action
+  const outcome = determineOutcome(data, certificateType);
+  if (outcome === "UNSATISFACTORY" && actions.length === 0) {
+    const docType = data.documentType || certificateType || "Certificate";
+    actions.push({
+      code: `REVIEW-${certificateType}`,
+      description: `${docType} marked as unsatisfactory - requires review and remediation`,
+      location: "Property",
+      severity: "URGENT",
+      costEstimate: "TBD - requires assessment"
+    });
+  }
+
   return actions;
 }
 
