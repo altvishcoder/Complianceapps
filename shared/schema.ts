@@ -622,6 +622,11 @@ export const aiSuggestions = pgTable("ai_suggestions", {
   // Impact and effort
   impact: text("impact").notNull(),
   effort: text("effort").notNull(),
+  actionable: boolean("actionable").default(true),
+  
+  // Action details (for navigation)
+  actionLabel: text("action_label"),
+  actionRoute: text("action_route"),
   
   // Progress tracking
   status: suggestionStatusEnum("status").notNull().default("ACTIVE"),
