@@ -401,6 +401,12 @@ export const classificationCodes = pgTable("classification_codes", {
   actionRequired: text("action_required"), // What action is required for this code
   timeframeHours: integer("timeframe_hours"), // Time to remediate (null = no deadline)
   
+  // Remedial action settings
+  autoCreateAction: boolean("auto_create_action").notNull().default(true), // Whether to auto-create remedial action
+  actionSeverity: text("action_severity"), // IMMEDIATE, URGENT, ROUTINE, ADVISORY
+  costEstimateLow: integer("cost_estimate_low"), // Lower bound cost estimate in pence
+  costEstimateHigh: integer("cost_estimate_high"), // Upper bound cost estimate in pence
+  
   displayOrder: integer("display_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   

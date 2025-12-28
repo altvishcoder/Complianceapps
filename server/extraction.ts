@@ -2,9 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import { join } from "path";
 import { db } from "./db";
-import { extractionRuns, componentTypes, components, contractors } from "@shared/schema";
+import { extractionRuns, componentTypes, components, contractors, certificateTypes } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { broadcastExtractionEvent } from "./events";
+
+// Helper to get certificate type config by code
+async function getCertificateTypeIdByCode(code: string) {
+  return storage.getCertificateTypeByCode(code);
+}
 
 // Dynamic import pdfjs-dist for PDF processing
 let pdfjs: any = null;
@@ -476,7 +481,23 @@ export async function extractCertificateWithClaude(
     }
 
     const outcome = determineOutcome(extractedData, certificateType);
-    const remedialActions = generateRemedialActions(extractedData, certificateType, certificate.propertyId);
+    
+    // Use configuration-driven remedial action generation
+    // Falls back to hardcoded logic if no classification codes are configured
+    let remedialActions: ExtractionResult["remedialActions"];
+    try {
+      // Lookup certificate type ID from config table based on certificate type enum
+      const certTypeConfig = await getCertificateTypeIdByCode(certificateType);
+      remedialActions = await generateRemedialActionsFromConfig(
+        extractedData, 
+        certificateType, 
+        certificate.propertyId,
+        certTypeConfig?.id
+      );
+    } catch (configError) {
+      console.warn("Config-driven action generation failed, falling back to hardcoded logic:", configError);
+      remedialActions = generateRemedialActions(extractedData, certificateType, certificate.propertyId);
+    }
 
     const result: ExtractionResult = {
       extractedData,
@@ -495,7 +516,7 @@ export async function extractCertificateWithClaude(
   }
 }
 
-function determineOutcome(data: Record<string, any>, certificateType: string): ExtractionResult["outcome"] {
+export function determineOutcome(data: Record<string, any>, certificateType: string): ExtractionResult["outcome"] {
   if (data.overallOutcome) {
     return data.overallOutcome.toUpperCase().includes("UNSATISFACTORY") ? "UNSATISFACTORY" : "SATISFACTORY";
   }
@@ -712,6 +733,128 @@ export function generateRemedialActions(
     });
   }
 
+  return actions;
+}
+
+// Configuration-driven remedial action generation that uses classification codes from database
+export async function generateRemedialActionsFromConfig(
+  data: Record<string, any>, 
+  certificateType: string,
+  propertyId: string,
+  certificateTypeId?: string
+): Promise<ExtractionResult["remedialActions"]> {
+  // Load classification codes for this certificate type
+  const classificationCodes = await storage.listClassificationCodes(certificateTypeId);
+  const codeMap = new Map(classificationCodes.map(c => [c.code, c]));
+  
+  const actions: ExtractionResult["remedialActions"] = [];
+  
+  // Helper to format cost estimate from config
+  const formatCostEstimate = (config: typeof classificationCodes[0]): string => {
+    if (config.costEstimateLow && config.costEstimateHigh) {
+      return `£${(config.costEstimateLow / 100).toFixed(0)}-${(config.costEstimateHigh / 100).toFixed(0)}`;
+    }
+    return "TBD";
+  };
+  
+  // Helper to get severity from config or default
+  const getSeverity = (config: typeof classificationCodes[0] | undefined, defaultSeverity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY"): "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" => {
+    if (config?.actionSeverity) {
+      const severity = config.actionSeverity.toUpperCase();
+      if (severity === "IMMEDIATE" || severity === "URGENT" || severity === "ROUTINE" || severity === "ADVISORY") {
+        return severity as "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY";
+      }
+    }
+    return defaultSeverity;
+  };
+  
+  // Process EICR observations
+  if (certificateType === "EICR" || certificateType === "OTHER") {
+    const observations = data.observations || data.defects || data.defectsAndObservations || [];
+    for (const obs of observations) {
+      const code = obs.code || obs.severity || "";
+      const config = codeMap.get(code);
+      
+      // Skip if config says not to auto-create action
+      if (config && config.autoCreateAction === false) continue;
+      
+      if (code === "C1" || code === "C2" || code === "C3") {
+        let defaultSeverity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
+        if (code === "C1") defaultSeverity = "IMMEDIATE";
+        else if (code === "C2") defaultSeverity = "URGENT";
+        else if (code === "C3") defaultSeverity = "ADVISORY";
+        
+        actions.push({
+          code,
+          description: config?.actionRequired || obs.description || "Requires attention",
+          location: obs.location || "Electrical installation",
+          severity: getSeverity(config, defaultSeverity),
+          costEstimate: config ? formatCostEstimate(config) : (defaultSeverity === "IMMEDIATE" ? "£150-400" : "£80-250")
+        });
+      }
+    }
+  }
+  
+  // Process Gas Safety defects
+  if (certificateType === "GAS_SAFETY" && data.defects) {
+    for (const defect of data.defects) {
+      const code = defect.classification?.includes("ID") ? "ID" : 
+                   defect.classification?.includes("AR") ? "AR" : 
+                   defect.classification?.includes("NCS") ? "NCS" : "OTHER";
+      const config = codeMap.get(code);
+      
+      if (config && config.autoCreateAction === false) continue;
+      
+      let defaultSeverity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
+      if (code === "ID") defaultSeverity = "IMMEDIATE";
+      else if (code === "AR") defaultSeverity = "URGENT";
+      
+      actions.push({
+        code: defect.classification || "GAS",
+        description: config?.actionRequired || defect.description,
+        location: defect.location || "Unknown",
+        severity: getSeverity(config, defaultSeverity),
+        costEstimate: config ? formatCostEstimate(config) : (defaultSeverity === "IMMEDIATE" ? "£200-500" : "£100-300")
+      });
+    }
+  }
+  
+  // Process Fire Risk findings
+  if (certificateType === "FIRE_RISK" && data.findings) {
+    for (const finding of data.findings) {
+      const priority = finding.priority?.toUpperCase();
+      const code = priority === "HIGH" ? "FRA-HIGH" : priority === "MEDIUM" ? "FRA-MEDIUM" : "FRA-LOW";
+      const config = codeMap.get(code) || codeMap.get(priority || "");
+      
+      if (config && config.autoCreateAction === false) continue;
+      
+      if (priority === "HIGH" || priority === "MEDIUM") {
+        actions.push({
+          code: `FRA-${finding.itemNumber || ""}`,
+          description: config?.actionRequired || finding.description + (finding.recommendation ? ` - ${finding.recommendation}` : ""),
+          location: finding.location || "Building",
+          severity: getSeverity(config, priority === "HIGH" ? "URGENT" : "ROUTINE"),
+          costEstimate: config ? formatCostEstimate(config) : (priority === "HIGH" ? "£300-1000" : "£100-500")
+        });
+      }
+    }
+  }
+  
+  // Fallback: If outcome is UNSATISFACTORY but no actions were generated
+  const outcome = determineOutcome(data, certificateType);
+  if (outcome === "UNSATISFACTORY" && actions.length === 0) {
+    const docType = data.documentType || certificateType || "Certificate";
+    const fallbackConfig = codeMap.get("REVIEW") || codeMap.get("UNSATISFACTORY");
+    
+    actions.push({
+      code: `REVIEW-${certificateType}`,
+      description: fallbackConfig?.actionRequired || `${docType} marked as unsatisfactory - requires review and remediation`,
+      location: "Property",
+      severity: getSeverity(fallbackConfig, "URGENT"),
+      costEstimate: fallbackConfig ? formatCostEstimate(fallbackConfig) : "TBD - requires assessment"
+    });
+  }
+  
   return actions;
 }
 

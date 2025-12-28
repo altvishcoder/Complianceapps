@@ -95,6 +95,7 @@ export interface IStorage {
   // Configuration - Certificate Types
   listCertificateTypes(): Promise<CertificateType[]>;
   getCertificateType(id: string): Promise<CertificateType | undefined>;
+  getCertificateTypeByCode(code: string): Promise<CertificateType | undefined>;
   createCertificateType(certType: InsertCertificateType): Promise<CertificateType>;
   updateCertificateType(id: string, updates: Partial<InsertCertificateType>): Promise<CertificateType | undefined>;
   deleteCertificateType(id: string): Promise<boolean>;
@@ -102,6 +103,7 @@ export interface IStorage {
   // Configuration - Classification Codes
   listClassificationCodes(certificateTypeId?: string): Promise<ClassificationCode[]>;
   getClassificationCode(id: string): Promise<ClassificationCode | undefined>;
+  getClassificationCodeByCode(code: string, certificateTypeId?: string): Promise<ClassificationCode | undefined>;
   createClassificationCode(code: InsertClassificationCode): Promise<ClassificationCode>;
   updateClassificationCode(id: string, updates: Partial<InsertClassificationCode>): Promise<ClassificationCode | undefined>;
   deleteClassificationCode(id: string): Promise<boolean>;
@@ -706,6 +708,11 @@ export class DatabaseStorage implements IStorage {
     return certType || undefined;
   }
   
+  async getCertificateTypeByCode(code: string): Promise<CertificateType | undefined> {
+    const [certType] = await db.select().from(certificateTypes).where(eq(certificateTypes.code, code));
+    return certType || undefined;
+  }
+  
   async createCertificateType(certType: InsertCertificateType): Promise<CertificateType> {
     const [created] = await db.insert(certificateTypes).values(certType).returning();
     return created;
@@ -737,6 +744,20 @@ export class DatabaseStorage implements IStorage {
   async getClassificationCode(id: string): Promise<ClassificationCode | undefined> {
     const [code] = await db.select().from(classificationCodes).where(eq(classificationCodes.id, id));
     return code || undefined;
+  }
+  
+  async getClassificationCodeByCode(code: string, certificateTypeId?: string): Promise<ClassificationCode | undefined> {
+    if (certificateTypeId) {
+      const [result] = await db.select().from(classificationCodes)
+        .where(and(
+          eq(classificationCodes.code, code),
+          eq(classificationCodes.certificateTypeId, certificateTypeId)
+        ));
+      return result || undefined;
+    }
+    const [result] = await db.select().from(classificationCodes)
+      .where(eq(classificationCodes.code, code));
+    return result || undefined;
   }
   
   async createClassificationCode(code: InsertClassificationCode): Promise<ClassificationCode> {

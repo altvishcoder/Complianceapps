@@ -40,6 +40,22 @@ The application follows a hierarchical property structure:
 
 Key enums define compliance statuses, property types, certificate types, and action severities aligned with UK housing regulations.
 
+### Configuration-Driven Remedial Actions
+The system uses a configuration-driven approach for generating remedial actions:
+- **Classification Codes** table stores severity settings and action generation rules
+- Fields include: `autoCreateAction`, `actionSeverity`, `costEstimateLow`, `costEstimateHigh`
+- `generateRemedialActionsFromConfig` loads codes from database and applies configured rules
+- Falls back to hardcoded logic if no configuration exists
+- Supports EICR (C1/C2/C3), Gas Safety (ID/AR/NCS), and Fire Risk (HIGH/MEDIUM/LOW)
+
+### Test Suite
+Comprehensive test suite using Vitest:
+- `tests/extraction.test.ts` - Unit tests for extraction functions
+- `tests/api.test.ts` - API endpoint integration tests
+- `tests/storage.test.ts` - Storage CRUD operation tests
+- `tests/config-driven.test.ts` - Configuration-driven remedial action tests
+- Run with: `npx vitest run`
+
 ### Development vs Production
 - Development: Vite dev server with HMR, served through Express middleware
 - Production: Static files served from `dist/public`, server bundled to `dist/index.cjs`
