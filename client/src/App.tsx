@@ -22,9 +22,11 @@ import MFAPage from "@/pages/mfa";
 import AdminSetup from "@/pages/admin/setup";
 import AdminUsersPage from "@/pages/admin/users";
 import AdminConfiguration from "@/pages/admin/configuration";
+import AdminImportsPage from "@/pages/admin/imports";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import DomainRulesPage from "@/pages/domain-rules";
+import ComponentsPage from "@/pages/components";
 
 import LandingPage from "@/pages/landing";
 
@@ -49,9 +51,11 @@ function Router() {
       <Route path="/admin/setup" component={AdminSetup} />
       <Route path="/admin/users" component={AdminUsersPage} />
       <Route path="/admin/configuration" component={AdminConfiguration} />
+      <Route path="/admin/imports" component={AdminImportsPage} />
       <Route path="/model-insights" component={ModelInsightsPage} />
       <Route path="/human-review" component={HumanReviewPage} />
       <Route path="/domain-rules" component={DomainRulesPage} />
+      <Route path="/components" component={ComponentsPage} />
       
       <Route component={NotFound} />
     </Switch>

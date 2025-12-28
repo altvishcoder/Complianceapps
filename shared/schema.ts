@@ -408,12 +408,225 @@ export const classificationCodes = pgTable("classification_codes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ==========================================
+// HACT-ALIGNED EXTENDED ARCHITECTURE
+// ==========================================
+
+// Unit Types (rooms/areas within a property)
+export const unitTypeEnum = pgEnum('unit_type', [
+  'DWELLING',        // Primary living space
+  'COMMUNAL_AREA',   // Shared hallway, lobby, etc.
+  'PLANT_ROOM',      // Mechanical/electrical room
+  'ROOF_SPACE',      // Roof/attic area
+  'BASEMENT',        // Basement/cellar
+  'EXTERNAL',        // External grounds
+  'GARAGE',          // Garage or parking
+  'COMMERCIAL',      // Commercial unit
+  'OTHER'
+]);
+
+// Component Categories (HACT asset hierarchy)
+export const componentCategoryEnum = pgEnum('component_category', [
+  'HEATING',         // Boilers, radiators, heat pumps
+  'ELECTRICAL',      // Consumer units, wiring, sockets
+  'FIRE_SAFETY',     // Alarms, extinguishers, doors
+  'WATER',           // Tanks, pipes, water heaters
+  'VENTILATION',     // Extractors, HVAC systems
+  'STRUCTURE',       // Roofs, walls, foundations
+  'ACCESS',          // Lifts, stairs, ramps
+  'SECURITY',        // Door entry, CCTV
+  'EXTERNAL',        // Fencing, paving, drainage
+  'OTHER'
+]);
+
+// Import Status
+export const importStatusEnum = pgEnum('import_status', [
+  'PENDING',
+  'VALIDATING',
+  'VALIDATED',
+  'IMPORTING',
+  'COMPLETED',
+  'FAILED',
+  'CANCELLED'
+]);
+
+// Import Row Status
+export const importRowStatusEnum = pgEnum('import_row_status', [
+  'PENDING',
+  'VALID',
+  'INVALID',
+  'IMPORTED',
+  'SKIPPED',
+  'FAILED'
+]);
+
+// Component Types Configuration (like boiler model, alarm type, etc.)
+export const componentTypes = pgTable("component_types", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  code: text("code").notNull().unique(),             // "GAS_BOILER", "SMOKE_ALARM", etc.
+  name: text("name").notNull(),                       // "Gas Boiler"
+  category: componentCategoryEnum("category").notNull(),
+  description: text("description"),
+  
+  // HACT mapping
+  hactElementCode: text("hact_element_code"),         // HACT element reference
+  expectedLifespanYears: integer("expected_lifespan_years"),
+  
+  // Compliance linkage
+  relatedCertificateTypes: text("related_certificate_types").array(), // ["GAS_SAFETY"]
+  inspectionFrequencyMonths: integer("inspection_frequency_months"),
+  
+  // Risk classification for TSM reporting
+  isHighRisk: boolean("is_high_risk").notNull().default(false),
+  buildingSafetyRelevant: boolean("building_safety_relevant").notNull().default(false),
+  
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Units (rooms/areas within a property - HACT hierarchy)
+export const units = pgTable("units", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  
+  name: text("name").notNull(),                       // "Kitchen", "Communal Hall", etc.
+  reference: text("reference"),                        // Unit reference code
+  unitType: unitTypeEnum("unit_type").notNull(),
+  floor: text("floor"),                               // "Ground", "1st", "Basement"
+  
+  description: text("description"),
+  
+  // HACT reference
+  hactLocationCode: text("hact_location_code"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Components (assets within units/properties - HACT hierarchy)
+export const components = pgTable("components", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  // Hierarchical location (at least one required)
+  propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
+  blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
+  
+  componentTypeId: varchar("component_type_id").references(() => componentTypes.id).notNull(),
+  
+  // Identification
+  assetTag: text("asset_tag"),                        // Physical asset label
+  serialNumber: text("serial_number"),
+  manufacturer: text("manufacturer"),
+  model: text("model"),
+  
+  // Location details
+  location: text("location"),                          // Specific location description
+  accessNotes: text("access_notes"),
+  
+  // Lifecycle
+  installDate: text("install_date"),
+  expectedReplacementDate: text("expected_replacement_date"),
+  warrantyExpiry: text("warranty_expiry"),
+  
+  // Status
+  condition: text("condition"),                        // "GOOD", "FAIR", "POOR", "CRITICAL"
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Source tracking
+  source: propertySourceEnum("source").notNull().default('MANUAL'),
+  needsVerification: boolean("needs_verification").notNull().default(false),
+  
+  // Last inspection link (for quick access)
+  lastInspectionDate: text("last_inspection_date"),
+  nextInspectionDue: text("next_inspection_due"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Component Certificates (many-to-many: certificates can cover multiple components)
+export const componentCertificates = pgTable("component_certificates", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  componentId: varchar("component_id").references(() => components.id, { onDelete: 'cascade' }).notNull(),
+  certificateId: varchar("certificate_id").references(() => certificates.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Extraction reference (how this link was established)
+  isAutoLinked: boolean("is_auto_linked").notNull().default(false),
+  extractionConfidence: real("extraction_confidence"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Data Imports (tracking CSV/Excel imports)
+export const dataImports = pgTable("data_imports", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  uploadedById: varchar("uploaded_by_id").references(() => users.id).notNull(),
+  
+  // Import identification
+  name: text("name").notNull(),
+  importType: text("import_type").notNull(),           // "PROPERTIES", "UNITS", "COMPONENTS"
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),               // "CSV", "XLSX"
+  fileSize: integer("file_size").notNull(),
+  
+  // Mapping configuration (column mapping from source to target fields)
+  columnMapping: json("column_mapping"),               // {sourceColumn: targetField}
+  
+  // Status
+  status: importStatusEnum("status").notNull().default('PENDING'),
+  
+  // Statistics
+  totalRows: integer("total_rows").notNull().default(0),
+  validRows: integer("valid_rows").notNull().default(0),
+  invalidRows: integer("invalid_rows").notNull().default(0),
+  importedRows: integer("imported_rows").notNull().default(0),
+  skippedRows: integer("skipped_rows").notNull().default(0),
+  
+  // Import options
+  upsertMode: boolean("upsert_mode").notNull().default(false),  // Update existing records
+  dryRun: boolean("dry_run").notNull().default(false),
+  
+  // Results
+  errorSummary: json("error_summary"),                 // Aggregated error types
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Data Import Rows (per-row status for detailed error tracking)
+export const dataImportRows = pgTable("data_import_rows", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  importId: varchar("import_id").references(() => dataImports.id, { onDelete: 'cascade' }).notNull(),
+  
+  rowNumber: integer("row_number").notNull(),
+  status: importRowStatusEnum("status").notNull().default('PENDING'),
+  
+  // Original data
+  sourceData: json("source_data").notNull(),
+  
+  // Validation
+  validationErrors: json("validation_errors"),         // [{field, error, value}]
+  
+  // Result
+  createdRecordId: varchar("created_record_id"),       // ID of created/updated record
+  createdRecordType: text("created_record_type"),      // "property", "unit", "component"
+  
+  processedAt: timestamp("processed_at"),
+});
+
 // Relations
 export const organisationRelations = relations(organisations, ({ many }) => ({
   users: many(users),
   schemes: many(schemes),
   certificates: many(certificates),
   humanReviews: many(humanReviews),
+  dataImports: many(dataImports),
 }));
 
 export const userRelations = relations(users, ({ one, many }) => ({
@@ -447,6 +660,8 @@ export const propertyRelations = relations(properties, ({ one, many }) => ({
   }),
   certificates: many(certificates),
   remedialActions: many(remedialActions),
+  units: many(units),
+  components: many(components),
 }));
 
 export const certificateRelations = relations(certificates, ({ one, many }) => ({
@@ -548,6 +763,69 @@ export const evalRunRelations = relations(evalRuns, ({ one }) => ({
   }),
 }));
 
+// HACT Architecture Relations
+export const componentTypeRelations = relations(componentTypes, ({ many }) => ({
+  components: many(components),
+}));
+
+export const unitRelations = relations(units, ({ one, many }) => ({
+  property: one(properties, {
+    fields: [units.propertyId],
+    references: [properties.id],
+  }),
+  components: many(components),
+}));
+
+export const componentRelations = relations(components, ({ one, many }) => ({
+  property: one(properties, {
+    fields: [components.propertyId],
+    references: [properties.id],
+  }),
+  unit: one(units, {
+    fields: [components.unitId],
+    references: [units.id],
+  }),
+  block: one(blocks, {
+    fields: [components.blockId],
+    references: [blocks.id],
+  }),
+  componentType: one(componentTypes, {
+    fields: [components.componentTypeId],
+    references: [componentTypes.id],
+  }),
+  componentCertificates: many(componentCertificates),
+}));
+
+export const componentCertificateRelations = relations(componentCertificates, ({ one }) => ({
+  component: one(components, {
+    fields: [componentCertificates.componentId],
+    references: [components.id],
+  }),
+  certificate: one(certificates, {
+    fields: [componentCertificates.certificateId],
+    references: [certificates.id],
+  }),
+}));
+
+export const dataImportRelations = relations(dataImports, ({ one, many }) => ({
+  organisation: one(organisations, {
+    fields: [dataImports.organisationId],
+    references: [organisations.id],
+  }),
+  uploadedBy: one(users, {
+    fields: [dataImports.uploadedById],
+    references: [users.id],
+  }),
+  rows: many(dataImportRows),
+}));
+
+export const dataImportRowRelations = relations(dataImportRows, ({ one }) => ({
+  import: one(dataImports, {
+    fields: [dataImportRows.importId],
+    references: [dataImports.id],
+  }),
+}));
+
 // Zod Schemas
 export const insertOrganisationSchema = createInsertSchema(organisations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -572,6 +850,14 @@ export const insertNormalisationRuleSchema = createInsertSchema(normalisationRul
 // Configuration Insert Schemas
 export const insertCertificateTypeSchema = createInsertSchema(certificateTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClassificationCodeSchema = createInsertSchema(classificationCodes).omit({ id: true, createdAt: true, updatedAt: true });
+
+// HACT Architecture Insert Schemas
+export const insertComponentTypeSchema = createInsertSchema(componentTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUnitSchema = createInsertSchema(units).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertComponentSchema = createInsertSchema(components).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertComponentCertificateSchema = createInsertSchema(componentCertificates).omit({ id: true, createdAt: true });
+export const insertDataImportSchema = createInsertSchema(dataImports).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDataImportRowSchema = createInsertSchema(dataImportRows).omit({ id: true });
 
 // Types
 export type Organisation = typeof organisations.$inferSelect;
@@ -632,3 +918,22 @@ export type InsertCertificateType = z.infer<typeof insertCertificateTypeSchema>;
 
 export type ClassificationCode = typeof classificationCodes.$inferSelect;
 export type InsertClassificationCode = z.infer<typeof insertClassificationCodeSchema>;
+
+// HACT Architecture Types
+export type ComponentType = typeof componentTypes.$inferSelect;
+export type InsertComponentType = z.infer<typeof insertComponentTypeSchema>;
+
+export type Unit = typeof units.$inferSelect;
+export type InsertUnit = z.infer<typeof insertUnitSchema>;
+
+export type Component = typeof components.$inferSelect;
+export type InsertComponent = z.infer<typeof insertComponentSchema>;
+
+export type ComponentCertificate = typeof componentCertificates.$inferSelect;
+export type InsertComponentCertificate = z.infer<typeof insertComponentCertificateSchema>;
+
+export type DataImport = typeof dataImports.$inferSelect;
+export type InsertDataImport = z.infer<typeof insertDataImportSchema>;
+
+export type DataImportRow = typeof dataImportRows.$inferSelect;
+export type InsertDataImportRow = z.infer<typeof insertDataImportRowSchema>;

@@ -4,7 +4,8 @@ import type {
   Scheme, Block, InsertProperty, InsertCertificate, Contractor, InsertContractor,
   CertificateType, InsertCertificateType, ClassificationCode, InsertClassificationCode,
   ExtractionSchema, InsertExtractionSchema, ComplianceRule, InsertComplianceRule,
-  NormalisationRule, InsertNormalisationRule
+  NormalisationRule, InsertNormalisationRule,
+  ComponentType, InsertComponentType, Unit, InsertUnit, Component, InsertComponent, DataImport, InsertDataImport
 } from "@shared/schema";
 
 const API_BASE = "/api";
@@ -345,4 +346,152 @@ export const normalisationRulesApi = {
   delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/normalisation-rules/${id}`, {
     method: "DELETE",
   }),
+};
+
+// HACT Architecture - Component Types
+export const componentTypesApi = {
+  list: () => fetchJSON<ComponentType[]>(`${API_BASE}/component-types`),
+  
+  get: (id: string) => fetchJSON<ComponentType>(`${API_BASE}/component-types/${id}`),
+  
+  create: (data: InsertComponentType) => fetchJSON<ComponentType>(`${API_BASE}/component-types`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertComponentType>) => fetchJSON<ComponentType>(`${API_BASE}/component-types/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/component-types/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// HACT Architecture - Units
+export const unitsApi = {
+  list: (propertyId?: string) => {
+    const params = propertyId ? `?propertyId=${propertyId}` : "";
+    return fetchJSON<Unit[]>(`${API_BASE}/units${params}`);
+  },
+  
+  get: (id: string) => fetchJSON<Unit>(`${API_BASE}/units/${id}`),
+  
+  create: (data: InsertUnit) => fetchJSON<Unit>(`${API_BASE}/units`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertUnit>) => fetchJSON<Unit>(`${API_BASE}/units/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/units/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// HACT Architecture - Components (Assets)
+export interface EnrichedComponent extends Component {
+  componentType?: ComponentType;
+}
+
+export const componentsApi = {
+  list: (filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.propertyId) params.append("propertyId", filters.propertyId);
+    if (filters?.unitId) params.append("unitId", filters.unitId);
+    if (filters?.blockId) params.append("blockId", filters.blockId);
+    if (filters?.componentTypeId) params.append("componentTypeId", filters.componentTypeId);
+    const query = params.toString() ? `?${params}` : "";
+    return fetchJSON<EnrichedComponent[]>(`${API_BASE}/components${query}`);
+  },
+  
+  get: (id: string) => fetchJSON<EnrichedComponent>(`${API_BASE}/components/${id}`),
+  
+  create: (data: InsertComponent) => fetchJSON<Component>(`${API_BASE}/components`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertComponent>) => fetchJSON<Component>(`${API_BASE}/components/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/components/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// Data Imports
+export interface DataImportWithCounts extends DataImport {
+  total?: number;
+  valid?: number;
+  invalid?: number;
+  imported?: number;
+}
+
+export const dataImportsApi = {
+  list: () => fetchJSON<DataImport[]>(`${API_BASE}/imports`),
+  
+  get: (id: string) => fetchJSON<DataImportWithCounts>(`${API_BASE}/imports/${id}`),
+  
+  getRows: (id: string) => fetchJSON<any[]>(`${API_BASE}/imports/${id}/rows`),
+  
+  create: (data: Partial<InsertDataImport>) => fetchJSON<DataImport>(`${API_BASE}/imports`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertDataImport>) => fetchJSON<DataImport>(`${API_BASE}/imports/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/imports/${id}`, {
+    method: "DELETE",
+  }),
+  
+  validate: (id: string, csvContent: string) => fetchJSON<{ importId: string; totalRows: number; validRows: number; invalidRows: number; errors: any[] }>(`${API_BASE}/imports/${id}/validate`, {
+    method: "POST",
+    body: JSON.stringify({ csvContent }),
+  }),
+  
+  execute: (id: string) => fetchJSON<{ success: boolean; totalRows: number; importedRows: number; errors: any[] }>(`${API_BASE}/imports/${id}/execute`, {
+    method: "POST",
+  }),
+  
+  getTemplate: (type: string) => fetchJSON<{ columns: Array<{ name: string; required: boolean; description: string }> }>(`${API_BASE}/imports/templates/${type}`),
+  
+  downloadTemplate: (type: string) => `${API_BASE}/imports/templates/${type}/download`,
+};
+
+// TSM Reports
+export interface TSMReport {
+  period: string;
+  reportDate: string;
+  metrics: {
+    BS01: { name: string; description: string; value: number; total: number; unit: string };
+    BS02: { name: string; description: string; value: number; total: number; upToDate: number; unit: string };
+    BS03: { name: string; description: string; value: number; bySeverity: Record<string, number>; unit: string };
+    BS04: { name: string; description: string; value: number; byType: Array<{ type: string; count: number }>; unit: string };
+    BS05: { name: string; description: string; value: number; notified: number; pending: number; unit: string };
+    BS06: { name: string; description: string; value: number; alerts: any[]; unit: string };
+  };
+  summary: {
+    totalHighRiskComponents: number;
+    totalCertificates: number;
+    totalRemedialActions: number;
+    complianceScore: number;
+  };
+}
+
+export const reportsApi = {
+  getTSMBuildingSafety: (period?: string) => {
+    const params = period ? `?period=${period}` : "";
+    return fetchJSON<TSMReport>(`${API_BASE}/reports/tsm-building-safety${params}`);
+  },
 };

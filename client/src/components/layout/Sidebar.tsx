@@ -16,7 +16,9 @@ import {
   Eye,
   Settings2,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Package,
+  Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -25,12 +27,14 @@ import { actionsApi, certificatesApi } from "@/lib/api";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
+  { name: "Components", href: "/components", icon: Package },
   { name: "Certificates", href: "/certificates", icon: Files },
   { name: "Ingestion Hub", href: "/ingestion", icon: UploadCloud },
   { name: "Compliance", href: "/compliance", icon: ClipboardCheck },
   { name: "Actions", href: "/actions", icon: Wrench },
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Data Import", href: "/admin/imports", icon: Database },
   { name: "Settings", href: "/admin/setup", icon: Settings },
 ];
 

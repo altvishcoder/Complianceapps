@@ -4,6 +4,7 @@ import {
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
   certificateTypes, classificationCodes,
+  componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -17,10 +18,16 @@ import {
   type ClassificationCode, type InsertClassificationCode,
   type ExtractionSchema, type InsertExtractionSchema,
   type ComplianceRule, type InsertComplianceRule,
-  type NormalisationRule, type InsertNormalisationRule
+  type NormalisationRule, type InsertNormalisationRule,
+  type ComponentType, type InsertComponentType,
+  type Unit, type InsertUnit,
+  type Component, type InsertComponent,
+  type ComponentCertificate, type InsertComponentCertificate,
+  type DataImport, type InsertDataImport,
+  type DataImportRow, type InsertDataImportRow
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, count } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -119,6 +126,47 @@ export interface IStorage {
   createNormalisationRule(rule: InsertNormalisationRule): Promise<NormalisationRule>;
   updateNormalisationRule(id: string, updates: Partial<InsertNormalisationRule>): Promise<NormalisationRule | undefined>;
   deleteNormalisationRule(id: string): Promise<boolean>;
+  
+  // HACT Architecture - Component Types
+  listComponentTypes(): Promise<ComponentType[]>;
+  getComponentType(id: string): Promise<ComponentType | undefined>;
+  createComponentType(componentType: InsertComponentType): Promise<ComponentType>;
+  updateComponentType(id: string, updates: Partial<InsertComponentType>): Promise<ComponentType | undefined>;
+  deleteComponentType(id: string): Promise<boolean>;
+  
+  // HACT Architecture - Units
+  listUnits(propertyId?: string): Promise<Unit[]>;
+  getUnit(id: string): Promise<Unit | undefined>;
+  createUnit(unit: InsertUnit): Promise<Unit>;
+  updateUnit(id: string, updates: Partial<InsertUnit>): Promise<Unit | undefined>;
+  deleteUnit(id: string): Promise<boolean>;
+  
+  // HACT Architecture - Components
+  listComponents(filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]>;
+  getComponent(id: string): Promise<Component | undefined>;
+  createComponent(component: InsertComponent): Promise<Component>;
+  updateComponent(id: string, updates: Partial<InsertComponent>): Promise<Component | undefined>;
+  deleteComponent(id: string): Promise<boolean>;
+  bulkCreateComponents(components: InsertComponent[]): Promise<Component[]>;
+  
+  // HACT Architecture - Component Certificates
+  listComponentCertificates(componentId?: string, certificateId?: string): Promise<ComponentCertificate[]>;
+  createComponentCertificate(link: InsertComponentCertificate): Promise<ComponentCertificate>;
+  deleteComponentCertificate(id: string): Promise<boolean>;
+  
+  // Data Imports
+  listDataImports(organisationId: string): Promise<DataImport[]>;
+  getDataImport(id: string): Promise<DataImport | undefined>;
+  createDataImport(dataImport: InsertDataImport): Promise<DataImport>;
+  updateDataImport(id: string, updates: Partial<InsertDataImport>): Promise<DataImport | undefined>;
+  deleteDataImport(id: string): Promise<boolean>;
+  
+  // Data Import Rows
+  listDataImportRows(importId: string): Promise<DataImportRow[]>;
+  createDataImportRow(row: InsertDataImportRow): Promise<DataImportRow>;
+  bulkCreateDataImportRows(rows: InsertDataImportRow[]): Promise<DataImportRow[]>;
+  updateDataImportRow(id: string, updates: Partial<InsertDataImportRow>): Promise<DataImportRow | undefined>;
+  getDataImportRowCounts(importId: string): Promise<{ total: number; valid: number; invalid: number; imported: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -791,6 +839,196 @@ export class DatabaseStorage implements IStorage {
   async deleteNormalisationRule(id: string): Promise<boolean> {
     const result = await db.delete(normalisationRules).where(eq(normalisationRules.id, id)).returning();
     return result.length > 0;
+  }
+  
+  // HACT Architecture - Component Types
+  async listComponentTypes(): Promise<ComponentType[]> {
+    return db.select().from(componentTypes).orderBy(componentTypes.displayOrder);
+  }
+  
+  async getComponentType(id: string): Promise<ComponentType | undefined> {
+    const [type] = await db.select().from(componentTypes).where(eq(componentTypes.id, id));
+    return type || undefined;
+  }
+  
+  async createComponentType(componentType: InsertComponentType): Promise<ComponentType> {
+    const [created] = await db.insert(componentTypes).values(componentType).returning();
+    return created;
+  }
+  
+  async updateComponentType(id: string, updates: Partial<InsertComponentType>): Promise<ComponentType | undefined> {
+    const [updated] = await db.update(componentTypes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(componentTypes.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteComponentType(id: string): Promise<boolean> {
+    const result = await db.delete(componentTypes).where(eq(componentTypes.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // HACT Architecture - Units
+  async listUnits(propertyId?: string): Promise<Unit[]> {
+    if (propertyId) {
+      return db.select().from(units)
+        .where(eq(units.propertyId, propertyId))
+        .orderBy(units.name);
+    }
+    return db.select().from(units).orderBy(units.name);
+  }
+  
+  async getUnit(id: string): Promise<Unit | undefined> {
+    const [unit] = await db.select().from(units).where(eq(units.id, id));
+    return unit || undefined;
+  }
+  
+  async createUnit(unit: InsertUnit): Promise<Unit> {
+    const [created] = await db.insert(units).values(unit).returning();
+    return created;
+  }
+  
+  async updateUnit(id: string, updates: Partial<InsertUnit>): Promise<Unit | undefined> {
+    const [updated] = await db.update(units)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(units.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteUnit(id: string): Promise<boolean> {
+    const result = await db.delete(units).where(eq(units.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // HACT Architecture - Components
+  async listComponents(filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]> {
+    const conditions = [];
+    if (filters?.propertyId) conditions.push(eq(components.propertyId, filters.propertyId));
+    if (filters?.unitId) conditions.push(eq(components.unitId, filters.unitId));
+    if (filters?.blockId) conditions.push(eq(components.blockId, filters.blockId));
+    if (filters?.componentTypeId) conditions.push(eq(components.componentTypeId, filters.componentTypeId));
+    
+    if (conditions.length > 0) {
+      return db.select().from(components).where(and(...conditions)).orderBy(desc(components.createdAt));
+    }
+    return db.select().from(components).orderBy(desc(components.createdAt));
+  }
+  
+  async getComponent(id: string): Promise<Component | undefined> {
+    const [component] = await db.select().from(components).where(eq(components.id, id));
+    return component || undefined;
+  }
+  
+  async createComponent(component: InsertComponent): Promise<Component> {
+    const [created] = await db.insert(components).values(component).returning();
+    return created;
+  }
+  
+  async updateComponent(id: string, updates: Partial<InsertComponent>): Promise<Component | undefined> {
+    const [updated] = await db.update(components)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(components.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteComponent(id: string): Promise<boolean> {
+    const result = await db.delete(components).where(eq(components.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  async bulkCreateComponents(componentList: InsertComponent[]): Promise<Component[]> {
+    if (componentList.length === 0) return [];
+    return db.insert(components).values(componentList).returning();
+  }
+  
+  // HACT Architecture - Component Certificates
+  async listComponentCertificates(componentId?: string, certificateId?: string): Promise<ComponentCertificate[]> {
+    const conditions = [];
+    if (componentId) conditions.push(eq(componentCertificates.componentId, componentId));
+    if (certificateId) conditions.push(eq(componentCertificates.certificateId, certificateId));
+    
+    if (conditions.length > 0) {
+      return db.select().from(componentCertificates).where(and(...conditions));
+    }
+    return db.select().from(componentCertificates);
+  }
+  
+  async createComponentCertificate(link: InsertComponentCertificate): Promise<ComponentCertificate> {
+    const [created] = await db.insert(componentCertificates).values(link).returning();
+    return created;
+  }
+  
+  async deleteComponentCertificate(id: string): Promise<boolean> {
+    const result = await db.delete(componentCertificates).where(eq(componentCertificates.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // Data Imports
+  async listDataImports(organisationId: string): Promise<DataImport[]> {
+    return db.select().from(dataImports)
+      .where(eq(dataImports.organisationId, organisationId))
+      .orderBy(desc(dataImports.createdAt));
+  }
+  
+  async getDataImport(id: string): Promise<DataImport | undefined> {
+    const [dataImport] = await db.select().from(dataImports).where(eq(dataImports.id, id));
+    return dataImport || undefined;
+  }
+  
+  async createDataImport(dataImport: InsertDataImport): Promise<DataImport> {
+    const [created] = await db.insert(dataImports).values(dataImport).returning();
+    return created;
+  }
+  
+  async updateDataImport(id: string, updates: Partial<InsertDataImport>): Promise<DataImport | undefined> {
+    const [updated] = await db.update(dataImports)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(dataImports.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteDataImport(id: string): Promise<boolean> {
+    const result = await db.delete(dataImports).where(eq(dataImports.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // Data Import Rows
+  async listDataImportRows(importId: string): Promise<DataImportRow[]> {
+    return db.select().from(dataImportRows)
+      .where(eq(dataImportRows.importId, importId))
+      .orderBy(dataImportRows.rowNumber);
+  }
+  
+  async createDataImportRow(row: InsertDataImportRow): Promise<DataImportRow> {
+    const [created] = await db.insert(dataImportRows).values(row).returning();
+    return created;
+  }
+  
+  async bulkCreateDataImportRows(rows: InsertDataImportRow[]): Promise<DataImportRow[]> {
+    if (rows.length === 0) return [];
+    return db.insert(dataImportRows).values(rows).returning();
+  }
+  
+  async updateDataImportRow(id: string, updates: Partial<InsertDataImportRow>): Promise<DataImportRow | undefined> {
+    const [updated] = await db.update(dataImportRows)
+      .set(updates)
+      .where(eq(dataImportRows.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async getDataImportRowCounts(importId: string): Promise<{ total: number; valid: number; invalid: number; imported: number }> {
+    const rows = await db.select().from(dataImportRows).where(eq(dataImportRows.importId, importId));
+    return {
+      total: rows.length,
+      valid: rows.filter(r => r.status === 'VALID').length,
+      invalid: rows.filter(r => r.status === 'INVALID').length,
+      imported: rows.filter(r => r.status === 'IMPORTED').length,
+    };
   }
 }
 

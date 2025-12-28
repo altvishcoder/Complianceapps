@@ -6,14 +6,24 @@ import {
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
   insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
-  extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches
+  insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
+  extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
+  componentTypes, components, units, componentCertificates
 } from "@shared/schema";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { eq, desc, and, count, sql } from "drizzle-orm";
+import { eq, desc, and, count, sql, isNotNull, lt, gte } from "drizzle-orm";
 import { addSSEClient, removeSSEClient } from "./events";
+import { 
+  parseCSV, 
+  validateImportData, 
+  processPropertyImport, 
+  processUnitImport, 
+  processComponentImport,
+  generateCSVTemplate
+} from "./import-parser";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -1620,6 +1630,633 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting normalisation rule:", error);
       res.status(500).json({ error: "Failed to delete normalisation rule" });
+    }
+  });
+  
+  // ===== HACT ARCHITECTURE - COMPONENT TYPES =====
+  app.get("/api/component-types", async (req, res) => {
+    try {
+      const types = await storage.listComponentTypes();
+      res.json(types);
+    } catch (error) {
+      console.error("Error fetching component types:", error);
+      res.status(500).json({ error: "Failed to fetch component types" });
+    }
+  });
+  
+  app.get("/api/component-types/:id", async (req, res) => {
+    try {
+      const type = await storage.getComponentType(req.params.id);
+      if (!type) {
+        return res.status(404).json({ error: "Component type not found" });
+      }
+      res.json(type);
+    } catch (error) {
+      console.error("Error fetching component type:", error);
+      res.status(500).json({ error: "Failed to fetch component type" });
+    }
+  });
+  
+  app.post("/api/component-types", async (req, res) => {
+    try {
+      const data = insertComponentTypeSchema.parse(req.body);
+      const type = await storage.createComponentType(data);
+      res.status(201).json(type);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating component type:", error);
+        res.status(500).json({ error: "Failed to create component type" });
+      }
+    }
+  });
+  
+  app.patch("/api/component-types/:id", async (req, res) => {
+    try {
+      const updateData = insertComponentTypeSchema.partial().parse(req.body);
+      const updated = await storage.updateComponentType(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Component type not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating component type:", error);
+        res.status(500).json({ error: "Failed to update component type" });
+      }
+    }
+  });
+  
+  app.delete("/api/component-types/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteComponentType(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Component type not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting component type:", error);
+      res.status(500).json({ error: "Failed to delete component type" });
+    }
+  });
+  
+  // ===== HACT ARCHITECTURE - UNITS =====
+  app.get("/api/units", async (req, res) => {
+    try {
+      const propertyId = req.query.propertyId as string | undefined;
+      const unitsList = await storage.listUnits(propertyId);
+      res.json(unitsList);
+    } catch (error) {
+      console.error("Error fetching units:", error);
+      res.status(500).json({ error: "Failed to fetch units" });
+    }
+  });
+  
+  app.get("/api/units/:id", async (req, res) => {
+    try {
+      const unit = await storage.getUnit(req.params.id);
+      if (!unit) {
+        return res.status(404).json({ error: "Unit not found" });
+      }
+      res.json(unit);
+    } catch (error) {
+      console.error("Error fetching unit:", error);
+      res.status(500).json({ error: "Failed to fetch unit" });
+    }
+  });
+  
+  app.post("/api/units", async (req, res) => {
+    try {
+      const data = insertUnitSchema.parse(req.body);
+      const unit = await storage.createUnit(data);
+      res.status(201).json(unit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating unit:", error);
+        res.status(500).json({ error: "Failed to create unit" });
+      }
+    }
+  });
+  
+  app.patch("/api/units/:id", async (req, res) => {
+    try {
+      const updateData = insertUnitSchema.partial().parse(req.body);
+      const updated = await storage.updateUnit(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Unit not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating unit:", error);
+        res.status(500).json({ error: "Failed to update unit" });
+      }
+    }
+  });
+  
+  app.delete("/api/units/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteUnit(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Unit not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting unit:", error);
+      res.status(500).json({ error: "Failed to delete unit" });
+    }
+  });
+  
+  // ===== HACT ARCHITECTURE - COMPONENTS (ASSETS) =====
+  app.get("/api/components", async (req, res) => {
+    try {
+      const filters = {
+        propertyId: req.query.propertyId as string | undefined,
+        unitId: req.query.unitId as string | undefined,
+        blockId: req.query.blockId as string | undefined,
+        componentTypeId: req.query.componentTypeId as string | undefined,
+      };
+      const componentsList = await storage.listComponents(filters);
+      
+      // Enrich with component type info
+      const enriched = await Promise.all(componentsList.map(async (comp) => {
+        const type = await storage.getComponentType(comp.componentTypeId);
+        return { ...comp, componentType: type };
+      }));
+      
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching components:", error);
+      res.status(500).json({ error: "Failed to fetch components" });
+    }
+  });
+  
+  app.get("/api/components/:id", async (req, res) => {
+    try {
+      const component = await storage.getComponent(req.params.id);
+      if (!component) {
+        return res.status(404).json({ error: "Component not found" });
+      }
+      const type = await storage.getComponentType(component.componentTypeId);
+      res.json({ ...component, componentType: type });
+    } catch (error) {
+      console.error("Error fetching component:", error);
+      res.status(500).json({ error: "Failed to fetch component" });
+    }
+  });
+  
+  app.post("/api/components", async (req, res) => {
+    try {
+      const data = insertComponentSchema.parse(req.body);
+      const component = await storage.createComponent(data);
+      res.status(201).json(component);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating component:", error);
+        res.status(500).json({ error: "Failed to create component" });
+      }
+    }
+  });
+  
+  app.patch("/api/components/:id", async (req, res) => {
+    try {
+      const updateData = insertComponentSchema.partial().parse(req.body);
+      const updated = await storage.updateComponent(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Component not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating component:", error);
+        res.status(500).json({ error: "Failed to update component" });
+      }
+    }
+  });
+  
+  app.delete("/api/components/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteComponent(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Component not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting component:", error);
+      res.status(500).json({ error: "Failed to delete component" });
+    }
+  });
+  
+  // ===== DATA IMPORTS =====
+  app.get("/api/imports", async (req, res) => {
+    try {
+      const imports = await storage.listDataImports(ORG_ID);
+      res.json(imports);
+    } catch (error) {
+      console.error("Error fetching imports:", error);
+      res.status(500).json({ error: "Failed to fetch imports" });
+    }
+  });
+  
+  app.get("/api/imports/:id", async (req, res) => {
+    try {
+      const dataImport = await storage.getDataImport(req.params.id);
+      if (!dataImport) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+      const counts = await storage.getDataImportRowCounts(req.params.id);
+      res.json({ ...dataImport, ...counts });
+    } catch (error) {
+      console.error("Error fetching import:", error);
+      res.status(500).json({ error: "Failed to fetch import" });
+    }
+  });
+  
+  app.get("/api/imports/:id/rows", async (req, res) => {
+    try {
+      const rows = await storage.listDataImportRows(req.params.id);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching import rows:", error);
+      res.status(500).json({ error: "Failed to fetch import rows" });
+    }
+  });
+  
+  app.post("/api/imports", async (req, res) => {
+    try {
+      const data = insertDataImportSchema.parse({
+        ...req.body,
+        organisationId: ORG_ID,
+        uploadedById: "system",
+      });
+      const dataImport = await storage.createDataImport(data);
+      res.status(201).json(dataImport);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating import:", error);
+        res.status(500).json({ error: "Failed to create import" });
+      }
+    }
+  });
+  
+  app.patch("/api/imports/:id", async (req, res) => {
+    try {
+      const updateData = insertDataImportSchema.partial().parse(req.body);
+      const updated = await storage.updateDataImport(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating import:", error);
+        res.status(500).json({ error: "Failed to update import" });
+      }
+    }
+  });
+  
+  app.delete("/api/imports/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDataImport(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting import:", error);
+      res.status(500).json({ error: "Failed to delete import" });
+    }
+  });
+  
+  // ===== TSM BUILDING SAFETY REPORTS =====
+  app.get("/api/reports/tsm-building-safety", async (req, res) => {
+    try {
+      const period = req.query.period as string || 'current'; // 'current', 'previous', 'ytd'
+      const today = new Date();
+      
+      // Get all components and certificates for calculations
+      const allComponents = await storage.listComponents();
+      const allCertificates = await storage.listCertificates(ORG_ID);
+      const remedialActions = await storage.listRemedialActions(ORG_ID);
+      
+      // Get high-risk building safety components
+      const componentTypesData = await storage.listComponentTypes();
+      const highRiskTypes = componentTypesData.filter(t => t.isHighRisk || t.buildingSafetyRelevant);
+      const highRiskTypeIds = highRiskTypes.map(t => t.id);
+      
+      const highRiskComponents = allComponents.filter(c => highRiskTypeIds.includes(c.componentTypeId));
+      
+      // BS01: Building Safety Cases completed
+      // (Count of high-risk buildings with all required certificates up to date)
+      const buildingsWithCompliance = new Set();
+      allCertificates.forEach(cert => {
+        if (cert.expiryDate && new Date(cert.expiryDate) > today) {
+          buildingsWithCompliance.add(cert.propertyId);
+        }
+      });
+      
+      // BS02: Percentage of buildings with up-to-date Fire Risk Assessment
+      const fraType = componentTypesData.find(t => t.code === 'FIRE_RISK_ASSESSMENT' || t.relatedCertificateTypes?.includes('FIRE_RISK_ASSESSMENT'));
+      const fraCertificates = allCertificates.filter(c => c.certificateType === 'FIRE_RISK_ASSESSMENT');
+      const upToDateFRA = fraCertificates.filter(c => c.expiryDate && new Date(c.expiryDate) > today);
+      const bs02Percentage = fraCertificates.length > 0 ? (upToDateFRA.length / fraCertificates.length * 100) : 0;
+      
+      // BS03: Outstanding remedial actions on high-risk components
+      const outstandingActions = remedialActions.filter(a => 
+        a.status !== 'COMPLETED' && a.status !== 'CANCELLED'
+      );
+      
+      // BS04: Overdue safety inspections
+      const overdueInspections = allCertificates.filter(c => 
+        c.expiryDate && new Date(c.expiryDate) < today
+      );
+      
+      // BS05: Resident communication (placeholder - requires additional tracking)
+      const bs05ResidentComms = {
+        notified: 0,
+        pending: 0,
+        percentage: 0
+      };
+      
+      // BS06: Critical safety alerts
+      const criticalActions = remedialActions.filter(a => 
+        a.severity === 'IMMEDIATE' && a.status !== 'COMPLETED'
+      );
+      
+      res.json({
+        period,
+        reportDate: today.toISOString(),
+        metrics: {
+          BS01: {
+            name: "Building Safety Cases",
+            description: "Buildings with safety case reviews completed",
+            value: buildingsWithCompliance.size,
+            total: allComponents.length > 0 ? new Set(allComponents.map(c => c.propertyId || c.blockId)).size : 0,
+            unit: "buildings"
+          },
+          BS02: {
+            name: "Fire Risk Assessment Compliance",
+            description: "Percentage of buildings with up-to-date FRA",
+            value: Math.round(bs02Percentage * 10) / 10,
+            total: fraCertificates.length,
+            upToDate: upToDateFRA.length,
+            unit: "percent"
+          },
+          BS03: {
+            name: "Outstanding Remedial Actions",
+            description: "Remedial actions awaiting completion",
+            value: outstandingActions.length,
+            bySeverity: {
+              immediate: outstandingActions.filter(a => a.severity === 'IMMEDIATE').length,
+              urgent: outstandingActions.filter(a => a.severity === 'URGENT').length,
+              priority: outstandingActions.filter(a => a.severity === 'PRIORITY').length,
+              routine: outstandingActions.filter(a => a.severity === 'ROUTINE').length,
+            },
+            unit: "actions"
+          },
+          BS04: {
+            name: "Overdue Safety Inspections",
+            description: "Certificates past expiry date",
+            value: overdueInspections.length,
+            byType: Object.entries(
+              overdueInspections.reduce((acc, c) => {
+                acc[c.certificateType] = (acc[c.certificateType] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>)
+            ).map(([type, count]) => ({ type, count })),
+            unit: "inspections"
+          },
+          BS05: {
+            name: "Resident Safety Communication",
+            description: "Residents notified of safety information",
+            value: bs05ResidentComms.percentage,
+            notified: bs05ResidentComms.notified,
+            pending: bs05ResidentComms.pending,
+            unit: "percent"
+          },
+          BS06: {
+            name: "Critical Safety Alerts",
+            description: "Immediate severity actions outstanding",
+            value: criticalActions.length,
+            alerts: criticalActions.slice(0, 10).map(a => ({
+              id: a.id,
+              description: a.description,
+              propertyId: a.propertyId,
+              dueDate: a.dueDate
+            })),
+            unit: "alerts"
+          }
+        },
+        summary: {
+          totalHighRiskComponents: highRiskComponents.length,
+          totalCertificates: allCertificates.length,
+          totalRemedialActions: remedialActions.length,
+          complianceScore: allCertificates.length > 0 
+            ? Math.round((allCertificates.filter(c => c.expiryDate && new Date(c.expiryDate) > today).length / allCertificates.length) * 100)
+            : 0
+        }
+      });
+    } catch (error) {
+      console.error("Error generating TSM report:", error);
+      res.status(500).json({ error: "Failed to generate TSM Building Safety report" });
+    }
+  });
+  
+  // Get import templates
+  app.get("/api/imports/templates/:type", async (req, res) => {
+    try {
+      const type = req.params.type as string;
+      
+      const templates: Record<string, { columns: Array<{ name: string; required: boolean; description: string }> }> = {
+        properties: {
+          columns: [
+            { name: "uprn", required: true, description: "Unique Property Reference Number" },
+            { name: "addressLine1", required: true, description: "First line of address" },
+            { name: "addressLine2", required: false, description: "Second line of address" },
+            { name: "city", required: true, description: "City/Town" },
+            { name: "postcode", required: true, description: "Postcode" },
+            { name: "propertyType", required: true, description: "HOUSE, FLAT, BUNGALOW, MAISONETTE, BEDSIT, STUDIO" },
+            { name: "tenure", required: true, description: "SOCIAL_RENT, AFFORDABLE_RENT, SHARED_OWNERSHIP, LEASEHOLD, TEMPORARY" },
+            { name: "bedrooms", required: false, description: "Number of bedrooms" },
+            { name: "hasGas", required: false, description: "true/false" },
+            { name: "blockReference", required: true, description: "Block reference code to link property" },
+          ]
+        },
+        units: {
+          columns: [
+            { name: "propertyUprn", required: true, description: "UPRN of parent property" },
+            { name: "name", required: true, description: "Unit name (e.g., Kitchen, Communal Hall)" },
+            { name: "reference", required: false, description: "Unit reference code" },
+            { name: "unitType", required: true, description: "DWELLING, COMMUNAL_AREA, PLANT_ROOM, etc." },
+            { name: "floor", required: false, description: "Floor level (Ground, 1st, etc.)" },
+            { name: "description", required: false, description: "Description of the unit" },
+          ]
+        },
+        components: {
+          columns: [
+            { name: "propertyUprn", required: false, description: "UPRN of property (optional if unitReference provided)" },
+            { name: "unitReference", required: false, description: "Unit reference (optional if propertyUprn provided)" },
+            { name: "componentTypeCode", required: true, description: "Component type code (e.g., GAS_BOILER)" },
+            { name: "assetTag", required: false, description: "Physical asset label" },
+            { name: "serialNumber", required: false, description: "Manufacturer serial number" },
+            { name: "manufacturer", required: false, description: "Component manufacturer" },
+            { name: "model", required: false, description: "Component model" },
+            { name: "location", required: false, description: "Location within property/unit" },
+            { name: "installDate", required: false, description: "Installation date (YYYY-MM-DD)" },
+            { name: "condition", required: false, description: "GOOD, FAIR, POOR, CRITICAL" },
+          ]
+        }
+      };
+      
+      const template = templates[type];
+      if (!template) {
+        return res.status(404).json({ error: "Template type not found", availableTypes: Object.keys(templates) });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching import template:", error);
+      res.status(500).json({ error: "Failed to fetch import template" });
+    }
+  });
+  
+  // Download CSV template
+  app.get("/api/imports/templates/:type/download", async (req, res) => {
+    try {
+      const type = req.params.type as string;
+      const csvContent = generateCSVTemplate(type);
+      
+      if (!csvContent) {
+        return res.status(404).json({ error: "Template type not found" });
+      }
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=${type}-template.csv`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating CSV template:", error);
+      res.status(500).json({ error: "Failed to generate CSV template" });
+    }
+  });
+  
+  // Parse and validate import data (without committing)
+  app.post("/api/imports/:id/validate", async (req, res) => {
+    try {
+      const importId = req.params.id;
+      const dataImport = await storage.getDataImport(importId);
+      
+      if (!dataImport) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+      
+      const { csvContent } = req.body;
+      if (!csvContent) {
+        return res.status(400).json({ error: "CSV content is required" });
+      }
+      
+      const rows = parseCSV(csvContent);
+      if (rows.length === 0) {
+        return res.status(400).json({ error: "No data rows found in CSV" });
+      }
+      
+      await storage.updateDataImport(importId, { 
+        status: 'VALIDATING',
+        totalRows: rows.length 
+      });
+      
+      const { validRows, invalidRows } = await validateImportData(
+        importId,
+        dataImport.importType,
+        rows
+      );
+      
+      await storage.updateDataImport(importId, {
+        status: 'VALIDATED',
+        validRows: validRows.length,
+        invalidRows: invalidRows.length
+      });
+      
+      res.json({
+        importId,
+        totalRows: rows.length,
+        validRows: validRows.length,
+        invalidRows: invalidRows.length,
+        errors: invalidRows.map(r => ({
+          rowNumber: r.rowNumber,
+          errors: r.errors
+        }))
+      });
+    } catch (error) {
+      console.error("Error validating import:", error);
+      res.status(500).json({ error: "Failed to validate import" });
+    }
+  });
+  
+  // Execute import (commit validated data)
+  app.post("/api/imports/:id/execute", async (req, res) => {
+    try {
+      const importId = req.params.id;
+      const dataImport = await storage.getDataImport(importId);
+      
+      if (!dataImport) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+      
+      if (dataImport.status !== 'VALIDATED') {
+        return res.status(400).json({ error: "Import must be validated before execution" });
+      }
+      
+      await storage.updateDataImport(importId, { status: 'IMPORTING' });
+      
+      const rows = await storage.listDataImportRows(importId);
+      const validRows = rows.filter(r => r.status === 'VALID').map(r => ({
+        rowNumber: r.rowNumber,
+        data: r.sourceData as Record<string, any>,
+        errors: [],
+        isValid: true
+      }));
+      
+      let result;
+      switch (dataImport.importType.toUpperCase()) {
+        case 'PROPERTIES':
+          result = await processPropertyImport(importId, validRows, dataImport.upsertMode);
+          break;
+        case 'UNITS':
+          result = await processUnitImport(importId, validRows, dataImport.upsertMode);
+          break;
+        case 'COMPONENTS':
+          result = await processComponentImport(importId, validRows, dataImport.upsertMode);
+          break;
+        default:
+          return res.status(400).json({ error: `Unknown import type: ${dataImport.importType}` });
+      }
+      
+      await storage.updateDataImport(importId, {
+        status: result.success ? 'COMPLETED' : 'FAILED',
+        importedRows: result.importedRows,
+        completedAt: new Date(),
+        errorSummary: result.errors.length > 0 ? result.errors : null
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error executing import:", error);
+      res.status(500).json({ error: "Failed to execute import" });
     }
   });
   
