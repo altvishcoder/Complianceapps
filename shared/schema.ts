@@ -567,6 +567,30 @@ export const componentCertificates = pgTable("component_certificates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Video Library (demo/tutorial videos)
+export const videos = pgTable("videos", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  uploadedById: varchar("uploaded_by_id").references(() => users.id),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  duration: integer("duration"),
+  
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  storageKey: text("storage_key").notNull(),
+  thumbnailKey: text("thumbnail_key"),
+  
+  viewCount: integer("view_count").notNull().default(0),
+  downloadCount: integer("download_count").notNull().default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Data Imports (tracking CSV/Excel imports)
 export const dataImports = pgTable("data_imports", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -943,6 +967,10 @@ export type InsertDataImport = z.infer<typeof insertDataImportSchema>;
 
 export type DataImportRow = typeof dataImportRows.$inferSelect;
 export type InsertDataImportRow = z.infer<typeof insertDataImportRowSchema>;
+
+export const insertVideoSchema = createInsertSchema(videos).omit({ id: true, createdAt: true, updatedAt: true, viewCount: true, downloadCount: true });
+export type Video = typeof videos.$inferSelect;
+export type InsertVideo = z.infer<typeof insertVideoSchema>;
 
 // ==========================================
 // API MONITORING & INTEGRATIONS
