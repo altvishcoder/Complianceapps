@@ -26,7 +26,6 @@ import AdminImportsPage from "@/pages/admin/imports";
 import AdminTestSuite from "@/pages/admin/tests";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
-import DomainRulesPage from "@/pages/domain-rules";
 import ComponentsPage from "@/pages/components";
 
 import LandingPage from "@/pages/landing";
@@ -56,7 +55,7 @@ function Router() {
       <Route path="/admin/tests" component={AdminTestSuite} />
       <Route path="/model-insights" component={ModelInsightsPage} />
       <Route path="/human-review" component={HumanReviewPage} />
-      <Route path="/domain-rules" component={DomainRulesPage} />
+      <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
       <Route path="/components" component={ComponentsPage} />
       
       <Route component={NotFound} />
