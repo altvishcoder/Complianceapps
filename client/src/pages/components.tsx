@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,15 +100,19 @@ export default function ComponentsPage() {
   };
   
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Components & Assets</h1>
-          <p className="text-muted-foreground">
-            Manage equipment, appliances, and building components
-          </p>
-        </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+    <div className="flex h-screen bg-muted/30">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Components & Assets" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Components & Assets</h1>
+              <p className="text-muted-foreground">
+                Manage equipment, appliances, and building components
+              </p>
+            </div>
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-component">
               <Plus className="h-4 w-4 mr-2" />
@@ -381,6 +387,8 @@ export default function ComponentsPage() {
           )}
         </CardContent>
       </Card>
+        </main>
+      </div>
     </div>
   );
 }
