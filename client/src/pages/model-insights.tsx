@@ -195,7 +195,7 @@ export default function ModelInsightsPage() {
           <div className="grid grid-cols-4 gap-4">
             <MetricCard
               title="Overall Accuracy"
-              value={`${(insights.accuracy.overall * 100).toFixed(1)}%`}
+              value={`${insights.accuracy.overall.toFixed(1)}%`}
               trend={insights.accuracy.trend}
               icon={Target}
             />
