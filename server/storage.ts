@@ -6,6 +6,7 @@ import {
   certificateTypes, classificationCodes,
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
+  videos,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -32,7 +33,8 @@ import {
   type WebhookEvent, type InsertWebhookEvent,
   type WebhookDelivery, type InsertWebhookDelivery,
   type IncomingWebhookLog, type InsertIncomingWebhookLog,
-  type ApiKey, type InsertApiKey
+  type ApiKey, type InsertApiKey,
+  type Video, type InsertVideo
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte } from "drizzle-orm";
@@ -219,6 +221,15 @@ export interface IStorage {
   createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
   updateApiKey(id: string, updates: Partial<ApiKey>): Promise<ApiKey | undefined>;
   deleteApiKey(id: string): Promise<boolean>;
+  
+  // Videos
+  listVideos(organisationId: string): Promise<Video[]>;
+  getVideo(id: string): Promise<Video | undefined>;
+  createVideo(video: InsertVideo): Promise<Video>;
+  updateVideo(id: string, updates: Partial<InsertVideo>): Promise<Video | undefined>;
+  deleteVideo(id: string): Promise<boolean>;
+  incrementVideoView(id: string): Promise<void>;
+  incrementVideoDownload(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1310,6 +1321,48 @@ export class DatabaseStorage implements IStorage {
   async deleteApiKey(id: string): Promise<boolean> {
     const result = await db.delete(apiKeys).where(eq(apiKeys.id, id)).returning();
     return result.length > 0;
+  }
+  
+  // Videos
+  async listVideos(organisationId: string): Promise<Video[]> {
+    return db.select().from(videos)
+      .where(eq(videos.organisationId, organisationId))
+      .orderBy(desc(videos.createdAt));
+  }
+  
+  async getVideo(id: string): Promise<Video | undefined> {
+    const [video] = await db.select().from(videos).where(eq(videos.id, id));
+    return video || undefined;
+  }
+  
+  async createVideo(video: InsertVideo): Promise<Video> {
+    const [created] = await db.insert(videos).values(video).returning();
+    return created;
+  }
+  
+  async updateVideo(id: string, updates: Partial<InsertVideo>): Promise<Video | undefined> {
+    const [updated] = await db.update(videos)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(videos.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteVideo(id: string): Promise<boolean> {
+    const result = await db.delete(videos).where(eq(videos.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  async incrementVideoView(id: string): Promise<void> {
+    await db.update(videos)
+      .set({ viewCount: sql`${videos.viewCount} + 1` })
+      .where(eq(videos.id, id));
+  }
+  
+  async incrementVideoDownload(id: string): Promise<void> {
+    await db.update(videos)
+      .set({ downloadCount: sql`${videos.downloadCount} + 1` })
+      .where(eq(videos.id, id));
   }
 }
 
