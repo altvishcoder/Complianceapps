@@ -2373,5 +2373,442 @@ export async function registerRoutes(
     }
   });
   
+  // ===== API MONITORING & INTEGRATIONS =====
+  
+  // API Logs
+  app.get("/api/admin/api-logs", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const logs = await storage.listApiLogs(limit, offset);
+      const stats = await storage.getApiLogStats();
+      res.json({ logs, stats });
+    } catch (error) {
+      console.error("Error fetching API logs:", error);
+      res.status(500).json({ error: "Failed to fetch API logs" });
+    }
+  });
+  
+  // API Metrics
+  app.get("/api/admin/api-metrics", async (req, res) => {
+    try {
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      const metrics = await storage.listApiMetrics(startDate, endDate);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching API metrics:", error);
+      res.status(500).json({ error: "Failed to fetch API metrics" });
+    }
+  });
+  
+  // Webhook Endpoints
+  app.get("/api/admin/webhooks", async (req, res) => {
+    try {
+      const webhooks = await storage.listWebhookEndpoints(ORG_ID);
+      res.json(webhooks);
+    } catch (error) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ error: "Failed to fetch webhooks" });
+    }
+  });
+  
+  app.post("/api/admin/webhooks", async (req, res) => {
+    try {
+      const { name, url, authType, authValue, headers, events, retryCount, timeoutMs } = req.body;
+      
+      if (!name || !url || !events || events.length === 0) {
+        return res.status(400).json({ error: "Name, URL, and at least one event are required" });
+      }
+      
+      const webhook = await storage.createWebhookEndpoint({
+        organisationId: ORG_ID,
+        name,
+        url,
+        authType: authType || 'NONE',
+        authValue,
+        headers,
+        events,
+        retryCount: retryCount || 3,
+        timeoutMs: timeoutMs || 30000,
+      });
+      
+      res.status(201).json(webhook);
+    } catch (error) {
+      console.error("Error creating webhook:", error);
+      res.status(500).json({ error: "Failed to create webhook" });
+    }
+  });
+  
+  app.patch("/api/admin/webhooks/:id", async (req, res) => {
+    try {
+      const webhook = await storage.updateWebhookEndpoint(req.params.id, req.body);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      res.json(webhook);
+    } catch (error) {
+      console.error("Error updating webhook:", error);
+      res.status(500).json({ error: "Failed to update webhook" });
+    }
+  });
+  
+  app.delete("/api/admin/webhooks/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteWebhookEndpoint(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ error: "Failed to delete webhook" });
+    }
+  });
+  
+  // Test webhook
+  app.post("/api/admin/webhooks/:id/test", async (req, res) => {
+    try {
+      const webhook = await storage.getWebhookEndpoint(req.params.id);
+      if (!webhook) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      const testPayload = {
+        event: 'test',
+        timestamp: new Date().toISOString(),
+        data: {
+          message: 'This is a test webhook delivery from ComplianceAI'
+        }
+      };
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Webhook-Source': 'ComplianceAI',
+        ...(webhook.headers as Record<string, string> || {})
+      };
+      
+      if (webhook.authType === 'API_KEY' && webhook.authValue) {
+        headers['X-API-Key'] = webhook.authValue;
+      } else if (webhook.authType === 'BEARER' && webhook.authValue) {
+        headers['Authorization'] = `Bearer ${webhook.authValue}`;
+      }
+      
+      const startTime = Date.now();
+      
+      try {
+        const response = await fetch(webhook.url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(testPayload),
+          signal: AbortSignal.timeout(webhook.timeoutMs)
+        });
+        
+        const duration = Date.now() - startTime;
+        const responseText = await response.text();
+        
+        res.json({
+          success: response.ok,
+          status: response.status,
+          duration,
+          responsePreview: responseText.substring(0, 500)
+        });
+      } catch (fetchError: any) {
+        const duration = Date.now() - startTime;
+        res.json({
+          success: false,
+          status: 0,
+          duration,
+          error: fetchError.message || 'Connection failed'
+        });
+      }
+    } catch (error) {
+      console.error("Error testing webhook:", error);
+      res.status(500).json({ error: "Failed to test webhook" });
+    }
+  });
+  
+  // Webhook Deliveries
+  app.get("/api/admin/webhook-deliveries", async (req, res) => {
+    try {
+      const webhookId = req.query.webhookId as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const deliveries = await storage.listWebhookDeliveries(webhookId, limit);
+      res.json(deliveries);
+    } catch (error) {
+      console.error("Error fetching webhook deliveries:", error);
+      res.status(500).json({ error: "Failed to fetch webhook deliveries" });
+    }
+  });
+  
+  // Webhook Events
+  app.get("/api/admin/webhook-events", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const events = await storage.listWebhookEvents(limit);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching webhook events:", error);
+      res.status(500).json({ error: "Failed to fetch webhook events" });
+    }
+  });
+  
+  // Incoming Webhook Logs
+  app.get("/api/admin/incoming-webhooks", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.listIncomingWebhookLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching incoming webhooks:", error);
+      res.status(500).json({ error: "Failed to fetch incoming webhooks" });
+    }
+  });
+  
+  // API Keys
+  app.get("/api/admin/api-keys", async (req, res) => {
+    try {
+      const keys = await storage.listApiKeys(ORG_ID);
+      res.json(keys.map(k => ({ ...k, keyHash: undefined })));
+    } catch (error) {
+      console.error("Error fetching API keys:", error);
+      res.status(500).json({ error: "Failed to fetch API keys" });
+    }
+  });
+  
+  app.post("/api/admin/api-keys", async (req, res) => {
+    try {
+      const { name, scopes, expiresAt } = req.body;
+      
+      if (!name || !scopes || scopes.length === 0) {
+        return res.status(400).json({ error: "Name and at least one scope are required" });
+      }
+      
+      const rawKey = `cai_${crypto.randomUUID().replace(/-/g, '')}`;
+      const keyPrefix = rawKey.substring(0, 12);
+      const keyHash = await hashApiKey(rawKey);
+      
+      const apiKey = await storage.createApiKey({
+        organisationId: ORG_ID,
+        name,
+        keyHash,
+        keyPrefix,
+        scopes,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        isActive: true
+      });
+      
+      res.status(201).json({ 
+        ...apiKey, 
+        keyHash: undefined,
+        key: rawKey
+      });
+    } catch (error) {
+      console.error("Error creating API key:", error);
+      res.status(500).json({ error: "Failed to create API key" });
+    }
+  });
+  
+  app.delete("/api/admin/api-keys/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteApiKey(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting API key:", error);
+      res.status(500).json({ error: "Failed to delete API key" });
+    }
+  });
+  
+  // ===== INCOMING INTEGRATION ENDPOINTS (HMS) =====
+  
+  // Receive action updates from Housing Management System
+  app.post("/api/integrations/hms/actions", async (req, res) => {
+    try {
+      const apiKey = req.headers['x-api-key'] as string;
+      
+      const log = await storage.createIncomingWebhookLog({
+        source: 'HMS',
+        eventType: req.body.eventType || 'action_update',
+        payload: req.body,
+        headers: req.headers as any
+      });
+      
+      const { actionId, status, notes, completedAt, costActual } = req.body;
+      
+      if (!actionId) {
+        await storage.updateIncomingWebhookLog(log.id, { 
+          errorMessage: 'Missing actionId',
+          processed: true,
+          processedAt: new Date()
+        });
+        return res.status(400).json({ error: "actionId is required" });
+      }
+      
+      const action = await storage.getRemedialAction(actionId);
+      if (!action) {
+        await storage.updateIncomingWebhookLog(log.id, { 
+          errorMessage: 'Action not found',
+          processed: true,
+          processedAt: new Date()
+        });
+        return res.status(404).json({ error: "Remedial action not found" });
+      }
+      
+      const updates: any = {};
+      if (status) updates.status = status;
+      if (completedAt) updates.resolvedAt = new Date(completedAt);
+      if (costActual) updates.costEstimate = costActual.toString();
+      
+      await storage.updateRemedialAction(actionId, updates);
+      
+      await storage.updateIncomingWebhookLog(log.id, { 
+        processed: true,
+        processedAt: new Date()
+      });
+      
+      res.json({ success: true, actionId, updates });
+    } catch (error) {
+      console.error("Error processing HMS webhook:", error);
+      res.status(500).json({ error: "Failed to process webhook" });
+    }
+  });
+  
+  // Receive work order confirmations from HMS
+  app.post("/api/integrations/hms/work-orders", async (req, res) => {
+    try {
+      const log = await storage.createIncomingWebhookLog({
+        source: 'HMS',
+        eventType: 'work_order_update',
+        payload: req.body,
+        headers: req.headers as any
+      });
+      
+      const { workOrderId, actionId, status, scheduledDate, assignedContractor } = req.body;
+      
+      if (!actionId) {
+        await storage.updateIncomingWebhookLog(log.id, { 
+          errorMessage: 'Missing actionId',
+          processed: true,
+          processedAt: new Date()
+        });
+        return res.status(400).json({ error: "actionId is required" });
+      }
+      
+      const updates: any = {};
+      if (status === 'scheduled' || status === 'in_progress') {
+        updates.status = 'IN_PROGRESS';
+      } else if (status === 'completed') {
+        updates.status = 'COMPLETED';
+        updates.resolvedAt = new Date();
+      }
+      if (scheduledDate) {
+        updates.dueDate = scheduledDate;
+      }
+      
+      await storage.updateRemedialAction(actionId, updates);
+      
+      await storage.updateIncomingWebhookLog(log.id, { 
+        processed: true,
+        processedAt: new Date()
+      });
+      
+      res.json({ success: true, actionId, workOrderId, updates });
+    } catch (error) {
+      console.error("Error processing work order webhook:", error);
+      res.status(500).json({ error: "Failed to process webhook" });
+    }
+  });
+  
+  // ===== API DOCUMENTATION ENDPOINT =====
+  app.get("/api/admin/openapi", (req, res) => {
+    const openApiSpec = {
+      openapi: "3.0.3",
+      info: {
+        title: "ComplianceAI API",
+        version: "1.0.0",
+        description: "API for UK Social Housing Compliance Management"
+      },
+      servers: [
+        { url: "/api", description: "API Server" }
+      ],
+      paths: {
+        "/schemes": { get: { summary: "List schemes", tags: ["Schemes"] } },
+        "/blocks": { get: { summary: "List blocks", tags: ["Blocks"] } },
+        "/properties": { get: { summary: "List properties", tags: ["Properties"] } },
+        "/certificates": { get: { summary: "List certificates", tags: ["Certificates"] } },
+        "/actions": { get: { summary: "List remedial actions", tags: ["Actions"] } },
+        "/contractors": { get: { summary: "List contractors", tags: ["Contractors"] } },
+        "/integrations/hms/actions": {
+          post: {
+            summary: "Receive action updates from HMS",
+            tags: ["Integrations"],
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["actionId"],
+                    properties: {
+                      actionId: { type: "string", description: "Remedial action ID" },
+                      status: { type: "string", enum: ["OPEN", "IN_PROGRESS", "SCHEDULED", "COMPLETED", "CANCELLED"] },
+                      notes: { type: "string" },
+                      completedAt: { type: "string", format: "date-time" },
+                      costActual: { type: "number" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/integrations/hms/work-orders": {
+          post: {
+            summary: "Receive work order confirmations from HMS",
+            tags: ["Integrations"],
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["actionId"],
+                    properties: {
+                      workOrderId: { type: "string" },
+                      actionId: { type: "string" },
+                      status: { type: "string", enum: ["scheduled", "in_progress", "completed", "cancelled"] },
+                      scheduledDate: { type: "string", format: "date" },
+                      assignedContractor: { type: "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      components: {
+        securitySchemes: {
+          ApiKeyAuth: {
+            type: "apiKey",
+            in: "header",
+            name: "X-API-Key"
+          }
+        }
+      }
+    };
+    res.json(openApiSpec);
+  });
+  
   return httpServer;
+}
+
+// Helper function to hash API keys
+async function hashApiKey(key: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(key);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
