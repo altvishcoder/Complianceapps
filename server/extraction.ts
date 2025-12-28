@@ -1051,6 +1051,7 @@ export async function processExtractionAndSave(
       ADVISORY: "ADVISORY"
     };
 
+    console.log(`[DEBUG] Processing ${result.remedialActions.length} remedial actions for cert ${certificateId}`);
     for (const action of result.remedialActions) {
       const daysToAdd = action.severity === "IMMEDIATE" ? 1 : 
                         action.severity === "URGENT" ? 7 : 
@@ -1068,9 +1069,16 @@ export async function processExtractionAndSave(
         costEstimate: action.costEstimate
       });
     }
+    console.log(`[DEBUG] Remedial actions created, now creating components`);
 
     // Auto-create component with pending verification based on certificate type
-    await autoCreateComponentFromCertificate(certificate, certificateType, result.extractedData);
+    console.log(`[DEBUG] About to call autoCreateComponentFromCertificate for cert ${certificateId}`);
+    try {
+      await autoCreateComponentFromCertificate(certificate, certificateType, result.extractedData);
+      console.log(`[DEBUG] autoCreateComponentFromCertificate completed for cert ${certificateId}`);
+    } catch (compErr) {
+      console.error(`[DEBUG] autoCreateComponentFromCertificate failed:`, compErr);
+    }
     
     // Auto-create/update contractor from engineer info
     await autoCreateContractorFromExtraction(certificate.organisationId, result.extractedData);
