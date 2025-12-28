@@ -44,7 +44,8 @@ export default function Configuration() {
 
   useEffect(() => {
     const role = localStorage.getItem("user_role");
-    if (role === "super_admin" || role === "SUPER_ADMIN") {
+    if (role === "super_admin" || role === "SUPER_ADMIN" || 
+        role === "compliance_manager" || role === "COMPLIANCE_MANAGER") {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);
