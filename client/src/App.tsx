@@ -30,6 +30,7 @@ import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
 
 import LandingPage from "@/pages/landing";
+import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 
 function Router() {
   return (
@@ -70,6 +71,7 @@ function AppContent() {
   return (
     <>
       <Toaster />
+      <KeyboardShortcutsDialog />
       <Router />
     </>
   );

@@ -1,4 +1,4 @@
-import { Bell, Search, Settings, Command } from "lucide-react";
+import { Bell, Search, Settings, Command, HelpCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,19 @@ export function Header({ title }: { title: string }) {
           aria-label="Settings"
         >
           <Settings className="h-5 w-5" aria-hidden="true" />
+        </Button>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-10 w-10"
+          aria-label="Keyboard shortcuts help"
+          data-testid="button-keyboard-help"
+          onClick={() => {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
+          }}
+        >
+          <HelpCircle className="h-5 w-5" aria-hidden="true" />
         </Button>
         
         <div className="flex items-center gap-3 pl-3 ml-1 border-l border-border/50">
