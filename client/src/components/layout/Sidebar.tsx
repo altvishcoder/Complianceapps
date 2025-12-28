@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -22,11 +23,14 @@ import {
   FlaskConical,
   Shield,
   Webhook,
-  Film
+  Film,
+  Menu,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { actionsApi, certificatesApi } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -61,12 +65,18 @@ const configurationNav = [
 
 export function Sidebar() {
   const [location, setLocation] = useLocation();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   
   const userRole = typeof window !== 'undefined' ? localStorage.getItem("user_role") : null;
   const isAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
   const isComplianceManager = userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER";
   const canAccessAITools = isAdmin || isComplianceManager;
-  const canAccessAdminPanel = isAdmin || isComplianceManager; // Both see Admin Panel, but different items
+  const canAccessAdminPanel = isAdmin || isComplianceManager;
+  
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location]);
   
   const { data: actions = [], isError: actionsError } = useQuery({
     queryKey: ["actions"],
@@ -89,10 +99,35 @@ export function Sidebar() {
   }).length;
 
   return (
-    <aside 
-      className="flex h-screen w-72 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white border-r border-white/5"
-      aria-label="Main navigation"
-    >
+    <>
+      {/* Mobile menu button - fixed position */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed top-4 left-4 z-50 lg:hidden bg-slate-900 text-white hover:bg-slate-800 shadow-lg"
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        aria-label={isMobileOpen ? "Close menu" : "Open menu"}
+        data-testid="button-mobile-menu"
+      >
+        {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </Button>
+      
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      
+      <aside 
+        className={cn(
+          "fixed lg:relative z-40 flex h-screen w-72 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white border-r border-white/5 transition-transform duration-300 ease-in-out",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+        aria-label="Main navigation"
+      >
       <div className="flex h-20 items-center px-6 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="relative" aria-hidden="true">
@@ -318,5 +353,6 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

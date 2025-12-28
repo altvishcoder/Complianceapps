@@ -253,7 +253,7 @@ export default function ModelInsightsPage() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 pt-16 lg:pt-4 lg:p-8">
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
@@ -274,37 +274,43 @@ export default function ModelInsightsPage() {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8 space-y-6">
-          <div className="flex justify-between items-start">
+        <div className="p-4 pt-16 lg:pt-8 lg:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Brain className="w-7 h-7" />
+              <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
+                <Brain className="w-6 h-6 lg:w-7 lg:h-7" />
                 Model Insights
               </h1>
-              <p className="text-muted-foreground">Track extraction quality and identify improvements</p>
+              <p className="text-sm lg:text-base text-muted-foreground">Track extraction quality and identify improvements</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant="outline" 
+                size="sm"
+                className="lg:size-default"
                 onClick={() => exportMutation.mutate()}
                 disabled={exportMutation.isPending}
                 data-testid="button-export-training"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export Training Data
+                <span className="hidden sm:inline">Export Training Data</span>
+                <span className="sm:hidden">Export</span>
               </Button>
               <Button 
+                size="sm"
+                className="lg:size-default"
                 onClick={() => runBenchmarkMutation.mutate()}
                 disabled={runBenchmarkMutation.isPending}
                 data-testid="button-run-benchmark"
               >
                 <Play className="w-4 h-4 mr-2" />
-                Run Benchmark
+                <span className="hidden sm:inline">Run Benchmark</span>
+                <span className="sm:hidden">Benchmark</span>
               </Button>
             </div>
           </div>
           
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
             <MetricCard
               title="Overall Accuracy"
               value={`${insights.accuracy.overall.toFixed(1)}%`}
@@ -333,7 +339,7 @@ export default function ModelInsightsPage() {
             />
           </div>
           
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <Card className="col-span-1">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Extraction Pipeline</CardTitle>
@@ -362,18 +368,28 @@ export default function ModelInsightsPage() {
               </CardContent>
             </Card>
             
-            <Card className="col-span-4">
+            <Card className="col-span-1 lg:col-span-4">
               <Tabs defaultValue="accuracy">
-                <CardHeader className="pb-0">
-                  <TabsList>
-                    <TabsTrigger value="ai-suggestions" className="gap-1">
-                      <Lightbulb className="w-4 h-4" />
-                      AI Suggestions
+                <CardHeader className="pb-0 overflow-x-auto">
+                  <TabsList className="w-full flex-wrap h-auto gap-1 lg:flex-nowrap">
+                    <TabsTrigger value="ai-suggestions" className="gap-1 text-xs lg:text-sm">
+                      <Lightbulb className="w-3 h-3 lg:w-4 lg:h-4" />
+                      <span className="hidden sm:inline">AI Suggestions</span>
+                      <span className="sm:hidden">AI</span>
                     </TabsTrigger>
-                    <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
-                    <TabsTrigger value="errors">Error Analysis</TabsTrigger>
-                    <TabsTrigger value="improvements">Improvements</TabsTrigger>
-                    <TabsTrigger value="benchmarks">Benchmarks</TabsTrigger>
+                    <TabsTrigger value="accuracy" className="text-xs lg:text-sm">Accuracy</TabsTrigger>
+                    <TabsTrigger value="errors" className="text-xs lg:text-sm">
+                      <span className="hidden sm:inline">Error Analysis</span>
+                      <span className="sm:hidden">Errors</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="improvements" className="text-xs lg:text-sm">
+                      <span className="hidden sm:inline">Improvements</span>
+                      <span className="sm:hidden">Improve</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="benchmarks" className="text-xs lg:text-sm">
+                      <span className="hidden sm:inline">Benchmarks</span>
+                      <span className="sm:hidden">Bench</span>
+                    </TabsTrigger>
                   </TabsList>
                 </CardHeader>
                 <CardContent className="pt-4">
@@ -385,7 +401,7 @@ export default function ModelInsightsPage() {
                         </div>
                       ) : suggestionsData?.suggestions && suggestionsData.suggestions.length > 0 ? (
                         <>
-                          <div className="grid grid-cols-4 gap-3 mb-4">
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                             <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
                               <CardContent className="pt-4 pb-3">
                                 <div className="text-sm text-emerald-700">Confidence</div>
