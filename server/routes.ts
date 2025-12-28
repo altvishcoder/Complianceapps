@@ -205,6 +205,13 @@ export async function registerRoutes(
       const scheme = block ? await storage.getScheme(block.schemeId) : null;
       const certificates = await storage.listCertificates(ORG_ID, { propertyId: property.id });
       const actions = await storage.listRemedialActions(ORG_ID, { propertyId: property.id });
+      const componentsList = await storage.listComponents({ propertyId: property.id });
+      
+      // Enrich components with type info
+      const components = await Promise.all(componentsList.map(async (comp) => {
+        const type = await storage.getComponentType(comp.componentTypeId);
+        return { ...comp, componentType: type };
+      }));
       
       res.json({
         ...property,
@@ -212,6 +219,7 @@ export async function registerRoutes(
         scheme,
         certificates,
         actions,
+        components,
       });
     } catch (error) {
       console.error("Error fetching property:", error);
@@ -1915,7 +1923,7 @@ export async function registerRoutes(
       }
       let approved = 0;
       for (const id of ids) {
-        const updated = await storage.updateComponent(id, { condition: "GOOD", isActive: true });
+        const updated = await storage.updateComponent(id, { needsVerification: false, isActive: true });
         if (updated) approved++;
       }
       res.json({ success: true, approved });

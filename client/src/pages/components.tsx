@@ -12,9 +12,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { componentsApi, componentTypesApi, propertiesApi } from "@/lib/api";
-import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { componentsApi, componentTypesApi, propertiesApi, type EnrichedComponent } from "@/lib/api";
+import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import type { InsertComponent } from "@shared/schema";
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -31,6 +32,8 @@ export default function ComponentsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newComponent, setNewComponent] = useState<Partial<InsertComponent>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingComponent, setEditingComponent] = useState<EnrichedComponent | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<InsertComponent>>({});
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -68,6 +71,40 @@ export default function ComponentsPage() {
       queryClient.invalidateQueries({ queryKey: ["components"] });
     },
   });
+  
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InsertComponent> }) => {
+      // Filter out empty strings to prevent validation errors
+      const cleanData: Partial<InsertComponent> = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== "" && value !== undefined) {
+          (cleanData as any)[key] = value;
+        }
+      }
+      return componentsApi.update(id, cleanData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["components"] });
+      setEditingComponent(null);
+      setEditFormData({});
+      toast({ title: "Component Updated", description: "Component details saved successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const openEditDialog = (comp: EnrichedComponent) => {
+    setEditingComponent(comp);
+    setEditFormData({
+      manufacturer: comp.manufacturer || "",
+      model: comp.model || "",
+      location: comp.location || "",
+      condition: comp.condition || "",
+      assetTag: comp.assetTag || "",
+      serialNumber: comp.serialNumber || "",
+    });
+  };
   
   const bulkApproveMutation = useMutation({
     mutationFn: componentsApi.bulkApprove,
@@ -443,9 +480,9 @@ export default function ComponentsPage() {
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm">
                       {comp.property ? (
-                        <span title={`${comp.property.addressLine1}, ${comp.property.postcode}`}>
-                          {comp.property.addressLine1?.substring(0, 30)}{comp.property.addressLine1?.length > 30 ? '...' : ''}
-                        </span>
+                        <Link href={`/properties/${comp.property.id}`} className="text-blue-600 hover:underline" title={`${comp.property.addressLine1}, ${comp.property.postcode}`}>
+                          {comp.property.addressLine1?.substring(0, 30)}{comp.property.addressLine1 && comp.property.addressLine1.length > 30 ? '...' : ''}
+                        </Link>
                       ) : (
                         <span className="text-muted-foreground">Not linked</span>
                       )}
@@ -481,7 +518,15 @@ export default function ComponentsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(comp)}
+                        data-testid={`edit-component-${comp.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -501,6 +546,112 @@ export default function ComponentsPage() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Edit Component Dialog */}
+      <Dialog open={!!editingComponent} onOpenChange={(open) => !open && setEditingComponent(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Component</DialogTitle>
+            <DialogDescription>
+              {editingComponent?.componentType?.name || "Unknown Type"} - Update component details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            {editingComponent?.property && (
+              <div className="bg-muted/50 p-3 rounded-md">
+                <Label className="text-xs text-muted-foreground">Linked Property</Label>
+                <p className="font-medium">{editingComponent.property.addressLine1}, {editingComponent.property.postcode}</p>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-manufacturer">Manufacturer</Label>
+                <Input
+                  id="edit-manufacturer"
+                  value={editFormData.manufacturer || ""}
+                  onChange={(e) => setEditFormData({ ...editFormData, manufacturer: e.target.value })}
+                  placeholder="e.g., Worcester Bosch"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-model">Model</Label>
+                <Input
+                  id="edit-model"
+                  value={editFormData.model || ""}
+                  onChange={(e) => setEditFormData({ ...editFormData, model: e.target.value })}
+                  placeholder="e.g., Greenstar 30i"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-serial">Serial Number</Label>
+                <Input
+                  id="edit-serial"
+                  value={editFormData.serialNumber || ""}
+                  onChange={(e) => setEditFormData({ ...editFormData, serialNumber: e.target.value })}
+                  placeholder="Serial number"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-asset-tag">Asset Tag</Label>
+                <Input
+                  id="edit-asset-tag"
+                  value={editFormData.assetTag || ""}
+                  onChange={(e) => setEditFormData({ ...editFormData, assetTag: e.target.value })}
+                  placeholder="Asset tag"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-location">Location</Label>
+              <Input
+                id="edit-location"
+                value={editFormData.location || ""}
+                onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                placeholder="e.g., Kitchen, Ground Floor"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-condition">Condition</Label>
+              <Select
+                value={editFormData.condition || ""}
+                onValueChange={(v) => setEditFormData({ ...editFormData, condition: v })}
+              >
+                <SelectTrigger id="edit-condition">
+                  <SelectValue placeholder="Select condition" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GOOD">Good</SelectItem>
+                  <SelectItem value="FAIR">Fair</SelectItem>
+                  <SelectItem value="POOR">Poor</SelectItem>
+                  <SelectItem value="CRITICAL">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingComponent(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (editingComponent?.id) {
+                  updateMutation.mutate({ id: editingComponent.id, data: editFormData });
+                }
+              }}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
         </main>
       </div>
     </div>

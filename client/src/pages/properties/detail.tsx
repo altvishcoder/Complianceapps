@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft, Wrench } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +24,7 @@ export default function PropertyDetail() {
   
   const certificates = property.certificates || [];
   const actions = property.actions || [];
+  const components = property.components || [];
   const block = property.block;
   const scheme = property.scheme;
 
@@ -112,6 +113,7 @@ export default function PropertyDetail() {
                 <Tabs defaultValue="certificates" className="w-full">
                   <TabsList className="w-full justify-start">
                     <TabsTrigger value="certificates">Certificates</TabsTrigger>
+                    <TabsTrigger value="components">Components</TabsTrigger>
                     <TabsTrigger value="actions">Remedial Actions</TabsTrigger>
                     <TabsTrigger value="history">Audit History</TabsTrigger>
                   </TabsList>
@@ -143,6 +145,50 @@ export default function PropertyDetail() {
                                             {cert.outcome}
                                          </Badge>
                                          <Button size="sm" variant="ghost">View</Button>
+                                      </div>
+                                   </div>
+                                ))
+                             )}
+                          </div>
+                       </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="components" className="mt-4">
+                    <Card>
+                       <CardHeader>
+                          <CardTitle>Asset Components</CardTitle>
+                          <CardDescription>Equipment and assets linked to this property.</CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                          <div className="space-y-4">
+                             {components.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">No components found for this property.</div>
+                             ) : (
+                                components.map((comp: any) => (
+                                   <div key={comp.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/10 transition-colors">
+                                      <div className="flex items-center gap-4">
+                                         <div className="h-10 w-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                                            <Wrench className="h-5 w-5" />
+                                         </div>
+                                         <div>
+                                            <div className="font-medium">{comp.componentType?.name ?? "Unknown Component"}</div>
+                                            <div className="text-sm text-muted-foreground">
+                                              {comp.manufacturer && <span>{comp.manufacturer}</span>}
+                                              {comp.model && <span> / {comp.model}</span>}
+                                              {comp.location && <span> • {comp.location}</span>}
+                                            </div>
+                                         </div>
+                                      </div>
+                                      <div className="flex items-center gap-4">
+                                         {comp.needsVerification ? (
+                                           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Pending Review</Badge>
+                                         ) : (
+                                           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Verified</Badge>
+                                         )}
+                                         <Link href="/components">
+                                           <Button size="sm" variant="ghost">View All</Button>
+                                         </Link>
                                       </div>
                                    </div>
                                 ))
@@ -200,7 +246,7 @@ export default function PropertyDetail() {
                                       <div className="h-2 w-2 bg-muted-foreground rounded-full" />
                                    </div>
                                    <div className="text-sm font-medium">Certificate Uploaded: {cert.certificateType}</div>
-                                   <div className="text-xs text-muted-foreground">{new Date(cert.uploadedAt).toLocaleDateString()} • System User</div>
+                                   <div className="text-xs text-muted-foreground">{new Date(cert.createdAt).toLocaleDateString()} • System User</div>
                                 </div>
                              ))}
                           </div>

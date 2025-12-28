@@ -55,6 +55,7 @@ export interface EnrichedProperty extends Property {
   fullAddress?: string;
   certificates?: Certificate[];
   actions?: RemedialAction[];
+  components?: Array<Component & { componentType?: ComponentType }>;
 }
 
 export const propertiesApi = {
