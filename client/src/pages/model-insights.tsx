@@ -253,7 +253,7 @@ export default function ModelInsightsPage() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-4 pt-16 lg:pt-4 lg:p-8">
+        <main className="flex-1 p-4 pt-16 md:pt-4 md:p-6 lg:p-6 xl:p-8">
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
@@ -274,7 +274,7 @@ export default function ModelInsightsPage() {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
-        <div className="p-4 pt-16 lg:pt-8 lg:p-8 space-y-6">
+        <div className="p-4 pt-16 md:pt-8 md:p-6 lg:p-6 xl:p-8 space-y-4 md:space-y-5 lg:space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
               <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function ModelInsightsPage() {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 lg:gap-4">
             <MetricCard
               title="Overall Accuracy"
               value={`${insights.accuracy.overall.toFixed(1)}%`}
@@ -339,7 +339,7 @@ export default function ModelInsightsPage() {
             />
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-5 xl:grid-cols-5 gap-4">
             <Card className="col-span-1">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Extraction Pipeline</CardTitle>
@@ -368,7 +368,7 @@ export default function ModelInsightsPage() {
               </CardContent>
             </Card>
             
-            <Card className="col-span-1 lg:col-span-4">
+            <Card className="col-span-1 md:col-span-1 lg:col-span-4 xl:col-span-4">
               <Tabs defaultValue="accuracy">
                 <CardHeader className="pb-0 overflow-x-auto">
                   <TabsList className="w-full flex-wrap h-auto gap-1 lg:flex-nowrap">
@@ -401,7 +401,7 @@ export default function ModelInsightsPage() {
                         </div>
                       ) : suggestionsData?.suggestions && suggestionsData.suggestions.length > 0 ? (
                         <>
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 mb-4">
                             <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
                               <CardContent className="pt-4 pb-3">
                                 <div className="text-sm text-emerald-700">Confidence</div>
