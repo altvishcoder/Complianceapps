@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { Progress } from '@/components/ui/progress';
 import { 
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  Download, Play, RefreshCw, Target, Zap, Brain, Eye, Settings2
+  Download, Play, RefreshCw, Target, Zap, Brain, Eye, Settings2,
+  Lightbulb, Sparkles, ArrowRight, Wrench, BookOpen, Shield
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, 
@@ -47,6 +49,28 @@ interface InsightsData {
     awaitingReview: number;
     failed: number;
   };
+}
+
+interface AISuggestion {
+  id: string;
+  category: 'prompt' | 'preprocessing' | 'validation' | 'training' | 'quality';
+  title: string;
+  description: string;
+  impact: 'high' | 'medium' | 'low';
+  effort: 'low' | 'medium' | 'high';
+  actionable: boolean;
+  metrics?: { current: number; potential: number };
+}
+
+interface AISuggestionsData {
+  suggestions: AISuggestion[];
+  context: {
+    totalExtractions: number;
+    averageConfidence: number;
+    rejectionRate: number;
+    errorPatternsCount: number;
+  };
+  generatedAt: string;
 }
 
 function MetricCard({ 
@@ -92,6 +116,28 @@ function MetricCard({
 
 const COLORS = ['#2563eb', '#16a34a', '#eab308', '#dc2626', '#8b5cf6', '#ec4899'];
 
+const categoryIcons: Record<string, any> = {
+  prompt: Sparkles,
+  preprocessing: Wrench,
+  validation: Shield,
+  training: BookOpen,
+  quality: CheckCircle
+};
+
+const categoryColors: Record<string, string> = {
+  prompt: 'bg-purple-100 text-purple-700',
+  preprocessing: 'bg-blue-100 text-blue-700',
+  validation: 'bg-emerald-100 text-emerald-700',
+  training: 'bg-amber-100 text-amber-700',
+  quality: 'bg-gray-100 text-gray-700'
+};
+
+const impactColors: Record<string, string> = {
+  high: 'bg-red-100 text-red-700 border-red-200',
+  medium: 'bg-amber-100 text-amber-700 border-amber-200',
+  low: 'bg-green-100 text-green-700 border-green-200'
+};
+
 export default function ModelInsightsPage() {
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState('30d');
@@ -101,6 +147,15 @@ export default function ModelInsightsPage() {
     queryFn: async () => {
       const res = await fetch(`/api/model-insights?range=${dateRange}`);
       if (!res.ok) throw new Error('Failed to fetch insights');
+      return res.json();
+    },
+  });
+  
+  const { data: suggestionsData, isLoading: suggestionsLoading, refetch: refetchSuggestions } = useQuery<AISuggestionsData>({
+    queryKey: ['ai-suggestions'],
+    queryFn: async () => {
+      const res = await fetch('/api/model-insights/ai-suggestions');
+      if (!res.ok) throw new Error('Failed to fetch AI suggestions');
       return res.json();
     },
   });
@@ -254,6 +309,10 @@ export default function ModelInsightsPage() {
               <Tabs defaultValue="accuracy">
                 <CardHeader className="pb-0">
                   <TabsList>
+                    <TabsTrigger value="ai-suggestions" className="gap-1">
+                      <Lightbulb className="w-4 h-4" />
+                      AI Suggestions
+                    </TabsTrigger>
                     <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
                     <TabsTrigger value="errors">Error Analysis</TabsTrigger>
                     <TabsTrigger value="improvements">Improvements</TabsTrigger>
@@ -261,6 +320,123 @@ export default function ModelInsightsPage() {
                   </TabsList>
                 </CardHeader>
                 <CardContent className="pt-4">
+                  <TabsContent value="ai-suggestions" className="mt-0">
+                    <div className="space-y-4">
+                      {suggestionsLoading ? (
+                        <div className="flex items-center justify-center h-48">
+                          <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : suggestionsData?.suggestions && suggestionsData.suggestions.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-4 gap-3 mb-4">
+                            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
+                              <CardContent className="pt-4 pb-3">
+                                <div className="text-sm text-emerald-700">Confidence</div>
+                                <div className="text-2xl font-bold text-emerald-800">{suggestionsData.context.averageConfidence}%</div>
+                              </CardContent>
+                            </Card>
+                            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+                              <CardContent className="pt-4 pb-3">
+                                <div className="text-sm text-amber-700">Rejection Rate</div>
+                                <div className="text-2xl font-bold text-amber-800">{suggestionsData.context.rejectionRate}%</div>
+                              </CardContent>
+                            </Card>
+                            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                              <CardContent className="pt-4 pb-3">
+                                <div className="text-sm text-blue-700">Extractions</div>
+                                <div className="text-2xl font-bold text-blue-800">{suggestionsData.context.totalExtractions}</div>
+                              </CardContent>
+                            </Card>
+                            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                              <CardContent className="pt-4 pb-3">
+                                <div className="text-sm text-purple-700">Error Patterns</div>
+                                <div className="text-2xl font-bold text-purple-800">{suggestionsData.context.errorPatternsCount}</div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-semibold flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-emerald-600" />
+                              AI-Powered Recommendations
+                            </h3>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => refetchSuggestions()}
+                              data-testid="button-refresh-suggestions"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {suggestionsData.suggestions.map((suggestion) => {
+                              const CategoryIcon = categoryIcons[suggestion.category] || Lightbulb;
+                              return (
+                                <Card key={suggestion.id} className="hover:shadow-md transition-shadow" data-testid={`suggestion-${suggestion.id}`}>
+                                  <CardContent className="pt-4 pb-4">
+                                    <div className="flex items-start gap-4">
+                                      <div className={`p-2 rounded-lg ${categoryColors[suggestion.category]}`}>
+                                        <CategoryIcon className="w-5 h-5" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="font-medium">{suggestion.title}</h4>
+                                          <Badge variant="outline" className={`text-xs ${impactColors[suggestion.impact]}`}>
+                                            {suggestion.impact} impact
+                                          </Badge>
+                                          <Badge variant="secondary" className="text-xs">
+                                            {suggestion.effort} effort
+                                          </Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+                                        {suggestion.metrics && (
+                                          <div className="mt-3 flex items-center gap-4">
+                                            <div className="flex-1">
+                                              <div className="flex items-center justify-between text-xs mb-1">
+                                                <span>Current: {suggestion.metrics.current}%</span>
+                                                <span className="text-emerald-600">Target: {suggestion.metrics.potential}%</span>
+                                              </div>
+                                              <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                <div 
+                                                  className="absolute h-full bg-gray-300 rounded-full" 
+                                                  style={{ width: `${suggestion.metrics.current}%` }}
+                                                />
+                                                <div 
+                                                  className="absolute h-full bg-emerald-500/30 rounded-full" 
+                                                  style={{ width: `${suggestion.metrics.potential}%` }}
+                                                />
+                                              </div>
+                                            </div>
+                                            <ArrowRight className="w-4 h-4 text-emerald-600" />
+                                            <span className="text-sm font-medium text-emerald-600">
+                                              +{suggestion.metrics.potential - suggestion.metrics.current}%
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                          
+                          <p className="text-xs text-muted-foreground text-center mt-4">
+                            Suggestions generated at {new Date(suggestionsData.generatedAt).toLocaleString()}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                          <Lightbulb className="w-12 h-12 mb-3 opacity-50" />
+                          <p>No suggestions available yet</p>
+                          <p className="text-sm">Process more certificates to get AI-powered recommendations</p>
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                  
                   <TabsContent value="accuracy" className="mt-0">
                     <div className="grid grid-cols-2 gap-4">
                       <Card>
