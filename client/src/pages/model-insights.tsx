@@ -465,7 +465,16 @@ export default function ModelInsightsPage() {
                                         {hasProgress && (
                                           <div className="mt-3">
                                             <div className="flex items-center justify-between text-xs mb-1">
-                                              <span>Progress: {suggestion.progress.current} / {suggestion.progress.target}</span>
+                                              <span>
+                                                {suggestion.suggestionKey === 'increase-reviews' 
+                                                  ? `${suggestion.progress.current} of ${suggestion.progress.target} reviews completed`
+                                                  : suggestion.suggestionKey === 'improve-confidence'
+                                                  ? `Current: ${suggestion.progress.current}% → Target: ${suggestion.progress.target}%`
+                                                  : suggestion.suggestionKey === 'reduce-rejections'
+                                                  ? `Acceptance rate: ${suggestion.progress.current}% → Target: ${suggestion.progress.target}%`
+                                                  : `${suggestion.progress.current} of ${suggestion.progress.target} completed`
+                                                }
+                                              </span>
                                               <span className="text-emerald-600 font-medium">{suggestion.progress.percent}%</span>
                                             </div>
                                             <Progress 
