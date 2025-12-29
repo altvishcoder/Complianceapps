@@ -2,6 +2,12 @@
 import { db } from "./db";
 import { organisations, schemes, blocks, properties, users, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcrypt";
+
+// Helper function to hash passwords
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
 
 const ORG_ID = "default-org";
 const LASHAN_SUPER_USER_ID = "lashan-super-user";
@@ -53,7 +59,7 @@ export async function seedDatabase() {
       await db.insert(users).values({
         id: LASHAN_SUPER_USER_ID,
         username: "lashan",
-        password: "Lashan2025!Secure",
+        password: await hashPassword("Lashan2025!Secure"),
         email: "lashan@lashandigital.com",
         name: "Lashan Fernando",
         role: "LASHAN_SUPER_USER",
@@ -68,7 +74,7 @@ export async function seedDatabase() {
       await db.insert(users).values({
         id: SUPER_ADMIN_ID,
         username: "superadmin",
-        password: "SuperAdmin2025!",
+        password: await hashPassword("SuperAdmin2025!"),
         email: "superadmin@complianceai.co.uk",
         name: "Super Administrator",
         role: "SUPER_ADMIN",
@@ -83,7 +89,7 @@ export async function seedDatabase() {
       await db.insert(users).values({
         id: SYSTEM_ADMIN_ID,
         username: "sysadmin",
-        password: "SysAdmin2025!",
+        password: await hashPassword("SysAdmin2025!"),
         email: "sysadmin@complianceai.co.uk",
         name: "System Administrator",
         role: "SYSTEM_ADMIN",
@@ -98,7 +104,7 @@ export async function seedDatabase() {
       await db.insert(users).values({
         id: COMPLIANCE_MANAGER_ID,
         username: "compmanager",
-        password: "Manager2025!",
+        password: await hashPassword("Manager2025!"),
         email: "compmanager@complianceai.co.uk",
         name: "Compliance Manager",
         role: "COMPLIANCE_MANAGER",
@@ -125,18 +131,20 @@ export async function seedDatabase() {
 async function seedDemoData(orgId: string) {
   console.log("🎭 Seeding demo data...");
   
-  // Create additional demo users
-  const demoUsers = [
-    { id: "user-manager-1", username: "manager", password: "manager123", email: "manager@complianceai.co.uk", name: "Property Manager", role: "MANAGER" as const },
-    { id: "user-officer-1", username: "officer", password: "officer123", email: "officer@complianceai.co.uk", name: "Compliance Officer", role: "OFFICER" as const },
-    { id: "user-viewer-1", username: "viewer", password: "viewer123", email: "viewer@complianceai.co.uk", name: "Report Viewer", role: "VIEWER" as const },
+  // Create additional demo users with hashed passwords
+  const demoUserConfigs = [
+    { id: "user-manager-1", username: "manager", plainPassword: "manager123", email: "manager@complianceai.co.uk", name: "Property Manager", role: "MANAGER" as const },
+    { id: "user-officer-1", username: "officer", plainPassword: "officer123", email: "officer@complianceai.co.uk", name: "Compliance Officer", role: "OFFICER" as const },
+    { id: "user-viewer-1", username: "viewer", plainPassword: "viewer123", email: "viewer@complianceai.co.uk", name: "Report Viewer", role: "VIEWER" as const },
   ];
   
-  for (const demoUser of demoUsers) {
-    const [existing] = await db.select().from(users).where(eq(users.id, demoUser.id));
+  for (const config of demoUserConfigs) {
+    const [existing] = await db.select().from(users).where(eq(users.id, config.id));
     if (!existing) {
+      const { plainPassword, ...userData } = config;
       await db.insert(users).values({
-        ...demoUser,
+        ...userData,
+        password: await hashPassword(plainPassword),
         organisationId: orgId
       });
     }

@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
@@ -164,8 +165,9 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Invalid username or password" });
       }
       
-      // For now, compare plaintext passwords (should use bcrypt in production)
-      if (user.password !== password) {
+      // Compare password using bcrypt
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
       
@@ -247,13 +249,18 @@ export async function registerRoutes(
       
       // Verify current password if changing own password
       if (userId === requestingUserId) {
-        if (!currentPassword || targetUser.password !== currentPassword) {
+        if (!currentPassword) {
+          return res.status(401).json({ error: "Current password is required" });
+        }
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, targetUser.password);
+        if (!isCurrentPasswordValid) {
           return res.status(401).json({ error: "Current password is incorrect" });
         }
       }
       
-      // Update password
-      await db.update(users).set({ password: newPassword }).where(eq(users.id, userId));
+      // Hash and update password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
       
       res.json({ success: true, message: "Password changed successfully" });
     } catch (error) {
