@@ -46,7 +46,7 @@ import {
   type SystemLog
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray, count, gte, lte, ilike } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -294,6 +294,17 @@ export interface IStorage {
   
   // System Logs
   getSystemLogs(filters: { level?: string; source?: string; search?: string; limit: number; offset: number }): Promise<{ logs: SystemLog[]; total: number }>;
+  
+  // Risk Maps - Geodata
+  listGeocodedProperties(organisationId: string): Promise<Property[]>;
+  updatePropertyGeodata(propertyId: string, geodata: { latitude: number; longitude: number; ward?: string; wardCode?: string; lsoa?: string; msoa?: string }): Promise<Property | undefined>;
+  
+  // Risk Maps - Risk Calculations  
+  getPropertyRiskData(organisationId: string): Promise<Array<{
+    property: Property;
+    certificates: Array<{ type: string; status: string; expiryDate: string | null }>;
+    actions: Array<{ severity: string; status: string }>;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1802,6 +1813,76 @@ export class DatabaseStorage implements IStorage {
       logs,
       total: totalResult?.count ?? 0
     };
+  }
+  // Risk Maps - Geodata
+  async listGeocodedProperties(organisationId: string): Promise<Property[]> {
+    return db.select()
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(
+        eq(schemes.organisationId, organisationId),
+        isNotNull(properties.latitude),
+        isNotNull(properties.longitude)
+      ))
+      .then(rows => rows.map(r => r.properties));
+  }
+  
+  async updatePropertyGeodata(propertyId: string, geodata: { latitude: number; longitude: number; ward?: string; wardCode?: string; lsoa?: string; msoa?: string }): Promise<Property | undefined> {
+    const [updated] = await db.update(properties)
+      .set({
+        latitude: geodata.latitude,
+        longitude: geodata.longitude,
+        ward: geodata.ward,
+        wardCode: geodata.wardCode,
+        lsoa: geodata.lsoa,
+        msoa: geodata.msoa,
+        geocodedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(properties.id, propertyId))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async getPropertyRiskData(organisationId: string): Promise<Array<{
+    property: Property;
+    certificates: Array<{ type: string; status: string; expiryDate: string | null }>;
+    actions: Array<{ severity: string; status: string }>;
+  }>> {
+    const allProperties = await db.select()
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(schemes.organisationId, organisationId));
+    
+    const result = [];
+    for (const row of allProperties) {
+      const prop = row.properties;
+      
+      const certs = await db.select({
+        type: certificates.certificateType,
+        status: certificates.status,
+        expiryDate: certificates.expiryDate
+      })
+      .from(certificates)
+      .where(eq(certificates.propertyId, prop.id));
+      
+      const actions = await db.select({
+        severity: remedialActions.severity,
+        status: remedialActions.status
+      })
+      .from(remedialActions)
+      .where(eq(remedialActions.propertyId, prop.id));
+      
+      result.push({
+        property: prop,
+        certificates: certs,
+        actions
+      });
+    }
+    
+    return result;
   }
 }
 

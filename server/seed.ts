@@ -160,61 +160,78 @@ async function seedDemoData(orgId: string) {
     console.log("✓ Using existing blocks");
   }
   
-  // Create properties if needed
+  // Create properties if needed with geocoded UK coordinates
   const [existingProperty] = await db.select().from(properties).limit(1);
   if (!existingProperty) {
-    await db.insert(properties).values([
-      {
-        blockId: block1.id,
-        uprn: "10001001",
-        addressLine1: "Flat 1, Oak House",
-        city: "London",
-        postcode: "SW1 1AA",
-        propertyType: "FLAT",
-        tenure: "SOCIAL_RENT",
-        bedrooms: 2,
-        hasGas: true,
-        complianceStatus: "COMPLIANT"
-      },
-      {
-        blockId: block1.id,
-        uprn: "10001002",
-        addressLine1: "Flat 2, Oak House",
-        city: "London",
-        postcode: "SW1 1AA",
-        propertyType: "FLAT",
-        tenure: "SOCIAL_RENT",
-        bedrooms: 2,
-        hasGas: true,
-        complianceStatus: "OVERDUE"
-      },
-      {
-        blockId: block2.id,
-        uprn: "10002001",
-        addressLine1: "101 The Towers",
-        city: "Manchester",
-        postcode: "M1 1BB",
-        propertyType: "FLAT",
-        tenure: "LEASEHOLD",
-        bedrooms: 1,
-        hasGas: false,
-        complianceStatus: "COMPLIANT"
-      },
-      {
-        blockId: block2.id,
-        uprn: "10002002",
-        addressLine1: "102 The Towers",
-        city: "Manchester",
-        postcode: "M1 1BB",
-        propertyType: "FLAT",
-        tenure: "SOCIAL_RENT",
-        bedrooms: 1,
-        hasGas: false,
-        complianceStatus: "NON_COMPLIANT"
-      }
-    ]);
+    // Real UK postcodes with coordinates for demo
+    const londonProperties = [
+      { uprn: "10001001", address: "Flat 1, Oak House", postcode: "SW1A 1AA", lat: 51.5014, lng: -0.1419, ward: "St James's", lsoa: "Westminster 018A" },
+      { uprn: "10001002", address: "Flat 2, Oak House", postcode: "SW1A 2AA", lat: 51.5008, lng: -0.1426, ward: "St James's", lsoa: "Westminster 018B" },
+      { uprn: "10001003", address: "Flat 3, Oak House", postcode: "SW1H 9AJ", lat: 51.4975, lng: -0.1357, ward: "Vincent Square", lsoa: "Westminster 019A" },
+      { uprn: "10001004", address: "1 Maple Court", postcode: "SE1 7PB", lat: 51.5045, lng: -0.0865, ward: "Borough & Bankside", lsoa: "Southwark 023A" },
+      { uprn: "10001005", address: "2 Maple Court", postcode: "SE1 7PA", lat: 51.5042, lng: -0.0870, ward: "Borough & Bankside", lsoa: "Southwark 023B" },
+      { uprn: "10001006", address: "15 Cedar Lane", postcode: "E1 6AN", lat: 51.5155, lng: -0.0723, ward: "Whitechapel", lsoa: "Tower Hamlets 024A" },
+      { uprn: "10001007", address: "16 Cedar Lane", postcode: "E1 6AP", lat: 51.5152, lng: -0.0728, ward: "Whitechapel", lsoa: "Tower Hamlets 024B" },
+      { uprn: "10001008", address: "8 Birch Avenue", postcode: "N1 9AG", lat: 51.5386, lng: -0.1036, ward: "Canonbury", lsoa: "Islington 015A" },
+      { uprn: "10001009", address: "9 Birch Avenue", postcode: "N1 9AH", lat: 51.5382, lng: -0.1040, ward: "Canonbury", lsoa: "Islington 015B" },
+      { uprn: "10001010", address: "22 Elm Street", postcode: "NW1 8NP", lat: 51.5343, lng: -0.1428, ward: "Regent's Park", lsoa: "Camden 012A" },
+    ];
     
-    console.log("✓ Created demo properties (HACT: Units/Dwellings)");
+    const manchesterProperties = [
+      { uprn: "10002001", address: "101 The Towers", postcode: "M1 1BB", lat: 53.4808, lng: -2.2426, ward: "Piccadilly", lsoa: "Manchester 054A" },
+      { uprn: "10002002", address: "102 The Towers", postcode: "M1 1BC", lat: 53.4805, lng: -2.2430, ward: "Piccadilly", lsoa: "Manchester 054B" },
+      { uprn: "10002003", address: "103 The Towers", postcode: "M1 1BD", lat: 53.4802, lng: -2.2434, ward: "Piccadilly", lsoa: "Manchester 054C" },
+      { uprn: "10002004", address: "25 Willow Road", postcode: "M4 5JD", lat: 53.4850, lng: -2.2345, ward: "Ancoats & Beswick", lsoa: "Manchester 055A" },
+      { uprn: "10002005", address: "26 Willow Road", postcode: "M4 5JE", lat: 53.4847, lng: -2.2350, ward: "Ancoats & Beswick", lsoa: "Manchester 055B" },
+    ];
+    
+    const statuses = ["COMPLIANT", "OVERDUE", "NON_COMPLIANT", "EXPIRING_SOON", "COMPLIANT"] as const;
+    
+    // Insert London properties
+    for (let i = 0; i < londonProperties.length; i++) {
+      const p = londonProperties[i];
+      await db.insert(properties).values({
+        blockId: block1.id,
+        uprn: p.uprn,
+        addressLine1: p.address,
+        city: "London",
+        postcode: p.postcode,
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: Math.floor(Math.random() * 3) + 1,
+        hasGas: true,
+        complianceStatus: statuses[i % statuses.length],
+        latitude: p.lat,
+        longitude: p.lng,
+        ward: p.ward,
+        lsoa: p.lsoa,
+        geocodedAt: new Date()
+      });
+    }
+    
+    // Insert Manchester properties
+    for (let i = 0; i < manchesterProperties.length; i++) {
+      const p = manchesterProperties[i];
+      await db.insert(properties).values({
+        blockId: block2.id,
+        uprn: p.uprn,
+        addressLine1: p.address,
+        city: "Manchester",
+        postcode: p.postcode,
+        propertyType: "FLAT",
+        tenure: i % 2 === 0 ? "SOCIAL_RENT" : "LEASEHOLD",
+        bedrooms: Math.floor(Math.random() * 2) + 1,
+        hasGas: i % 3 !== 0,
+        complianceStatus: statuses[i % statuses.length],
+        latitude: p.lat,
+        longitude: p.lng,
+        ward: p.ward,
+        lsoa: p.lsoa,
+        geocodedAt: new Date()
+      });
+    }
+    
+    console.log("✓ Created 15 demo properties with UK geocoding (HACT: Units/Dwellings)");
   } else {
     console.log("✓ Using existing properties");
   }

@@ -30,6 +30,62 @@ import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 
 const objectStorageService = new ObjectStorageService();
 
+// Risk calculation helpers
+function calculatePropertyRiskScore(
+  certificates: Array<{ type: string; status: string; expiryDate: string | null }>,
+  actions: Array<{ severity: string; status: string }>
+): number {
+  if (certificates.length === 0) return 50;
+  
+  const validCerts = certificates.filter(c => 
+    c.status === 'APPROVED' || c.status === 'EXTRACTED'
+  ).length;
+  const certScore = (validCerts / Math.max(certificates.length, 1)) * 100;
+  
+  const openActions = actions.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
+  const criticalPenalty = openActions.filter(a => a.severity === 'IMMEDIATE').length * 15;
+  const majorPenalty = openActions.filter(a => a.severity === 'URGENT').length * 5;
+  
+  return Math.max(0, Math.min(100, Math.round(certScore - criticalPenalty - majorPenalty)));
+}
+
+function calculateStreamScores(certificates: Array<{ type: string; status: string; expiryDate: string | null }>) {
+  const streams = ['gas', 'electrical', 'fire', 'asbestos', 'lift', 'water'];
+  const typeToStream: Record<string, string> = {
+    'GAS_SAFETY': 'gas',
+    'EICR': 'electrical', 
+    'FIRE_RISK_ASSESSMENT': 'fire',
+    'ASBESTOS_SURVEY': 'asbestos',
+    'LIFT_LOLER': 'lift',
+    'LEGIONELLA_ASSESSMENT': 'water',
+    'EPC': 'electrical'
+  };
+  
+  return streams.map(stream => {
+    const streamCerts = certificates.filter(c => typeToStream[c.type] === stream);
+    const valid = streamCerts.filter(c => c.status === 'APPROVED' || c.status === 'EXTRACTED').length;
+    const total = streamCerts.length || 1;
+    const now = new Date();
+    const overdue = streamCerts.filter(c => c.expiryDate && new Date(c.expiryDate) < now).length;
+    
+    return {
+      stream,
+      compliance: valid / total,
+      overdueCount: overdue,
+      totalCount: total
+    };
+  });
+}
+
+function calculateDefects(actions: Array<{ severity: string; status: string }>) {
+  const open = actions.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
+  return {
+    critical: open.filter(a => a.severity === 'IMMEDIATE').length,
+    major: open.filter(a => a.severity === 'URGENT' || a.severity === 'PRIORITY').length,
+    minor: open.filter(a => a.severity === 'ROUTINE' || a.severity === 'ADVISORY').length
+  };
+}
+
 // Seed default component types if they don't exist
 async function seedDefaultComponentTypes() {
   const existing = await db.select().from(componentTypes);
@@ -311,6 +367,105 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching properties:", error);
       res.status(500).json({ error: "Failed to fetch properties" });
+    }
+  });
+  
+  // ===== RISK MAPS API ENDPOINTS =====
+  app.get("/api/properties/geo", async (req, res) => {
+    try {
+      const riskData = await storage.getPropertyRiskData(ORG_ID);
+      
+      const geoProperties = riskData
+        .filter(r => r.property.latitude && r.property.longitude)
+        .map(r => {
+          const prop = r.property;
+          const riskScore = calculatePropertyRiskScore(r.certificates, r.actions);
+          
+          return {
+            id: prop.id,
+            name: prop.addressLine1,
+            address: `${prop.addressLine1}, ${prop.city}, ${prop.postcode}`,
+            lat: prop.latitude!,
+            lng: prop.longitude!,
+            riskScore,
+            propertyCount: 1,
+            unitCount: 1,
+            ward: prop.ward,
+            lsoa: prop.lsoa
+          };
+        });
+      
+      res.json(geoProperties);
+    } catch (error) {
+      console.error("Error fetching geodata properties:", error);
+      res.status(500).json({ error: "Failed to fetch geodata" });
+    }
+  });
+  
+  app.get("/api/risk/areas", async (req, res) => {
+    try {
+      const level = (req.query.level as string) || 'property';
+      const riskData = await storage.getPropertyRiskData(ORG_ID);
+      
+      if (level === 'property') {
+        const areas = riskData
+          .filter(r => r.property.latitude && r.property.longitude)
+          .map(r => {
+            const prop = r.property;
+            const riskScore = calculatePropertyRiskScore(r.certificates, r.actions);
+            const streams = calculateStreamScores(r.certificates);
+            
+            return {
+              id: prop.id,
+              name: prop.addressLine1,
+              level: 'property' as const,
+              lat: prop.latitude!,
+              lng: prop.longitude!,
+              riskScore: {
+                compositeScore: riskScore,
+                trend: 'stable' as const,
+                propertyCount: 1,
+                unitCount: 1,
+                streams,
+                defects: calculateDefects(r.actions)
+              }
+            };
+          });
+        
+        res.json(areas);
+      } else {
+        res.json([]);
+      }
+    } catch (error) {
+      console.error("Error fetching risk areas:", error);
+      res.status(500).json({ error: "Failed to fetch risk areas" });
+    }
+  });
+  
+  app.get("/api/risk/evidence/:areaId", async (req, res) => {
+    try {
+      const { areaId } = req.params;
+      const property = await storage.getProperty(areaId);
+      
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+      
+      const certificates = await storage.listCertificates(ORG_ID, { propertyId: areaId });
+      const actions = await storage.listRemedialActions(ORG_ID, { propertyId: areaId });
+      
+      res.json({
+        property,
+        certificates,
+        actions,
+        riskScore: calculatePropertyRiskScore(
+          certificates.map(c => ({ type: c.certificateType, status: c.status, expiryDate: c.expiryDate })),
+          actions.map(a => ({ severity: a.severity, status: a.status }))
+        )
+      });
+    } catch (error) {
+      console.error("Error fetching evidence:", error);
+      res.status(500).json({ error: "Failed to fetch evidence" });
     }
   });
   

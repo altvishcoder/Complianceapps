@@ -50,7 +50,7 @@ export default function MapsIndexPage() {
   
   const sampleProperties = useMemo(() => generateSampleProperties(), []);
   
-  const { data: properties = sampleProperties } = useQuery({
+  const { data: properties = sampleProperties, isLoading } = useQuery({
     queryKey: ['map-properties'],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
@@ -61,7 +61,8 @@ export default function MapsIndexPage() {
       const data = await res.json();
       return data.length > 0 ? data : sampleProperties;
     },
-    staleTime: 60000,
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const riskSummary = useMemo(() => {
