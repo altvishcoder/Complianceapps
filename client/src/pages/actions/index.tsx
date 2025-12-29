@@ -18,7 +18,8 @@ import {
   Calendar,
   User,
   Building2,
-  MapPin
+  MapPin,
+  X
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -56,9 +57,14 @@ function getInitialFilterFromUrl(): FilterType {
   return 'all';
 }
 
+function getInitialTypeFromUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('type');
+}
+
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);
-  return params.has('status') || params.has('severity') || params.has('awaabs') || params.has('from');
+  return params.has('status') || params.has('severity') || params.has('awaabs') || params.has('type') || params.has('from');
 }
 
 export default function ActionsPage() {
@@ -68,6 +74,7 @@ export default function ActionsPage() {
 
   const [selectedAction, setSelectedAction] = useState<EnrichedRemedialAction | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>(getInitialFilterFromUrl);
+  const [typeFilter, setTypeFilter] = useState<string | null>(getInitialTypeFromUrl);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -116,6 +123,11 @@ export default function ActionsPage() {
         break;
       default:
         passesFilter = true;
+    }
+    
+    // Apply type filter
+    if (typeFilter && action.certificateType !== typeFilter) {
+      return false;
     }
     
     // Apply search
@@ -196,13 +208,32 @@ export default function ActionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap items-center">
+              {typeFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => setTypeFilter(null)}
+                  aria-label={`Remove type filter: ${typeFilter.replace(/_/g, ' ')}`}
+                  data-testid="chip-type-filter"
+                >
+                  Type: {typeFilter.replace(/_/g, ' ')}
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </Button>
+              )}
               {activeFilter !== 'all' && (
-                <Button variant="outline" onClick={() => setActiveFilter('all')}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setActiveFilter('all')}
+                  aria-label="Clear status filter"
+                  data-testid="button-clear-filter"
+                >
                   Clear Filter
                 </Button>
               )}
-              <Button onClick={() => toast({ title: "Export Started", description: "Downloading CSV..." })}>
+              <Button onClick={() => toast({ title: "Export Started", description: "Downloading CSV..." })} data-testid="button-export">
                 Export List
               </Button>
             </div>
