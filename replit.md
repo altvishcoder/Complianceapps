@@ -111,6 +111,37 @@ Comprehensive test suite using Vitest:
 - Replace localStorage-based auth with server session validation
 - Add rate limiting middleware for all API endpoints
 
+### External Ingestion API
+Machine-to-machine API for external systems to submit compliance certificates:
+
+#### Authentication
+- Bearer token authentication with API keys (prefix: `cai_`)
+- API keys stored as SHA-256 hashes, prefix stored for lookup
+- Rate limiting configurable via Factory Settings (default: 60 requests/min)
+- X-RateLimit-* headers included in all responses
+
+#### Endpoints
+- **POST /api/v1/ingestions** - Submit certificate for processing
+  - Fields: propertyId, certificateType, fileName, objectPath, webhookUrl, idempotencyKey
+  - Returns: { id, status, message }
+- **GET /api/v1/ingestions/:id** - Check job status
+  - Returns: { id, status, propertyId, certificateType, certificateId, statusMessage, errorDetails, createdAt, completedAt }
+- **GET /api/v1/ingestions** - List jobs with pagination
+  - Query params: limit, offset, status
+- **POST /api/v1/uploads** - Create upload session for large files
+
+#### Async Processing
+- Ingestion worker (`server/ingestion-worker.ts`) polls for QUEUED jobs
+- Downloads files from Replit Object Storage (GCS)
+- Integrates with existing Anthropic extraction pipeline
+- Sends webhook callbacks on completion/failure
+
+#### Admin UI
+- **/admin/api-integration** - API Integration Guide page
+  - Overview, Authentication, Endpoints, Webhooks, API Keys tabs
+  - Code examples (curl, Node.js, Python)
+  - API key generation and enable/disable management
+
 ## External Dependencies
 
 ### Database
