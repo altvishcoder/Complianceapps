@@ -3624,12 +3624,12 @@ export async function registerRoutes(
       const auth = await validateApiKey(req, res);
       if (!auth) return;
       
-      const { propertyId, certificateType, fileStorageKey, metadata, callbackUrl, idempotencyKey } = req.body;
+      const { propertyId, certificateType, fileName, objectPath, webhookUrl, idempotencyKey } = req.body;
       
       // Validate required fields
-      if (!propertyId || !certificateType || !fileStorageKey) {
+      if (!propertyId || !certificateType || !fileName) {
         return res.status(400).json({ 
-          error: "Missing required fields: propertyId, certificateType, and fileStorageKey are required" 
+          error: "Missing required fields: propertyId, certificateType, and fileName are required" 
         });
       }
       
@@ -3646,11 +3646,10 @@ export async function registerRoutes(
         organisationId: auth.client.organisationId,
         propertyId,
         certificateType,
-        fileStorageKey,
-        metadata: metadata || {},
-        callbackUrl,
+        fileName,
+        objectPath,
+        webhookUrl,
         idempotencyKey,
-        status: 'PENDING',
         apiClientId: auth.client.id
       });
       
@@ -3686,8 +3685,9 @@ export async function registerRoutes(
         status: job.status,
         propertyId: job.propertyId,
         certificateType: job.certificateType,
-        result: job.result,
-        errorMessage: job.errorMessage,
+        certificateId: job.certificateId,
+        statusMessage: job.statusMessage,
+        errorDetails: job.errorDetails,
         createdAt: job.createdAt,
         completedAt: job.completedAt
       });
