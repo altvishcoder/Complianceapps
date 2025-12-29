@@ -7,18 +7,24 @@ const isProduction = process.env.NODE_ENV === "production";
 
 const SENSITIVE_KEYS = ['password', 'secret', 'token', 'api_key', 'apikey', 'authorization', 'cookie', 'session'];
 
-function scrubSensitive(obj: unknown): unknown {
+function scrubSensitive(obj: unknown, seen = new WeakSet()): unknown {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(scrubSensitive);
+  
+  const objRef = obj as object;
+  if (seen.has(objRef)) return '[Circular]';
+  seen.add(objRef);
+  
+  if (Array.isArray(obj)) return obj.slice(0, 10).map(item => scrubSensitive(item, seen));
   
   const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+  const entries = Object.entries(obj as Record<string, unknown>).slice(0, 50);
+  for (const [key, value] of entries) {
     const lowerKey = key.toLowerCase();
     if (SENSITIVE_KEYS.some(s => lowerKey.includes(s))) {
       result[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null) {
-      result[key] = scrubSensitive(value);
+      result[key] = scrubSensitive(value, seen);
     } else {
       result[key] = value;
     }

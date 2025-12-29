@@ -82,24 +82,21 @@ export default function RiskHeatmapPage() {
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
       const params = new URLSearchParams({
-        level: filters.level,
-        period: filters.period,
+        level: filters.level === 'ward' ? 'property' : filters.level,
       });
-      if (filters.streams !== 'all') {
-        params.set('streams', (filters.streams as string[]).join(','));
-      }
       if (filters.showOnlyAtRisk) {
         params.set('maxScore', '85');
       }
       
-      const res = await fetch(`/api/risk/scores?${params}`, {
+      const res = await fetch(`/api/risk/areas?${params}`, {
         headers: { 'X-User-Id': userId || '' }
       });
       if (!res.ok) return sampleAreas;
       const data = await res.json();
       return data.length > 0 ? data : sampleAreas;
     },
-    staleTime: 60000,
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const filteredAreas = useMemo(() => {

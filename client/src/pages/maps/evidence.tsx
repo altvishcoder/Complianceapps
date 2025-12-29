@@ -75,21 +75,90 @@ export default function EvidencePage() {
   const [selectedArea, setSelectedArea] = useState<PropertyMarker | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
 
+  const sampleMarkers = useMemo(() => generateEvidenceMarkers(), []);
+  
+  const { data: apiMarkers = sampleMarkers } = useQuery({
+    queryKey: ['evidence-markers'],
+    queryFn: async () => {
+      const userId = localStorage.getItem('user_id');
+      const res = await fetch('/api/properties/geo', {
+        headers: { 'X-User-Id': userId || '' }
+      });
+      if (!res.ok) return sampleMarkers;
+      const data = await res.json();
+      return data.length > 0 ? data : sampleMarkers;
+    },
+    staleTime: 30000,
+  });
+  
   const markers = useMemo(() => {
-    let data = generateEvidenceMarkers();
+    let data = apiMarkers;
     if (hrbOnly) {
-      data = data.filter(m => m.unitCount && m.unitCount > 500);
+      data = data.filter((m: PropertyMarker) => m.unitCount && m.unitCount > 500);
     }
     if (selectedQuestion === 'highest-risk') {
-      data = data.filter(m => m.riskScore < 70);
+      data = data.filter((m: PropertyMarker) => m.riskScore < 70);
     }
     return data;
-  }, [hrbOnly, selectedQuestion]);
+  }, [apiMarkers, hrbOnly, selectedQuestion]);
 
-  const evidence = useMemo(() => {
-    if (!selectedArea) return null;
-    return generateSampleEvidence(selectedArea.id, selectedArea.name);
-  }, [selectedArea]);
+  const { data: evidence } = useQuery({
+    queryKey: ['evidence-data', selectedArea?.id],
+    queryFn: async () => {
+      if (!selectedArea) return null;
+      const isSampleData = selectedArea.id.startsWith('e') || selectedArea.id.startsWith('prop-');
+      if (isSampleData) {
+        return generateSampleEvidence(selectedArea.id, selectedArea.name);
+      }
+      
+      const userId = localStorage.getItem('user_id');
+      const res = await fetch(`/api/risk/evidence/${selectedArea.id}`, {
+        headers: { 'X-User-Id': userId || '' }
+      });
+      if (!res.ok) {
+        return generateSampleEvidence(selectedArea.id, selectedArea.name);
+      }
+      
+      const data = await res.json();
+      return {
+        area: { id: selectedArea.id, name: data.property?.addressLine1 || selectedArea.name, level: 'property' as const },
+        summary: {
+          compliance: data.riskScore || 0,
+          openHighSeverity: data.actions?.filter((a: any) => a.severity === 'IMMEDIATE' || a.severity === 'URGENT').length || 0,
+          avgFindingAge: 0,
+          hrbCount: 0,
+          blockCount: 1,
+          unitCount: 1,
+        },
+        streams: [
+          { stream: 'gas' as const, compliance: 0, total: data.certificates?.filter((c: any) => c.certificateType === 'GAS_SAFETY').length || 0, compliant: 0, overdueCount: 0, dueSoonCount: 0 },
+          { stream: 'electrical' as const, compliance: 0, total: data.certificates?.filter((c: any) => c.certificateType === 'EICR').length || 0, compliant: 0, overdueCount: 0, dueSoonCount: 0 },
+          { stream: 'fire' as const, compliance: 0, total: data.certificates?.filter((c: any) => c.certificateType === 'FIRE_RISK_ASSESSMENT').length || 0, compliant: 0, overdueCount: 0, dueSoonCount: 0 },
+          { stream: 'asbestos' as const, compliance: 0, total: data.certificates?.filter((c: any) => c.certificateType === 'ASBESTOS_SURVEY').length || 0, compliant: 0, overdueCount: 0, dueSoonCount: 0 },
+          { stream: 'lift' as const, compliance: 0, total: data.certificates?.filter((c: any) => c.certificateType === 'LIFT_LOLER').length || 0, compliant: 0, overdueCount: 0, dueSoonCount: 0 },
+          { stream: 'water' as const, compliance: 0, total: data.certificates?.filter((c: any) => c.certificateType === 'LEGIONELLA_ASSESSMENT').length || 0, compliant: 0, overdueCount: 0, dueSoonCount: 0 },
+        ],
+        findings: (data.actions || []).map((a: any, i: number) => ({
+          id: a.id || `f${i}`,
+          ref: a.reference || `RA-${i}`,
+          type: a.code || 'Unknown',
+          severity: a.severity?.toLowerCase() || 'minor',
+          propertyName: data.property?.addressLine1 || 'Unknown',
+          age: 0,
+          dueIn: 0,
+          certificateId: a.certificateId || '',
+        })),
+        certificateLinks: (data.certificates || []).map((c: any) => ({
+          id: c.id,
+          type: c.certificateType,
+          status: c.status,
+          expiryDate: c.expiryDate,
+        })),
+      };
+    },
+    enabled: !!selectedArea,
+    staleTime: 30000,
+  });
 
   const handleAreaClick = (marker: PropertyMarker) => {
     setSelectedArea(marker);
@@ -242,7 +311,7 @@ export default function EvidencePage() {
             
             <div className="w-96 border-l bg-background overflow-hidden">
               <EvidencePanel
-                evidence={evidence}
+                evidence={evidence ?? null}
                 onClose={() => setSelectedArea(null)}
                 onExport={handleExport}
               />
