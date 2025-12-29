@@ -121,9 +121,12 @@ Machine-to-machine API for external systems to submit compliance certificates:
 - X-RateLimit-* headers included in all responses
 
 #### Endpoints
+- **GET /api/v1/certificate-types** - List valid certificate types for ingestion
+  - Returns: { certificateTypes: [{ code, name, shortName, complianceStream, description, validityMonths, requiredFields }] }
 - **POST /api/v1/ingestions** - Submit certificate for processing
   - Fields: propertyId, certificateType, fileName, objectPath, webhookUrl, idempotencyKey
-  - Returns: { id, status, message }
+  - Validates certificateType against certificate_types database table
+  - Returns: { id, status, message } or 400 with validTypes if invalid
 - **GET /api/v1/ingestions/:id** - Check job status
   - Returns: { id, status, propertyId, certificateType, certificateId, statusMessage, errorDetails, createdAt, completedAt }
 - **GET /api/v1/ingestions** - List jobs with pagination
@@ -131,7 +134,9 @@ Machine-to-machine API for external systems to submit compliance certificates:
 - **POST /api/v1/uploads** - Create upload session for large files
 
 #### Async Processing
-- Ingestion worker (`server/ingestion-worker.ts`) polls for QUEUED jobs
+- pg-boss job queue (`server/job-queue.ts`) handles async ingestion and webhook delivery
+- 3 concurrent ingestion workers, 5 webhook workers
+- Automatic retries with exponential backoff (3 retries max)
 - Downloads files from Replit Object Storage (GCS)
 - Integrates with existing Anthropic extraction pipeline
 - Sends webhook callbacks on completion/failure
@@ -141,6 +146,33 @@ Machine-to-machine API for external systems to submit compliance certificates:
   - Overview, Authentication, Endpoints, Webhooks, API Keys tabs
   - Code examples (curl, Node.js, Python)
   - API key generation and enable/disable management
+
+### Production Infrastructure
+
+#### Logging (Pino)
+- Structured JSON logging via Pino (`server/logger.ts`)
+- Component-scoped loggers: job-queue, api, extraction, webhook
+- HTTP request logging middleware with pino-http
+- Pretty-printed in development, JSON in production
+
+#### Error Tracking (Sentry)
+- Sentry v8 integration (`server/sentry.ts`)
+- Express request instrumentation for full context
+- Activate by setting `SENTRY_DSN` environment variable
+- Sensitive headers (authorization, api-key, cookie) automatically stripped
+
+#### Rate Limiting
+- PostgreSQL-backed rate limiting via `rate_limit_entries` table
+- Configurable window and limit via Factory Settings
+- Automatic cleanup of expired entries every 5 minutes
+
+#### System Health Monitoring
+- **/admin/system-health** - Admin page showing:
+  - Database connection status
+  - API server status
+  - Background job queue status
+  - Real-time ingestion and webhook queue statistics
+  - Accessible to Lashan Super User and Super Admin roles
 
 ## External Dependencies
 
