@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle } from "lucide-react";
+import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload } from "lucide-react";
 import { useState, useEffect } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
@@ -49,6 +49,8 @@ export default function Properties() {
   });
   
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<any>(null);
   const [newProp, setNewProp] = useState<{
     schemeId: string;
     blockId: string;
@@ -59,6 +61,8 @@ export default function Properties() {
     tenure: string;
     bedrooms: string;
     hasGas: boolean;
+    latitude: string;
+    longitude: string;
   }>({
     schemeId: "",
     blockId: "",
@@ -68,7 +72,9 @@ export default function Properties() {
     propertyType: "FLAT",
     tenure: "SOCIAL_RENT",
     bedrooms: "1",
-    hasGas: true
+    hasGas: true,
+    latitude: "",
+    longitude: ""
   });
 
   const filteredBlocks = newProp.schemeId 
@@ -141,6 +147,29 @@ export default function Properties() {
         title: "Properties Rejected",
         description: `${data.rejected} properties have been rejected and removed.`,
       });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateGeoMutation = useMutation({
+    mutationFn: async ({ id, latitude, longitude }: { id: string; latitude: number; longitude: number }) => {
+      const userId = localStorage.getItem('user_id');
+      const res = await fetch(`/api/properties/${id}/geodata`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+        body: JSON.stringify({ latitude, longitude })
+      });
+      if (!res.ok) throw new Error('Failed to update location');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      queryClient.invalidateQueries({ queryKey: ["map-properties"] });
+      setIsEditOpen(false);
+      setEditingProperty(null);
+      toast({ title: "Location Updated", description: "Property coordinates have been saved." });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -480,6 +509,78 @@ export default function Properties() {
                    </form>
                  </DialogContent>
                </Dialog>
+               
+               <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditingProperty(null); }}>
+                 <DialogContent className="sm:max-w-[500px]">
+                   <DialogHeader>
+                     <DialogTitle>Edit Property Location</DialogTitle>
+                     <DialogDescription>
+                       Manually set the map coordinates for this property. This is useful when automatic geocoding doesn't work.
+                     </DialogDescription>
+                   </DialogHeader>
+                   {editingProperty && (
+                     <div className="space-y-4 py-4">
+                       <div className="p-3 bg-muted/50 rounded-lg">
+                         <p className="font-medium">{editingProperty.addressLine1}</p>
+                         <p className="text-sm text-muted-foreground">{editingProperty.city}, {editingProperty.postcode}</p>
+                       </div>
+                       
+                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                         <MapPin className="h-4 w-4" />
+                         <span>Current: {editingProperty.latitude && editingProperty.longitude 
+                           ? `${editingProperty.latitude.toFixed(4)}, ${editingProperty.longitude.toFixed(4)}` 
+                           : 'Not set'}</span>
+                       </div>
+                       
+                       <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                           <Label>Latitude</Label>
+                           <Input 
+                             type="number"
+                             step="0.0001"
+                             placeholder="e.g. 51.5074"
+                             defaultValue={editingProperty.latitude || ''}
+                             onChange={(e) => setEditingProperty({...editingProperty, newLatitude: e.target.value})}
+                             data-testid="input-edit-latitude"
+                           />
+                         </div>
+                         <div className="space-y-2">
+                           <Label>Longitude</Label>
+                           <Input 
+                             type="number"
+                             step="0.0001"
+                             placeholder="e.g. -0.1278"
+                             defaultValue={editingProperty.longitude || ''}
+                             onChange={(e) => setEditingProperty({...editingProperty, newLongitude: e.target.value})}
+                             data-testid="input-edit-longitude"
+                           />
+                         </div>
+                       </div>
+                       
+                       <p className="text-xs text-muted-foreground">
+                         Tip: You can find coordinates by searching your address on Google Maps and copying the numbers from the URL.
+                       </p>
+                     </div>
+                   )}
+                   <DialogFooter>
+                     <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                     <Button 
+                       onClick={() => {
+                         const lat = parseFloat(editingProperty.newLatitude || editingProperty.latitude);
+                         const lng = parseFloat(editingProperty.newLongitude || editingProperty.longitude);
+                         if (isNaN(lat) || isNaN(lng)) {
+                           toast({ title: "Error", description: "Please enter valid coordinates", variant: "destructive" });
+                           return;
+                         }
+                         updateGeoMutation.mutate({ id: editingProperty.id, latitude: lat, longitude: lng });
+                       }}
+                       disabled={updateGeoMutation.isPending}
+                     >
+                       {updateGeoMutation.isPending ? 'Saving...' : 'Save Location'}
+                     </Button>
+                   </DialogFooter>
+                 </DialogContent>
+               </Dialog>
              </div>
           </div>
 
@@ -550,8 +651,18 @@ export default function Properties() {
                              {getStatusBadge(prop.complianceStatus, prop.needsVerification)}
                           </td>
                           <td className="p-4 text-right pr-6">
-                             <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                               <MoreHorizontal className="h-4 w-4" />
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="opacity-0 group-hover:opacity-100 transition-opacity"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setEditingProperty(prop);
+                                 setIsEditOpen(true);
+                               }}
+                               data-testid={`button-edit-property-${prop.id}`}
+                             >
+                               <Pencil className="h-4 w-4" />
                              </Button>
                           </td>
                         </tr>

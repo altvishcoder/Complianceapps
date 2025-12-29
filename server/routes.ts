@@ -375,6 +375,68 @@ export async function registerRoutes(
     }
   });
   
+  // ===== PROPERTY GEODATA MANUAL UPDATE =====
+  app.patch("/api/properties/:id/geodata", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { latitude, longitude } = req.body;
+      
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return res.status(400).json({ error: "Latitude and longitude must be numbers" });
+      }
+      
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+      }
+      
+      await storage.updatePropertyGeodata(id, { latitude, longitude });
+      res.json({ success: true, message: "Property location updated" });
+    } catch (error) {
+      console.error("Error updating property geodata:", error);
+      res.status(500).json({ error: "Failed to update property location" });
+    }
+  });
+  
+  // ===== GEOCODING CSV IMPORT =====
+  app.post("/api/geocoding/import", async (req, res) => {
+    try {
+      const { data } = req.body;
+      
+      if (!Array.isArray(data) || data.length === 0) {
+        return res.status(400).json({ error: "Data must be a non-empty array" });
+      }
+      
+      let updated = 0;
+      let errors = 0;
+      
+      for (const row of data) {
+        const { propertyId, latitude, longitude } = row;
+        
+        if (!propertyId || typeof latitude !== 'number' || typeof longitude !== 'number') {
+          errors++;
+          continue;
+        }
+        
+        try {
+          await storage.updatePropertyGeodata(propertyId, { latitude, longitude });
+          updated++;
+        } catch (e) {
+          errors++;
+        }
+      }
+      
+      res.json({ 
+        message: `Imported ${updated} locations`, 
+        updated, 
+        errors,
+        total: data.length 
+      });
+    } catch (error) {
+      console.error("Error importing geocoding data:", error);
+      res.status(500).json({ error: "Failed to import geocoding data" });
+    }
+  });
+  
   // ===== GEOCODING API ENDPOINTS =====
   app.get("/api/geocoding/status", async (req, res) => {
     try {

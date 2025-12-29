@@ -39,6 +39,7 @@ import ScenariosPage from "@/pages/maps/scenarios";
 import EvidencePage from "@/pages/maps/evidence";
 
 import LandingPage from "@/pages/landing";
+import HelpPage from "@/pages/help";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 
 function Router() {
@@ -78,6 +79,7 @@ function Router() {
       <Route path="/maps/risk-heatmap" component={RiskHeatmap} />
       <Route path="/maps/scenarios" component={ScenariosPage} />
       <Route path="/maps/evidence" component={EvidencePage} />
+      <Route path="/help" component={HelpPage} />
       
       <Route component={NotFound} />
     </Switch>

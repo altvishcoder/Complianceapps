@@ -28,7 +28,8 @@ import {
   X,
   Key,
   Activity,
-  Map
+  Map,
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -48,6 +49,7 @@ const navigation = [
   { name: "Risk Maps", href: "/maps", icon: Map },
   { name: "Data Import", href: "/admin/imports", icon: Database },
   { name: "Video Library", href: "/video-library", icon: Film },
+  { name: "Help Guide", href: "/help", icon: HelpCircle },
 ];
 
 const aiNavigation = [
