@@ -1,10 +1,31 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useExtractionEvents } from "@/hooks/useExtractionEvents";
+import { useEffect, useState, ComponentType } from "react";
 import NotFound from "@/pages/not-found";
+
+function ProtectedRoute({ component: Component }: { component: ComponentType }) {
+  const [, setLocation] = useLocation();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const userId = localStorage.getItem("user_id");
+    if (!userId) {
+      setLocation("/login");
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [setLocation]);
+
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  return <Component />;
+}
 import Dashboard from "@/pages/dashboard";
 import Ingestion from "@/pages/ingestion";
 import Properties from "@/pages/properties";
@@ -49,37 +70,37 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
       <Route path="/mfa" component={MFAPage} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/ingestion" component={Ingestion} />
-      <Route path="/properties" component={Properties} />
-      <Route path="/properties/:id" component={PropertyDetail} />
-      <Route path="/certificates" component={CertificatesPage} />
-      <Route path="/certificates/upload" component={CertificateUpload} />
-      <Route path="/certificates/:id" component={CertificateDetailPage} />
-      <Route path="/compliance" component={CompliancePage} />
-      <Route path="/actions" component={ActionsPage} />
-      <Route path="/contractors" component={ContractorsPage} />
-      <Route path="/reports" component={Reports} />
-      <Route path="/admin/setup" component={AdminSetup} />
-      <Route path="/admin/users" component={AdminUsersPage} />
-      <Route path="/admin/configuration" component={AdminConfiguration} />
-      <Route path="/admin/imports" component={AdminImportsPage} />
-      <Route path="/admin/tests" component={AdminTestSuite} />
-      <Route path="/admin/integrations" component={AdminIntegrationsPage} />
-      <Route path="/admin/hierarchy" component={AdminHierarchy} />
-      <Route path="/admin/factory-settings" component={AdminFactorySettings} />
-      <Route path="/admin/api-integration" component={AdminApiIntegration} />
-      <Route path="/admin/system-health" component={AdminSystemHealth} />
-      <Route path="/model-insights" component={ModelInsightsPage} />
-      <Route path="/human-review" component={HumanReviewPage} />
+      <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
+      <Route path="/ingestion">{() => <ProtectedRoute component={Ingestion} />}</Route>
+      <Route path="/properties">{() => <ProtectedRoute component={Properties} />}</Route>
+      <Route path="/properties/:id">{() => <ProtectedRoute component={PropertyDetail} />}</Route>
+      <Route path="/certificates">{() => <ProtectedRoute component={CertificatesPage} />}</Route>
+      <Route path="/certificates/upload">{() => <ProtectedRoute component={CertificateUpload} />}</Route>
+      <Route path="/certificates/:id">{() => <ProtectedRoute component={CertificateDetailPage} />}</Route>
+      <Route path="/compliance">{() => <ProtectedRoute component={CompliancePage} />}</Route>
+      <Route path="/actions">{() => <ProtectedRoute component={ActionsPage} />}</Route>
+      <Route path="/contractors">{() => <ProtectedRoute component={ContractorsPage} />}</Route>
+      <Route path="/reports">{() => <ProtectedRoute component={Reports} />}</Route>
+      <Route path="/admin/setup">{() => <ProtectedRoute component={AdminSetup} />}</Route>
+      <Route path="/admin/users">{() => <ProtectedRoute component={AdminUsersPage} />}</Route>
+      <Route path="/admin/configuration">{() => <ProtectedRoute component={AdminConfiguration} />}</Route>
+      <Route path="/admin/imports">{() => <ProtectedRoute component={AdminImportsPage} />}</Route>
+      <Route path="/admin/tests">{() => <ProtectedRoute component={AdminTestSuite} />}</Route>
+      <Route path="/admin/integrations">{() => <ProtectedRoute component={AdminIntegrationsPage} />}</Route>
+      <Route path="/admin/hierarchy">{() => <ProtectedRoute component={AdminHierarchy} />}</Route>
+      <Route path="/admin/factory-settings">{() => <ProtectedRoute component={AdminFactorySettings} />}</Route>
+      <Route path="/admin/api-integration">{() => <ProtectedRoute component={AdminApiIntegration} />}</Route>
+      <Route path="/admin/system-health">{() => <ProtectedRoute component={AdminSystemHealth} />}</Route>
+      <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
+      <Route path="/human-review">{() => <ProtectedRoute component={HumanReviewPage} />}</Route>
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
-      <Route path="/components" component={ComponentsPage} />
-      <Route path="/video-library" component={VideoLibrary} />
-      <Route path="/maps" component={MapsIndex} />
-      <Route path="/maps/risk-heatmap" component={RiskHeatmap} />
-      <Route path="/maps/scenarios" component={ScenariosPage} />
-      <Route path="/maps/evidence" component={EvidencePage} />
-      <Route path="/help" component={HelpPage} />
+      <Route path="/components">{() => <ProtectedRoute component={ComponentsPage} />}</Route>
+      <Route path="/video-library">{() => <ProtectedRoute component={VideoLibrary} />}</Route>
+      <Route path="/maps">{() => <ProtectedRoute component={MapsIndex} />}</Route>
+      <Route path="/maps/risk-heatmap">{() => <ProtectedRoute component={RiskHeatmap} />}</Route>
+      <Route path="/maps/scenarios">{() => <ProtectedRoute component={ScenariosPage} />}</Route>
+      <Route path="/maps/evidence">{() => <ProtectedRoute component={EvidencePage} />}</Route>
+      <Route path="/help">{() => <ProtectedRoute component={HelpPage} />}</Route>
       
       <Route component={NotFound} />
     </Switch>
