@@ -375,6 +375,76 @@ export async function registerRoutes(
     }
   });
   
+  // ===== GEOCODING API ENDPOINTS =====
+  app.get("/api/geocoding/status", async (req, res) => {
+    try {
+      const allProperties = await storage.listProperties(ORG_ID);
+      const geocoded = allProperties.filter(p => p.latitude && p.longitude);
+      const notGeocoded = allProperties.filter(p => !p.latitude || !p.longitude);
+      const withValidPostcode = notGeocoded.filter(p => p.postcode && p.postcode !== 'UNKNOWN' && p.postcode.length >= 5);
+      
+      res.json({
+        total: allProperties.length,
+        geocoded: geocoded.length,
+        notGeocoded: notGeocoded.length,
+        canAutoGeocode: withValidPostcode.length
+      });
+    } catch (error) {
+      console.error("Error fetching geocoding status:", error);
+      res.status(500).json({ error: "Failed to fetch geocoding status" });
+    }
+  });
+  
+  app.post("/api/geocoding/batch", async (req, res) => {
+    try {
+      const { geocodeBulkPostcodes } = await import('./geocoding');
+      
+      const allProperties = await storage.listProperties(ORG_ID);
+      const needsGeocoding = allProperties.filter(p => 
+        (!p.latitude || !p.longitude) && 
+        p.postcode && 
+        p.postcode !== 'UNKNOWN' && 
+        p.postcode.length >= 5
+      );
+      
+      if (needsGeocoding.length === 0) {
+        return res.json({ message: "No properties need geocoding", updated: 0 });
+      }
+      
+      const postcodeSet = new Set(needsGeocoding.map(p => p.postcode!));
+      const postcodes = Array.from(postcodeSet);
+      const results = await geocodeBulkPostcodes(postcodes);
+      
+      let updated = 0;
+      for (const prop of needsGeocoding) {
+        const cleanPostcode = prop.postcode!.replace(/\s+/g, '').toUpperCase();
+        const geocode = results.get(cleanPostcode);
+        
+        if (geocode) {
+          await storage.updatePropertyGeodata(prop.id, {
+            latitude: geocode.latitude,
+            longitude: geocode.longitude,
+            ward: geocode.ward,
+            wardCode: geocode.wardCode,
+            lsoa: geocode.lsoa,
+            msoa: geocode.msoa
+          });
+          updated++;
+        }
+      }
+      
+      res.json({ 
+        message: `Geocoded ${updated} properties`, 
+        updated,
+        total: needsGeocoding.length,
+        failed: needsGeocoding.length - updated
+      });
+    } catch (error) {
+      console.error("Error batch geocoding:", error);
+      res.status(500).json({ error: "Failed to batch geocode properties" });
+    }
+  });
+  
   // ===== RISK MAPS API ENDPOINTS =====
   app.get("/api/properties/geo", async (req, res) => {
     try {

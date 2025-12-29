@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend } from '@/components/maps';
@@ -7,62 +7,52 @@ import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Map, BarChart3, AlertTriangle, FileText } from 'lucide-react';
+import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
-
-function generateSampleProperties(): PropertyMarker[] {
-  const properties: PropertyMarker[] = [];
-  const londonAreas = [
-    { name: 'Westminster', lat: 51.501, lng: -0.141 },
-    { name: 'Camden', lat: 51.539, lng: -0.142 },
-    { name: 'Islington', lat: 51.536, lng: -0.103 },
-    { name: 'Hackney', lat: 51.545, lng: -0.055 },
-    { name: 'Tower Hamlets', lat: 51.515, lng: -0.032 },
-    { name: 'Southwark', lat: 51.473, lng: -0.080 },
-    { name: 'Lambeth', lat: 51.457, lng: -0.123 },
-    { name: 'Wandsworth', lat: 51.456, lng: -0.191 },
-    { name: 'Hammersmith', lat: 51.492, lng: -0.223 },
-    { name: 'Kensington', lat: 51.502, lng: -0.194 },
-  ];
-
-  for (let i = 0; i < 25; i++) {
-    const area = londonAreas[i % londonAreas.length];
-    const latOffset = (Math.random() - 0.5) * 0.04;
-    const lngOffset = (Math.random() - 0.5) * 0.04;
-    
-    properties.push({
-      id: `prop-${i + 1}`,
-      name: `${area.name} Estate Block ${Math.floor(i / 10) + 1}`,
-      address: `${Math.floor(Math.random() * 200) + 1} ${area.name} Road, London`,
-      lat: area.lat + latOffset,
-      lng: area.lng + lngOffset,
-      riskScore: Math.floor(Math.random() * 60) + 40,
-      propertyCount: Math.floor(Math.random() * 50) + 10,
-      unitCount: Math.floor(Math.random() * 200) + 50,
-    });
-  }
-
-  return properties;
-}
+import { toast } from 'sonner';
 
 export default function MapsIndexPage() {
   const [selectedProperty, setSelectedProperty] = useState<PropertyMarker | null>(null);
+  const queryClient = useQueryClient();
   
-  const sampleProperties = useMemo(() => generateSampleProperties(), []);
-  
-  const { data: properties = sampleProperties, isLoading } = useQuery({
+  const { data: properties = [], isLoading } = useQuery({
     queryKey: ['map-properties'],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
       const res = await fetch('/api/properties/geo', {
         headers: { 'X-User-Id': userId || '' }
       });
-      if (!res.ok) return sampleProperties;
-      const data = await res.json();
-      return data.length > 0 ? data : sampleProperties;
+      if (!res.ok) return [];
+      return res.json();
     },
     staleTime: 30000,
     refetchOnWindowFocus: true,
+  });
+  
+  const { data: geocodingStatus } = useQuery({
+    queryKey: ['geocoding-status'],
+    queryFn: async () => {
+      const res = await fetch('/api/geocoding/status');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+  
+  const geocodeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/geocoding/batch', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to geocode');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast.success(`Geocoded ${data.updated} properties`);
+      queryClient.invalidateQueries({ queryKey: ['map-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['geocoding-status'] });
+    },
+    onError: () => {
+      toast.error('Failed to geocode properties');
+    }
   });
 
   const riskSummary = useMemo(() => {
@@ -145,9 +135,51 @@ export default function MapsIndexPage() {
               </Card>
             </div>
 
+            {geocodingStatus && geocodingStatus.notGeocoded > 0 && (
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-5 w-5 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-amber-800">
+                        {geocodingStatus.geocoded} of {geocodingStatus.total} properties have map coordinates
+                      </p>
+                      <p className="text-sm text-amber-600">
+                        {geocodingStatus.canAutoGeocode} properties can be auto-geocoded from their postcodes
+                      </p>
+                    </div>
+                  </div>
+                  {geocodingStatus.canAutoGeocode > 0 && (
+                    <Button 
+                      onClick={() => geocodeMutation.mutate()}
+                      disabled={geocodeMutation.isPending}
+                      data-testid="button-geocode"
+                    >
+                      {geocodeMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Geocoding...
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Geocode Properties
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <div className="flex-1 relative rounded-lg overflow-hidden border shadow-sm" style={{ minHeight: '400px' }}>
+              {isLoading && (
+                <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
               <MapWrapper>
-                <BaseMap center={[51.505, -0.09]} zoom={11}>
+                <BaseMap center={[52.5, -1.5]} zoom={6}>
                   <PropertyMarkers 
                     properties={properties}
                     onPropertyClick={setSelectedProperty}
