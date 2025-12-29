@@ -3493,6 +3493,28 @@ export async function registerRoutes(
     }
   });
   
+  app.patch("/api/admin/api-clients/:id", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { isActive, name, description, scopes } = req.body;
+      
+      const updated = await storage.updateApiClient(req.params.id, { 
+        isActive, 
+        name, 
+        description, 
+        scopes 
+      });
+      if (!updated) {
+        return res.status(404).json({ error: "API client not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating API client:", error);
+      res.status(500).json({ error: "Failed to update API client" });
+    }
+  });
+
   app.delete("/api/admin/api-clients/:id", async (req, res) => {
     try {
       if (!await requireAdminRole(req, res)) return;

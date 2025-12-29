@@ -27,6 +27,7 @@ import AdminTestSuite from "@/pages/admin/tests";
 import AdminIntegrationsPage from "@/pages/admin/integrations";
 import AdminHierarchy from "@/pages/admin/hierarchy";
 import AdminFactorySettings from "@/pages/admin/factory-settings";
+import AdminApiIntegration from "@/pages/admin/api-integration";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/admin/integrations" component={AdminIntegrationsPage} />
       <Route path="/admin/hierarchy" component={AdminHierarchy} />
       <Route path="/admin/factory-settings" component={AdminFactorySettings} />
+      <Route path="/admin/api-integration" component={AdminApiIntegration} />
       <Route path="/model-insights" component={ModelInsightsPage} />
       <Route path="/human-review" component={HumanReviewPage} />
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>

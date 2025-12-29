@@ -25,7 +25,8 @@ import {
   Webhook,
   Film,
   Menu,
-  X
+  X,
+  Key
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -56,6 +57,7 @@ const adminOnlyNavigation = [
   { name: "Asset Hierarchy", href: "/admin/hierarchy", icon: Building2 },
   { name: "Settings", href: "/admin/setup", icon: Settings },
   { name: "Integrations", href: "/admin/integrations", icon: Webhook },
+  { name: "API Integration", href: "/admin/api-integration", icon: Key },
   { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
 ];
 
