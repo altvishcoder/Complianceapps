@@ -1,5 +1,11 @@
 import type { Express } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { storage } from "../../storage";
+
+// Cache for object storage settings to avoid database lookup on every request
+let cachedCacheTtlSec = 3600; // Default
+let lastCacheRefresh = 0;
+const CACHE_REFRESH_INTERVAL = 60000; // Refresh settings every minute
 
 /**
  * Register object storage routes for file uploads.
@@ -72,8 +78,20 @@ export function registerObjectStorageRoutes(app: Express): void {
    */
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
+      // Use cached TTL value, refresh periodically in background
+      const now = Date.now();
+      if (now - lastCacheRefresh > CACHE_REFRESH_INTERVAL) {
+        lastCacheRefresh = now;
+        storage.getFactorySettingValue('OBJECT_STORAGE_CACHE_TTL_SECONDS', '3600')
+          .then(value => {
+            const parsed = parseInt(value);
+            if (!isNaN(parsed)) cachedCacheTtlSec = parsed;
+          })
+          .catch(() => {}); // Silently use cached value on error
+      }
+      
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      await objectStorageService.downloadObject(objectFile, res);
+      await objectStorageService.downloadObject(objectFile, res, cachedCacheTtlSec);
     } catch (error) {
       console.error("Error serving object:", error);
       if (error instanceof ObjectNotFoundError) {

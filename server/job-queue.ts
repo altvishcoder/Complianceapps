@@ -41,11 +41,16 @@ export async function initJobQueue(): Promise<PgBoss> {
     throw new Error("DATABASE_URL environment variable is required for job queue");
   }
 
-  // Load job queue configuration from Factory Settings
-  const retryLimit = parseInt(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'));
-  const retryDelay = parseInt(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'));
-  const archiveFailedAfterDays = parseInt(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'));
-  const deleteAfterDays = parseInt(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'));
+  // Load job queue configuration from Factory Settings with NaN fallbacks
+  const parseIntWithDefault = (value: string, defaultVal: number): number => {
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? defaultVal : parsed;
+  };
+  
+  const retryLimit = parseIntWithDefault(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'), 3);
+  const retryDelay = parseIntWithDefault(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'), 30);
+  const archiveFailedAfterDays = parseIntWithDefault(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'), 7);
+  const deleteAfterDays = parseIntWithDefault(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'), 30);
 
   boss = new PgBoss({
     connectionString,

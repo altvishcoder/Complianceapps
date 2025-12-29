@@ -4029,9 +4029,14 @@ export async function registerRoutes(
   });
   
   // ===== RATE LIMITING (PostgreSQL-backed) =====
-  // Load rate limit configuration from Factory Settings (awaited before interval creation)
-  const rateLimitWindowMs = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_WINDOW_MS', '60000'));
-  const rateLimitCleanupIntervalMs = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_CLEANUP_INTERVAL_MS', '60000'));
+  // Load rate limit configuration from Factory Settings with NaN fallbacks
+  const parseIntWithDefault = (value: string, defaultVal: number): number => {
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? defaultVal : parsed;
+  };
+  
+  const rateLimitWindowMs = parseIntWithDefault(await storage.getFactorySettingValue('RATE_LIMIT_WINDOW_MS', '60000'), 60000);
+  const rateLimitCleanupIntervalMs = parseIntWithDefault(await storage.getFactorySettingValue('RATE_LIMIT_CLEANUP_INTERVAL_MS', '60000'), 60000);
   
   // Clean up expired rate limit entries periodically using configured interval
   setInterval(async () => {
