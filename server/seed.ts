@@ -904,6 +904,82 @@ async function seedFactorySettings() {
       valueType: "number",
       isEditable: true,
       validationRules: { min: 0.5, max: 0.99 }
+    },
+    // Job Queue Settings
+    {
+      key: "JOB_RETRY_LIMIT",
+      value: "3",
+      category: "JOB_QUEUE",
+      description: "Maximum number of retry attempts for failed jobs",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 10 }
+    },
+    {
+      key: "JOB_RETRY_DELAY_SECONDS",
+      value: "30",
+      category: "JOB_QUEUE",
+      description: "Initial delay in seconds before retrying a failed job",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 5, max: 300 }
+    },
+    {
+      key: "JOB_ARCHIVE_FAILED_AFTER_DAYS",
+      value: "7",
+      category: "JOB_QUEUE",
+      description: "Days after which failed jobs are archived",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 90 }
+    },
+    {
+      key: "JOB_DELETE_AFTER_DAYS",
+      value: "30",
+      category: "JOB_QUEUE",
+      description: "Days after which completed jobs are permanently deleted",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 7, max: 365 }
+    },
+    // Rate Limit Timing Settings
+    {
+      key: "RATE_LIMIT_WINDOW_MS",
+      value: "60000",
+      category: "RATE_LIMITING",
+      description: "Rate limit sliding window duration in milliseconds",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 10000, max: 300000 }
+    },
+    {
+      key: "RATE_LIMIT_CLEANUP_INTERVAL_MS",
+      value: "60000",
+      category: "RATE_LIMITING",
+      description: "Interval for cleaning up expired rate limit entries in milliseconds",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 30000, max: 300000 }
+    },
+    // Caching Settings
+    {
+      key: "OBJECT_STORAGE_CACHE_TTL_SECONDS",
+      value: "3600",
+      category: "CACHING",
+      description: "Cache TTL for object storage downloads in seconds",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 60, max: 86400 }
+    },
+    // Geocoding Settings
+    {
+      key: "GEOCODING_BATCH_SIZE",
+      value: "100",
+      category: "GEOCODING",
+      description: "Number of postcodes to geocode per API batch request",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 10, max: 100 }
     }
   ];
   

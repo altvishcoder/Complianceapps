@@ -4029,22 +4029,24 @@ export async function registerRoutes(
   });
   
   // ===== RATE LIMITING (PostgreSQL-backed) =====
-  const windowMs = 60 * 1000; // 1 minute window
+  // Load rate limit configuration from Factory Settings (awaited before interval creation)
+  const rateLimitWindowMs = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_WINDOW_MS', '60000'));
+  const rateLimitCleanupIntervalMs = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_CLEANUP_INTERVAL_MS', '60000'));
   
-  // Clean up expired rate limit entries periodically
+  // Clean up expired rate limit entries periodically using configured interval
   setInterval(async () => {
     try {
       await storage.cleanupExpiredRateLimits();
     } catch (error) {
       console.error("Error cleaning up rate limits:", error);
     }
-  }, 60 * 1000); // Clean up every minute
+  }, rateLimitCleanupIntervalMs);
   
   // Rate limiter that reads limits from factory settings
   const checkRateLimit = async (clientId: string, res: Response): Promise<boolean> => {
     const limitPerMinute = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_REQUESTS_PER_MINUTE', '60'));
     
-    const result = await storage.checkAndIncrementRateLimit(clientId, windowMs, limitPerMinute);
+    const result = await storage.checkAndIncrementRateLimit(clientId, rateLimitWindowMs, limitPerMinute);
     
     res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
     res.setHeader('X-RateLimit-Remaining', result.remaining.toString());

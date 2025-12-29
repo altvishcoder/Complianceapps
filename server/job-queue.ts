@@ -41,13 +41,19 @@ export async function initJobQueue(): Promise<PgBoss> {
     throw new Error("DATABASE_URL environment variable is required for job queue");
   }
 
+  // Load job queue configuration from Factory Settings
+  const retryLimit = parseInt(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'));
+  const retryDelay = parseInt(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'));
+  const archiveFailedAfterDays = parseInt(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'));
+  const deleteAfterDays = parseInt(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'));
+
   boss = new PgBoss({
     connectionString,
-    retryLimit: 3,
-    retryDelay: 30,
+    retryLimit,
+    retryDelay,
     retryBackoff: true,
-    archiveFailedAfterSeconds: 60 * 60 * 24 * 7,
-    deleteAfterDays: 30,
+    archiveFailedAfterSeconds: 60 * 60 * 24 * archiveFailedAfterDays,
+    deleteAfterDays,
   });
 
   boss.on("error", (error) => {
