@@ -7,15 +7,19 @@ import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Upload } from 'lucide-react';
+import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Upload, Building2, MapPinned, Home } from 'lucide-react';
 import { Link } from 'wouter';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type AggregationLevel = 'property' | 'scheme' | 'ward';
 
 export default function MapsIndexPage() {
   const [selectedProperty, setSelectedProperty] = useState<PropertyMarker | null>(null);
+  const [aggregationLevel, setAggregationLevel] = useState<AggregationLevel>('property');
   const queryClient = useQueryClient();
   
   const { data: properties = [], isLoading } = useQuery({
@@ -40,6 +44,17 @@ export default function MapsIndexPage() {
       return res.json();
     },
     staleTime: 60000,
+  });
+  
+  const { data: aggregatedAreas = [] } = useQuery({
+    queryKey: ['risk-areas', aggregationLevel],
+    queryFn: async () => {
+      const res = await fetch(`/api/risk/areas?level=${aggregationLevel}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: aggregationLevel !== 'property',
+    staleTime: 30000,
   });
   
   const geocodeMutation = useMutation({
@@ -107,13 +122,31 @@ export default function MapsIndexPage() {
     csvImportMutation.mutate(data);
   };
 
+  const displayMarkers = useMemo(() => {
+    if (aggregationLevel === 'property') {
+      return properties;
+    }
+    return aggregatedAreas.map((area: any) => ({
+      id: area.id,
+      name: area.name,
+      address: `${area.name} (${area.riskScore.propertyCount} properties)`,
+      lat: area.lat,
+      lng: area.lng,
+      riskScore: area.riskScore.compositeScore,
+      propertyCount: area.riskScore.propertyCount,
+    }));
+  }, [aggregationLevel, properties, aggregatedAreas]);
+  
   const riskSummary = useMemo(() => {
-    const high = properties.filter((p: PropertyMarker) => p.riskScore < 60).length;
-    const medium = properties.filter((p: PropertyMarker) => p.riskScore >= 60 && p.riskScore < 85).length;
-    const low = properties.filter((p: PropertyMarker) => p.riskScore >= 85).length;
-    const avgScore = properties.reduce((sum: number, p: PropertyMarker) => sum + p.riskScore, 0) / properties.length;
-    return { high, medium, low, avgScore: Math.round(avgScore), total: properties.length };
-  }, [properties]);
+    const dataSource = displayMarkers;
+    const high = dataSource.filter((p: any) => p.riskScore < 60).length;
+    const medium = dataSource.filter((p: any) => p.riskScore >= 60 && p.riskScore < 85).length;
+    const low = dataSource.filter((p: any) => p.riskScore >= 85).length;
+    const avgScore = dataSource.length > 0 
+      ? dataSource.reduce((sum: number, p: any) => sum + p.riskScore, 0) / dataSource.length 
+      : 0;
+    return { high, medium, low, avgScore: Math.round(avgScore), total: dataSource.length };
+  }, [displayMarkers]);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -130,7 +163,35 @@ export default function MapsIndexPage() {
                   Visualize compliance risk across your property portfolio
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-muted-foreground">View by:</Label>
+                  <Select value={aggregationLevel} onValueChange={(v) => setAggregationLevel(v as AggregationLevel)}>
+                    <SelectTrigger className="w-[140px]" data-testid="select-aggregation-level">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="property">
+                        <div className="flex items-center gap-2">
+                          <Home className="h-4 w-4" />
+                          Property
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="scheme">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          Scheme
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ward">
+                        <div className="flex items-center gap-2">
+                          <MapPinned className="h-4 w-4" />
+                          Ward
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Link href="/maps/risk-heatmap">
                   <Button variant="outline" data-testid="button-heatmap">
                     <BarChart3 className="h-4 w-4 mr-2" />
@@ -155,7 +216,10 @@ export default function MapsIndexPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card data-testid="card-total-properties">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Properties</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {aggregationLevel === 'property' ? 'Total Properties' : 
+                     aggregationLevel === 'scheme' ? 'Total Schemes' : 'Total Wards'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold">{riskSummary.total}</p>
@@ -278,7 +342,7 @@ export default function MapsIndexPage() {
               <MapWrapper>
                 <BaseMap center={[52.5, -1.5]} zoom={6}>
                   <PropertyMarkers 
-                    properties={properties}
+                    properties={displayMarkers}
                     onPropertyClick={setSelectedProperty}
                   />
                 </BaseMap>

@@ -570,6 +570,89 @@ export async function registerRoutes(
           });
         
         res.json(areas);
+      } else if (level === 'scheme') {
+        const schemes = await storage.listSchemes(ORG_ID);
+        const allBlocks = await storage.listBlocks();
+        const blockToScheme = new Map(allBlocks.map(b => [b.id, b.schemeId]));
+        
+        const schemeMap = new Map<string, typeof riskData>();
+        for (const r of riskData) {
+          if (!r.property.latitude || !r.property.longitude) continue;
+          const schemeId = blockToScheme.get(r.property.blockId);
+          if (!schemeId) continue;
+          if (!schemeMap.has(schemeId)) schemeMap.set(schemeId, []);
+          schemeMap.get(schemeId)!.push(r);
+        }
+        
+        const schemeAggregates = schemes.map(scheme => {
+          const schemeProperties = schemeMap.get(scheme.id) || [];
+          if (schemeProperties.length === 0) return null;
+          
+          const avgLat = schemeProperties.reduce((sum, r) => sum + (r.property.latitude || 0), 0) / schemeProperties.length;
+          const avgLng = schemeProperties.reduce((sum, r) => sum + (r.property.longitude || 0), 0) / schemeProperties.length;
+          
+          const allCerts = schemeProperties.flatMap(r => r.certificates);
+          const allActions = schemeProperties.flatMap(r => r.actions);
+          const avgScore = Math.round(schemeProperties.reduce((sum, r) => 
+            sum + calculatePropertyRiskScore(r.certificates, r.actions), 0) / schemeProperties.length);
+          
+          return {
+            id: scheme.id,
+            name: scheme.name,
+            level: 'scheme' as const,
+            lat: avgLat,
+            lng: avgLng,
+            riskScore: {
+              compositeScore: avgScore,
+              trend: 'stable' as const,
+              propertyCount: schemeProperties.length,
+              unitCount: schemeProperties.length,
+              streams: calculateStreamScores(allCerts),
+              defects: calculateDefects(allActions)
+            }
+          };
+        }).filter(Boolean);
+        
+        res.json(schemeAggregates);
+      } else if (level === 'ward') {
+        const wardMap = new Map<string, typeof riskData>();
+        
+        for (const r of riskData) {
+          if (!r.property.latitude || !r.property.longitude) continue;
+          const wardKey = r.property.wardCode || (r.property.ward ? r.property.ward.toLowerCase().trim() : null);
+          if (!wardKey) continue;
+          if (!wardMap.has(wardKey)) wardMap.set(wardKey, []);
+          wardMap.get(wardKey)!.push(r);
+        }
+        
+        const wardAreas = Array.from(wardMap.entries()).map(([wardKey, properties]) => {
+          const displayName = properties[0]?.property.ward || wardKey;
+          const avgLat = properties.reduce((sum, r) => sum + (r.property.latitude || 0), 0) / properties.length;
+          const avgLng = properties.reduce((sum, r) => sum + (r.property.longitude || 0), 0) / properties.length;
+          
+          const allCerts = properties.flatMap(r => r.certificates);
+          const allActions = properties.flatMap(r => r.actions);
+          const avgScore = Math.round(properties.reduce((sum, r) => 
+            sum + calculatePropertyRiskScore(r.certificates, r.actions), 0) / properties.length);
+          
+          return {
+            id: `ward-${wardKey}`,
+            name: displayName,
+            level: 'ward' as const,
+            lat: avgLat,
+            lng: avgLng,
+            riskScore: {
+              compositeScore: avgScore,
+              trend: 'stable' as const,
+              propertyCount: properties.length,
+              unitCount: properties.length,
+              streams: calculateStreamScores(allCerts),
+              defects: calculateDefects(allActions)
+            }
+          };
+        });
+        
+        res.json(wardAreas);
       } else {
         res.json([]);
       }
