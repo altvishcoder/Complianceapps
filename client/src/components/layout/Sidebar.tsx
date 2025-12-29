@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
   Wrench,
   Users,
+  UserCog,
   Brain,
   Eye,
   Settings2,
@@ -60,6 +61,7 @@ const aiNavigation = [
 // Admin-only items in Admin Panel
 const adminOnlyNavigation = [
   { name: "Asset Hierarchy", href: "/admin/hierarchy", icon: Building2 },
+  { name: "User Management", href: "/admin/users", icon: UserCog },
   { name: "Settings", href: "/admin/setup", icon: Settings },
   { name: "Integrations", href: "/admin/integrations", icon: Webhook },
   { name: "API Integration", href: "/admin/api-integration", icon: Key },
@@ -85,12 +87,14 @@ export function Sidebar() {
   const navScrollRef = useRef<HTMLDivElement>(null);
   
   const userRole = typeof window !== 'undefined' ? localStorage.getItem("user_role") : null;
-  const isAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
-  const isComplianceManager = userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER";
   const isLashanSuperUser = userRole === "LASHAN_SUPER_USER" || userRole === "lashan_super_user";
-  const canAccessAITools = isAdmin || isComplianceManager || isLashanSuperUser;
-  const canAccessAdminPanel = isAdmin || isComplianceManager || isLashanSuperUser;
-  const canAccessFactorySettings = isLashanSuperUser || isAdmin;
+  const isSuperAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
+  const isSystemAdmin = userRole === "system_admin" || userRole === "SYSTEM_ADMIN";
+  const isComplianceManager = userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER";
+  const isAdmin = isLashanSuperUser || isSuperAdmin || isSystemAdmin;
+  const canAccessAITools = isAdmin || isComplianceManager;
+  const canAccessAdminPanel = isAdmin || isComplianceManager;
+  const canAccessFactorySettings = isLashanSuperUser || isSuperAdmin;
   
   // Restore scroll position on mount
   useEffect(() => {
