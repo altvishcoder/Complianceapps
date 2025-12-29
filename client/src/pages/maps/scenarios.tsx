@@ -10,6 +10,12 @@ import type { Scenario, ScenarioResult, ScenarioType } from '@/lib/risk/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, AlertTriangle } from 'lucide-react';
+import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('from');
+}
 
 const DEFAULT_SCENARIOS: Scenario[] = [
   { type: 'advisory_as_failure', enabled: false, params: {} },
@@ -117,6 +123,7 @@ export default function ScenariosPage() {
   
   const enabledCount = scenarios.filter(s => s.enabled).length;
   const isScenarioActive = enabledCount > 0;
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
 
   const scenarioResult = useMemo(() => generateScenarioResult(scenarios), [scenarios]);
   const markers = useMemo(() => generateScenarioMarkers(scenarios), [scenarios]);
@@ -127,7 +134,13 @@ export default function ScenariosPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Scenario Analysis" />
-        <main id="main-content" className="flex-1 overflow-hidden flex" role="main" aria-label="Scenario analysis content">
+        <main id="main-content" className="flex-1 overflow-hidden flex flex-col" role="main" aria-label="Scenario analysis content">
+          {showBackButton && (
+            <div className="p-4 pb-0 border-b">
+              <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+            </div>
+          )}
+          <div className="flex-1 overflow-hidden flex">
           <div className="w-80 border-r bg-background overflow-y-auto">
             <ScenarioPanel scenarios={scenarios} onChange={setScenarios} />
           </div>
@@ -162,6 +175,7 @@ export default function ScenariosPage() {
           
           <div className="w-80 border-l bg-background overflow-y-auto">
             <ScenarioImpact result={scenarioResult} />
+          </div>
           </div>
         </main>
       </div>

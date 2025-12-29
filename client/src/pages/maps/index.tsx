@@ -12,6 +12,12 @@ import { Link } from 'wouter';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('from');
+}
 
 type AggregationLevel = 'property' | 'scheme' | 'ward';
 
@@ -19,6 +25,7 @@ export default function MapsIndexPage() {
   const [selectedProperty, setSelectedProperty] = useState<PropertyMarker | null>(null);
   const [aggregationLevel, setAggregationLevel] = useState<AggregationLevel>('property');
   const queryClient = useQueryClient();
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
   
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ['map-properties'],
@@ -105,6 +112,11 @@ export default function MapsIndexPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Risk Maps" />
         <main id="main-content" className="flex-1 overflow-hidden p-6" role="main" aria-label="Risk maps content">
+          {showBackButton && (
+            <div className="mb-4">
+              <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
+            </div>
+          )}
           <div className="h-full flex flex-col space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -142,19 +154,19 @@ export default function MapsIndexPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Link href="/maps/risk-heatmap">
+                <Link href="/maps/risk-heatmap?from=/maps">
                   <Button variant="outline" data-testid="button-heatmap">
                     <BarChart3 className="h-4 w-4 mr-2" />
                     Risk Heatmap
                   </Button>
                 </Link>
-                <Link href="/maps/scenarios">
+                <Link href="/maps/scenarios?from=/maps">
                   <Button variant="outline" data-testid="button-scenarios">
                     <AlertTriangle className="h-4 w-4 mr-2" />
                     Scenarios
                   </Button>
                 </Link>
-                <Link href="/maps/evidence">
+                <Link href="/maps/evidence?from=/maps">
                   <Button variant="outline" data-testid="button-evidence">
                     <FileText className="h-4 w-4 mr-2" />
                     Evidence View

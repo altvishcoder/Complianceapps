@@ -278,7 +278,7 @@ export default function Dashboard() {
                       <span className="text-xs">Properties</span>
                     </Button>
                   </Link>
-                  <Link href="/maps">
+                  <Link href="/maps?from=/dashboard">
                     <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-view-maps">
                       <MapPin className="h-5 w-5" />
                       <span className="text-xs">Risk Maps</span>

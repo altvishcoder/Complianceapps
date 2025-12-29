@@ -9,6 +9,12 @@ import type { PropertyMarker } from '@/components/maps';
 import type { RiskFilters as RiskFiltersType, RiskScore, AreaRisk } from '@/lib/risk/types';
 import { Button } from '@/components/ui/button';
 import { RefreshCcw, Download, X } from 'lucide-react';
+import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('from') || params.has('stream') || params.has('level');
+}
 
 function generateSampleAreas(): AreaRisk[] {
   const areas: AreaRisk[] = [];
@@ -74,6 +80,7 @@ export default function RiskHeatmapPage() {
   });
   
   const [selectedArea, setSelectedArea] = useState<AreaRisk | null>(null);
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
   
   const sampleAreas = useMemo(() => generateSampleAreas(), []);
   
@@ -128,6 +135,11 @@ export default function RiskHeatmapPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Risk Heatmap" />
         <main id="main-content" className="flex-1 overflow-hidden flex flex-col" role="main" aria-label="Risk heatmap content">
+          {showBackButton && (
+            <div className="p-4 pb-0">
+              <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+            </div>
+          )}
           <RiskFilters filters={filters} onChange={setFilters} />
           
           <div className="flex-1 flex overflow-hidden">

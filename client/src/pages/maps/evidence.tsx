@@ -19,6 +19,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('from');
+}
 
 const REGULATOR_QUESTIONS = [
   { id: 'highest-risk', label: 'Show highest residual risks', filter: { maxScore: 70 } },
@@ -73,6 +79,7 @@ export default function EvidencePage() {
   const [boardMode, setBoardMode] = useState(false);
   const [hrbOnly, setHrbOnly] = useState(false);
   const [selectedArea, setSelectedArea] = useState<PropertyMarker | null>(null);
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
 
   const sampleMarkers = useMemo(() => generateEvidenceMarkers(), []);
@@ -180,6 +187,11 @@ export default function EvidencePage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Evidence View" />
           <main id="main-content" className="flex-1 overflow-y-auto" role="main" aria-label="Board mode evidence content">
+            {showBackButton && (
+              <div className="p-4 pb-0">
+                <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+              </div>
+            )}
             <div className="p-4 border-b bg-background flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Badge variant="secondary" className="text-sm">Board Mode</Badge>
@@ -211,6 +223,11 @@ export default function EvidencePage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Evidence View" />
         <main id="main-content" className="flex-1 overflow-hidden flex flex-col" role="main" aria-label="Evidence view content">
+          {showBackButton && (
+            <div className="p-4 pb-0">
+              <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+            </div>
+          )}
           <div className="p-4 border-b bg-background flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
