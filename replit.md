@@ -52,6 +52,22 @@ Hierarchy relationships:
 
 Key enums define compliance statuses, property types, certificate types, and action severities aligned with UK housing regulations.
 
+### Compliance Fields
+Extended schema fields for UK social housing compliance:
+
+**Properties**: `vulnerableOccupant`, `epcRating` (A-G), `constructionYear`, `numberOfFloors`, `hasElectricity`, `hasAsbestos`, `hasSprinklers`, `localAuthority`
+
+**Units**: `areaSqMeters`, `isAccessible`, `fireCompartment`, `asbestosPresent`
+
+**Components**: `complianceStatus`, `certificateRequired`, `riskLevel` (HIGH/MEDIUM/LOW), `lastServiceDate`, `nextServiceDue`
+
+### CSV Import Templates
+The Data Import feature supports importing properties, units, and components from CSV files:
+- **Templates**: `/api/imports/templates/:type/download` - blank CSV with headers
+- **Samples**: `/api/imports/samples/:type/download` - CSV with realistic UK housing example data
+- Sample files located in `public/samples/` directory
+- All templates include compliance fields for comprehensive data import
+
 ### Seeding & Demo Data
 - **SEED_DEMO_DATA** environment variable controls demo data seeding (default: `false`)
 - Configuration data (certificate types, classification codes, etc.) always seeds automatically

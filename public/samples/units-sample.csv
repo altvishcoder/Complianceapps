@@ -1,0 +1,7 @@
+propertyUprn,name,reference,unitType,floor,description,areaSqMeters,isAccessible,fireCompartment,asbestosPresent,hactLocationCode
+10023456789,Kitchen,UNIT-001,DWELLING,Ground,Main kitchen with gas hob,12.5,true,FC-01,false,LOC-KIT-001
+10023456789,Living Room,UNIT-002,DWELLING,Ground,Open plan living area,18.3,true,FC-01,false,LOC-LIV-001
+10023456789,Bathroom,UNIT-003,DWELLING,Ground,Main bathroom with shower,6.2,true,FC-02,false,LOC-BTH-001
+10023456790,Communal Hallway,UNIT-004,COMMUNAL_AREA,Ground,Shared entrance hallway,8.5,true,FC-03,true,LOC-HAL-001
+10023456790,Plant Room,UNIT-005,PLANT_ROOM,Basement,Boiler and utility area,15.0,false,FC-04,true,LOC-PLT-001
+10023456791,Bedroom 1,UNIT-006,DWELLING,First,Master bedroom with en-suite,14.2,false,FC-05,false,LOC-BED-001

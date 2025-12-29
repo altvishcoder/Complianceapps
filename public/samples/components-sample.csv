@@ -1,0 +1,7 @@
+propertyUprn,unitReference,componentTypeCode,assetTag,serialNumber,manufacturer,model,location,accessNotes,installDate,expectedReplacementDate,warrantyExpiry,condition,riskLevel,certificateRequired,lastServiceDate,nextServiceDue
+10023456789,,GAS_BOILER,AST-001,GB123456,Worcester,Greenstar 30i,Kitchen cupboard,Key required from tenant,2018-03-15,2033-03-15,2023-03-15,GOOD,MEDIUM,GAS_SAFETY,2024-06-12,2025-06-12
+10023456789,UNIT-001,SMOKE_ALARM,AST-002,SA789012,Kidde,i9040,Kitchen ceiling,Stepladder required,2022-01-10,2032-01-10,2027-01-10,GOOD,LOW,,2024-01-10,2025-01-10
+10023456790,,ELECTRICAL_DB,AST-003,ED345678,Hager,VML108,Hallway cupboard,Behind storage boxes,2015-07-22,2040-07-22,,FAIR,HIGH,EICR,2023-09-15,2028-09-15
+10023456790,UNIT-005,GAS_METER,AST-004,GM567890,British Gas,G4,Plant room wall,Locked room - site key,2010-11-30,2035-11-30,,FAIR,MEDIUM,GAS_SAFETY,2024-06-12,2025-06-12
+10023456791,,CO_DETECTOR,AST-005,CD901234,FireAngel,CO-9X,Living room wall,None,2023-05-18,2030-05-18,2028-05-18,GOOD,LOW,,2023-05-18,2024-05-18
+10023456792,,FIRE_DOOR,AST-006,FD246810,Howdens,FD30,Kitchen entrance,None,2019-08-25,2049-08-25,,GOOD,HIGH,FIRE_RISK,2024-02-28,2025-02-28

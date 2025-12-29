@@ -423,16 +423,16 @@ export async function processComponentImport(
 export function generateCSVTemplate(importType: string): string {
   const templates: Record<string, string[]> = {
     properties: [
-      'uprn,addressLine1,addressLine2,city,postcode,propertyType,tenure,bedrooms,hasGas,blockReference',
-      '100000000001,123 Main Street,Flat 1,London,E1 1AA,FLAT,SOCIAL_RENT,2,true,BLOCK-001'
+      'uprn,addressLine1,addressLine2,city,postcode,propertyType,tenure,bedrooms,hasGas,hasElectricity,hasAsbestos,hasSprinklers,vulnerableOccupant,epcRating,constructionYear,numberOfFloors,localAuthority,blockReference',
+      '100000000001,123 Main Street,Flat 1,London,E1 1AA,FLAT,SOCIAL_RENT,2,true,true,false,false,false,C,1985,1,London Borough of Tower Hamlets,BLOCK-001'
     ],
     units: [
-      'propertyUprn,name,reference,unitType,floor,description',
-      '100000000001,Kitchen,UNIT-001,DWELLING,Ground,Main kitchen area'
+      'propertyUprn,name,reference,unitType,floor,description,areaSqMeters,isAccessible,fireCompartment,asbestosPresent,hactLocationCode',
+      '100000000001,Kitchen,UNIT-001,DWELLING,Ground,Main kitchen area,12.5,true,FC-01,false,LOC-KIT-001'
     ],
     components: [
-      'propertyUprn,unitReference,componentTypeCode,assetTag,serialNumber,manufacturer,model,location,installDate,condition',
-      '100000000001,,GAS_BOILER,ASSET-001,SN12345,Worcester,Greenstar 30i,Utility Room,2020-01-15,GOOD'
+      'propertyUprn,unitReference,componentTypeCode,assetTag,serialNumber,manufacturer,model,location,accessNotes,installDate,expectedReplacementDate,warrantyExpiry,condition,riskLevel,certificateRequired,lastServiceDate,nextServiceDue',
+      '100000000001,,GAS_BOILER,ASSET-001,SN12345,Worcester,Greenstar 30i,Utility Room,Key required from tenant,2020-01-15,2035-01-15,2025-01-15,GOOD,MEDIUM,GAS_SAFETY,2024-06-12,2025-06-12'
     ]
   };
   

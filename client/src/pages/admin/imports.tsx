@@ -209,12 +209,20 @@ export default function ImportsPage() {
                     <div className="border rounded-lg p-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">Template Columns</h4>
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={dataImportsApi.downloadTemplate(importType)} download>
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Template
-                          </a>
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" asChild data-testid="btn-download-template">
+                            <a href={dataImportsApi.downloadTemplate(importType)} download>
+                              <Download className="h-4 w-4 mr-2" />
+                              Blank Template
+                            </a>
+                          </Button>
+                          <Button variant="default" size="sm" asChild data-testid="btn-download-sample">
+                            <a href={dataImportsApi.downloadSample(importType)} download>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Sample with Data
+                            </a>
+                          </Button>
+                        </div>
                       </div>
                       <Table>
                         <TableHeader>

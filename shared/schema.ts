@@ -81,6 +81,17 @@ export const properties = pgTable("properties", {
   source: propertySourceEnum("source").notNull().default('MANUAL'),
   needsVerification: boolean("needs_verification").notNull().default(false),
   extractedMetadata: json("extracted_metadata"),
+  
+  // Additional compliance fields
+  vulnerableOccupant: boolean("vulnerable_occupant").notNull().default(false),
+  epcRating: text("epc_rating"),                      // A, B, C, D, E, F, G
+  constructionYear: integer("construction_year"),
+  numberOfFloors: integer("number_of_floors").default(1),
+  hasElectricity: boolean("has_electricity").notNull().default(true),
+  hasAsbestos: boolean("has_asbestos").notNull().default(false),
+  hasSprinklers: boolean("has_sprinklers").notNull().default(false),
+  localAuthority: text("local_authority"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -508,6 +519,12 @@ export const units = pgTable("units", {
   // HACT reference
   hactLocationCode: text("hact_location_code"),
   
+  // Compliance fields
+  areaSqMeters: real("area_sq_meters"),               // Room/unit area
+  isAccessible: boolean("is_accessible").notNull().default(false),
+  fireCompartment: text("fire_compartment"),          // Fire compartmentation zone
+  asbestosPresent: boolean("asbestos_present").notNull().default(false),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -549,6 +566,13 @@ export const components = pgTable("components", {
   // Last inspection link (for quick access)
   lastInspectionDate: text("last_inspection_date"),
   nextInspectionDue: text("next_inspection_due"),
+  
+  // Additional compliance fields
+  complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  certificateRequired: text("certificate_required"),   // Links to certificate type code
+  riskLevel: text("risk_level"),                       // HIGH, MEDIUM, LOW
+  lastServiceDate: text("last_service_date"),
+  nextServiceDue: text("next_service_due"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

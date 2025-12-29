@@ -515,6 +515,8 @@ export const dataImportsApi = {
   getTemplate: (type: string) => fetchJSON<{ columns: Array<{ name: string; required: boolean; description: string }> }>(`${API_BASE}/imports/templates/${type}`),
   
   downloadTemplate: (type: string) => `${API_BASE}/imports/templates/${type}/download`,
+  
+  downloadSample: (type: string) => `${API_BASE}/imports/samples/${type}/download`,
 };
 
 // TSM Reports

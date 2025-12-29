@@ -1,0 +1,6 @@
+uprn,addressLine1,addressLine2,city,postcode,propertyType,tenure,bedrooms,hasGas,hasElectricity,hasAsbestos,hasSprinklers,vulnerableOccupant,epcRating,constructionYear,numberOfFloors,localAuthority,blockReference
+10023456789,12 Oak Street,Flat A,Manchester,M1 2AB,FLAT,SOCIAL_RENT,2,true,true,false,false,false,C,1985,1,Manchester City Council,YOUR-BLOCK-REF
+10023456790,14 Oak Street,,Manchester,M1 2AC,HOUSE,AFFORDABLE_RENT,3,true,true,true,false,true,D,1972,2,Manchester City Council,YOUR-BLOCK-REF
+10023456791,16 Oak Street,Ground Floor,Manchester,M1 2AD,FLAT,SOCIAL_RENT,1,true,true,false,false,false,B,2010,1,Manchester City Council,YOUR-BLOCK-REF
+10023456792,18 Oak Street,,Manchester,M1 2AE,BUNGALOW,SOCIAL_RENT,2,false,true,false,false,true,E,1965,1,Manchester City Council,YOUR-BLOCK-REF
+10023456793,20 Oak Street,First Floor,Manchester,M1 2AF,MAISONETTE,SHARED_OWNERSHIP,3,true,true,false,true,false,C,1995,2,Manchester City Council,YOUR-BLOCK-REF

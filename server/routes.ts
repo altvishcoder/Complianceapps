@@ -2661,7 +2661,15 @@ export async function registerRoutes(
             { name: "propertyType", required: true, description: "HOUSE, FLAT, BUNGALOW, MAISONETTE, BEDSIT, STUDIO" },
             { name: "tenure", required: true, description: "SOCIAL_RENT, AFFORDABLE_RENT, SHARED_OWNERSHIP, LEASEHOLD, TEMPORARY" },
             { name: "bedrooms", required: false, description: "Number of bedrooms" },
-            { name: "hasGas", required: false, description: "true/false" },
+            { name: "hasGas", required: false, description: "true/false - property has gas supply" },
+            { name: "hasElectricity", required: false, description: "true/false - property has electricity" },
+            { name: "hasAsbestos", required: false, description: "true/false - asbestos present in property" },
+            { name: "hasSprinklers", required: false, description: "true/false - sprinkler system installed" },
+            { name: "vulnerableOccupant", required: false, description: "true/false - occupant requires priority servicing" },
+            { name: "epcRating", required: false, description: "Energy Performance Certificate rating: A, B, C, D, E, F, G" },
+            { name: "constructionYear", required: false, description: "Year property was built (e.g., 1985)" },
+            { name: "numberOfFloors", required: false, description: "Number of floors in property" },
+            { name: "localAuthority", required: false, description: "Local authority name" },
             { name: "blockReference", required: true, description: "Block reference code to link property" },
           ]
         },
@@ -2673,6 +2681,11 @@ export async function registerRoutes(
             { name: "unitType", required: true, description: "DWELLING, COMMUNAL_AREA, PLANT_ROOM, etc." },
             { name: "floor", required: false, description: "Floor level (Ground, 1st, etc.)" },
             { name: "description", required: false, description: "Description of the unit" },
+            { name: "areaSqMeters", required: false, description: "Area of room/unit in square meters" },
+            { name: "isAccessible", required: false, description: "true/false - wheelchair accessible" },
+            { name: "fireCompartment", required: false, description: "Fire compartmentation zone identifier" },
+            { name: "asbestosPresent", required: false, description: "true/false - asbestos present in unit" },
+            { name: "hactLocationCode", required: false, description: "HACT/UKHDS location code" },
           ]
         },
         components: {
@@ -2685,8 +2698,15 @@ export async function registerRoutes(
             { name: "manufacturer", required: false, description: "Component manufacturer" },
             { name: "model", required: false, description: "Component model" },
             { name: "location", required: false, description: "Location within property/unit" },
+            { name: "accessNotes", required: false, description: "Access instructions for engineer" },
             { name: "installDate", required: false, description: "Installation date (YYYY-MM-DD)" },
+            { name: "expectedReplacementDate", required: false, description: "Expected replacement date (YYYY-MM-DD)" },
+            { name: "warrantyExpiry", required: false, description: "Warranty expiry date (YYYY-MM-DD)" },
             { name: "condition", required: false, description: "GOOD, FAIR, POOR, CRITICAL" },
+            { name: "riskLevel", required: false, description: "Risk priority: HIGH, MEDIUM, LOW" },
+            { name: "certificateRequired", required: false, description: "Certificate type code (e.g., GAS_SAFETY)" },
+            { name: "lastServiceDate", required: false, description: "Last service date (YYYY-MM-DD)" },
+            { name: "nextServiceDue", required: false, description: "Next service due date (YYYY-MM-DD)" },
           ]
         }
       };
@@ -2719,6 +2739,39 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error generating CSV template:", error);
       res.status(500).json({ error: "Failed to generate CSV template" });
+    }
+  });
+  
+  // Download sample CSV with realistic UK housing data
+  app.get("/api/imports/samples/:type/download", async (req, res) => {
+    try {
+      const type = req.params.type as string;
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      const sampleFiles: Record<string, string> = {
+        properties: 'properties-sample.csv',
+        units: 'units-sample.csv',
+        components: 'components-sample.csv'
+      };
+      
+      const filename = sampleFiles[type];
+      if (!filename) {
+        return res.status(404).json({ error: "Sample type not found", availableTypes: Object.keys(sampleFiles) });
+      }
+      
+      const filePath = path.join(process.cwd(), 'public', 'samples', filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Sample file not found" });
+      }
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error("Error downloading sample CSV:", error);
+      res.status(500).json({ error: "Failed to download sample CSV" });
     }
   });
   
