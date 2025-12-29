@@ -1,35 +1,54 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { ShieldCheck, ArrowRight, Lock, Smartphone } from "lucide-react";
+import { ShieldCheck, ArrowRight, Lock, Smartphone, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Captcha } from "@/components/ui/captcha";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
     
-    // Simulate login logic
-    if (email === "superadmin@compliance.ai") {
-      localStorage.setItem("user_role", "super_admin");
-    } else {
-      localStorage.setItem("user_role", "user");
-    }
-
-    // Simulate network request
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setError(data.error || "Login failed");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Store user info in localStorage
+      localStorage.setItem("user_id", data.user.id);
+      localStorage.setItem("user_name", data.user.name);
+      localStorage.setItem("user_email", data.user.email);
+      localStorage.setItem("user_role", data.user.role);
+      localStorage.setItem("user_username", data.user.username);
+      
       setIsLoading(false);
-      setLocation("/mfa");
-    }, 1000);
+      setLocation("/");
+    } catch (err) {
+      setError("Unable to connect to server");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -50,14 +69,20 @@ export default function LoginPage() {
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="name@company.com" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username" 
+                  type="text" 
+                  placeholder="Enter your username" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required 
                 />
               </div>
@@ -106,17 +131,17 @@ export default function LoginPage() {
         </p>
 
         <div className="bg-slate-950 text-slate-300 p-4 rounded-md text-xs font-mono space-y-2 border border-slate-800">
-          <p className="font-bold text-slate-100 border-b border-slate-800 pb-1 mb-2">Dev Access / Test Credentials</p>
+          <p className="font-bold text-slate-100 border-b border-slate-800 pb-1 mb-2">Demo Credentials</p>
           <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
              <span>Super Admin:</span>
-             <span className="text-emerald-400">superadmin@compliance.ai</span>
+             <span className="text-emerald-400">superadmin</span>
           </div>
           <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
              <span>Password:</span>
-             <span className="text-emerald-400">admin123</span>
+             <span className="text-emerald-400">SuperAdmin2025!</span>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-800">
-            * Use these credentials to access restricted Admin Setup areas.
+            * Use these credentials to access restricted Admin areas.
           </div>
         </div>
       </div>

@@ -399,15 +399,22 @@ export function Sidebar() {
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-white/5">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-sm font-bold">
-            A
+            {(localStorage.getItem("user_name") || "User").charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">Admin User</p>
-            <p className="text-xs text-slate-500 truncate">admin@company.com</p>
+            <p className="text-sm font-medium text-white truncate">{localStorage.getItem("user_name") || "Guest User"}</p>
+            <p className="text-xs text-slate-500 truncate">{localStorage.getItem("user_email") || "Not logged in"}</p>
           </div>
         </div>
         <button 
-          onClick={() => setLocation("/login")}
+          onClick={() => {
+            localStorage.removeItem("user_id");
+            localStorage.removeItem("user_name");
+            localStorage.removeItem("user_email");
+            localStorage.removeItem("user_role");
+            localStorage.removeItem("user_username");
+            setLocation("/login");
+          }}
           className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
           aria-label="Sign out of your account"
         >

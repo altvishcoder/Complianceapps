@@ -8,7 +8,7 @@ import {
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
   insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
-  componentTypes, components, units, componentCertificates,
+  componentTypes, components, units, componentCertificates, users,
   type ApiClient
 } from "@shared/schema";
 import { z } from "zod";
@@ -145,6 +145,122 @@ export async function registerRoutes(
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
+
+  // ===== AUTHENTICATION ENDPOINTS =====
+  
+  // Login endpoint
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+      
+      // Find user by username
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+      
+      // For now, compare plaintext passwords (should use bcrypt in production)
+      if (user.password !== password) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+      
+      // Return user data (excluding password)
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          organisationId: user.organisationId
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+  
+  // Get current user endpoint
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          organisationId: user.organisationId
+        }
+      });
+    } catch (error) {
+      console.error("Auth error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+  
+  // Change password endpoint with role-based restrictions
+  app.post("/api/auth/change-password", async (req, res) => {
+    try {
+      const { userId, currentPassword, newPassword, requestingUserId } = req.body;
+      
+      if (!userId || !newPassword || !requestingUserId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Get the user whose password is being changed
+      const [targetUser] = await db.select().from(users).where(eq(users.id, userId));
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get the requesting user
+      const [requestingUser] = await db.select().from(users).where(eq(users.id, requestingUserId));
+      if (!requestingUser) {
+        return res.status(404).json({ error: "Requesting user not found" });
+      }
+      
+      // LASHAN_SUPER_USER password can only be changed by themselves
+      if (targetUser.role === 'LASHAN_SUPER_USER') {
+        if (requestingUser.id !== targetUser.id) {
+          return res.status(403).json({ error: "Only Lashan can change this password" });
+        }
+      }
+      
+      // Verify current password if changing own password
+      if (userId === requestingUserId) {
+        if (!currentPassword || targetUser.password !== currentPassword) {
+          return res.status(401).json({ error: "Current password is incorrect" });
+        }
+      }
+      
+      // Update password
+      await db.update(users).set({ password: newPassword }).where(eq(users.id, userId));
+      
+      res.json({ success: true, message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
   
   // Hard-coded organisation ID for demo (in production this would come from auth)
   const ORG_ID = "default-org";

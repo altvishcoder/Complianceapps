@@ -12,6 +12,20 @@ const mockNotifications = [
   { id: 3, title: "Remedial Action Overdue", message: "C2 defect at 12 Oak Lane requires attention", time: "1 day ago", read: true },
 ];
 
+function formatRole(role: string): string {
+  const roleDisplayNames: Record<string, string> = {
+    'LASHAN_SUPER_USER': 'Super User',
+    'SUPER_ADMIN': 'Super Admin',
+    'SYSTEM_ADMIN': 'System Admin',
+    'COMPLIANCE_MANAGER': 'Compliance Manager',
+    'ADMIN': 'Administrator',
+    'MANAGER': 'Manager',
+    'OFFICER': 'Compliance Officer',
+    'VIEWER': 'Viewer'
+  };
+  return roleDisplayNames[role] || role;
+}
+
 export function Header({ title }: { title: string }) {
   const [, navigate] = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -105,12 +119,13 @@ export function Header({ title }: { title: string }) {
         
         <div className="flex items-center gap-3 pl-3 ml-1 border-l border-border/50">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-foreground">Sarah Jenkins</p>
-            <p className="text-xs text-muted-foreground">Compliance Manager</p>
+            <p className="text-sm font-medium text-foreground">{localStorage.getItem("user_name") || "Guest User"}</p>
+            <p className="text-xs text-muted-foreground">{formatRole(localStorage.getItem("user_role") || "VIEWER")}</p>
           </div>
           <Avatar className="h-9 w-9 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
-            <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold">SJ</AvatarFallback>
+            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold">
+              {(localStorage.getItem("user_name") || "GU").split(" ").map(n => n.charAt(0)).join("").substring(0, 2).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
         </div>
       </div>

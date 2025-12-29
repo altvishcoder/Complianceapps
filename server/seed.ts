@@ -4,7 +4,10 @@ import { organisations, schemes, blocks, properties, users, certificateTypes, cl
 import { eq } from "drizzle-orm";
 
 const ORG_ID = "default-org";
+const LASHAN_SUPER_USER_ID = "lashan-super-user";
 const SUPER_ADMIN_ID = "super-admin-user";
+const SYSTEM_ADMIN_ID = "system-admin-user";
+const COMPLIANCE_MANAGER_ID = "compliance-manager-user";
 
 // Check if demo data should be seeded (default: false for production)
 const SEED_DEMO_DATA = process.env.SEED_DEMO_DATA === "true";
@@ -43,19 +46,65 @@ export async function seedDatabase() {
       console.log("✓ Using existing organisation:", org.name);
     }
     
-    // Always create super admin user (minimal bootstrap)
+    // Create default system accounts with proper role hierarchy
+    // 1. Lashan Super User (highest privilege, only 1 per system)
+    const [existingLashanUser] = await db.select().from(users).where(eq(users.id, LASHAN_SUPER_USER_ID));
+    if (!existingLashanUser) {
+      await db.insert(users).values({
+        id: LASHAN_SUPER_USER_ID,
+        username: "lashan",
+        password: "Lashan2025!Secure",
+        email: "lashan@lashandigital.com",
+        name: "Lashan Fernando",
+        role: "LASHAN_SUPER_USER",
+        organisationId: org.id
+      });
+      console.log("✓ Created Lashan Super User (username: lashan)");
+    }
+    
+    // 2. Super Admin (demo account, only 1 per system)
     const [existingSuperAdmin] = await db.select().from(users).where(eq(users.id, SUPER_ADMIN_ID));
     if (!existingSuperAdmin) {
       await db.insert(users).values({
         id: SUPER_ADMIN_ID,
-        username: "admin",
-        password: "admin123",
-        email: "admin@complianceai.co.uk",
-        name: "System Admin",
+        username: "superadmin",
+        password: "SuperAdmin2025!",
+        email: "superadmin@complianceai.co.uk",
+        name: "Super Administrator",
         role: "SUPER_ADMIN",
         organisationId: org.id
       });
-      console.log("✓ Created super admin user (username: admin, password: admin123)");
+      console.log("✓ Created Super Admin (username: superadmin, password: SuperAdmin2025!)");
+    }
+    
+    // 3. System Admin (can have multiple)
+    const [existingSystemAdmin] = await db.select().from(users).where(eq(users.id, SYSTEM_ADMIN_ID));
+    if (!existingSystemAdmin) {
+      await db.insert(users).values({
+        id: SYSTEM_ADMIN_ID,
+        username: "sysadmin",
+        password: "SysAdmin2025!",
+        email: "sysadmin@complianceai.co.uk",
+        name: "System Administrator",
+        role: "SYSTEM_ADMIN",
+        organisationId: org.id
+      });
+      console.log("✓ Created System Admin (username: sysadmin, password: SysAdmin2025!)");
+    }
+    
+    // 4. Compliance Manager (power user)
+    const [existingComplianceManager] = await db.select().from(users).where(eq(users.id, COMPLIANCE_MANAGER_ID));
+    if (!existingComplianceManager) {
+      await db.insert(users).values({
+        id: COMPLIANCE_MANAGER_ID,
+        username: "compmanager",
+        password: "Manager2025!",
+        email: "compmanager@complianceai.co.uk",
+        name: "Compliance Manager",
+        role: "COMPLIANCE_MANAGER",
+        organisationId: org.id
+      });
+      console.log("✓ Created Compliance Manager (username: compmanager, password: Manager2025!)");
     }
     
     // Only seed demo data if SEED_DEMO_DATA is true
