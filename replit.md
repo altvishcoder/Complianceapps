@@ -96,6 +96,32 @@ Comprehensive test suite using Vitest:
 
 ### Security Architecture
 
+#### User Role Hierarchy
+The system implements a hierarchical role-based access control (RBAC) system:
+
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| **LASHAN_SUPER_USER** | System owner (1 per system) | Full access, password only changeable by self |
+| **SUPER_ADMIN** | Demo super admin (1 per system) | Full access except Lashan password |
+| **SYSTEM_ADMIN** | System administrators (multiple) | System configuration, user management |
+| **COMPLIANCE_MANAGER** | Compliance power users (multiple) | All compliance features, reports |
+| **ADMIN** | Organisation administrators | Organisation-level admin |
+| **MANAGER** | Property managers | Property and certificate management |
+| **OFFICER** | Compliance officers | Certificate uploads, action tracking |
+| **VIEWER** | Read-only users | View dashboards and reports |
+
+#### Default User Accounts
+Seeded on first run with bcrypt-hashed passwords:
+- `lashan` / `Lashan2025!Secure` (LASHAN_SUPER_USER)
+- `superadmin` / `SuperAdmin2025!` (SUPER_ADMIN)
+- `sysadmin` / `SysAdmin2025!` (SYSTEM_ADMIN)
+- `compmanager` / `Manager2025!` (COMPLIANCE_MANAGER)
+
+#### Authentication Endpoints
+- **POST /api/auth/login** - Authenticate with username/password (bcrypt verification)
+- **GET /api/auth/me** - Get current user from X-User-Id header
+- **POST /api/auth/change-password** - Change password with role restrictions
+
 #### Admin Factory Settings Authorization
 - Factory Settings page restricted to LASHAN_SUPER_USER and SUPER_ADMIN roles
 - Server-side authorization via `requireAdminRole` middleware validates:
