@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
-  insertSchemeSchema, insertBlockSchema, insertPropertySchema, 
+  insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
   insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
@@ -165,6 +165,124 @@ export async function registerRoutes(
         console.error("Error creating block:", error);
         res.status(500).json({ error: "Failed to create block" });
       }
+    }
+  });
+
+  app.patch("/api/blocks/:id", async (req, res) => {
+    try {
+      const block = await storage.updateBlock(req.params.id, req.body);
+      if (!block) {
+        return res.status(404).json({ error: "Block not found" });
+      }
+      res.json(block);
+    } catch (error) {
+      console.error("Error updating block:", error);
+      res.status(500).json({ error: "Failed to update block" });
+    }
+  });
+
+  app.delete("/api/blocks/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteBlock(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Block not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting block:", error);
+      res.status(500).json({ error: "Failed to delete block" });
+    }
+  });
+
+  // ===== ORGANISATIONS =====
+  app.get("/api/organisations", async (req, res) => {
+    try {
+      const orgs = await storage.listOrganisations();
+      res.json(orgs);
+    } catch (error) {
+      console.error("Error fetching organisations:", error);
+      res.status(500).json({ error: "Failed to fetch organisations" });
+    }
+  });
+
+  app.get("/api/organisations/:id", async (req, res) => {
+    try {
+      const org = await storage.getOrganisation(req.params.id);
+      if (!org) {
+        return res.status(404).json({ error: "Organisation not found" });
+      }
+      res.json(org);
+    } catch (error) {
+      console.error("Error fetching organisation:", error);
+      res.status(500).json({ error: "Failed to fetch organisation" });
+    }
+  });
+
+  app.post("/api/organisations", async (req, res) => {
+    try {
+      const data = insertOrganisationSchema.parse(req.body);
+      const org = await storage.createOrganisation(data);
+      res.status(201).json(org);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating organisation:", error);
+        res.status(500).json({ error: "Failed to create organisation" });
+      }
+    }
+  });
+
+  app.patch("/api/organisations/:id", async (req, res) => {
+    try {
+      const org = await storage.updateOrganisation(req.params.id, req.body);
+      if (!org) {
+        return res.status(404).json({ error: "Organisation not found" });
+      }
+      res.json(org);
+    } catch (error) {
+      console.error("Error updating organisation:", error);
+      res.status(500).json({ error: "Failed to update organisation" });
+    }
+  });
+
+  app.delete("/api/organisations/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteOrganisation(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Organisation not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting organisation:", error);
+      res.status(500).json({ error: "Failed to delete organisation" });
+    }
+  });
+
+  // ===== SCHEME UPDATES =====
+  app.patch("/api/schemes/:id", async (req, res) => {
+    try {
+      const scheme = await storage.updateScheme(req.params.id, req.body);
+      if (!scheme) {
+        return res.status(404).json({ error: "Scheme not found" });
+      }
+      res.json(scheme);
+    } catch (error) {
+      console.error("Error updating scheme:", error);
+      res.status(500).json({ error: "Failed to update scheme" });
+    }
+  });
+
+  app.delete("/api/schemes/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteScheme(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Scheme not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting scheme:", error);
+      res.status(500).json({ error: "Failed to delete scheme" });
     }
   });
   

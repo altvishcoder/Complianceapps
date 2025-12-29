@@ -27,16 +27,40 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
-// Schemes
+// Organisations (HACT: Housing Association)
+export const organisationsApi = {
+  list: () => fetchJSON<any[]>(`${API_BASE}/organisations`),
+  get: (id: string) => fetchJSON<any>(`${API_BASE}/organisations/${id}`),
+  create: (data: { name: string; slug: string; settings?: any }) => fetchJSON<any>(`${API_BASE}/organisations`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: string, data: Partial<{ name: string; slug: string; settings: any }>) => fetchJSON<any>(`${API_BASE}/organisations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/organisations/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// Schemes (HACT: Site)
 export const schemesApi = {
   list: () => fetchJSON<Scheme[]>(`${API_BASE}/schemes`),
   create: (data: Partial<Scheme>) => fetchJSON<Scheme>(`${API_BASE}/schemes`, {
     method: "POST",
     body: JSON.stringify(data),
   }),
+  update: (id: string, data: Partial<Scheme>) => fetchJSON<Scheme>(`${API_BASE}/schemes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/schemes/${id}`, {
+    method: "DELETE",
+  }),
 };
 
-// Blocks
+// Blocks (HACT: Property/Building)
 export const blocksApi = {
   list: (schemeId?: string) => {
     const params = schemeId ? `?schemeId=${schemeId}` : "";
@@ -45,6 +69,13 @@ export const blocksApi = {
   create: (data: Partial<Block>) => fetchJSON<Block>(`${API_BASE}/blocks`, {
     method: "POST",
     body: JSON.stringify(data),
+  }),
+  update: (id: string, data: Partial<Block>) => fetchJSON<Block>(`${API_BASE}/blocks/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/blocks/${id}`, {
+    method: "DELETE",
   }),
 };
 

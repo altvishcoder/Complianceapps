@@ -25,6 +25,7 @@ import AdminConfiguration from "@/pages/admin/configuration";
 import AdminImportsPage from "@/pages/admin/imports";
 import AdminTestSuite from "@/pages/admin/tests";
 import AdminIntegrationsPage from "@/pages/admin/integrations";
+import AdminHierarchy from "@/pages/admin/hierarchy";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/admin/imports" component={AdminImportsPage} />
       <Route path="/admin/tests" component={AdminTestSuite} />
       <Route path="/admin/integrations" component={AdminIntegrationsPage} />
+      <Route path="/admin/hierarchy" component={AdminHierarchy} />
       <Route path="/model-insights" component={ModelInsightsPage} />
       <Route path="/human-review" component={HumanReviewPage} />
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>

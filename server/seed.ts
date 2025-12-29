@@ -6,34 +6,35 @@ import { eq } from "drizzle-orm";
 const ORG_ID = "default-org";
 const SUPER_ADMIN_ID = "super-admin-user";
 
+// Check if demo data should be seeded (default: false for production)
+const SEED_DEMO_DATA = process.env.SEED_DEMO_DATA === "true";
+
 export async function seedDatabase() {
   try {
-    // Check if org AND users exist (more robust check)
+    // Check existing data
     const [existingOrg] = await db.select().from(organisations).limit(1);
     const [existingUser] = await db.select().from(users).limit(1);
     const [existingProperty] = await db.select().from(properties).limit(1);
     
+    // Always seed configuration data (certificate types, classification codes, etc.)
+    await seedConfiguration();
+    
+    // If org, user, and property exist, database is already seeded
     if (existingOrg && existingUser && existingProperty) {
       console.log("✓ Database already seeded");
-      // Still seed configuration if missing
-      await seedConfiguration();
       return;
     }
     
-    // If org exists but data was wiped, delete and reseed
-    if (existingOrg && (!existingUser || !existingProperty)) {
-      console.log("🔄 Partial data detected, reseeding...");
-    }
-    
     console.log("🌱 Seeding database...");
+    console.log(`   SEED_DEMO_DATA=${SEED_DEMO_DATA ? 'true' : 'false (default)'}`);
     
-    // Create or get organisation
+    // Always create or get organisation for admin user
     let org = existingOrg;
     if (!org) {
       const [newOrg] = await db.insert(organisations).values({
         id: ORG_ID,
-        name: "Demo Housing Association",
-        slug: "demo-ha",
+        name: SEED_DEMO_DATA ? "Demo Housing Association" : "My Organisation",
+        slug: SEED_DEMO_DATA ? "demo-ha" : "my-org",
         settings: { timezone: "Europe/London" }
       }).returning();
       org = newOrg;
@@ -42,7 +43,7 @@ export async function seedDatabase() {
       console.log("✓ Using existing organisation:", org.name);
     }
     
-    // Create super admin user
+    // Always create super admin user (minimal bootstrap)
     const [existingSuperAdmin] = await db.select().from(users).where(eq(users.id, SUPER_ADMIN_ID));
     if (!existingSuperAdmin) {
       await db.insert(users).values({
@@ -57,156 +58,165 @@ export async function seedDatabase() {
       console.log("✓ Created super admin user (username: admin, password: admin123)");
     }
     
-    // Create additional demo users
-    const demoUsers = [
-      { id: "user-manager-1", username: "manager", password: "manager123", email: "manager@complianceai.co.uk", name: "Property Manager", role: "MANAGER" as const },
-      { id: "user-officer-1", username: "officer", password: "officer123", email: "officer@complianceai.co.uk", name: "Compliance Officer", role: "OFFICER" as const },
-      { id: "user-viewer-1", username: "viewer", password: "viewer123", email: "viewer@complianceai.co.uk", name: "Report Viewer", role: "VIEWER" as const },
-    ];
-    
-    for (const demoUser of demoUsers) {
-      const [existing] = await db.select().from(users).where(eq(users.id, demoUser.id));
-      if (!existing) {
-        await db.insert(users).values({
-          ...demoUser,
-          organisationId: org.id
-        });
-      }
-    }
-    console.log("✓ Created demo users");
-    
-    // Create schemes if needed
-    const existingSchemes = await db.select().from(schemes).where(eq(schemes.organisationId, org.id));
-    let scheme1, scheme2;
-    
-    if (existingSchemes.length === 0) {
-      [scheme1] = await db.insert(schemes).values({
-        organisationId: org.id,
-        name: "Oak Estate",
-        reference: "SCH001",
-        complianceStatus: "COMPLIANT"
-      }).returning();
-      
-      [scheme2] = await db.insert(schemes).values({
-        organisationId: org.id,
-        name: "Riverside Gardens",
-        reference: "SCH002",
-        complianceStatus: "EXPIRING_SOON"
-      }).returning();
-      
-      console.log("✓ Created schemes");
+    // Only seed demo data if SEED_DEMO_DATA is true
+    if (SEED_DEMO_DATA) {
+      await seedDemoData(org.id);
     } else {
-      scheme1 = existingSchemes[0];
-      scheme2 = existingSchemes[1] || existingSchemes[0];
-      console.log("✓ Using existing schemes");
+      console.log("ℹ️  Demo data skipped (set SEED_DEMO_DATA=true to enable)");
     }
-    
-    // Create blocks if needed
-    const existingBlocks = await db.select().from(blocks).limit(1);
-    let block1, block2;
-    
-    if (existingBlocks.length === 0) {
-      [block1] = await db.insert(blocks).values({
-        schemeId: scheme1.id,
-        name: "Oak House",
-        reference: "BLK001",
-        hasLift: false,
-        hasCommunalBoiler: false,
-        complianceStatus: "COMPLIANT"
-      }).returning();
-      
-      [block2] = await db.insert(blocks).values({
-        schemeId: scheme2.id,
-        name: "The Towers Block A",
-        reference: "BLK002",
-        hasLift: true,
-        hasCommunalBoiler: true,
-        complianceStatus: "NON_COMPLIANT"
-      }).returning();
-      
-      await db.insert(blocks).values({
-        schemeId: scheme2.id,
-        name: "The Towers Block B",
-        reference: "BLK003",
-        hasLift: true,
-        hasCommunalBoiler: true,
-        complianceStatus: "COMPLIANT"
-      });
-      
-      console.log("✓ Created blocks");
-    } else {
-      const allBlocks = await db.select().from(blocks);
-      block1 = allBlocks[0];
-      block2 = allBlocks[1] || allBlocks[0];
-      console.log("✓ Using existing blocks");
-    }
-    
-    // Create properties if needed
-    if (!existingProperty) {
-      await db.insert(properties).values([
-        {
-          blockId: block1.id,
-          uprn: "10001001",
-          addressLine1: "Flat 1, Oak House",
-          city: "London",
-          postcode: "SW1 1AA",
-          propertyType: "FLAT",
-          tenure: "SOCIAL_RENT",
-          bedrooms: 2,
-          hasGas: true,
-          complianceStatus: "COMPLIANT"
-        },
-        {
-          blockId: block1.id,
-          uprn: "10001002",
-          addressLine1: "Flat 2, Oak House",
-          city: "London",
-          postcode: "SW1 1AA",
-          propertyType: "FLAT",
-          tenure: "SOCIAL_RENT",
-          bedrooms: 2,
-          hasGas: true,
-          complianceStatus: "OVERDUE"
-        },
-        {
-          blockId: block2.id,
-          uprn: "10002001",
-          addressLine1: "101 The Towers",
-          city: "Manchester",
-          postcode: "M1 1BB",
-          propertyType: "FLAT",
-          tenure: "LEASEHOLD",
-          bedrooms: 1,
-          hasGas: false,
-          complianceStatus: "COMPLIANT"
-        },
-        {
-          blockId: block2.id,
-          uprn: "10002002",
-          addressLine1: "102 The Towers",
-          city: "Manchester",
-          postcode: "M1 1BB",
-          propertyType: "FLAT",
-          tenure: "SOCIAL_RENT",
-          bedrooms: 1,
-          hasGas: false,
-          complianceStatus: "NON_COMPLIANT"
-        }
-      ]);
-      
-      console.log("✓ Created properties");
-    } else {
-      console.log("✓ Using existing properties");
-    }
-    
-    // Seed configuration data
-    await seedConfiguration();
     
     console.log("🎉 Database seeded successfully!");
     
   } catch (error) {
     console.error("Error seeding database:", error);
     throw error;
+  }
+}
+
+async function seedDemoData(orgId: string) {
+  console.log("🎭 Seeding demo data...");
+  
+  // Create additional demo users
+  const demoUsers = [
+    { id: "user-manager-1", username: "manager", password: "manager123", email: "manager@complianceai.co.uk", name: "Property Manager", role: "MANAGER" as const },
+    { id: "user-officer-1", username: "officer", password: "officer123", email: "officer@complianceai.co.uk", name: "Compliance Officer", role: "OFFICER" as const },
+    { id: "user-viewer-1", username: "viewer", password: "viewer123", email: "viewer@complianceai.co.uk", name: "Report Viewer", role: "VIEWER" as const },
+  ];
+  
+  for (const demoUser of demoUsers) {
+    const [existing] = await db.select().from(users).where(eq(users.id, demoUser.id));
+    if (!existing) {
+      await db.insert(users).values({
+        ...demoUser,
+        organisationId: orgId
+      });
+    }
+  }
+  console.log("✓ Created demo users");
+  
+  // Create schemes if needed
+  const existingSchemes = await db.select().from(schemes).where(eq(schemes.organisationId, orgId));
+  let scheme1, scheme2;
+  
+  if (existingSchemes.length === 0) {
+    [scheme1] = await db.insert(schemes).values({
+      organisationId: orgId,
+      name: "Oak Estate",
+      reference: "SCH001",
+      complianceStatus: "COMPLIANT"
+    }).returning();
+    
+    [scheme2] = await db.insert(schemes).values({
+      organisationId: orgId,
+      name: "Riverside Gardens",
+      reference: "SCH002",
+      complianceStatus: "EXPIRING_SOON"
+    }).returning();
+    
+    console.log("✓ Created demo schemes (HACT: Sites)");
+  } else {
+    scheme1 = existingSchemes[0];
+    scheme2 = existingSchemes[1] || existingSchemes[0];
+    console.log("✓ Using existing schemes");
+  }
+  
+  // Create blocks if needed
+  const existingBlocks = await db.select().from(blocks).limit(1);
+  let block1, block2;
+  
+  if (existingBlocks.length === 0) {
+    [block1] = await db.insert(blocks).values({
+      schemeId: scheme1.id,
+      name: "Oak House",
+      reference: "BLK001",
+      hasLift: false,
+      hasCommunalBoiler: false,
+      complianceStatus: "COMPLIANT"
+    }).returning();
+    
+    [block2] = await db.insert(blocks).values({
+      schemeId: scheme2.id,
+      name: "The Towers Block A",
+      reference: "BLK002",
+      hasLift: true,
+      hasCommunalBoiler: true,
+      complianceStatus: "NON_COMPLIANT"
+    }).returning();
+    
+    await db.insert(blocks).values({
+      schemeId: scheme2.id,
+      name: "The Towers Block B",
+      reference: "BLK003",
+      hasLift: true,
+      hasCommunalBoiler: true,
+      complianceStatus: "COMPLIANT"
+    });
+    
+    console.log("✓ Created demo blocks (HACT: Properties/Buildings)");
+  } else {
+    const allBlocks = await db.select().from(blocks);
+    block1 = allBlocks[0];
+    block2 = allBlocks[1] || allBlocks[0];
+    console.log("✓ Using existing blocks");
+  }
+  
+  // Create properties if needed
+  const [existingProperty] = await db.select().from(properties).limit(1);
+  if (!existingProperty) {
+    await db.insert(properties).values([
+      {
+        blockId: block1.id,
+        uprn: "10001001",
+        addressLine1: "Flat 1, Oak House",
+        city: "London",
+        postcode: "SW1 1AA",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: 2,
+        hasGas: true,
+        complianceStatus: "COMPLIANT"
+      },
+      {
+        blockId: block1.id,
+        uprn: "10001002",
+        addressLine1: "Flat 2, Oak House",
+        city: "London",
+        postcode: "SW1 1AA",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: 2,
+        hasGas: true,
+        complianceStatus: "OVERDUE"
+      },
+      {
+        blockId: block2.id,
+        uprn: "10002001",
+        addressLine1: "101 The Towers",
+        city: "Manchester",
+        postcode: "M1 1BB",
+        propertyType: "FLAT",
+        tenure: "LEASEHOLD",
+        bedrooms: 1,
+        hasGas: false,
+        complianceStatus: "COMPLIANT"
+      },
+      {
+        blockId: block2.id,
+        uprn: "10002002",
+        addressLine1: "102 The Towers",
+        city: "Manchester",
+        postcode: "M1 1BB",
+        propertyType: "FLAT",
+        tenure: "SOCIAL_RENT",
+        bedrooms: 1,
+        hasGas: false,
+        complianceStatus: "NON_COMPLIANT"
+      }
+    ]);
+    
+    console.log("✓ Created demo properties (HACT: Units/Dwellings)");
+  } else {
+    console.log("✓ Using existing properties");
   }
 }
 
@@ -505,11 +515,11 @@ async function seedConfiguration() {
         propertyAddress: { type: "string", required: true },
         issueDate: { type: "date", required: true },
         currentRating: { type: "string", required: true, enum: ["A", "B", "C", "D", "E", "F", "G"] },
-        currentScore: { type: "number", required: false },
         potentialRating: { type: "string", required: false },
+        currentScore: { type: "number", required: false },
         recommendations: { type: "array", required: false }
       },
-      promptTemplate: "Extract EPC information including energy rating and improvement recommendations.",
+      promptTemplate: "Extract EPC details including current and potential ratings, scores, and improvement recommendations.",
       isActive: true,
       isDeprecated: false
     }
@@ -518,114 +528,110 @@ async function seedConfiguration() {
   await db.insert(extractionSchemas).values(extractionSchemasData);
   console.log("✓ Created extraction schemas");
   
+  // ==================== COMPONENT TYPES ====================
+  const componentTypesData: Array<{
+    code: string;
+    name: string;
+    category: "HEATING" | "ELECTRICAL" | "FIRE_SAFETY" | "WATER" | "STRUCTURE" | "ACCESS" | "VENTILATION" | "SECURITY" | "EXTERNAL" | "OTHER";
+    description: string;
+    hactElementCode: string | null;
+    expectedLifespanYears: number | null;
+    relatedCertificateTypes: string[];
+    inspectionFrequencyMonths: number | null;
+    isHighRisk: boolean;
+    buildingSafetyRelevant: boolean;
+    displayOrder: number;
+    isActive: boolean;
+  }> = [
+    // Heating Components
+    { code: "GAS_BOILER", name: "Gas Boiler", category: "HEATING", description: "Central heating gas boiler", hactElementCode: "HEAT-001", expectedLifespanYears: 15, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: false, displayOrder: 1, isActive: true },
+    { code: "GAS_FIRE", name: "Gas Fire", category: "HEATING", description: "Gas fire appliance", hactElementCode: "HEAT-002", expectedLifespanYears: 20, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: false, displayOrder: 2, isActive: true },
+    { code: "GAS_COOKER", name: "Gas Cooker", category: "HEATING", description: "Gas cooking appliance", hactElementCode: "HEAT-003", expectedLifespanYears: 15, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: false, displayOrder: 3, isActive: true },
+    { code: "GAS_WATER_HEATER", name: "Gas Water Heater", category: "HEATING", description: "Instantaneous or storage gas water heater", hactElementCode: "HEAT-004", expectedLifespanYears: 12, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: false, displayOrder: 4, isActive: true },
+    { code: "RADIATOR", name: "Radiator", category: "HEATING", description: "Central heating radiator", hactElementCode: "HEAT-005", expectedLifespanYears: 25, relatedCertificateTypes: [], inspectionFrequencyMonths: null, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 5, isActive: true },
+    
+    // Electrical Components
+    { code: "CONSUMER_UNIT", name: "Consumer Unit", category: "ELECTRICAL", description: "Main electrical distribution board", hactElementCode: "ELEC-001", expectedLifespanYears: 25, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 10, isActive: true },
+    { code: "WIRING", name: "Electrical Wiring", category: "ELECTRICAL", description: "Fixed electrical wiring installation", hactElementCode: "ELEC-002", expectedLifespanYears: 40, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 11, isActive: true },
+    { code: "SOCKET_OUTLET", name: "Socket Outlet", category: "ELECTRICAL", description: "Electrical socket outlet", hactElementCode: "ELEC-003", expectedLifespanYears: 25, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 12, isActive: true },
+    { code: "LIGHT_FITTING", name: "Light Fitting", category: "ELECTRICAL", description: "Fixed light fitting", hactElementCode: "ELEC-004", expectedLifespanYears: 15, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 13, isActive: true },
+    
+    // Fire Safety Components
+    { code: "SMOKE_ALARM", name: "Smoke Alarm", category: "FIRE_SAFETY", description: "Smoke detection device", hactElementCode: "FIRE-001", expectedLifespanYears: 10, relatedCertificateTypes: ["FIRE_RISK"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 20, isActive: true },
+    { code: "HEAT_DETECTOR", name: "Heat Detector", category: "FIRE_SAFETY", description: "Heat detection device", hactElementCode: "FIRE-002", expectedLifespanYears: 10, relatedCertificateTypes: ["FIRE_RISK", "FIRE_ALARM"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 21, isActive: true },
+    { code: "CO_ALARM", name: "Carbon Monoxide Alarm", category: "FIRE_SAFETY", description: "CO detection device", hactElementCode: "FIRE-003", expectedLifespanYears: 7, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 22, isActive: true },
+    { code: "FIRE_DOOR", name: "Fire Door", category: "FIRE_SAFETY", description: "Fire-rated door assembly", hactElementCode: "FIRE-004", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 23, isActive: true },
+    { code: "FIRE_EXTINGUISHER", name: "Fire Extinguisher", category: "FIRE_SAFETY", description: "Portable fire extinguisher", hactElementCode: "FIRE-005", expectedLifespanYears: 10, relatedCertificateTypes: ["FIRE_RISK"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 24, isActive: true },
+    { code: "EMERGENCY_LIGHT", name: "Emergency Light", category: "FIRE_SAFETY", description: "Emergency lighting unit", hactElementCode: "FIRE-006", expectedLifespanYears: 10, relatedCertificateTypes: ["EMERGENCY_LIGHTING"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 25, isActive: true },
+    { code: "FIRE_ALARM_PANEL", name: "Fire Alarm Panel", category: "FIRE_SAFETY", description: "Fire alarm control panel", hactElementCode: "FIRE-007", expectedLifespanYears: 15, relatedCertificateTypes: ["FIRE_ALARM"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 26, isActive: true },
+    
+    // Water Components
+    { code: "WATER_TANK", name: "Water Storage Tank", category: "WATER", description: "Cold water storage tank", hactElementCode: "WATER-001", expectedLifespanYears: 25, relatedCertificateTypes: ["LEGIONELLA"], inspectionFrequencyMonths: 24, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 30, isActive: true },
+    { code: "HOT_WATER_CYLINDER", name: "Hot Water Cylinder", category: "WATER", description: "Hot water storage cylinder", hactElementCode: "WATER-002", expectedLifespanYears: 15, relatedCertificateTypes: ["LEGIONELLA"], inspectionFrequencyMonths: 24, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 31, isActive: true },
+    
+    // Access Components
+    { code: "LIFT", name: "Passenger Lift", category: "ACCESS", description: "Passenger lift installation", hactElementCode: "ACCESS-001", expectedLifespanYears: 25, relatedCertificateTypes: ["LIFT_LOLER"], inspectionFrequencyMonths: 6, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 40, isActive: true },
+    { code: "STAIRLIFT", name: "Stairlift", category: "ACCESS", description: "Domestic stairlift", hactElementCode: "ACCESS-002", expectedLifespanYears: 15, relatedCertificateTypes: ["LIFT_LOLER"], inspectionFrequencyMonths: 6, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 41, isActive: true },
+    
+    // Ventilation Components
+    { code: "EXTRACTOR_FAN", name: "Extractor Fan", category: "VENTILATION", description: "Mechanical extract ventilation", hactElementCode: "VENT-001", expectedLifespanYears: 15, relatedCertificateTypes: [], inspectionFrequencyMonths: null, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 50, isActive: true },
+    { code: "MVHR_UNIT", name: "MVHR Unit", category: "VENTILATION", description: "Mechanical ventilation with heat recovery", hactElementCode: "VENT-002", expectedLifespanYears: 15, relatedCertificateTypes: [], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 51, isActive: true },
+    
+    // Structural Components (for asbestos tracking)
+    { code: "ASBESTOS_ACM", name: "Asbestos Containing Material", category: "STRUCTURE", description: "Known or presumed ACM location", hactElementCode: "STRUCT-001", expectedLifespanYears: null, relatedCertificateTypes: ["ASBESTOS"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 60, isActive: true }
+  ];
+  
+  await db.insert(componentTypes).values(componentTypesData);
+  console.log("✓ Created component types");
+  
   // ==================== COMPLIANCE RULES ====================
   const complianceRulesData = [
     {
-      ruleCode: "GAS_C1_IMMEDIATE",
-      ruleName: "Gas C1 Immediate Danger",
+      ruleCode: "GAS_EXPIRY_WARN",
+      ruleName: "Gas Safety Annual Check",
       documentType: "GAS_SAFETY",
-      conditions: [{ field: "defects.code", operator: "equals", value: "C1" }],
+      description: "Properties with gas must have annual safety check",
+      conditions: [{ field: "hasGas", operator: "equals", value: true }],
       conditionLogic: "AND",
-      action: "FLAG_URGENT",
+      action: "WARN",
+      severity: "HIGH",
       priority: "P1",
-      description: "C1 defects require immediate action - gas supply must be disconnected.",
-      legislation: "Gas Safety (Installation and Use) Regulations 1998",
       isActive: true
     },
     {
-      ruleCode: "GAS_C2_ATRISK",
-      ruleName: "Gas C2 At Risk",
-      documentType: "GAS_SAFETY",
-      conditions: [{ field: "defects.code", operator: "equals", value: "C2" }],
-      conditionLogic: "AND",
-      action: "FLAG_URGENT",
-      priority: "P2",
-      description: "C2 defects are at risk - repair required within 28 days.",
-      legislation: "Gas Safety (Installation and Use) Regulations 1998",
-      isActive: true
-    },
-    {
-      ruleCode: "EICR_UNSATISFACTORY",
-      ruleName: "EICR Unsatisfactory Result",
+      ruleCode: "EICR_EXPIRY_WARN",
+      ruleName: "EICR 5-Year Check",
       documentType: "EICR",
-      conditions: [{ field: "overallAssessment", operator: "equals", value: "UNSATISFACTORY" }],
+      description: "Electrical installations must be inspected every 5 years",
+      conditions: [{ field: "expiryDays", operator: "less_than", value: 90 }],
       conditionLogic: "AND",
-      action: "FLAG_URGENT",
-      priority: "P1",
-      description: "Unsatisfactory EICR requires remedial works within 28 days.",
-      legislation: "Electrical Safety Standards (England) Regulations 2020",
-      isActive: true
-    },
-    {
-      ruleCode: "EICR_C1_DANGER",
-      ruleName: "EICR C1 Danger Present",
-      documentType: "EICR",
-      conditions: [{ field: "observations.code", operator: "equals", value: "C1" }],
-      conditionLogic: "AND",
-      action: "FLAG_URGENT",
-      priority: "P1",
-      description: "C1 electrical defects are immediately dangerous.",
-      legislation: "Electrical Safety Standards (England) Regulations 2020",
-      isActive: true
-    },
-    {
-      ruleCode: "FIRE_INTOLERABLE",
-      ruleName: "Fire Risk Intolerable Rating",
-      documentType: "FIRE_RISK",
-      conditions: [{ field: "riskRating", operator: "equals", value: "INTOLERABLE" }],
-      conditionLogic: "AND",
-      action: "FLAG_URGENT",
-      priority: "P1",
-      description: "Intolerable fire risk requires immediate evacuation consideration.",
-      legislation: "Regulatory Reform (Fire Safety) Order 2005",
-      isActive: true
-    },
-    {
-      ruleCode: "FIRE_SUBSTANTIAL",
-      ruleName: "Fire Risk Substantial Rating",
-      documentType: "FIRE_RISK",
-      conditions: [{ field: "riskRating", operator: "equals", value: "SUBSTANTIAL" }],
-      conditionLogic: "AND",
-      action: "FLAG_URGENT",
+      action: "WARN",
+      severity: "HIGH",
       priority: "P2",
-      description: "Substantial fire risk requires action within 30 days.",
-      legislation: "Regulatory Reform (Fire Safety) Order 2005",
       isActive: true
     },
     {
-      ruleCode: "ASBESTOS_HIGH",
-      ruleName: "Asbestos High Risk ACM",
-      documentType: "ASBESTOS",
-      conditions: [{ field: "acmsIdentified.priority", operator: "equals", value: "HIGH" }],
+      ruleCode: "FIRE_RISK_REVIEW",
+      ruleName: "Fire Risk Annual Review",
+      documentType: "FIRE_RISK",
+      description: "Fire risk assessments should be reviewed annually",
+      conditions: [{ field: "expiryDays", operator: "less_than", value: 60 }],
       conditionLogic: "AND",
-      action: "FLAG_URGENT",
-      priority: "P2",
-      description: "High risk ACMs require removal or encapsulation within 3 months.",
-      legislation: "Control of Asbestos Regulations 2012",
+      action: "WARN",
+      severity: "MEDIUM",
+      priority: "P3",
       isActive: true
     },
     {
-      ruleCode: "LIFT_DANGEROUS",
-      ruleName: "Lift Dangerous Defect",
+      ruleCode: "LIFT_LOLER_WARN",
+      ruleName: "Lift LOLER 6-Monthly",
       documentType: "LIFT_LOLER",
-      conditions: [{ field: "safeForUse", operator: "equals", value: false }],
+      description: "Lifts require thorough examination every 6 months",
+      conditions: [{ field: "hasLift", operator: "equals", value: true }],
       conditionLogic: "AND",
-      action: "FLAG_URGENT",
-      priority: "P1",
-      description: "Dangerous lift defects require immediate isolation.",
-      legislation: "LOLER 1998",
-      isActive: true
-    },
-    {
-      ruleCode: "EPC_BELOW_E",
-      ruleName: "EPC Below Minimum Standard",
-      documentType: "EPC",
-      conditions: [{ field: "currentRating", operator: "in", value: ["F", "G"] }],
-      conditionLogic: "AND",
-      action: "MARK_INCOMPLETE",
-      priority: "P2",
-      description: "Properties rated F or G cannot legally be rented from April 2025.",
-      legislation: "Energy Efficiency Regulations",
+      action: "WARN",
+      severity: "HIGH",
+      priority: "P4",
       isActive: true
     }
   ];
@@ -636,171 +642,54 @@ async function seedConfiguration() {
   // ==================== NORMALISATION RULES ====================
   const normalisationRulesData = [
     {
-      ruleName: "Gas ID to C1",
-      fieldPath: "defects.code",
-      ruleType: "MAPPING",
-      inputPatterns: ["ID", "immediately dangerous", "IMMEDIATELY DANGEROUS"],
-      outputValue: "C1",
+      ruleName: "Title Case Engineer Name",
+      fieldPath: "engineerName",
+      ruleType: "TRANSFORM",
+      inputPatterns: ["*"],
+      transformFn: "titleCase",
       priority: 1,
       isActive: true
     },
     {
-      ruleName: "Gas AR to C2",
-      fieldPath: "defects.code",
-      ruleType: "MAPPING",
-      inputPatterns: ["AR", "at risk", "AT RISK"],
-      outputValue: "C2",
-      priority: 1,
+      ruleName: "Uppercase Postcode",
+      fieldPath: "postcode",
+      ruleType: "TRANSFORM",
+      inputPatterns: ["*"],
+      transformFn: "uppercase",
+      priority: 2,
       isActive: true
     },
     {
-      ruleName: "UK Date Format",
+      ruleName: "Format Issue Date",
       fieldPath: "issueDate",
-      ruleType: "REGEX",
-      inputPatterns: ["^(\\d{1,2})/(\\d{1,2})/(\\d{4})$"],
-      outputValue: "ISO8601",
-      priority: 1,
+      ruleType: "TRANSFORM",
+      inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"],
+      outputValue: "YYYY-MM-DD",
+      transformFn: "dateFormat",
+      priority: 3,
       isActive: true
     },
     {
-      ruleName: "Gas Safe ID Cleanup",
+      ruleName: "Format Expiry Date",
+      fieldPath: "expiryDate",
+      ruleType: "TRANSFORM",
+      inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"],
+      outputValue: "YYYY-MM-DD",
+      transformFn: "dateFormat",
+      priority: 4,
+      isActive: true
+    },
+    {
+      ruleName: "Clean Gas Register ID",
       fieldPath: "gasRegisterId",
       ruleType: "REGEX",
-      inputPatterns: ["^(\\d{3})[\\s-]?(\\d{4})$"],
-      outputValue: "$1$2",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "Postcode Format",
-      fieldPath: "postcode",
-      ruleType: "REGEX",
-      inputPatterns: ["^([A-Z]{1,2}\\d[A-Z\\d]?)\\s*(\\d[A-Z]{2})$"],
-      outputValue: "$1 $2",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "EICR Pass to Satisfactory",
-      fieldPath: "overallAssessment",
-      ruleType: "MAPPING",
-      inputPatterns: ["PASS", "pass", "Pass", "SAT", "Sat"],
-      outputValue: "SATISFACTORY",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "EICR Fail to Unsatisfactory",
-      fieldPath: "overallAssessment",
-      ruleType: "MAPPING",
-      inputPatterns: ["FAIL", "fail", "Fail", "UNSAT", "Unsat"],
-      outputValue: "UNSATISFACTORY",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "EPC Rating Uppercase",
-      fieldPath: "currentRating",
-      ruleType: "TRANSFORM",
-      inputPatterns: ["^[a-g]$"],
-      transformFn: "UPPERCASE",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "White Asbestos to Chrysotile",
-      fieldPath: "asbestosType",
-      ruleType: "MAPPING",
-      inputPatterns: ["white", "WHITE", "White"],
-      outputValue: "CHRYSOTILE",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "Brown Asbestos to Amosite",
-      fieldPath: "asbestosType",
-      ruleType: "MAPPING",
-      inputPatterns: ["brown", "BROWN", "Brown"],
-      outputValue: "AMOSITE",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "Blue Asbestos to Crocidolite",
-      fieldPath: "asbestosType",
-      ruleType: "MAPPING",
-      inputPatterns: ["blue", "BLUE", "Blue"],
-      outputValue: "CROCIDOLITE",
-      priority: 1,
+      inputPatterns: ["[^0-9]"],
+      outputValue: "",
+      priority: 5,
       isActive: true
     }
   ];
   
   await db.insert(normalisationRules).values(normalisationRulesData);
   console.log("✓ Created normalisation rules");
-  
-  // Seed Component Types for HACT-aligned asset management
-  const [existingComponentType] = await db.select().from(componentTypes).limit(1);
-  if (!existingComponentType) {
-    const componentTypesData: Array<{
-      code: string;
-      name: string;
-      category: "HEATING" | "ELECTRICAL" | "FIRE_SAFETY" | "WATER" | "VENTILATION" | "STRUCTURE" | "ACCESS" | "SECURITY" | "EXTERNAL" | "OTHER";
-      description: string;
-      hactElementCode: string;
-      expectedLifespanYears: number;
-      relatedCertificateTypes: string[];
-      inspectionFrequencyMonths: number;
-      isHighRisk: boolean;
-      buildingSafetyRelevant: boolean;
-      displayOrder: number;
-      isActive: boolean;
-    }> = [
-      // Heating Components
-      { code: "GAS_BOILER", name: "Gas Boiler", category: "HEATING", description: "Domestic gas boiler for heating and hot water", hactElementCode: "HE-01", expectedLifespanYears: 15, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 1, isActive: true },
-      { code: "CENTRAL_HEATING", name: "Central Heating System", category: "HEATING", description: "Complete central heating system including radiators", hactElementCode: "HE-02", expectedLifespanYears: 20, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 2, isActive: true },
-      { code: "STORAGE_HEATER", name: "Storage Heater", category: "HEATING", description: "Electric storage heater", hactElementCode: "HE-03", expectedLifespanYears: 15, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 3, isActive: true },
-      
-      // Electrical Components
-      { code: "CONSUMER_UNIT", name: "Consumer Unit", category: "ELECTRICAL", description: "Main electrical consumer unit (fuse box)", hactElementCode: "EL-01", expectedLifespanYears: 25, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 10, isActive: true },
-      { code: "ELECTRICAL_WIRING", name: "Electrical Wiring", category: "ELECTRICAL", description: "Fixed electrical wiring installation", hactElementCode: "EL-02", expectedLifespanYears: 30, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 11, isActive: true },
-      { code: "SMOKE_DETECTOR", name: "Smoke Detector", category: "ELECTRICAL", description: "Smoke/heat detector (mains or battery)", hactElementCode: "EL-03", expectedLifespanYears: 10, relatedCertificateTypes: ["EICR", "FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 12, isActive: true },
-      { code: "CO_DETECTOR", name: "Carbon Monoxide Detector", category: "ELECTRICAL", description: "Carbon monoxide detector", hactElementCode: "EL-04", expectedLifespanYears: 7, relatedCertificateTypes: ["GAS_SAFETY"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 13, isActive: true },
-      
-      // Fire Safety Components
-      { code: "FIRE_DOOR", name: "Fire Door", category: "FIRE_SAFETY", description: "Fire-rated door assembly", hactElementCode: "FS-01", expectedLifespanYears: 25, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 20, isActive: true },
-      { code: "FIRE_ALARM", name: "Fire Alarm System", category: "FIRE_SAFETY", description: "Fire alarm detection and warning system", hactElementCode: "FS-02", expectedLifespanYears: 15, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 21, isActive: true },
-      { code: "EMERGENCY_LIGHTING", name: "Emergency Lighting", category: "FIRE_SAFETY", description: "Emergency escape lighting", hactElementCode: "FS-03", expectedLifespanYears: 10, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 22, isActive: true },
-      { code: "FIRE_EXTINGUISHER", name: "Fire Extinguisher", category: "FIRE_SAFETY", description: "Portable fire extinguisher", hactElementCode: "FS-04", expectedLifespanYears: 5, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 23, isActive: true },
-      { code: "DRY_RISER", name: "Dry Riser", category: "FIRE_SAFETY", description: "Dry riser system for fire brigade access", hactElementCode: "FS-05", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 6, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 24, isActive: true },
-      { code: "SPRINKLER", name: "Sprinkler System", category: "FIRE_SAFETY", description: "Automatic fire sprinkler system", hactElementCode: "FS-06", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 25, isActive: true },
-      
-      // Water Components
-      { code: "WATER_TANK", name: "Cold Water Storage Tank", category: "WATER", description: "Cold water storage tank", hactElementCode: "WA-01", expectedLifespanYears: 25, relatedCertificateTypes: ["LEGIONELLA"], inspectionFrequencyMonths: 24, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 30, isActive: true },
-      { code: "HOT_WATER_CYLINDER", name: "Hot Water Cylinder", category: "WATER", description: "Hot water storage cylinder", hactElementCode: "WA-02", expectedLifespanYears: 15, relatedCertificateTypes: ["LEGIONELLA"], inspectionFrequencyMonths: 24, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 31, isActive: true },
-      
-      // Access/Lifts
-      { code: "PASSENGER_LIFT", name: "Passenger Lift", category: "ACCESS", description: "Passenger lift/elevator", hactElementCode: "AC-01", expectedLifespanYears: 25, relatedCertificateTypes: ["LOLER"], inspectionFrequencyMonths: 6, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 40, isActive: true },
-      { code: "STAIRLIFT", name: "Stairlift", category: "ACCESS", description: "Domestic stairlift", hactElementCode: "AC-02", expectedLifespanYears: 15, relatedCertificateTypes: ["LOLER"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 41, isActive: true },
-      
-      // Ventilation
-      { code: "EXTRACTOR_FAN", name: "Extractor Fan", category: "VENTILATION", description: "Bathroom/kitchen extractor fan", hactElementCode: "VE-01", expectedLifespanYears: 10, relatedCertificateTypes: ["EICR"], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 50, isActive: true },
-      { code: "COMMUNAL_VENTILATION", name: "Communal Ventilation System", category: "VENTILATION", description: "Communal mechanical ventilation system", hactElementCode: "VE-02", expectedLifespanYears: 20, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 51, isActive: true },
-      
-      // Structure/External
-      { code: "EXTERNAL_CLADDING", name: "External Cladding", category: "EXTERNAL", description: "External wall cladding system", hactElementCode: "EX-01", expectedLifespanYears: 30, relatedCertificateTypes: ["FIRE_RISK_ASSESSMENT"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 60, isActive: true },
-      { code: "BALCONY", name: "Balcony", category: "EXTERNAL", description: "External balcony structure", hactElementCode: "EX-02", expectedLifespanYears: 40, relatedCertificateTypes: [], inspectionFrequencyMonths: 60, isHighRisk: false, buildingSafetyRelevant: true, displayOrder: 61, isActive: true },
-      
-      // Security
-      { code: "DOOR_ENTRY", name: "Door Entry System", category: "SECURITY", description: "Communal door entry/intercom system", hactElementCode: "SE-01", expectedLifespanYears: 15, relatedCertificateTypes: [], inspectionFrequencyMonths: 12, isHighRisk: false, buildingSafetyRelevant: false, displayOrder: 70, isActive: true },
-    ];
-    
-    await db.insert(componentTypes).values(componentTypesData);
-    console.log("✓ Created component types");
-  }
-  
-  console.log("✓ Configuration data seeded successfully!");
 }
-
-// Seed is exported for use by routes - do not auto-run
-// To seed manually, call the /api/seed endpoint or import and call seedDatabase()

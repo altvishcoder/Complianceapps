@@ -53,18 +53,22 @@ export interface IStorage {
   getOrganisation(id: string): Promise<Organisation | undefined>;
   createOrganisation(org: InsertOrganisation): Promise<Organisation>;
   listOrganisations(): Promise<Organisation[]>;
+  updateOrganisation(id: string, updates: Partial<InsertOrganisation>): Promise<Organisation | undefined>;
+  deleteOrganisation(id: string): Promise<boolean>;
   
   // Schemes
   listSchemes(organisationId: string): Promise<Scheme[]>;
   getScheme(id: string): Promise<Scheme | undefined>;
   createScheme(scheme: InsertScheme): Promise<Scheme>;
   updateScheme(id: string, updates: Partial<InsertScheme>): Promise<Scheme | undefined>;
+  deleteScheme(id: string): Promise<boolean>;
   
   // Blocks
   listBlocks(schemeId?: string): Promise<Block[]>;
   getBlock(id: string): Promise<Block | undefined>;
   createBlock(block: InsertBlock): Promise<Block>;
   updateBlock(id: string, updates: Partial<InsertBlock>): Promise<Block | undefined>;
+  deleteBlock(id: string): Promise<boolean>;
   
   // Properties
   listProperties(organisationId: string, filters?: { blockId?: string; schemeId?: string }): Promise<Property[]>;
@@ -320,6 +324,16 @@ export class DatabaseStorage implements IStorage {
   async listOrganisations(): Promise<Organisation[]> {
     return db.select().from(organisations);
   }
+
+  async updateOrganisation(id: string, updates: Partial<InsertOrganisation>): Promise<Organisation | undefined> {
+    const [updated] = await db.update(organisations).set({ ...updates, updatedAt: new Date() }).where(eq(organisations.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteOrganisation(id: string): Promise<boolean> {
+    const result = await db.delete(organisations).where(eq(organisations.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
   
   // Schemes
   async listSchemes(organisationId: string): Promise<Scheme[]> {
@@ -339,6 +353,11 @@ export class DatabaseStorage implements IStorage {
   async updateScheme(id: string, updates: Partial<InsertScheme>): Promise<Scheme | undefined> {
     const [updated] = await db.update(schemes).set({ ...updates, updatedAt: new Date() }).where(eq(schemes.id, id)).returning();
     return updated || undefined;
+  }
+
+  async deleteScheme(id: string): Promise<boolean> {
+    const result = await db.delete(schemes).where(eq(schemes.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
   
   // Blocks
@@ -362,6 +381,11 @@ export class DatabaseStorage implements IStorage {
   async updateBlock(id: string, updates: Partial<InsertBlock>): Promise<Block | undefined> {
     const [updated] = await db.update(blocks).set({ ...updates, updatedAt: new Date() }).where(eq(blocks.id, id)).returning();
     return updated || undefined;
+  }
+
+  async deleteBlock(id: string): Promise<boolean> {
+    const result = await db.delete(blocks).where(eq(blocks.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
   
   // Properties

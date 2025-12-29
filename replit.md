@@ -30,15 +30,33 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL (connection via `DATABASE_URL` environment variable)
 - **Migrations**: Drizzle Kit with `drizzle-kit push` command
 
-### Data Model
-The application follows a hierarchical property structure:
-- **Organisation** → owns multiple **Schemes**
-- **Scheme** → contains multiple **Blocks**
-- **Block** → contains multiple **Properties**
-- **Property** → has multiple **Certificates** and **Remedial Actions**
+### Data Model (HACT/UKHDS Aligned)
+The application follows the UKHDS 5-level asset hierarchy with housing terminology:
+
+| Level | Housing Term | HACT/UKHDS Term | Description |
+|-------|-------------|-----------------|-------------|
+| 1 | **Organisation** | Housing Association | Top-level entity owning properties |
+| 2 | **Scheme** | Site | Estate or housing development |
+| 3 | **Block** | Property/Building | Physical building within a scheme |
+| 4 | **Property** | Unit/Dwelling | Individual residential unit |
+| 5 | **Unit** | Space/Room | Room or area within a property |
+| 6 | **Component** | Component | Fixture/equipment (boiler, alarm, etc.) |
+
+Hierarchy relationships:
+- **Organisation** → owns multiple **Schemes** (Sites)
+- **Scheme** → contains multiple **Blocks** (Properties/Buildings)
+- **Block** → contains multiple **Properties** (Units/Dwellings)
+- **Property** → contains multiple **Units** (Spaces/Rooms) and has **Certificates** and **Remedial Actions**
+- **Unit** → contains **Components** (fixtures/equipment)
 - **Certificate** → has **Extractions** (AI-processed data)
 
 Key enums define compliance statuses, property types, certificate types, and action severities aligned with UK housing regulations.
+
+### Seeding & Demo Data
+- **SEED_DEMO_DATA** environment variable controls demo data seeding (default: `false`)
+- Configuration data (certificate types, classification codes, etc.) always seeds automatically
+- Minimal bootstrap creates admin user even without demo data
+- Set `SEED_DEMO_DATA=true` to seed demo organisations, schemes, blocks, properties, and users
 
 ### Configuration-Driven Remedial Actions
 The system uses a configuration-driven approach for generating remedial actions:
