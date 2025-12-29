@@ -26,6 +26,7 @@ import {
   generateCSVTemplate
 } from "./import-parser";
 import { enqueueWebhookEvent } from "./webhook-worker";
+import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -3642,7 +3643,7 @@ export async function registerRoutes(
         }
       }
       
-      // Create ingestion job
+      // Create ingestion job record
       const job = await storage.createIngestionJob({
         organisationId: auth.client.organisationId,
         propertyId,
@@ -3653,6 +3654,20 @@ export async function registerRoutes(
         idempotencyKey,
         apiClientId: auth.client.id
       });
+      
+      // Enqueue job for processing via pg-boss
+      try {
+        await enqueueIngestionJob({
+          jobId: job.id,
+          propertyId,
+          certificateType,
+          fileName,
+          objectPath,
+          webhookUrl,
+        });
+      } catch (queueError) {
+        console.error("Failed to enqueue ingestion job:", queueError);
+      }
       
       res.status(201).json({
         id: job.id,
@@ -3785,6 +3800,19 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating upload session:", error);
       res.status(500).json({ error: "Failed to create upload session" });
+    }
+  });
+  
+  // ===== SYSTEM HEALTH ENDPOINTS =====
+  app.get("/api/admin/queue-stats", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const stats = await getQueueStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting queue stats:", error);
+      res.status(500).json({ error: "Failed to get queue stats" });
     }
   });
   

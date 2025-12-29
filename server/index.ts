@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { initJobQueue, stopJobQueue } from "./job-queue";
 
 const app = express();
 const httpServer = createServer(app);
@@ -64,6 +65,14 @@ app.use((req, res, next) => {
 (async () => {
   // Seed database with initial data
   await seedDatabase();
+  
+  // Initialize pg-boss job queue
+  try {
+    await initJobQueue();
+    log("pg-boss job queue initialized", "pg-boss");
+  } catch (error) {
+    log(`Failed to initialize pg-boss: ${error}`, "pg-boss");
+  }
   
   await registerRoutes(httpServer, app);
 
