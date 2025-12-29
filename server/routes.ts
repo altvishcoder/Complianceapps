@@ -38,15 +38,16 @@ function calculatePropertyRiskScore(
   if (certificates.length === 0) return 50;
   
   const validCerts = certificates.filter(c => 
-    c.status === 'APPROVED' || c.status === 'EXTRACTED'
+    c.status === 'APPROVED' || c.status === 'EXTRACTED' || c.status === 'NEEDS_REVIEW'
   ).length;
-  const certScore = (validCerts / Math.max(certificates.length, 1)) * 100;
+  const failedCerts = certificates.filter(c => c.status === 'FAILED' || c.status === 'EXPIRED').length;
+  const certScore = ((validCerts - failedCerts * 0.5) / Math.max(certificates.length, 1)) * 100;
   
   const openActions = actions.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
   const criticalPenalty = openActions.filter(a => a.severity === 'IMMEDIATE').length * 15;
   const majorPenalty = openActions.filter(a => a.severity === 'URGENT').length * 5;
   
-  return Math.max(0, Math.min(100, Math.round(certScore - criticalPenalty - majorPenalty)));
+  return Math.max(0, Math.min(100, Math.round(Math.max(certScore, 30) - criticalPenalty - majorPenalty)));
 }
 
 function calculateStreamScores(certificates: Array<{ type: string; status: string; expiryDate: string | null }>) {
@@ -58,19 +59,23 @@ function calculateStreamScores(certificates: Array<{ type: string; status: strin
     'ASBESTOS_SURVEY': 'asbestos',
     'LIFT_LOLER': 'lift',
     'LEGIONELLA_ASSESSMENT': 'water',
-    'EPC': 'electrical'
+    'EPC': 'electrical',
+    'OTHER': 'fire'
   };
   
   return streams.map(stream => {
     const streamCerts = certificates.filter(c => typeToStream[c.type] === stream);
-    const valid = streamCerts.filter(c => c.status === 'APPROVED' || c.status === 'EXTRACTED').length;
-    const total = streamCerts.length || 1;
+    const valid = streamCerts.filter(c => 
+      c.status === 'APPROVED' || c.status === 'EXTRACTED' || c.status === 'NEEDS_REVIEW'
+    ).length;
+    const failed = streamCerts.filter(c => c.status === 'FAILED' || c.status === 'EXPIRED').length;
+    const total = streamCerts.length;
     const now = new Date();
     const overdue = streamCerts.filter(c => c.expiryDate && new Date(c.expiryDate) < now).length;
     
     return {
       stream,
-      compliance: valid / total,
+      compliance: total > 0 ? (valid - failed * 0.5) / total : 0,
       overdueCount: overdue,
       totalCount: total
     };
