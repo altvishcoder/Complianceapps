@@ -53,6 +53,7 @@ const aiNavigation = [
 
 // Admin-only items in Admin Panel
 const adminOnlyNavigation = [
+  { name: "Asset Hierarchy", href: "/admin/hierarchy", icon: Building2 },
   { name: "Settings", href: "/admin/setup", icon: Settings },
   { name: "Integrations", href: "/admin/integrations", icon: Webhook },
   { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
