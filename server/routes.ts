@@ -3508,6 +3508,286 @@ export async function registerRoutes(
     }
   });
   
+  // ===== RATE LIMITING =====
+  // In-memory rate limiting store (production should use Redis)
+  const rateLimitStore: Map<string, { count: number; resetAt: number }> = new Map();
+  
+  // Clean up expired entries periodically
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of rateLimitStore.entries()) {
+      if (value.resetAt < now) {
+        rateLimitStore.delete(key);
+      }
+    }
+  }, 60 * 1000); // Clean up every minute
+  
+  // Rate limiter that reads limits from factory settings
+  const checkRateLimit = async (clientId: string, res: Response): Promise<boolean> => {
+    const limitPerMinute = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_REQUESTS_PER_MINUTE', '60'));
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute window
+    
+    const entry = rateLimitStore.get(clientId);
+    
+    if (!entry || entry.resetAt < now) {
+      // Start new window
+      rateLimitStore.set(clientId, { count: 1, resetAt: now + windowMs });
+      res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
+      res.setHeader('X-RateLimit-Remaining', (limitPerMinute - 1).toString());
+      res.setHeader('X-RateLimit-Reset', Math.ceil((now + windowMs) / 1000).toString());
+      return true;
+    }
+    
+    if (entry.count >= limitPerMinute) {
+      // Rate limit exceeded
+      res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000).toString());
+      res.setHeader('Retry-After', Math.ceil((entry.resetAt - now) / 1000).toString());
+      res.status(429).json({ 
+        error: "Rate limit exceeded",
+        retryAfter: Math.ceil((entry.resetAt - now) / 1000)
+      });
+      return false;
+    }
+    
+    // Increment counter
+    entry.count++;
+    res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
+    res.setHeader('X-RateLimit-Remaining', (limitPerMinute - entry.count).toString());
+    res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000).toString());
+    return true;
+  };
+  
+  // ===== API KEY VALIDATION MIDDLEWARE =====
+  // Validates API key from X-API-Key header against stored hashed keys
+  const validateApiKey = async (req: Request, res: Response): Promise<{ client: ApiClient } | null> => {
+    const apiKey = req.headers['x-api-key'] as string;
+    
+    if (!apiKey) {
+      res.status(401).json({ error: "Missing API key. Provide X-API-Key header." });
+      return null;
+    }
+    
+    // Extract prefix (first 12 chars) to look up client
+    if (apiKey.length < 12) {
+      res.status(401).json({ error: "Invalid API key format" });
+      return null;
+    }
+    
+    const keyPrefix = apiKey.substring(0, 12);
+    const client = await storage.getApiClientByKey(keyPrefix);
+    
+    if (!client) {
+      res.status(401).json({ error: "Invalid API key" });
+      return null;
+    }
+    
+    // Verify the full key matches the stored hash
+    const isValid = await verifyApiKey(apiKey, client.apiKey);
+    if (!isValid) {
+      res.status(401).json({ error: "Invalid API key" });
+      return null;
+    }
+    
+    // Check if client is active
+    if (!client.isActive) {
+      res.status(403).json({ error: "API key is disabled" });
+      return null;
+    }
+    
+    // Check if key is expired (if expiresAt is set)
+    if (client.expiresAt && new Date(client.expiresAt) < new Date()) {
+      res.status(403).json({ error: "API key has expired" });
+      return null;
+    }
+    
+    // Check rate limit
+    const withinLimit = await checkRateLimit(client.id, res);
+    if (!withinLimit) {
+      return null;
+    }
+    
+    // Increment usage counter
+    await storage.incrementApiClientUsage(client.id);
+    
+    return { client };
+  };
+  
+  // ===== INGESTION API (External Certificate Submission) =====
+  // These endpoints are protected by API key authentication
+  
+  // POST /api/v1/ingestions - Submit a new certificate for processing
+  app.post("/api/v1/ingestions", async (req, res) => {
+    try {
+      const auth = await validateApiKey(req, res);
+      if (!auth) return;
+      
+      const { propertyId, certificateType, fileStorageKey, metadata, callbackUrl, idempotencyKey } = req.body;
+      
+      // Validate required fields
+      if (!propertyId || !certificateType || !fileStorageKey) {
+        return res.status(400).json({ 
+          error: "Missing required fields: propertyId, certificateType, and fileStorageKey are required" 
+        });
+      }
+      
+      // Check for idempotency
+      if (idempotencyKey) {
+        const existing = await storage.getIngestionJobByIdempotencyKey(idempotencyKey);
+        if (existing) {
+          return res.json({ id: existing.id, status: existing.status, message: "Existing job returned (idempotent)" });
+        }
+      }
+      
+      // Create ingestion job
+      const job = await storage.createIngestionJob({
+        organisationId: auth.client.organisationId,
+        propertyId,
+        certificateType,
+        fileStorageKey,
+        metadata: metadata || {},
+        callbackUrl,
+        idempotencyKey,
+        status: 'PENDING',
+        apiClientId: auth.client.id
+      });
+      
+      res.status(201).json({
+        id: job.id,
+        status: job.status,
+        message: "Ingestion job created successfully"
+      });
+    } catch (error) {
+      console.error("Error creating ingestion job:", error);
+      res.status(500).json({ error: "Failed to create ingestion job" });
+    }
+  });
+  
+  // GET /api/v1/ingestions/:id - Get ingestion job status
+  app.get("/api/v1/ingestions/:id", async (req, res) => {
+    try {
+      const auth = await validateApiKey(req, res);
+      if (!auth) return;
+      
+      const job = await storage.getIngestionJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: "Ingestion job not found" });
+      }
+      
+      // Ensure client can only see their own jobs
+      if (job.apiClientId !== auth.client.id) {
+        return res.status(403).json({ error: "Access denied to this ingestion job" });
+      }
+      
+      res.json({
+        id: job.id,
+        status: job.status,
+        propertyId: job.propertyId,
+        certificateType: job.certificateType,
+        result: job.result,
+        errorMessage: job.errorMessage,
+        createdAt: job.createdAt,
+        completedAt: job.completedAt
+      });
+    } catch (error) {
+      console.error("Error getting ingestion job:", error);
+      res.status(500).json({ error: "Failed to get ingestion job" });
+    }
+  });
+  
+  // GET /api/v1/ingestions - List ingestion jobs for the client
+  app.get("/api/v1/ingestions", async (req, res) => {
+    try {
+      const auth = await validateApiKey(req, res);
+      if (!auth) return;
+      
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
+      const status = req.query.status as string;
+      
+      const jobs = await storage.listIngestionJobs(auth.client.organisationId, { limit, offset, status });
+      
+      res.json({
+        jobs: jobs.map(j => ({
+          id: j.id,
+          status: j.status,
+          propertyId: j.propertyId,
+          certificateType: j.certificateType,
+          createdAt: j.createdAt,
+          completedAt: j.completedAt
+        })),
+        pagination: { limit, offset, total: jobs.length }
+      });
+    } catch (error) {
+      console.error("Error listing ingestion jobs:", error);
+      res.status(500).json({ error: "Failed to list ingestion jobs" });
+    }
+  });
+  
+  // POST /api/v1/uploads - Request a pre-signed upload URL for large files
+  app.post("/api/v1/uploads", async (req, res) => {
+    try {
+      const auth = await validateApiKey(req, res);
+      if (!auth) return;
+      
+      const { filename, contentType, fileSize, idempotencyKey } = req.body;
+      
+      if (!filename || !contentType) {
+        return res.status(400).json({ error: "Missing required fields: filename, contentType" });
+      }
+      
+      // Check file size limit from factory settings
+      const maxSize = parseInt(await storage.getFactorySettingValue('MAX_FILE_SIZE_MB', '50')) * 1024 * 1024;
+      if (fileSize && fileSize > maxSize) {
+        return res.status(400).json({ error: `File size exceeds maximum allowed (${maxSize / 1024 / 1024}MB)` });
+      }
+      
+      // Check for idempotency
+      if (idempotencyKey) {
+        const existing = await storage.getUploadSessionByIdempotencyKey(idempotencyKey);
+        if (existing && existing.status === 'PENDING') {
+          return res.json({
+            id: existing.id,
+            uploadUrl: existing.uploadUrl,
+            storageKey: existing.storageKey,
+            expiresAt: existing.expiresAt,
+            message: "Existing upload session returned (idempotent)"
+          });
+        }
+      }
+      
+      // Generate storage key
+      const storageKey = `ingestions/${auth.client.organisationId}/${Date.now()}_${filename}`;
+      
+      // For object storage, we'd generate a pre-signed URL here
+      // For now, create the session and return a direct upload path
+      const session = await storage.createUploadSession({
+        organisationId: auth.client.organisationId,
+        filename,
+        contentType,
+        fileSize: fileSize || 0,
+        storageKey,
+        uploadUrl: `/api/v1/uploads/${storageKey}`, // Direct upload endpoint
+        status: 'PENDING',
+        idempotencyKey,
+        apiClientId: auth.client.id,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour expiry
+      });
+      
+      res.status(201).json({
+        id: session.id,
+        uploadUrl: session.uploadUrl,
+        storageKey: session.storageKey,
+        expiresAt: session.expiresAt
+      });
+    } catch (error) {
+      console.error("Error creating upload session:", error);
+      res.status(500).json({ error: "Failed to create upload session" });
+    }
+  });
+  
   // ===== API DOCUMENTATION ENDPOINT =====
   app.get("/api/admin/openapi", (req, res) => {
     const openApiSpec = {
@@ -3597,4 +3877,74 @@ async function hashApiKey(key: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Verify API key against stored hash
+async function verifyApiKey(providedKey: string, storedHash: string): Promise<boolean> {
+  const providedHash = await hashApiKey(providedKey);
+  return providedHash === storedHash;
+}
+
+// HMAC signature generation for request signing
+// NOTE: This is a placeholder for future implementation. To enable HMAC signing:
+// 1. Store a separate HMAC secret (not the hashed API key) with each API client
+// 2. Return the HMAC secret to the client on API key creation
+// 3. Client uses the HMAC secret to sign requests
+// 4. Call validateHmacSignature in the validateApiKey middleware when REQUIRE_HMAC_SIGNING setting is true
+async function generateHmacSignature(
+  method: string,
+  path: string,
+  timestamp: string,
+  body: string,
+  secret: string
+): Promise<string> {
+  const message = `${method.toUpperCase()}\n${path}\n${timestamp}\n${body}`;
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(message);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const signatureArray = Array.from(new Uint8Array(signature));
+  return signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Validate HMAC signature from request
+async function validateHmacSignature(
+  req: Request,
+  apiClient: { apiKey: string }
+): Promise<boolean> {
+  const signature = req.headers['x-signature'] as string;
+  const timestamp = req.headers['x-timestamp'] as string;
+  
+  if (!signature || !timestamp) {
+    return false;
+  }
+  
+  // Check timestamp is within 5 minutes to prevent replay attacks
+  const now = Date.now();
+  const requestTime = parseInt(timestamp, 10);
+  const fiveMinutes = 5 * 60 * 1000;
+  
+  if (isNaN(requestTime) || Math.abs(now - requestTime) > fiveMinutes) {
+    return false;
+  }
+  
+  const body = JSON.stringify(req.body) || '';
+  const expectedSignature = await generateHmacSignature(
+    req.method,
+    req.path,
+    timestamp,
+    body,
+    apiClient.apiKey
+  );
+  
+  return signature === expectedSignature;
 }

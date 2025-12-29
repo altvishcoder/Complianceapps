@@ -259,7 +259,7 @@ export interface IStorage {
   cleanupExpiredUploadSessions(): Promise<number>;
   
   // Ingestion Jobs
-  listIngestionJobs(organisationId: string, filters?: { status?: string }): Promise<IngestionJob[]>;
+  listIngestionJobs(organisationId: string, filters?: { status?: string; limit?: number; offset?: number }): Promise<IngestionJob[]>;
   getIngestionJob(id: string): Promise<IngestionJob | undefined>;
   getIngestionJobByIdempotencyKey(key: string): Promise<IngestionJob | undefined>;
   createIngestionJob(job: InsertIngestionJob): Promise<IngestionJob>;
@@ -1655,18 +1655,25 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Ingestion Jobs
-  async listIngestionJobs(organisationId: string, filters?: { status?: string }): Promise<IngestionJob[]> {
+  async listIngestionJobs(organisationId: string, filters?: { status?: string; limit?: number; offset?: number }): Promise<IngestionJob[]> {
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+    
     if (filters?.status) {
       return db.select().from(ingestionJobs)
         .where(and(
           eq(ingestionJobs.organisationId, organisationId),
           eq(ingestionJobs.status, filters.status as any)
         ))
-        .orderBy(desc(ingestionJobs.createdAt));
+        .orderBy(desc(ingestionJobs.createdAt))
+        .limit(limit)
+        .offset(offset);
     }
     return db.select().from(ingestionJobs)
       .where(eq(ingestionJobs.organisationId, organisationId))
-      .orderBy(desc(ingestionJobs.createdAt));
+      .orderBy(desc(ingestionJobs.createdAt))
+      .limit(limit)
+      .offset(offset);
   }
   
   async getIngestionJob(id: string): Promise<IngestionJob | undefined> {
