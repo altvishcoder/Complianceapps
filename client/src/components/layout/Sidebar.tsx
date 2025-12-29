@@ -26,7 +26,8 @@ import {
   Film,
   Menu,
   X,
-  Key
+  Key,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -64,6 +65,7 @@ const adminOnlyNavigation = [
 // Lashan Super User only items
 const lashanSuperUserNav = [
   { name: "Factory Settings", href: "/admin/factory-settings", icon: Shield },
+  { name: "System Health", href: "/admin/system-health", icon: Activity },
 ];
 
 // Configuration visible to both admin and compliance manager

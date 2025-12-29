@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { processExtractionAndSave } from "./extraction";
 import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { enqueueWebhookEvent } from "./webhook-worker";
+import { jobLogger } from "./logger";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -50,11 +51,11 @@ export async function initJobQueue(): Promise<PgBoss> {
   });
 
   boss.on("error", (error) => {
-    console.error("[pg-boss] Error:", error);
+    jobLogger.error({ error }, "pg-boss error");
   });
 
   await boss.start();
-  console.log("[pg-boss] Job queue started successfully");
+  jobLogger.info("Job queue started successfully");
 
   await registerWorkers();
 
@@ -90,19 +91,19 @@ async function registerWorkers(): Promise<void> {
     QUEUE_NAMES.RATE_LIMIT_CLEANUP,
     async () => {
       await storage.cleanupExpiredRateLimits();
-      console.log("[pg-boss] Rate limit cleanup completed");
+      jobLogger.debug("Rate limit cleanup completed");
     }
   );
 
   await boss.send(QUEUE_NAMES.RATE_LIMIT_CLEANUP, {}, { singletonKey: 'rate-limit-cleanup' });
 
-  console.log("[pg-boss] Workers registered for all queues");
+  jobLogger.info("Workers registered for all queues");
 }
 
 async function processCertificateIngestion(data: IngestionJobData): Promise<void> {
   const { jobId, propertyId, certificateType, fileName, objectPath, webhookUrl } = data;
   
-  console.log(`[pg-boss] Processing ingestion job ${jobId} for property ${propertyId}`);
+  jobLogger.info({ jobId, propertyId, certificateType }, "Processing ingestion job");
   
   const ingestionJob = await storage.getIngestionJob(jobId);
   if (!ingestionJob) {
@@ -147,7 +148,7 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
           fileBase64 = fileBuffer?.toString("base64");
         }
       } catch (error) {
-        console.error(`[pg-boss] Error downloading file: ${error}`);
+        jobLogger.error({ error, jobId, objectPath }, "Error downloading file");
         throw new Error(`Failed to download file from object storage: ${error}`);
       }
     }
@@ -185,7 +186,7 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
       statusMessage: `Successfully processed ${certificateType} certificate`,
     });
 
-    console.log(`[pg-boss] Job ${jobId} completed successfully, certificate ID: ${certificateId}`);
+    jobLogger.info({ jobId, certificateId, propertyId }, "Ingestion job completed successfully");
 
     if (webhookUrl) {
       await enqueueWebhook({
@@ -205,7 +206,7 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[pg-boss] Job ${jobId} failed: ${errorMessage}`);
+    jobLogger.error({ jobId, error: errorMessage, propertyId }, "Ingestion job failed");
 
     await storage.updateIngestionJob(jobId, {
       status: "FAILED",
@@ -237,7 +238,7 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
 async function processWebhookDelivery(data: WebhookJobData): Promise<void> {
   const { jobId, webhookUrl, payload, attemptCount } = data;
   
-  console.log(`[pg-boss] Delivering webhook for job ${jobId}, attempt ${attemptCount + 1}`);
+  jobLogger.info({ jobId, webhookUrl, attempt: attemptCount + 1 }, "Delivering webhook");
   
   try {
     const response = await fetch(webhookUrl, {
@@ -254,9 +255,9 @@ async function processWebhookDelivery(data: WebhookJobData): Promise<void> {
       throw new Error(`Webhook returned status ${response.status}: ${await response.text()}`);
     }
 
-    console.log(`[pg-boss] Webhook delivered successfully for job ${jobId}`);
+    jobLogger.info({ jobId }, "Webhook delivered successfully");
   } catch (error) {
-    console.error(`[pg-boss] Webhook delivery failed: ${error}`);
+    jobLogger.error({ jobId, error, webhookUrl }, "Webhook delivery failed");
     throw error;
   }
 }
@@ -275,7 +276,7 @@ export async function enqueueIngestionJob(data: IngestionJobData): Promise<strin
 
 export async function enqueueWebhook(data: WebhookJobData): Promise<string | null> {
   if (!boss) {
-    console.warn("[pg-boss] Queue not initialized, webhook not enqueued");
+    jobLogger.warn("Queue not initialized, webhook not enqueued");
     return null;
   }
 
@@ -321,7 +322,7 @@ export async function stopJobQueue(): Promise<void> {
   if (boss) {
     await boss.stop();
     boss = null;
-    console.log("[pg-boss] Job queue stopped");
+    jobLogger.info("Job queue stopped");
   }
 }
 
