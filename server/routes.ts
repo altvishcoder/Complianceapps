@@ -3620,6 +3620,32 @@ export async function registerRoutes(
   // ===== INGESTION API (External Certificate Submission) =====
   // These endpoints are protected by API key authentication
   
+  // GET /api/v1/certificate-types - List valid certificate types for ingestion
+  app.get("/api/v1/certificate-types", async (req, res) => {
+    try {
+      const auth = await validateApiKey(req, res);
+      if (!auth) return;
+      
+      const allTypes = await storage.listCertificateTypes();
+      const activeTypes = allTypes.filter(t => t.isActive);
+      
+      res.json({
+        certificateTypes: activeTypes.map(t => ({
+          code: t.code,
+          name: t.name,
+          shortName: t.shortName,
+          complianceStream: t.complianceStream,
+          description: t.description,
+          validityMonths: t.validityMonths,
+          requiredFields: t.requiredFields
+        }))
+      });
+    } catch (error) {
+      console.error("Error listing certificate types:", error);
+      res.status(500).json({ error: "Failed to list certificate types" });
+    }
+  });
+  
   // POST /api/v1/ingestions - Submit a new certificate for processing
   app.post("/api/v1/ingestions", async (req, res) => {
     try {
@@ -3632,6 +3658,23 @@ export async function registerRoutes(
       if (!propertyId || !certificateType || !fileName) {
         return res.status(400).json({ 
           error: "Missing required fields: propertyId, certificateType, and fileName are required" 
+        });
+      }
+      
+      // Validate certificateType against database configuration
+      const validCertType = await storage.getCertificateTypeByCode(certificateType);
+      if (!validCertType) {
+        const allTypes = await storage.listCertificateTypes();
+        const validCodes = allTypes.filter(t => t.isActive).map(t => t.code);
+        return res.status(400).json({ 
+          error: `Invalid certificateType: '${certificateType}'. Valid types are: ${validCodes.join(', ')}`,
+          validTypes: validCodes
+        });
+      }
+      
+      if (!validCertType.isActive) {
+        return res.status(400).json({ 
+          error: `Certificate type '${certificateType}' is currently disabled`
         });
       }
       
