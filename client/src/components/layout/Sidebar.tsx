@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -77,9 +77,12 @@ const configurationNav = [
   { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
 ];
 
+const SIDEBAR_SCROLL_KEY = 'sidebar_scroll_position';
+
 export function Sidebar() {
   const [location, setLocation] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const navScrollRef = useRef<HTMLDivElement>(null);
   
   const userRole = typeof window !== 'undefined' ? localStorage.getItem("user_role") : null;
   const isAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
@@ -88,6 +91,21 @@ export function Sidebar() {
   const canAccessAITools = isAdmin || isComplianceManager || isLashanSuperUser;
   const canAccessAdminPanel = isAdmin || isComplianceManager || isLashanSuperUser;
   const canAccessFactorySettings = isLashanSuperUser || isAdmin;
+  
+  // Restore scroll position on mount
+  useEffect(() => {
+    const savedScrollPos = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    if (savedScrollPos && navScrollRef.current) {
+      navScrollRef.current.scrollTop = parseInt(savedScrollPos, 10);
+    }
+  }, []);
+  
+  // Save scroll position before navigation
+  const handleNavClick = useCallback(() => {
+    if (navScrollRef.current) {
+      sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(navScrollRef.current.scrollTop));
+    }
+  }, []);
   
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -159,7 +177,7 @@ export function Sidebar() {
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto py-6 px-4 scrollbar-thin">
+      <div ref={navScrollRef} className="flex-1 overflow-y-auto py-6 px-4 scrollbar-thin">
         <div className="mb-2 px-3">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Main Menu</span>
         </div>
@@ -167,7 +185,7 @@ export function Sidebar() {
           {navigation.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link key={item.name} href={item.href} aria-current={isActive ? "page" : undefined}>
+              <Link key={item.name} href={item.href} aria-current={isActive ? "page" : undefined} onClick={handleNavClick}>
                 <div
                   className={cn(
                     "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
@@ -205,7 +223,7 @@ export function Sidebar() {
               {aiNavigation.map((item) => {
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.name} href={item.href}>
+                  <Link key={item.name} href={item.href} onClick={handleNavClick}>
                     <div
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
@@ -245,7 +263,7 @@ export function Sidebar() {
               {isAdmin && adminOnlyNavigation.map((item) => {
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.name} href={item.href}>
+                  <Link key={item.name} href={item.href} onClick={handleNavClick}>
                     <div
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
@@ -274,7 +292,7 @@ export function Sidebar() {
               {configurationNav.map((item) => {
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.name} href={item.href}>
+                  <Link key={item.name} href={item.href} onClick={handleNavClick}>
                     <div
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
@@ -303,7 +321,7 @@ export function Sidebar() {
               {canAccessFactorySettings && lashanSuperUserNav.map((item) => {
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.name} href={item.href}>
+                  <Link key={item.name} href={item.href} onClick={handleNavClick}>
                     <div
                       className={cn(
                         "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
@@ -338,7 +356,7 @@ export function Sidebar() {
           </div>
           <div className="space-y-2 px-1">
             {emergencyHazards > 0 && (
-              <Link href="/actions">
+              <Link href="/actions" onClick={handleNavClick}>
                 <div className="flex items-center gap-3 px-3 py-3 text-sm rounded-xl bg-gradient-to-r from-rose-500/10 to-rose-500/5 border border-rose-500/20 cursor-pointer hover:from-rose-500/20 hover:to-rose-500/10 transition-all group">
                   <div className="p-1.5 rounded-lg bg-rose-500/20">
                     <AlertTriangle className="h-4 w-4 text-rose-400" />
@@ -351,7 +369,7 @@ export function Sidebar() {
               </Link>
             )}
             {overdueCerts > 0 && (
-              <Link href="/certificates?filter=overdue">
+              <Link href="/certificates?filter=overdue" onClick={handleNavClick}>
                 <div className="flex items-center gap-3 px-3 py-3 text-sm rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-500/5 border border-amber-500/20 cursor-pointer hover:from-amber-500/20 hover:to-amber-500/10 transition-all group">
                   <div className="p-1.5 rounded-lg bg-amber-500/20">
                     <AlertTriangle className="h-4 w-4 text-amber-400" />
