@@ -3865,7 +3865,7 @@ export async function registerRoutes(
       
       const { level, source, search, limit = "100", offset = "0" } = req.query;
       
-      const logs = await storage.getSystemLogs({
+      const result = await storage.getSystemLogs({
         level: level as string | undefined,
         source: source as string | undefined,
         search: search as string | undefined,
@@ -3873,7 +3873,30 @@ export async function registerRoutes(
         offset: parseInt(offset as string) || 0,
       });
       
-      res.json(logs);
+      const sensitiveKeys = ['password', 'secret', 'token', 'api_key', 'apiKey', 'authorization', 'cookie', 'session', 'credentials', 'private', 'bearer'];
+      
+      const scrubMetadata = (obj: Record<string, unknown> | null): Record<string, unknown> | null => {
+        if (!obj || typeof obj !== 'object') return obj;
+        const scrubbed: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+          const lowerKey = key.toLowerCase();
+          if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
+            scrubbed[key] = '[REDACTED]';
+          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+            scrubbed[key] = scrubMetadata(value as Record<string, unknown>);
+          } else {
+            scrubbed[key] = value;
+          }
+        }
+        return scrubbed;
+      };
+      
+      const scrubbedLogs = result.logs.map(log => ({
+        ...log,
+        metadata: scrubMetadata(log.metadata as Record<string, unknown> | null)
+      }));
+      
+      res.json({ logs: scrubbedLogs, total: result.total });
     } catch (error) {
       console.error("Error fetching logs:", error);
       res.status(500).json({ error: "Failed to fetch logs" });
