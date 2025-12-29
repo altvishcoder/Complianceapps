@@ -33,6 +33,10 @@ import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
 import VideoLibrary from "@/pages/video-library";
+import MapsIndex from "@/pages/maps";
+import RiskHeatmap from "@/pages/maps/risk-heatmap";
+import ScenariosPage from "@/pages/maps/scenarios";
+import EvidencePage from "@/pages/maps/evidence";
 
 import LandingPage from "@/pages/landing";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
@@ -70,6 +74,10 @@ function Router() {
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
       <Route path="/components" component={ComponentsPage} />
       <Route path="/video-library" component={VideoLibrary} />
+      <Route path="/maps" component={MapsIndex} />
+      <Route path="/maps/risk-heatmap" component={RiskHeatmap} />
+      <Route path="/maps/scenarios" component={ScenariosPage} />
+      <Route path="/maps/evidence" component={EvidencePage} />
       
       <Route component={NotFound} />
     </Switch>

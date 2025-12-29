@@ -27,7 +27,8 @@ import {
   Menu,
   X,
   Key,
-  Activity
+  Activity,
+  Map
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ const navigation = [
   { name: "Actions", href: "/actions", icon: Wrench },
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Risk Maps", href: "/maps", icon: Map },
   { name: "Data Import", href: "/admin/imports", icon: Database },
   { name: "Video Library", href: "/video-library", icon: Film },
 ];

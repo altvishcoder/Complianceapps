@@ -92,6 +92,15 @@ export const properties = pgTable("properties", {
   hasSprinklers: boolean("has_sprinklers").notNull().default(false),
   localAuthority: text("local_authority"),
   
+  // Geocoding fields for risk maps
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  ward: text("ward"),
+  wardCode: text("ward_code"),
+  lsoa: text("lsoa"),
+  msoa: text("msoa"),
+  geocodedAt: timestamp("geocoded_at"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1271,6 +1280,48 @@ export const systemLogs = pgTable("system_logs", {
 export const insertSystemLogSchema = createInsertSchema(systemLogs).omit({ id: true });
 export type SystemLog = typeof systemLogs.$inferSelect;
 export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
+
+// ==========================================
+// RISK MAPS & SNAPSHOTS
+// ==========================================
+
+export const riskLevelEnum = pgEnum('risk_level', ['property', 'block', 'scheme', 'ward', 'organisation']);
+export const riskTrendEnum = pgEnum('risk_trend', ['improving', 'stable', 'deteriorating']);
+
+export const riskSnapshots = pgTable("risk_snapshots", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id, { onDelete: 'cascade' }).notNull(),
+  level: riskLevelEnum("level").notNull(),
+  levelId: varchar("level_id").notNull(),
+  levelName: text("level_name"),
+  
+  compositeScore: real("composite_score").notNull(),
+  gasScore: real("gas_score"),
+  electricalScore: real("electrical_score"),
+  fireScore: real("fire_score"),
+  asbestosScore: real("asbestos_score"),
+  liftScore: real("lift_score"),
+  waterScore: real("water_score"),
+  
+  criticalDefects: integer("critical_defects").notNull().default(0),
+  majorDefects: integer("major_defects").notNull().default(0),
+  minorDefects: integer("minor_defects").notNull().default(0),
+  
+  propertyCount: integer("property_count").notNull().default(0),
+  unitCount: integer("unit_count").notNull().default(0),
+  
+  previousScore: real("previous_score"),
+  trend: riskTrendEnum("trend"),
+  
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+});
+
+export const insertRiskSnapshotSchema = createInsertSchema(riskSnapshots).omit({ id: true });
+export type RiskSnapshot = typeof riskSnapshots.$inferSelect;
+export type InsertRiskSnapshot = z.infer<typeof insertRiskSnapshotSchema>;
 
 // ==========================================
 // API MONITORING & INTEGRATIONS
