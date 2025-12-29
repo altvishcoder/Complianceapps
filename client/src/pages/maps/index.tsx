@@ -7,13 +7,11 @@ import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Upload, Building2, MapPinned, Home } from 'lucide-react';
+import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Building2, MapPinned, Home } from 'lucide-react';
 import { Link } from 'wouter';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 type AggregationLevel = 'property' | 'scheme' | 'ward';
 
@@ -73,54 +71,6 @@ export default function MapsIndexPage() {
     }
   });
   
-  const [csvImportOpen, setCsvImportOpen] = useState(false);
-  const [csvData, setCsvData] = useState('');
-  
-  const csvImportMutation = useMutation({
-    mutationFn: async (data: Array<{propertyId: string; latitude: number; longitude: number}>) => {
-      const res = await fetch('/api/geocoding/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data })
-      });
-      if (!res.ok) throw new Error('Failed to import');
-      return res.json();
-    },
-    onSuccess: (data) => {
-      toast.success(`Imported ${data.updated} locations`);
-      queryClient.invalidateQueries({ queryKey: ['map-properties'] });
-      queryClient.invalidateQueries({ queryKey: ['geocoding-status'] });
-      setCsvImportOpen(false);
-      setCsvData('');
-    },
-    onError: () => {
-      toast.error('Failed to import geocoding data');
-    }
-  });
-  
-  const handleCsvImport = () => {
-    const lines = csvData.trim().split('\n');
-    const data: Array<{propertyId: string; latitude: number; longitude: number}> = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(',');
-      if (parts.length >= 3) {
-        const propertyId = parts[0].trim();
-        const latitude = parseFloat(parts[1].trim());
-        const longitude = parseFloat(parts[2].trim());
-        if (propertyId && !isNaN(latitude) && !isNaN(longitude)) {
-          data.push({ propertyId, latitude, longitude });
-        }
-      }
-    }
-    
-    if (data.length === 0) {
-      toast.error('No valid data found in CSV');
-      return;
-    }
-    
-    csvImportMutation.mutate(data);
-  };
 
   const displayMarkers = useMemo(() => {
     if (aggregationLevel === 'property') {
@@ -285,49 +235,11 @@ export default function MapsIndexPage() {
                         )}
                       </Button>
                     )}
-                    <Dialog open={csvImportOpen} onOpenChange={setCsvImportOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" data-testid="button-import-csv">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Import CSV
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[600px]">
-                        <DialogHeader>
-                          <DialogTitle>Import Geocoding Data</DialogTitle>
-                          <DialogDescription>
-                            Paste CSV data with property coordinates. Format: propertyId,latitude,longitude
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="p-3 bg-muted rounded-lg text-xs font-mono">
-                            propertyId,latitude,longitude<br/>
-                            abc123-def456,51.5074,-0.1278<br/>
-                            xyz789-ghi012,52.4862,-1.8904
-                          </div>
-                          <div className="space-y-2">
-                            <Label>CSV Data</Label>
-                            <Textarea 
-                              value={csvData}
-                              onChange={(e) => setCsvData(e.target.value)}
-                              placeholder="Paste CSV data here..."
-                              rows={8}
-                              className="font-mono text-sm"
-                              data-testid="textarea-csv-import"
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setCsvImportOpen(false)}>Cancel</Button>
-                          <Button 
-                            onClick={handleCsvImport}
-                            disabled={csvImportMutation.isPending || !csvData.trim()}
-                          >
-                            {csvImportMutation.isPending ? 'Importing...' : 'Import Locations'}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                    <Link href="/admin/imports?type=geocoding">
+                      <Button variant="outline" data-testid="button-import-geocoding">
+                        Import Geocoding
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>

@@ -15,12 +15,13 @@ import { Progress } from "@/components/ui/progress";
 import { dataImportsApi } from "@/lib/api";
 import { Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Clock, Play, Loader2, Info } from "lucide-react";
 
-type ImportType = "properties" | "units" | "components";
+type ImportType = "properties" | "units" | "components" | "geocoding";
 
 const IMPORT_TYPES: { value: ImportType; label: string; description: string }[] = [
   { value: "properties", label: "Properties", description: "Import property records with UPRN, address, and tenure" },
   { value: "units", label: "Units", description: "Import rooms/areas within properties" },
   { value: "components", label: "Components (Assets)", description: "Import equipment and assets like boilers, alarms" },
+  { value: "geocoding", label: "Geocoding", description: "Import map coordinates (latitude/longitude) for properties" },
 ];
 
 const STATUS_BADGES: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
@@ -40,7 +41,14 @@ export default function ImportsPage() {
 
   const [activeTab, setActiveTab] = useState<"new" | "history">("new");
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [importType, setImportType] = useState<ImportType>("properties");
+  const [importType, setImportType] = useState<ImportType>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const typeParam = params.get('type');
+    if (typeParam && ['properties', 'units', 'components', 'geocoding'].includes(typeParam)) {
+      return typeParam as ImportType;
+    }
+    return "properties";
+  });
   const [importName, setImportName] = useState("");
   const [csvContent, setCsvContent] = useState("");
   const [currentImportId, setCurrentImportId] = useState<string | null>(null);
@@ -86,6 +94,57 @@ export default function ImportsPage() {
     },
   });
   
+  const geocodingImportMutation = useMutation({
+    mutationFn: async (csvData: string) => {
+      const lines = csvData.trim().split('\n');
+      const data: Array<{propertyId: string; latitude: number; longitude: number}> = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',');
+        if (parts.length >= 3) {
+          const propertyId = parts[0].trim();
+          const latitude = parseFloat(parts[1].trim());
+          const longitude = parseFloat(parts[2].trim());
+          if (propertyId && !isNaN(latitude) && !isNaN(longitude)) {
+            data.push({ propertyId, latitude, longitude });
+          }
+        }
+      }
+      
+      const res = await fetch('/api/geocoding/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data })
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to import geocoding data');
+      }
+      return { ...await res.json(), totalAttempted: data.length };
+    },
+    onSuccess: (data) => {
+      setExecuteResult({ 
+        success: true, 
+        totalRows: data.totalAttempted, 
+        importedRows: data.updated,
+        isGeocoding: true
+      });
+      setStep(4);
+      queryClient.invalidateQueries({ queryKey: ["map-properties"] });
+      queryClient.invalidateQueries({ queryKey: ["geocoding-status"] });
+    },
+    onError: (error: Error) => {
+      setExecuteResult({
+        success: false,
+        totalRows: 0,
+        importedRows: 0,
+        isGeocoding: true,
+        errorMessage: error.message
+      });
+      setStep(4);
+    }
+  });
+  
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -100,13 +159,17 @@ export default function ImportsPage() {
   const handleCreateImport = () => {
     if (!importName || !csvContent) return;
     
-    createImportMutation.mutate({
-      name: importName,
-      importType: importType.toUpperCase(),
-      fileName: `${importName}.csv`,
-      fileType: "CSV",
-      fileSize: csvContent.length,
-    });
+    if (importType === "geocoding") {
+      geocodingImportMutation.mutate(csvContent);
+    } else {
+      createImportMutation.mutate({
+        name: importName,
+        importType: importType.toUpperCase(),
+        fileName: `${importName}.csv`,
+        fileType: "CSV",
+        fileSize: csvContent.length,
+      });
+    }
   };
   
   const handleValidate = () => {
@@ -278,11 +341,11 @@ export default function ImportsPage() {
                   
                   <Button 
                     onClick={handleCreateImport}
-                    disabled={!importName || !csvContent || createImportMutation.isPending}
+                    disabled={!importName || !csvContent || createImportMutation.isPending || geocodingImportMutation.isPending}
                     data-testid="button-start-import"
                   >
-                    {createImportMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Continue to Validation
+                    {(createImportMutation.isPending || geocodingImportMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {importType === "geocoding" ? "Import Coordinates" : "Continue to Validation"}
                   </Button>
                 </div>
               )}
@@ -445,9 +508,19 @@ export default function ImportsPage() {
                     ) : (
                       <AlertCircle className="h-4 w-4 text-red-500" />
                     )}
-                    <AlertTitle>{executeResult.success ? "Import Complete!" : "Import Completed with Errors"}</AlertTitle>
+                    <AlertTitle>
+                      {executeResult.success 
+                        ? (executeResult.isGeocoding ? "Geocoding Import Complete!" : "Import Complete!") 
+                        : (executeResult.isGeocoding ? "Geocoding Import Failed" : "Import Completed with Errors")}
+                    </AlertTitle>
                     <AlertDescription>
-                      Successfully imported {executeResult.importedRows} of {executeResult.totalRows} rows.
+                      {executeResult.success ? (
+                        executeResult.isGeocoding 
+                          ? `Successfully updated coordinates for ${executeResult.importedRows} of ${executeResult.totalRows} properties.`
+                          : `Successfully imported ${executeResult.importedRows} of ${executeResult.totalRows} rows.`
+                      ) : (
+                        executeResult.errorMessage || `Failed to complete import. ${executeResult.importedRows} of ${executeResult.totalRows} rows imported.`
+                      )}
                     </AlertDescription>
                   </Alert>
                   

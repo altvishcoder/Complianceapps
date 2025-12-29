@@ -3085,6 +3085,13 @@ export async function registerRoutes(
             { name: "lastServiceDate", required: false, description: "Last service date (YYYY-MM-DD)" },
             { name: "nextServiceDue", required: false, description: "Next service due date (YYYY-MM-DD)" },
           ]
+        },
+        geocoding: {
+          columns: [
+            { name: "propertyId", required: true, description: "Property ID (UUID) to update" },
+            { name: "latitude", required: true, description: "Latitude coordinate (decimal degrees, e.g., 51.5074)" },
+            { name: "longitude", required: true, description: "Longitude coordinate (decimal degrees, e.g., -0.1278)" },
+          ]
         }
       };
       
@@ -3129,7 +3136,8 @@ export async function registerRoutes(
       const sampleFiles: Record<string, string> = {
         properties: 'properties-sample.csv',
         units: 'units-sample.csv',
-        components: 'components-sample.csv'
+        components: 'components-sample.csv',
+        geocoding: 'geocoding-sample.csv'
       };
       
       const filename = sampleFiles[type];

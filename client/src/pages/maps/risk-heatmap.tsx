@@ -133,7 +133,20 @@ export default function RiskHeatmapPage() {
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-1 relative">
               <MapWrapper>
-                <BaseMap center={[51.515, -0.09]} zoom={12}>
+                <BaseMap 
+                  center={(() => {
+                    const validMarkers = mapMarkers.filter(m => 
+                      typeof m.lat === 'number' && !isNaN(m.lat) &&
+                      typeof m.lng === 'number' && !isNaN(m.lng)
+                    );
+                    if (validMarkers.length === 0) return [52.5, -1.5] as [number, number];
+                    return [
+                      validMarkers.reduce((sum, m) => sum + m.lat, 0) / validMarkers.length,
+                      validMarkers.reduce((sum, m) => sum + m.lng, 0) / validMarkers.length
+                    ] as [number, number];
+                  })()} 
+                  zoom={mapMarkers.length > 0 ? 7 : 6}
+                >
                   <PropertyMarkers 
                     properties={mapMarkers}
                     onPropertyClick={handleAreaClick}

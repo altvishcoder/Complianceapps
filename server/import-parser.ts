@@ -433,6 +433,10 @@ export function generateCSVTemplate(importType: string): string {
     components: [
       'propertyUprn,unitReference,componentTypeCode,assetTag,serialNumber,manufacturer,model,location,accessNotes,installDate,expectedReplacementDate,warrantyExpiry,condition,riskLevel,certificateRequired,lastServiceDate,nextServiceDue',
       '100000000001,,GAS_BOILER,ASSET-001,SN12345,Worcester,Greenstar 30i,Utility Room,Key required from tenant,2020-01-15,2035-01-15,2025-01-15,GOOD,MEDIUM,GAS_SAFETY,2024-06-12,2025-06-12'
+    ],
+    geocoding: [
+      'propertyId,latitude,longitude',
+      'example-property-id,51.5074,-0.1278'
     ]
   };
   
