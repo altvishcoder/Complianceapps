@@ -7,7 +7,7 @@ import {
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
-  factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs,
+  factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, rateLimitEntries,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -265,6 +265,10 @@ export interface IStorage {
   createIngestionJob(job: InsertIngestionJob): Promise<IngestionJob>;
   updateIngestionJob(id: string, updates: Partial<IngestionJob>): Promise<IngestionJob | undefined>;
   getNextPendingIngestionJob(): Promise<IngestionJob | undefined>;
+  
+  // Rate Limiting
+  checkAndIncrementRateLimit(clientId: string, windowMs: number, limit: number): Promise<{ allowed: boolean; remaining: number; resetAt: Date }>;
+  cleanupExpiredRateLimits(): Promise<number>;
   
   // Videos
   listVideos(organisationId: string): Promise<Video[]>;
@@ -1705,6 +1709,62 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ingestionJobs.createdAt)
       .limit(1);
     return job || undefined;
+  }
+
+  async checkAndIncrementRateLimit(clientId: string, windowMs: number, limit: number): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - windowMs);
+    
+    const [existing] = await db.select().from(rateLimitEntries)
+      .where(and(
+        eq(rateLimitEntries.clientId, clientId),
+        gte(rateLimitEntries.windowResetAt, now)
+      ))
+      .limit(1);
+    
+    if (existing) {
+      if (existing.requestCount >= limit) {
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: existing.windowResetAt
+        };
+      }
+      
+      await db.update(rateLimitEntries)
+        .set({ 
+          requestCount: existing.requestCount + 1,
+          updatedAt: now
+        })
+        .where(eq(rateLimitEntries.id, existing.id));
+      
+      return {
+        allowed: true,
+        remaining: limit - existing.requestCount - 1,
+        resetAt: existing.windowResetAt
+      };
+    }
+    
+    const resetAt = new Date(now.getTime() + windowMs);
+    await db.insert(rateLimitEntries).values({
+      clientId,
+      requestCount: 1,
+      windowStart: now,
+      windowResetAt: resetAt
+    });
+    
+    return {
+      allowed: true,
+      remaining: limit - 1,
+      resetAt
+    };
+  }
+
+  async cleanupExpiredRateLimits(): Promise<number> {
+    const result = await db.delete(rateLimitEntries)
+      .where(lte(rateLimitEntries.windowResetAt, new Date()))
+      .returning();
+    return result.length;
   }
 }
 

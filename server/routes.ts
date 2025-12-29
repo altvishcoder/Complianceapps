@@ -8,7 +8,8 @@ import {
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
   insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
-  componentTypes, components, units, componentCertificates
+  componentTypes, components, units, componentCertificates,
+  type ApiClient
 } from "@shared/schema";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
@@ -3499,16 +3500,17 @@ export async function registerRoutes(
       
       const { isActive, name, description, scopes } = req.body;
       
-      const updated = await storage.updateApiClient(req.params.id, { 
-        isActive, 
-        name, 
-        description, 
-        scopes 
-      });
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (description !== undefined) updates.description = description;
+      if (scopes !== undefined) updates.scopes = scopes;
+      if (isActive !== undefined) updates.status = isActive ? 'ACTIVE' : 'SUSPENDED';
+      
+      const updated = await storage.updateApiClient(req.params.id, updates);
       if (!updated) {
         return res.status(404).json({ error: "API client not found" });
       }
-      res.json(updated);
+      res.json({ ...updated, isActive: updated.status === 'ACTIVE' });
     } catch (error) {
       console.error("Error updating API client:", error);
       res.status(500).json({ error: "Failed to update API client" });
@@ -3530,55 +3532,38 @@ export async function registerRoutes(
     }
   });
   
-  // ===== RATE LIMITING =====
-  // In-memory rate limiting store (production should use Redis)
-  const rateLimitStore: Map<string, { count: number; resetAt: number }> = new Map();
+  // ===== RATE LIMITING (PostgreSQL-backed) =====
+  const windowMs = 60 * 1000; // 1 minute window
   
-  // Clean up expired entries periodically
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, value] of rateLimitStore.entries()) {
-      if (value.resetAt < now) {
-        rateLimitStore.delete(key);
-      }
+  // Clean up expired rate limit entries periodically
+  setInterval(async () => {
+    try {
+      await storage.cleanupExpiredRateLimits();
+    } catch (error) {
+      console.error("Error cleaning up rate limits:", error);
     }
   }, 60 * 1000); // Clean up every minute
   
   // Rate limiter that reads limits from factory settings
   const checkRateLimit = async (clientId: string, res: Response): Promise<boolean> => {
     const limitPerMinute = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_REQUESTS_PER_MINUTE', '60'));
-    const now = Date.now();
-    const windowMs = 60 * 1000; // 1 minute window
     
-    const entry = rateLimitStore.get(clientId);
+    const result = await storage.checkAndIncrementRateLimit(clientId, windowMs, limitPerMinute);
     
-    if (!entry || entry.resetAt < now) {
-      // Start new window
-      rateLimitStore.set(clientId, { count: 1, resetAt: now + windowMs });
-      res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
-      res.setHeader('X-RateLimit-Remaining', (limitPerMinute - 1).toString());
-      res.setHeader('X-RateLimit-Reset', Math.ceil((now + windowMs) / 1000).toString());
-      return true;
-    }
+    res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
+    res.setHeader('X-RateLimit-Remaining', result.remaining.toString());
+    res.setHeader('X-RateLimit-Reset', Math.ceil(result.resetAt.getTime() / 1000).toString());
     
-    if (entry.count >= limitPerMinute) {
-      // Rate limit exceeded
-      res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
-      res.setHeader('X-RateLimit-Remaining', '0');
-      res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000).toString());
-      res.setHeader('Retry-After', Math.ceil((entry.resetAt - now) / 1000).toString());
+    if (!result.allowed) {
+      const retryAfter = Math.ceil((result.resetAt.getTime() - Date.now()) / 1000);
+      res.setHeader('Retry-After', retryAfter.toString());
       res.status(429).json({ 
         error: "Rate limit exceeded",
-        retryAfter: Math.ceil((entry.resetAt - now) / 1000)
+        retryAfter
       });
       return false;
     }
     
-    // Increment counter
-    entry.count++;
-    res.setHeader('X-RateLimit-Limit', limitPerMinute.toString());
-    res.setHeader('X-RateLimit-Remaining', (limitPerMinute - entry.count).toString());
-    res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000).toString());
     return true;
   };
   
@@ -3614,14 +3599,8 @@ export async function registerRoutes(
     }
     
     // Check if client is active
-    if (!client.isActive) {
+    if (client.status !== 'ACTIVE') {
       res.status(403).json({ error: "API key is disabled" });
-      return null;
-    }
-    
-    // Check if key is expired (if expiresAt is set)
-    if (client.expiresAt && new Date(client.expiresAt) < new Date()) {
-      res.status(403).json({ error: "API key has expired" });
       return null;
     }
     
@@ -3773,26 +3752,25 @@ export async function registerRoutes(
           return res.json({
             id: existing.id,
             uploadUrl: existing.uploadUrl,
-            storageKey: existing.storageKey,
+            objectPath: existing.objectPath,
             expiresAt: existing.expiresAt,
             message: "Existing upload session returned (idempotent)"
           });
         }
       }
       
-      // Generate storage key
-      const storageKey = `ingestions/${auth.client.organisationId}/${Date.now()}_${filename}`;
+      // Generate object path
+      const objectPath = `ingestions/${auth.client.organisationId}/${Date.now()}_${filename}`;
       
       // For object storage, we'd generate a pre-signed URL here
       // For now, create the session and return a direct upload path
       const session = await storage.createUploadSession({
         organisationId: auth.client.organisationId,
-        filename,
+        fileName: filename,
         contentType,
         fileSize: fileSize || 0,
-        storageKey,
-        uploadUrl: `/api/v1/uploads/${storageKey}`, // Direct upload endpoint
-        status: 'PENDING',
+        objectPath,
+        uploadUrl: `/api/v1/uploads/${objectPath}`, // Direct upload endpoint
         idempotencyKey,
         apiClientId: auth.client.id,
         expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour expiry
@@ -3801,7 +3779,7 @@ export async function registerRoutes(
       res.status(201).json({
         id: session.id,
         uploadUrl: session.uploadUrl,
-        storageKey: session.storageKey,
+        objectPath: session.objectPath,
         expiresAt: session.expiresAt
       });
     } catch (error) {

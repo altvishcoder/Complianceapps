@@ -874,6 +874,22 @@ export const ingestionJobs = pgTable("ingestion_jobs", {
   completedAt: timestamp("completed_at"),
 });
 
+// Rate limiting entries for PostgreSQL-backed rate limiting
+export const rateLimitEntries = pgTable("rate_limit_entries", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  clientId: varchar("client_id").notNull(),
+  requestCount: integer("request_count").notNull().default(0),
+  windowStart: timestamp("window_start").notNull(),
+  windowResetAt: timestamp("window_reset_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert/Select types for rate limiting
+export const insertRateLimitEntrySchema = createInsertSchema(rateLimitEntries).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertRateLimitEntry = z.infer<typeof insertRateLimitEntrySchema>;
+export type RateLimitEntry = typeof rateLimitEntries.$inferSelect;
+
 // Relations
 export const organisationRelations = relations(organisations, ({ many }) => ({
   users: many(users),
