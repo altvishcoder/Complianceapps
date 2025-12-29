@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -177,15 +179,21 @@ def check_status(ingestion_id: str):
 }`;
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl" data-testid="api-integration-page">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">API Integration Guide</h1>
-        <p className="text-muted-foreground">
-          Connect your systems to ComplianceAI for automated certificate processing
-        </p>
-      </div>
+    <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="API Integration" />
+        <main id="main-content" className="flex-1 overflow-y-auto p-6" role="main" aria-label="API integration content">
+          <div className="max-w-6xl mx-auto" data-testid="api-integration-page">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-2 font-display">API Integration Guide</h2>
+              <p className="text-muted-foreground">
+                Connect your systems to ComplianceAI for automated certificate processing
+              </p>
+            </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" data-testid="tab-overview">
             <FileJson className="h-4 w-4 mr-2" />
@@ -677,6 +685,9 @@ def check_status(ingestion_id: str):
           </Card>
         </TabsContent>
       </Tabs>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
