@@ -1251,6 +1251,28 @@ export type AiSuggestion = typeof aiSuggestions.$inferSelect;
 export type InsertAiSuggestion = z.infer<typeof insertAiSuggestionSchema>;
 
 // ==========================================
+// SYSTEM LOGS
+// ==========================================
+
+export const logLevelEnum = pgEnum('log_level', ['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
+export const logSourceEnum = pgEnum('log_source', ['api', 'job-queue', 'extraction', 'webhook', 'http', 'system']);
+
+export const systemLogs = pgTable("system_logs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  level: logLevelEnum("level").notNull(),
+  source: logSourceEnum("source").notNull().default('system'),
+  message: text("message").notNull(),
+  context: json("context"),
+  requestId: text("request_id"),
+  userId: varchar("user_id"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export const insertSystemLogSchema = createInsertSchema(systemLogs).omit({ id: true });
+export type SystemLog = typeof systemLogs.$inferSelect;
+export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
+
+// ==========================================
 // API MONITORING & INTEGRATIONS
 // ==========================================
 
