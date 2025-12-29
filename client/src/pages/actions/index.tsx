@@ -16,9 +16,11 @@ import {
   ArrowRight,
   Clock,
   Calendar,
-  User
+  User,
+  Building2,
+  MapPin
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { actionsApi } from "@/lib/api";
 import type { EnrichedRemedialAction } from "@/lib/api";
@@ -34,8 +36,30 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ContextBackButton } from "@/components/navigation/ContextBackButton";
 
-type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved';
+type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved' | 'immediate' | 'urgent';
+
+function getInitialFilterFromUrl(): FilterType {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get('status');
+  const severity = params.get('severity');
+  const awaabs = params.get('awaabs');
+  
+  if (awaabs === 'true') return 'open';
+  if (severity === 'IMMEDIATE') return 'immediate';
+  if (severity === 'URGENT') return 'urgent';
+  if (status === 'OPEN') return 'open';
+  if (status === 'IN_PROGRESS') return 'in_progress';
+  if (status === 'COMPLETED') return 'resolved';
+  
+  return 'all';
+}
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('status') || params.has('severity') || params.has('awaabs') || params.has('from');
+}
 
 export default function ActionsPage() {
   useEffect(() => {
@@ -43,10 +67,12 @@ export default function ActionsPage() {
   }, []);
 
   const [selectedAction, setSelectedAction] = useState<EnrichedRemedialAction | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterType>(getInitialFilterFromUrl);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
   
   const { data: remedialActions = [] } = useQuery({
     queryKey: ["actions"],
@@ -75,6 +101,12 @@ export default function ActionsPage() {
         break;
       case 'emergency':
         passesFilter = action.severity === 'IMMEDIATE' && action.status === 'OPEN';
+        break;
+      case 'immediate':
+        passesFilter = action.severity === 'IMMEDIATE';
+        break;
+      case 'urgent':
+        passesFilter = action.severity === 'URGENT';
         break;
       case 'in_progress':
         passesFilter = action.status === 'IN_PROGRESS';
@@ -133,6 +165,10 @@ export default function ActionsPage() {
         <Header title="Remedial Actions" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Remedial actions content">
           
+          {showBackButton && (
+            <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
+          )}
+          
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="flex gap-4 flex-1">
               <div className="relative flex-1 max-w-sm">
@@ -153,6 +189,8 @@ export default function ActionsPage() {
                   <SelectItem value="all">All Actions</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="emergency">Emergency Only</SelectItem>
+                  <SelectItem value="immediate">Immediate Severity</SelectItem>
+                  <SelectItem value="urgent">Urgent Severity</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>
                 </SelectContent>
@@ -236,20 +274,47 @@ export default function ActionsPage() {
               ) : (
               <div className="space-y-4">
                 {filteredActions.map((action) => (
-                  <div key={action.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/20 transition-colors gap-4 cursor-pointer" onClick={() => setSelectedAction(action)}>
+                  <div 
+                    key={action.id} 
+                    className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/20 transition-colors gap-4 cursor-pointer focus-within:ring-2 focus-within:ring-primary" 
+                    onClick={() => setSelectedAction(action)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedAction(action)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View action ${action.code || action.id}: ${action.description}`}
+                    data-testid={`action-row-${action.id}`}
+                  >
                     <div className="flex gap-4">
                       <div className={`mt-1 h-3 w-3 rounded-full shrink-0 ${
                         action.severity === 'IMMEDIATE' ? 'bg-rose-600 animate-pulse' : 
                         action.severity === 'URGENT' ? 'bg-orange-500' :
                         'bg-blue-500'
-                      }`} />
+                      }`} aria-hidden="true" />
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{action.property?.addressLine1 || 'Unknown Property'}</span>
-                          <span className="text-xs text-muted-foreground">#{action.id}</span>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-semibold">{action.propertyAddress || action.property?.addressLine1 || 'Unknown Property'}</span>
+                          <span className="text-xs text-muted-foreground">#{action.id.slice(0, 8)}</span>
                         </div>
+                        {(action.schemeName || action.blockName) && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            {action.schemeName && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" aria-hidden="true" />
+                                {action.schemeName}
+                              </span>
+                            )}
+                            {action.blockName && (
+                              <span className="flex items-center gap-1">
+                                <Building2 className="h-3 w-3" aria-hidden="true" />
+                                {action.blockName}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="text-sm font-medium">{action.description}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Code: {action.code || 'N/A'} • Location: {action.location || 'N/A'}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          <span className="font-medium">{action.code || 'N/A'}</span> • {action.location || 'N/A'}
+                        </p>
                       </div>
                     </div>
                     

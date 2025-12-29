@@ -177,8 +177,14 @@ export const certificatesApi = {
 
 // Remedial Actions
 export interface EnrichedRemedialAction extends RemedialAction {
-  property?: Property;
+  property?: Property & {
+    schemeName?: string;
+    blockName?: string;
+  };
   certificate?: Certificate;
+  schemeName?: string;
+  blockName?: string;
+  propertyAddress?: string;
 }
 
 export const actionsApi = {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,6 +38,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ContextBackButton } from "@/components/navigation/ContextBackButton";
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('status') || params.has('type') || params.has('filter') || params.has('from');
+}
 
 export default function CertificatesPage() {
   useEffect(() => {
@@ -47,14 +53,23 @@ export default function CertificatesPage() {
   const searchString = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [overdueFilter, setOverdueFilter] = useState(false);
   const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
+  
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
   
   useEffect(() => {
     const params = new URLSearchParams(searchString);
     if (params.get("filter") === "overdue") {
       setOverdueFilter(true);
+    }
+    if (params.get("status")) {
+      setStatusFilter(params.get("status"));
+    }
+    if (params.get("type")) {
+      setTypeFilter(params.get("type"));
     }
   }, [searchString]);
   
@@ -75,9 +90,10 @@ export default function CertificatesPage() {
       cert.fileName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = !statusFilter || cert.status === statusFilter;
+    const matchesType = !typeFilter || cert.certificateType === typeFilter;
     const matchesOverdue = !overdueFilter || isOverdue(cert);
     
-    return matchesSearch && matchesStatus && matchesOverdue;
+    return matchesSearch && matchesStatus && matchesType && matchesOverdue;
   });
   
   const handleStatusClick = (e: React.MouseEvent, status: string) => {
@@ -117,6 +133,10 @@ export default function CertificatesPage() {
         <Header title="Certificates" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificates content">
           
+          {showBackButton && (
+            <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
+          )}
+          
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-2 w-full max-w-md">
               <div className="relative flex-1">
@@ -146,9 +166,22 @@ export default function CertificatesPage() {
                   size="sm" 
                   className="gap-2"
                   onClick={() => setStatusFilter(null)}
+                  aria-label={`Remove status filter: ${statusFilter.replace('_', ' ')}`}
                 >
                   Status: {statusFilter.replace('_', ' ')}
-                  <span className="text-muted-foreground">&times;</span>
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </Button>
+              )}
+              {typeFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => setTypeFilter(null)}
+                  aria-label={`Remove type filter: ${typeFilter.replace(/_/g, ' ')}`}
+                >
+                  Type: {typeFilter.replace(/_/g, ' ')}
+                  <X className="h-3 w-3" aria-hidden="true" />
                 </Button>
               )}
               <Button variant="outline" size="icon">

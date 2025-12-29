@@ -70,7 +70,7 @@ export default function Dashboard() {
     if (data?.activePayload?.[0]?.payload) {
       const certType = data.activePayload[0].payload.code || CERT_TYPE_MAP[data.activePayload[0].payload.type] || '';
       if (certType) {
-        setLocation(`/certificates?type=${certType}`);
+        setLocation(`/certificates?type=${certType}&from=/dashboard`);
       }
     }
   };
@@ -79,7 +79,7 @@ export default function Dashboard() {
     if (data?.name) {
       const severity = SEVERITY_MAP[data.name] || data.severity || '';
       if (severity) {
-        setLocation(`/actions?severity=${severity}`);
+        setLocation(`/actions?severity=${severity}&from=/dashboard`);
       }
     }
   };
@@ -118,7 +118,7 @@ export default function Dashboard() {
               description="Across all asset groups"
               icon={CheckCircle2}
               status={parseFloat(stats?.overallCompliance || '0') >= 90 ? "success" : "warning"}
-              href="/certificates"
+              href="/certificates?from=/dashboard"
               data-testid="stat-overall-compliance"
             />
             <StatsCard 
@@ -129,7 +129,7 @@ export default function Dashboard() {
               trend={stats?.activeHazards ? "down" : undefined}
               trendValue={String(stats?.immediateHazards || 0)}
               status={stats?.activeHazards ? "danger" : "success"}
-              href="/actions?status=OPEN"
+              href="/actions?status=OPEN&from=/dashboard"
               data-testid="stat-active-hazards"
             />
             <StatsCard 
@@ -138,7 +138,7 @@ export default function Dashboard() {
               description="Timescale violations"
               icon={Clock}
               status={stats?.awaabsLawBreaches ? "danger" : "success"}
-              href="/actions?awaabs=true"
+              href="/actions?awaabs=true&from=/dashboard"
               data-testid="stat-awaabs-law"
             />
             <StatsCard 
@@ -146,7 +146,7 @@ export default function Dashboard() {
               value={String(stats?.pendingCertificates || 0)}
               description="In ingestion queue"
               icon={FileText}
-              href="/certificates?status=PENDING"
+              href="/certificates?status=PENDING&from=/dashboard"
               data-testid="stat-pending-certs"
             />
           </div>
@@ -158,7 +158,7 @@ export default function Dashboard() {
                   <CardTitle>Compliance Overview (Big 6)</CardTitle>
                   <CardDescription>Click any bar to view certificates</CardDescription>
                 </div>
-                <Link href="/certificates">
+                <Link href="/certificates?from=/dashboard">
                   <Button variant="ghost" size="sm" data-testid="link-all-certificates">
                     View All <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
@@ -202,7 +202,7 @@ export default function Dashboard() {
                   <CardTitle>Active Hazard Distribution</CardTitle>
                   <CardDescription>Click any segment to filter actions</CardDescription>
                 </div>
-                <Link href="/actions">
+                <Link href="/actions?from=/dashboard">
                   <Button variant="ghost" size="sm" data-testid="link-all-actions">
                     View All <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
@@ -266,13 +266,13 @@ export default function Dashboard() {
                       <span className="text-xs">Upload Certificate</span>
                     </Button>
                   </Link>
-                  <Link href="/actions?status=OPEN">
+                  <Link href="/actions?status=OPEN&from=/dashboard">
                     <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-view-actions">
                       <Wrench className="h-5 w-5" />
                       <span className="text-xs">Open Actions</span>
                     </Button>
                   </Link>
-                  <Link href="/properties">
+                  <Link href="/properties?from=/dashboard">
                     <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-view-properties">
                       <Building2 className="h-5 w-5" />
                       <span className="text-xs">Properties</span>
@@ -307,7 +307,7 @@ export default function Dashboard() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/certificates" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-certificates">
+                  <Link href="/certificates?from=/dashboard" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-certificates">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <FileText className="h-4 w-4" />
                       Total Certificates
@@ -317,7 +317,7 @@ export default function Dashboard() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/actions?status=OPEN" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-hazards">
+                  <Link href="/actions?status=OPEN&from=/dashboard" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-hazards">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" />
                       Active Hazards
@@ -327,7 +327,7 @@ export default function Dashboard() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/certificates?status=PENDING" className="flex justify-between items-center hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-pending">
+                  <Link href="/certificates?status=PENDING&from=/dashboard" className="flex justify-between items-center hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-pending">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <Clock className="h-4 w-4" />
                       Pending Reviews
@@ -348,7 +348,7 @@ export default function Dashboard() {
                   <CardDescription>Properties with timescale breaches</CardDescription>
                 </div>
                 {(stats?.awaabsLawBreaches || 0) > 0 && (
-                  <Link href="/actions?awaabs=true">
+                  <Link href="/actions?awaabs=true&from=/dashboard">
                     <Button variant="ghost" size="sm">
                       View All <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
@@ -363,7 +363,7 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground">All within compliance deadlines</p>
                   </div>
                 ) : (
-                  <Link href="/actions?awaabs=true" className="block">
+                  <Link href="/actions?awaabs=true&from=/dashboard" className="block">
                     <div className="text-center py-6 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer">
                       <p className="text-3xl font-bold text-red-600">{stats?.awaabsLawBreaches}</p>
                       <p className="text-sm text-muted-foreground">properties require immediate attention</p>
@@ -382,7 +382,7 @@ export default function Dashboard() {
                   <CardTitle>Expiring Soon</CardTitle>
                   <CardDescription>Certificates expiring in the next 30 days</CardDescription>
                 </div>
-                <Link href="/certificates">
+                <Link href="/certificates?from=/dashboard">
                   <Button variant="ghost" size="sm" data-testid="link-expiring-certs">
                     View All <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
@@ -427,7 +427,7 @@ export default function Dashboard() {
                   <CardTitle>Urgent Actions Required</CardTitle>
                   <CardDescription>Remedial actions needing immediate attention</CardDescription>
                 </div>
-                <Link href="/actions?severity=IMMEDIATE">
+                <Link href="/actions?severity=IMMEDIATE&from=/dashboard">
                   <Button variant="ghost" size="sm" data-testid="link-urgent-actions">
                     View All <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
@@ -472,7 +472,7 @@ export default function Dashboard() {
                 <CardTitle>Properties Requiring Attention</CardTitle>
                 <CardDescription>Properties with the most compliance issues</CardDescription>
               </div>
-              <Link href="/properties?sort=issues">
+              <Link href="/properties?sort=issues&from=/dashboard">
                 <Button variant="ghost" size="sm" data-testid="link-problem-properties">
                   View All <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>

@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload, ArrowLeft } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -18,6 +18,12 @@ import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { propertiesApi, schemesApi, blocksApi } from "@/lib/api";
 import type { InsertProperty } from "@shared/schema";
+import { ContextBackButton } from "@/components/navigation/ContextBackButton";
+
+function hasUrlFilters(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('sort') || params.has('from');
+}
 
 export default function Properties() {
   useEffect(() => {
@@ -27,6 +33,8 @@ export default function Properties() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  
+  const showBackButton = useMemo(() => hasUrlFilters(), []);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState("all");
   const [schemeFilter, setSchemeFilter] = useState("all");
@@ -99,7 +107,9 @@ export default function Properties() {
         propertyType: "FLAT",
         tenure: "SOCIAL_RENT",
         bedrooms: "1",
-        hasGas: true
+        hasGas: true,
+        latitude: "",
+        longitude: ""
       });
     },
     onError: (error: Error) => {
@@ -274,6 +284,10 @@ export default function Properties() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Property Management" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Property management content">
+          
+          {showBackButton && (
+            <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
+          )}
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
             <StatsCard 

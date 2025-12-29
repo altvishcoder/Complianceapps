@@ -1059,16 +1059,48 @@ export async function registerRoutes(
     try {
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
+      const severity = req.query.severity as string | undefined;
       const actions = await storage.listRemedialActions(ORG_ID, { propertyId, status });
       
-      // Enrich with property and certificate data
-      const enrichedActions = await Promise.all(actions.map(async (action) => {
+      // Filter by severity if provided
+      let filteredActions = actions;
+      if (severity) {
+        filteredActions = actions.filter(a => a.severity === severity);
+      }
+      
+      // Pre-fetch all schemes and blocks for efficiency
+      const schemes = await storage.listSchemes(ORG_ID);
+      const blocks = await storage.listBlocks(ORG_ID);
+      const schemeMap = new Map(schemes.map(s => [s.id, s.name]));
+      const blockMap = new Map(blocks.map(b => [b.id, { name: b.name, schemeId: b.schemeId }]));
+      
+      // Enrich with property, certificate, scheme, and block data
+      const enrichedActions = await Promise.all(filteredActions.map(async (action) => {
         const property = await storage.getProperty(action.propertyId);
         const certificate = await storage.getCertificate(action.certificateId);
+        
+        let schemeName = '';
+        let blockName = '';
+        
+        if (property?.blockId) {
+          const blockInfo = blockMap.get(property.blockId);
+          if (blockInfo) {
+            blockName = blockInfo.name;
+            schemeName = schemeMap.get(blockInfo.schemeId) || '';
+          }
+        }
+        
         return {
           ...action,
-          property,
+          property: property ? {
+            ...property,
+            schemeName,
+            blockName,
+          } : undefined,
           certificate,
+          schemeName,
+          blockName,
+          propertyAddress: property?.addressLine1 || 'Unknown Property',
         };
       }));
       
