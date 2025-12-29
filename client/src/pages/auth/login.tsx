@@ -44,7 +44,7 @@ export default function LoginPage() {
       localStorage.setItem("user_username", data.user.username);
       
       setIsLoading(false);
-      setLocation("/");
+      setLocation("/dashboard");
     } catch (err) {
       setError("Unable to connect to server");
       setIsLoading(false);
