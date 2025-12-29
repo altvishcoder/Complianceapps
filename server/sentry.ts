@@ -15,6 +15,9 @@ export function initSentry(app: Express): void {
     environment: process.env.NODE_ENV || "development",
     release: process.env.npm_package_version || "1.0.0",
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+    integrations: [
+      Sentry.expressIntegration({ app }),
+    ],
     beforeSend(event) {
       if (event.request?.headers) {
         delete event.request.headers["authorization"];
@@ -25,7 +28,7 @@ export function initSentry(app: Express): void {
     },
   });
 
-  logger.info({ dsn: SENTRY_DSN.substring(0, 20) + "..." }, "Sentry initialized");
+  logger.info({ dsn: SENTRY_DSN.substring(0, 20) + "..." }, "Sentry initialized with Express integration");
 }
 
 export function setupSentryErrorHandler(app: Express): void {

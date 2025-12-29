@@ -1,7 +1,7 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { 
   Activity, 
   CheckCircle2, 
@@ -27,6 +27,7 @@ interface QueueStats {
     completed: number;
     failed: number;
   };
+  healthy?: boolean;
 }
 
 interface HealthStatus {
@@ -35,8 +36,16 @@ interface HealthStatus {
   queue: boolean;
 }
 
+function deriveQueueHealth(stats: QueueStats | undefined, isError: boolean): boolean {
+  if (isError || !stats) return false;
+  if (typeof stats.healthy === 'boolean') return stats.healthy;
+  return true;
+}
+
 export default function SystemHealthPage() {
-  const { data: queueStats, isLoading: queueLoading, refetch: refetchQueue } = useQuery<QueueStats>({
+  const [lastChecked, setLastChecked] = useState<Date>(new Date());
+  
+  const { data: queueStats, isLoading: queueLoading, isError: queueError, refetch: refetchQueue } = useQuery<QueueStats>({
     queryKey: ["queue-stats"],
     queryFn: async () => {
       const userId = localStorage.getItem("user_id");
@@ -53,7 +62,6 @@ export default function SystemHealthPage() {
     queryKey: ["system-health"],
     queryFn: async () => {
       const userId = localStorage.getItem("user_id");
-      const start = Date.now();
       
       try {
         const dbRes = await fetch("/api/schemes", {
@@ -81,13 +89,21 @@ export default function SystemHealthPage() {
     },
     refetchInterval: 30000,
   });
+  
+  const queueHealthy = deriveQueueHealth(queueStats, queueError);
+  
+  useEffect(() => {
+    if (!healthLoading && !queueLoading) {
+      setLastChecked(new Date());
+    }
+  }, [healthLoading, queueLoading, healthStatus, queueStats]);
 
   const handleRefresh = () => {
     refetchQueue();
     refetchHealth();
   };
 
-  const allHealthy = healthStatus?.database && healthStatus?.api && healthStatus?.queue;
+  const allHealthy = healthStatus?.database && healthStatus?.api && queueHealthy;
 
   return (
     <div className="space-y-6">
@@ -119,16 +135,16 @@ export default function SystemHealthPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               {healthLoading ? (
-                <Badge variant="outline">Checking...</Badge>
+                <Badge variant="outline" data-testid="badge-database-checking">Checking...</Badge>
               ) : healthStatus?.database ? (
                 <>
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-sm font-medium text-green-600">Connected</span>
+                  <span className="text-sm font-medium text-green-600" data-testid="text-database-connected">Connected</span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-sm font-medium text-red-600">Connection Issue</span>
+                  <span className="text-sm font-medium text-red-600" data-testid="text-database-error">Connection Issue</span>
                 </>
               )}
             </div>
@@ -145,16 +161,16 @@ export default function SystemHealthPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               {healthLoading ? (
-                <Badge variant="outline">Checking...</Badge>
+                <Badge variant="outline" data-testid="badge-api-checking">Checking...</Badge>
               ) : healthStatus?.api ? (
                 <>
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-sm font-medium text-green-600">Operational</span>
+                  <span className="text-sm font-medium text-green-600" data-testid="text-api-operational">Operational</span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-sm font-medium text-red-600">Degraded</span>
+                  <span className="text-sm font-medium text-red-600" data-testid="text-api-degraded">Degraded</span>
                 </>
               )}
             </div>
@@ -170,17 +186,17 @@ export default function SystemHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              {healthLoading ? (
-                <Badge variant="outline">Checking...</Badge>
-              ) : healthStatus?.queue ? (
+              {queueLoading ? (
+                <Badge variant="outline" data-testid="badge-queue-checking">Checking...</Badge>
+              ) : queueHealthy ? (
                 <>
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-sm font-medium text-green-600">Running</span>
+                  <span className="text-sm font-medium text-green-600" data-testid="text-queue-running">Running</span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-sm font-medium text-red-600">Stopped</span>
+                  <span className="text-sm font-medium text-red-600" data-testid="text-queue-stopped">Stopped</span>
                 </>
               )}
             </div>
@@ -335,8 +351,8 @@ export default function SystemHealthPage() {
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            Last checked: {new Date().toLocaleTimeString()}
+          <p className="text-sm text-muted-foreground mt-4" data-testid="text-last-checked">
+            Last checked: {lastChecked.toLocaleTimeString()}
           </p>
         </CardContent>
       </Card>
