@@ -5,7 +5,7 @@ import { z } from "zod";
 import { relations } from "drizzle-orm";
 
 // Enums
-export const userRoleEnum = pgEnum('user_role', ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OFFICER', 'VIEWER']);
+export const userRoleEnum = pgEnum('user_role', ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OFFICER', 'VIEWER']);
 export const complianceStatusEnum = pgEnum('compliance_status', ['COMPLIANT', 'EXPIRING_SOON', 'OVERDUE', 'NON_COMPLIANT', 'ACTION_REQUIRED', 'UNKNOWN']);
 export const propertyTypeEnum = pgEnum('property_type', ['HOUSE', 'FLAT', 'BUNGALOW', 'MAISONETTE', 'BEDSIT', 'STUDIO']);
 export const tenureEnum = pgEnum('tenure', ['SOCIAL_RENT', 'AFFORDABLE_RENT', 'SHARED_OWNERSHIP', 'LEASEHOLD', 'TEMPORARY']);
@@ -735,6 +735,145 @@ export const dataImportRows = pgTable("data_import_rows", {
   processedAt: timestamp("processed_at"),
 });
 
+// Factory Settings (rate limits and system configuration - Lashan super user only)
+export const factorySettings = pgTable("factory_settings", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  valueType: text("value_type").notNull().default('string'), // string, number, boolean, json
+  category: text("category").notNull().default('general'),
+  isEditable: boolean("is_editable").notNull().default(true),
+  validationRules: json("validation_rules"), // {min: 0, max: 100} for number types
+  updatedById: varchar("updated_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Factory Settings Audit (change log for factory settings)
+export const factorySettingsAudit = pgTable("factory_settings_audit", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  settingId: varchar("setting_id").references(() => factorySettings.id, { onDelete: 'cascade' }).notNull(),
+  key: text("key").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value").notNull(),
+  changedById: varchar("changed_by_id").references(() => users.id).notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+// API Clients (for external integrations)
+export const apiClientStatusEnum = pgEnum('api_client_status', ['ACTIVE', 'SUSPENDED', 'REVOKED']);
+
+export const apiClients = pgTable("api_clients", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Authentication
+  apiKey: text("api_key").notNull().unique(),          // Hashed API key
+  apiKeyPrefix: text("api_key_prefix").notNull(),      // First 8 chars for identification
+  apiSecret: text("api_secret"),                        // Optional HMAC secret (hashed)
+  
+  // Permissions
+  scopes: text("scopes").array().notNull().default([]), // ["ingestions:write", "certificates:read"]
+  
+  // Rate limiting (can override factory defaults)
+  rateLimitOverride: json("rate_limit_override"),      // {uploadsPerMinute: 100}
+  
+  // Status
+  status: apiClientStatusEnum("status").notNull().default('ACTIVE'),
+  
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  requestCount: integer("request_count").notNull().default(0),
+  
+  // Metadata
+  createdById: varchar("created_by_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Upload Sessions (for large file uploads)
+export const uploadSessionStatusEnum = pgEnum('upload_session_status', ['PENDING', 'UPLOADING', 'COMPLETED', 'EXPIRED', 'FAILED']);
+
+export const uploadSessions = pgTable("upload_sessions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  apiClientId: varchar("api_client_id").references(() => apiClients.id),
+  
+  // File metadata
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  contentType: text("content_type").notNull(),
+  checksum: text("checksum"),                          // MD5/SHA256 for validation
+  
+  // Storage
+  uploadUrl: text("upload_url"),                        // Pre-signed upload URL
+  objectPath: text("object_path"),                      // Final storage path
+  
+  // Status
+  status: uploadSessionStatusEnum("status").notNull().default('PENDING'),
+  
+  // Expiry
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  // Idempotency
+  idempotencyKey: text("idempotency_key").unique(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Ingestion Jobs (async certificate processing)
+export const ingestionJobStatusEnum = pgEnum('ingestion_job_status', ['QUEUED', 'UPLOADING', 'PROCESSING', 'EXTRACTING', 'COMPLETE', 'FAILED', 'CANCELLED']);
+
+export const ingestionJobs = pgTable("ingestion_jobs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  apiClientId: varchar("api_client_id").references(() => apiClients.id),
+  uploadSessionId: varchar("upload_session_id").references(() => uploadSessions.id),
+  
+  // Certificate metadata
+  certificateType: certificateTypeEnum("certificate_type").notNull(),
+  propertyUprn: text("property_uprn"),
+  propertyId: varchar("property_id").references(() => properties.id),
+  
+  // Source file
+  fileName: text("file_name").notNull(),
+  objectPath: text("object_path"),
+  
+  // Processing
+  status: ingestionJobStatusEnum("status").notNull().default('QUEUED'),
+  progress: integer("progress").notNull().default(0),
+  statusMessage: text("status_message"),
+  
+  // Result
+  certificateId: varchar("certificate_id").references(() => certificates.id),
+  extractionId: varchar("extraction_id"),
+  errorDetails: json("error_details"),
+  
+  // Retry handling
+  attemptCount: integer("attempt_count").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  nextRetryAt: timestamp("next_retry_at"),
+  
+  // Webhook
+  webhookUrl: text("webhook_url"),
+  webhookDelivered: boolean("webhook_delivered").notNull().default(false),
+  
+  // Idempotency
+  idempotencyKey: text("idempotency_key").unique(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Relations
 export const organisationRelations = relations(organisations, ({ many }) => ({
   users: many(users),
@@ -742,6 +881,8 @@ export const organisationRelations = relations(organisations, ({ many }) => ({
   certificates: many(certificates),
   humanReviews: many(humanReviews),
   dataImports: many(dataImports),
+  apiClients: many(apiClients),
+  ingestionJobs: many(ingestionJobs),
 }));
 
 export const userRelations = relations(users, ({ one, many }) => ({
@@ -1052,6 +1193,30 @@ export type InsertDataImport = z.infer<typeof insertDataImportSchema>;
 
 export type DataImportRow = typeof dataImportRows.$inferSelect;
 export type InsertDataImportRow = z.infer<typeof insertDataImportRowSchema>;
+
+// Factory Settings schemas and types
+export const insertFactorySettingSchema = createInsertSchema(factorySettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type FactorySetting = typeof factorySettings.$inferSelect;
+export type InsertFactorySetting = z.infer<typeof insertFactorySettingSchema>;
+
+export const insertFactorySettingsAuditSchema = createInsertSchema(factorySettingsAudit).omit({ id: true, changedAt: true });
+export type FactorySettingsAudit = typeof factorySettingsAudit.$inferSelect;
+export type InsertFactorySettingsAudit = z.infer<typeof insertFactorySettingsAuditSchema>;
+
+// API Clients schemas and types
+export const insertApiClientSchema = createInsertSchema(apiClients).omit({ id: true, createdAt: true, updatedAt: true, lastUsedAt: true, requestCount: true });
+export type ApiClient = typeof apiClients.$inferSelect;
+export type InsertApiClient = z.infer<typeof insertApiClientSchema>;
+
+// Upload Sessions schemas and types
+export const insertUploadSessionSchema = createInsertSchema(uploadSessions).omit({ id: true, createdAt: true, completedAt: true });
+export type UploadSession = typeof uploadSessions.$inferSelect;
+export type InsertUploadSession = z.infer<typeof insertUploadSessionSchema>;
+
+// Ingestion Jobs schemas and types
+export const insertIngestionJobSchema = createInsertSchema(ingestionJobs).omit({ id: true, createdAt: true, updatedAt: true, completedAt: true, lastAttemptAt: true, nextRetryAt: true });
+export type IngestionJob = typeof ingestionJobs.$inferSelect;
+export type InsertIngestionJob = z.infer<typeof insertIngestionJobSchema>;
 
 export const insertVideoSchema = createInsertSchema(videos).omit({ id: true, createdAt: true, updatedAt: true, viewCount: true, downloadCount: true });
 export type Video = typeof videos.$inferSelect;

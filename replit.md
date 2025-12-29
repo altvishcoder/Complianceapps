@@ -94,6 +94,23 @@ Comprehensive test suite using Vitest:
 - Development: Vite dev server with HMR, served through Express middleware
 - Production: Static files served from `dist/public`, server bundled to `dist/index.cjs`
 
+### Security Architecture
+
+#### Admin Factory Settings Authorization
+- Factory Settings page restricted to LASHAN_SUPER_USER and SUPER_ADMIN roles
+- Server-side authorization via `requireAdminRole` middleware validates:
+  1. Optional `ADMIN_API_TOKEN` environment variable (defense-in-depth)
+  2. User ID from `X-User-Id` header
+  3. User role from database lookup
+- Type validation for settings: number fields reject NaN, boolean fields require 'true'/'false'
+- All changes logged in `factory_settings_audit` table
+
+#### Production Security Recommendations
+- Configure `ADMIN_API_TOKEN` environment variable for additional security layer
+- Implement proper session-based authentication (express-session + passport)
+- Replace localStorage-based auth with server session validation
+- Add rate limiting middleware for all API endpoints
+
 ## External Dependencies
 
 ### Database

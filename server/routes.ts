@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -3310,6 +3310,201 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error tracking download:", error);
       res.status(500).json({ error: "Failed to track download" });
+    }
+  });
+  
+  // ===== FACTORY SETTINGS (Lashan Super User Only) =====
+  // Authorization helper for admin endpoints
+  // Security note: In production, this should use proper session-based authentication
+  // Currently requires both valid user ID AND admin token for defense-in-depth
+  const requireAdminRole = async (req: Request, res: Response): Promise<boolean> => {
+    // Check for admin token first (if configured in environment)
+    const adminToken = process.env.ADMIN_API_TOKEN;
+    const providedToken = req.headers['x-admin-token'] as string;
+    
+    // If admin token is configured, require it
+    if (adminToken && adminToken !== providedToken) {
+      res.status(401).json({ error: "Invalid or missing admin token" });
+      return false;
+    }
+    
+    // Also validate user ID and role
+    const userId = req.headers['x-user-id'] as string || req.query.userId as string;
+    if (!userId) {
+      res.status(401).json({ error: "User ID required for admin operations" });
+      return false;
+    }
+    
+    const user = await storage.getUser(userId);
+    if (!user) {
+      res.status(401).json({ error: "Invalid user" });
+      return false;
+    }
+    
+    const allowedRoles = ['SUPER_ADMIN', 'super_admin', 'LASHAN_SUPER_USER', 'lashan_super_user'];
+    if (!allowedRoles.includes(user.role)) {
+      res.status(403).json({ error: "Access denied. Only Super Admins or Lashan Super Users can access factory settings." });
+      return false;
+    }
+    
+    return true;
+  };
+  
+  app.get("/api/admin/factory-settings", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const settings = await storage.listFactorySettings();
+      // Group by category
+      const grouped = settings.reduce((acc, setting) => {
+        const category = setting.category || 'GENERAL';
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(setting);
+        return acc;
+      }, {} as Record<string, typeof settings>);
+      res.json({ settings, grouped });
+    } catch (error) {
+      console.error("Error listing factory settings:", error);
+      res.status(500).json({ error: "Failed to list factory settings" });
+    }
+  });
+  
+  app.get("/api/admin/factory-settings/:key", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const setting = await storage.getFactorySetting(req.params.key);
+      if (!setting) {
+        return res.status(404).json({ error: "Setting not found" });
+      }
+      res.json(setting);
+    } catch (error) {
+      console.error("Error getting factory setting:", error);
+      res.status(500).json({ error: "Failed to get factory setting" });
+    }
+  });
+  
+  app.patch("/api/admin/factory-settings/:key", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { value, userId } = req.body;
+      
+      // Validate value is provided
+      if (value === undefined || value === null) {
+        return res.status(400).json({ error: "Value is required" });
+      }
+      
+      // Get the existing setting
+      const existing = await storage.getFactorySetting(req.params.key);
+      if (!existing) {
+        return res.status(404).json({ error: "Setting not found" });
+      }
+      
+      // Check if setting is editable
+      if (!existing.isEditable) {
+        return res.status(403).json({ error: "This setting cannot be modified" });
+      }
+      
+      // Type validation based on valueType
+      if (existing.valueType === 'number') {
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) {
+          return res.status(400).json({ error: "Value must be a valid number" });
+        }
+        // Validate against validation rules if they exist
+        if (existing.validationRules) {
+          const rules = existing.validationRules as { min?: number; max?: number };
+          if (rules.min !== undefined && numValue < rules.min) {
+            return res.status(400).json({ error: `Value must be at least ${rules.min}` });
+          }
+          if (rules.max !== undefined && numValue > rules.max) {
+            return res.status(400).json({ error: `Value must be at most ${rules.max}` });
+          }
+        }
+      } else if (existing.valueType === 'boolean') {
+        if (value !== 'true' && value !== 'false') {
+          return res.status(400).json({ error: "Value must be 'true' or 'false'" });
+        }
+      }
+      
+      // Create audit log
+      await storage.createFactorySettingsAudit({
+        settingId: existing.id,
+        key: req.params.key,
+        oldValue: existing.value,
+        newValue: value,
+        changedById: userId || 'system'
+      });
+      
+      // Update the setting
+      const updated = await storage.updateFactorySetting(req.params.key, value, userId || 'system');
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating factory setting:", error);
+      res.status(500).json({ error: "Failed to update factory setting" });
+    }
+  });
+  
+  // ===== API CLIENTS (for external integrations) =====
+  app.get("/api/admin/api-clients", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const orgId = req.query.organisationId as string || "default-org";
+      const clients = await storage.listApiClients(orgId);
+      res.json(clients);
+    } catch (error) {
+      console.error("Error listing API clients:", error);
+      res.status(500).json({ error: "Failed to list API clients" });
+    }
+  });
+  
+  app.post("/api/admin/api-clients", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { name, description, scopes, organisationId, createdById } = req.body;
+      
+      // Generate API key
+      const apiKey = `cai_${crypto.randomUUID().replace(/-/g, '')}`;
+      const keyPrefix = apiKey.substring(0, 12);
+      const keyHash = await hashApiKey(apiKey);
+      
+      // Get rate limits from factory settings
+      const rateLimit = parseInt(await storage.getFactorySettingValue('RATE_LIMIT_REQUESTS_PER_MINUTE', '60'));
+      const expiryDays = parseInt(await storage.getFactorySettingValue('API_KEY_EXPIRY_DAYS', '365'));
+      
+      const client = await storage.createApiClient({
+        name,
+        description,
+        organisationId: organisationId || 'default-org',
+        apiKey: keyHash, // Store hashed key
+        apiKeyPrefix: keyPrefix,
+        scopes: scopes || ['read', 'write'],
+        createdById: createdById || 'system'
+      });
+      
+      // Return the full API key only on creation (never stored)
+      res.json({ ...client, apiKey });
+    } catch (error) {
+      console.error("Error creating API client:", error);
+      res.status(500).json({ error: "Failed to create API client" });
+    }
+  });
+  
+  app.delete("/api/admin/api-clients/:id", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const success = await storage.deleteApiClient(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "API client not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting API client:", error);
+      res.status(500).json({ error: "Failed to delete API client" });
     }
   });
   

@@ -1,6 +1,6 @@
 // Seed script for initial ComplianceAI data
 import { db } from "./db";
-import { organisations, schemes, blocks, properties, users, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes } from "@shared/schema";
+import { organisations, schemes, blocks, properties, users, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const ORG_ID = "default-org";
@@ -223,6 +223,13 @@ async function seedDemoData(orgId: string) {
 async function seedConfiguration() {
   // Check if configuration already exists
   const [existingCertType] = await db.select().from(certificateTypes).limit(1);
+  const [existingFactorySetting] = await db.select().from(factorySettings).limit(1);
+  
+  // Always seed factory settings if they don't exist
+  if (!existingFactorySetting) {
+    await seedFactorySettings();
+  }
+  
   if (existingCertType) {
     console.log("✓ Configuration already seeded");
     return;
@@ -692,4 +699,197 @@ async function seedConfiguration() {
   
   await db.insert(normalisationRules).values(normalisationRulesData);
   console.log("✓ Created normalisation rules");
+  
+}
+
+async function seedFactorySettings() {
+  console.log("🔧 Seeding factory settings...");
+  
+  const factorySettingsData = [
+    // Rate Limiting Settings
+    {
+      key: "RATE_LIMIT_ENABLED",
+      value: "true",
+      category: "RATE_LIMITING",
+      description: "Enable or disable API rate limiting globally",
+      valueType: "boolean",
+      isEditable: true
+    },
+    {
+      key: "RATE_LIMIT_REQUESTS_PER_MINUTE",
+      value: "60",
+      category: "RATE_LIMITING",
+      description: "Maximum API requests per minute per API key",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 1000 }
+    },
+    {
+      key: "RATE_LIMIT_REQUESTS_PER_HOUR",
+      value: "1000",
+      category: "RATE_LIMITING",
+      description: "Maximum API requests per hour per API key",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 10, max: 10000 }
+    },
+    {
+      key: "RATE_LIMIT_REQUESTS_PER_DAY",
+      value: "10000",
+      category: "RATE_LIMITING",
+      description: "Maximum API requests per day per API key",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 100, max: 100000 }
+    },
+    {
+      key: "RATE_LIMIT_BURST_SIZE",
+      value: "10",
+      category: "RATE_LIMITING",
+      description: "Maximum burst size for rate limiting (token bucket)",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 100 }
+    },
+    // Upload Settings
+    {
+      key: "UPLOAD_MAX_FILE_SIZE_MB",
+      value: "50",
+      category: "UPLOADS",
+      description: "Maximum file size for uploads in megabytes",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 100 }
+    },
+    {
+      key: "UPLOAD_ALLOWED_MIME_TYPES",
+      value: "image/jpeg,image/png,image/webp,application/pdf",
+      category: "UPLOADS",
+      description: "Comma-separated list of allowed MIME types",
+      valueType: "string",
+      isEditable: true
+    },
+    {
+      key: "UPLOAD_SESSION_TIMEOUT_MINUTES",
+      value: "60",
+      category: "UPLOADS",
+      description: "Upload session timeout in minutes",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 5, max: 1440 }
+    },
+    {
+      key: "UPLOAD_CONCURRENT_LIMIT",
+      value: "5",
+      category: "UPLOADS",
+      description: "Maximum concurrent uploads per API client",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 20 }
+    },
+    // Ingestion Settings
+    {
+      key: "INGESTION_QUEUE_MAX_SIZE",
+      value: "1000",
+      category: "INGESTION",
+      description: "Maximum number of jobs in the ingestion queue",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 10, max: 10000 }
+    },
+    {
+      key: "INGESTION_RETRY_ATTEMPTS",
+      value: "3",
+      category: "INGESTION",
+      description: "Number of retry attempts for failed ingestion jobs",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0, max: 10 }
+    },
+    {
+      key: "INGESTION_TIMEOUT_SECONDS",
+      value: "300",
+      category: "INGESTION",
+      description: "Timeout for ingestion processing in seconds",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 30, max: 3600 }
+    },
+    // API Security Settings
+    {
+      key: "API_KEY_EXPIRY_DAYS",
+      value: "365",
+      category: "SECURITY",
+      description: "Default API key expiry in days (0 = never)",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0, max: 3650 }
+    },
+    {
+      key: "API_REQUIRE_HMAC_SIGNING",
+      value: "false",
+      category: "SECURITY",
+      description: "Require HMAC signature for API requests",
+      valueType: "boolean",
+      isEditable: true
+    },
+    {
+      key: "API_HMAC_TOLERANCE_SECONDS",
+      value: "300",
+      category: "SECURITY",
+      description: "Time tolerance for HMAC timestamp validation in seconds",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 60, max: 900 }
+    },
+    // Webhook Settings
+    {
+      key: "WEBHOOK_TIMEOUT_SECONDS",
+      value: "30",
+      category: "WEBHOOKS",
+      description: "Timeout for webhook delivery in seconds",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 5, max: 120 }
+    },
+    {
+      key: "WEBHOOK_MAX_RETRIES",
+      value: "5",
+      category: "WEBHOOKS",
+      description: "Maximum retry attempts for failed webhook deliveries",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0, max: 10 }
+    },
+    // AI Extraction Settings
+    {
+      key: "AI_EXTRACTION_ENABLED",
+      value: "true",
+      category: "AI",
+      description: "Enable AI-powered certificate extraction",
+      valueType: "boolean",
+      isEditable: true
+    },
+    {
+      key: "AI_MAX_TOKENS",
+      value: "4096",
+      category: "AI",
+      description: "Maximum tokens for AI responses",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1024, max: 8192 }
+    },
+    {
+      key: "AI_CONFIDENCE_THRESHOLD",
+      value: "0.75",
+      category: "AI",
+      description: "Minimum confidence threshold for AI extractions",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0.5, max: 0.99 }
+    }
+  ];
+  
+  await db.insert(factorySettings).values(factorySettingsData);
+  console.log("✓ Created factory settings");
 }

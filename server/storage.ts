@@ -7,6 +7,7 @@ import {
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
+  factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -35,7 +36,12 @@ import {
   type IncomingWebhookLog, type InsertIncomingWebhookLog,
   type ApiKey, type InsertApiKey,
   type Video, type InsertVideo,
-  type AiSuggestion, type InsertAiSuggestion
+  type AiSuggestion, type InsertAiSuggestion,
+  type FactorySetting, type InsertFactorySetting,
+  type FactorySettingsAudit, type InsertFactorySettingsAudit,
+  type ApiClient, type InsertApiClient,
+  type UploadSession, type InsertUploadSession,
+  type IngestionJob, type InsertIngestionJob
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte } from "drizzle-orm";
@@ -226,6 +232,39 @@ export interface IStorage {
   createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
   updateApiKey(id: string, updates: Partial<ApiKey>): Promise<ApiKey | undefined>;
   deleteApiKey(id: string): Promise<boolean>;
+  
+  // Factory Settings
+  listFactorySettings(): Promise<FactorySetting[]>;
+  getFactorySetting(key: string): Promise<FactorySetting | undefined>;
+  getFactorySettingValue(key: string, defaultValue?: string): Promise<string>;
+  createFactorySetting(setting: InsertFactorySetting): Promise<FactorySetting>;
+  updateFactorySetting(key: string, value: string, updatedById: string): Promise<FactorySetting | undefined>;
+  createFactorySettingsAudit(audit: InsertFactorySettingsAudit): Promise<FactorySettingsAudit>;
+  
+  // API Clients
+  listApiClients(organisationId: string): Promise<ApiClient[]>;
+  getApiClient(id: string): Promise<ApiClient | undefined>;
+  getApiClientByKey(apiKeyPrefix: string): Promise<ApiClient | undefined>;
+  createApiClient(client: InsertApiClient): Promise<ApiClient>;
+  updateApiClient(id: string, updates: Partial<ApiClient>): Promise<ApiClient | undefined>;
+  deleteApiClient(id: string): Promise<boolean>;
+  incrementApiClientUsage(id: string): Promise<void>;
+  
+  // Upload Sessions
+  listUploadSessions(organisationId: string): Promise<UploadSession[]>;
+  getUploadSession(id: string): Promise<UploadSession | undefined>;
+  getUploadSessionByIdempotencyKey(key: string): Promise<UploadSession | undefined>;
+  createUploadSession(session: InsertUploadSession): Promise<UploadSession>;
+  updateUploadSession(id: string, updates: Partial<UploadSession>): Promise<UploadSession | undefined>;
+  cleanupExpiredUploadSessions(): Promise<number>;
+  
+  // Ingestion Jobs
+  listIngestionJobs(organisationId: string, filters?: { status?: string }): Promise<IngestionJob[]>;
+  getIngestionJob(id: string): Promise<IngestionJob | undefined>;
+  getIngestionJobByIdempotencyKey(key: string): Promise<IngestionJob | undefined>;
+  createIngestionJob(job: InsertIngestionJob): Promise<IngestionJob>;
+  updateIngestionJob(id: string, updates: Partial<IngestionJob>): Promise<IngestionJob | undefined>;
+  getNextPendingIngestionJob(): Promise<IngestionJob | undefined>;
   
   // Videos
   listVideos(organisationId: string): Promise<Video[]>;
@@ -1496,6 +1535,169 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return resolvedCount;
+  }
+  
+  // Factory Settings
+  async listFactorySettings(): Promise<FactorySetting[]> {
+    return db.select().from(factorySettings).orderBy(factorySettings.category, factorySettings.key);
+  }
+  
+  async getFactorySetting(key: string): Promise<FactorySetting | undefined> {
+    const [setting] = await db.select().from(factorySettings).where(eq(factorySettings.key, key));
+    return setting || undefined;
+  }
+  
+  async getFactorySettingValue(key: string, defaultValue: string = ''): Promise<string> {
+    const setting = await this.getFactorySetting(key);
+    return setting?.value ?? defaultValue;
+  }
+  
+  async createFactorySetting(setting: InsertFactorySetting): Promise<FactorySetting> {
+    const [created] = await db.insert(factorySettings).values(setting).returning();
+    return created;
+  }
+  
+  async updateFactorySetting(key: string, value: string, updatedById: string): Promise<FactorySetting | undefined> {
+    const [updated] = await db.update(factorySettings)
+      .set({ value, updatedById, updatedAt: new Date() })
+      .where(eq(factorySettings.key, key))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async createFactorySettingsAudit(audit: InsertFactorySettingsAudit): Promise<FactorySettingsAudit> {
+    const [created] = await db.insert(factorySettingsAudit).values(audit).returning();
+    return created;
+  }
+  
+  // API Clients
+  async listApiClients(organisationId: string): Promise<ApiClient[]> {
+    return db.select().from(apiClients)
+      .where(eq(apiClients.organisationId, organisationId))
+      .orderBy(desc(apiClients.createdAt));
+  }
+  
+  async getApiClient(id: string): Promise<ApiClient | undefined> {
+    const [client] = await db.select().from(apiClients).where(eq(apiClients.id, id));
+    return client || undefined;
+  }
+  
+  async getApiClientByKey(apiKeyPrefix: string): Promise<ApiClient | undefined> {
+    const [client] = await db.select().from(apiClients).where(eq(apiClients.apiKeyPrefix, apiKeyPrefix));
+    return client || undefined;
+  }
+  
+  async createApiClient(client: InsertApiClient): Promise<ApiClient> {
+    const [created] = await db.insert(apiClients).values(client).returning();
+    return created;
+  }
+  
+  async updateApiClient(id: string, updates: Partial<ApiClient>): Promise<ApiClient | undefined> {
+    const [updated] = await db.update(apiClients)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(apiClients.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteApiClient(id: string): Promise<boolean> {
+    const result = await db.delete(apiClients).where(eq(apiClients.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  async incrementApiClientUsage(id: string): Promise<void> {
+    await db.update(apiClients)
+      .set({ 
+        lastUsedAt: new Date(),
+        requestCount: sql`${apiClients.requestCount} + 1`
+      })
+      .where(eq(apiClients.id, id));
+  }
+  
+  // Upload Sessions
+  async listUploadSessions(organisationId: string): Promise<UploadSession[]> {
+    return db.select().from(uploadSessions)
+      .where(eq(uploadSessions.organisationId, organisationId))
+      .orderBy(desc(uploadSessions.createdAt));
+  }
+  
+  async getUploadSession(id: string): Promise<UploadSession | undefined> {
+    const [session] = await db.select().from(uploadSessions).where(eq(uploadSessions.id, id));
+    return session || undefined;
+  }
+  
+  async getUploadSessionByIdempotencyKey(key: string): Promise<UploadSession | undefined> {
+    const [session] = await db.select().from(uploadSessions).where(eq(uploadSessions.idempotencyKey, key));
+    return session || undefined;
+  }
+  
+  async createUploadSession(session: InsertUploadSession): Promise<UploadSession> {
+    const [created] = await db.insert(uploadSessions).values(session).returning();
+    return created;
+  }
+  
+  async updateUploadSession(id: string, updates: Partial<UploadSession>): Promise<UploadSession | undefined> {
+    const [updated] = await db.update(uploadSessions)
+      .set(updates)
+      .where(eq(uploadSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async cleanupExpiredUploadSessions(): Promise<number> {
+    const result = await db.delete(uploadSessions)
+      .where(and(
+        eq(uploadSessions.status, 'PENDING' as any),
+        lte(uploadSessions.expiresAt, new Date())
+      ))
+      .returning();
+    return result.length;
+  }
+  
+  // Ingestion Jobs
+  async listIngestionJobs(organisationId: string, filters?: { status?: string }): Promise<IngestionJob[]> {
+    if (filters?.status) {
+      return db.select().from(ingestionJobs)
+        .where(and(
+          eq(ingestionJobs.organisationId, organisationId),
+          eq(ingestionJobs.status, filters.status as any)
+        ))
+        .orderBy(desc(ingestionJobs.createdAt));
+    }
+    return db.select().from(ingestionJobs)
+      .where(eq(ingestionJobs.organisationId, organisationId))
+      .orderBy(desc(ingestionJobs.createdAt));
+  }
+  
+  async getIngestionJob(id: string): Promise<IngestionJob | undefined> {
+    const [job] = await db.select().from(ingestionJobs).where(eq(ingestionJobs.id, id));
+    return job || undefined;
+  }
+  
+  async getIngestionJobByIdempotencyKey(key: string): Promise<IngestionJob | undefined> {
+    const [job] = await db.select().from(ingestionJobs).where(eq(ingestionJobs.idempotencyKey, key));
+    return job || undefined;
+  }
+  
+  async createIngestionJob(job: InsertIngestionJob): Promise<IngestionJob> {
+    const [created] = await db.insert(ingestionJobs).values(job).returning();
+    return created;
+  }
+  
+  async updateIngestionJob(id: string, updates: Partial<IngestionJob>): Promise<IngestionJob | undefined> {
+    const [updated] = await db.update(ingestionJobs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(ingestionJobs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async getNextPendingIngestionJob(): Promise<IngestionJob | undefined> {
+    const [job] = await db.select().from(ingestionJobs)
+      .where(eq(ingestionJobs.status, 'QUEUED' as any))
+      .orderBy(ingestionJobs.createdAt)
+      .limit(1);
+    return job || undefined;
   }
 }
 

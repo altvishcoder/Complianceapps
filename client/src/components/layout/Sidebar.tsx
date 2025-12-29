@@ -59,6 +59,11 @@ const adminOnlyNavigation = [
   { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
 ];
 
+// Lashan Super User only items
+const lashanSuperUserNav = [
+  { name: "Factory Settings", href: "/admin/factory-settings", icon: Shield },
+];
+
 // Configuration visible to both admin and compliance manager
 const configurationNav = [
   { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
@@ -71,8 +76,10 @@ export function Sidebar() {
   const userRole = typeof window !== 'undefined' ? localStorage.getItem("user_role") : null;
   const isAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
   const isComplianceManager = userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER";
-  const canAccessAITools = isAdmin || isComplianceManager;
-  const canAccessAdminPanel = isAdmin || isComplianceManager;
+  const isLashanSuperUser = userRole === "LASHAN_SUPER_USER" || userRole === "lashan_super_user";
+  const canAccessAITools = isAdmin || isComplianceManager || isLashanSuperUser;
+  const canAccessAdminPanel = isAdmin || isComplianceManager || isLashanSuperUser;
+  const canAccessFactorySettings = isLashanSuperUser || isAdmin;
   
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -273,6 +280,35 @@ export function Sidebar() {
                           className={cn(
                             "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
                             isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
+                          )}
+                        />
+                        {item.name}
+                      </div>
+                      {isActive && (
+                        <ChevronRight className="h-4 w-4 text-white/70" />
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+              {/* Factory Settings - Lashan Super User only */}
+              {canAccessFactorySettings && lashanSuperUserNav.map((item) => {
+                const isActive = location === item.href;
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <div
+                      className={cn(
+                        "group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer",
+                        isActive
+                          ? "bg-gradient-to-r from-amber-600/90 to-orange-600/90 text-white shadow-lg shadow-orange-500/20"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <div className="flex items-center">
+                        <item.icon
+                          className={cn(
+                            "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                            isActive ? "text-white" : "text-amber-500 group-hover:text-amber-400"
                           )}
                         />
                         {item.name}
