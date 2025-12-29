@@ -1,0 +1,713 @@
+# ComplianceAI™ Risk Maps - Replit Agent Prompts
+
+## Ready-to-Use Prompts for AI Coding Agents
+
+-----
+
+## Overview
+
+These prompts are designed for sequential execution. Run them in order (M1 → M6) for best results. Each prompt builds on the previous phase.
+
+**Technology Stack:**
+
+- React + TypeScript + Vite
+- React-Leaflet + OpenStreetMap
+- TanStack Query
+- Tailwind CSS + shadcn/ui
+- Recharts for charts
+- jsPDF for exports
+
+-----
+
+## PROMPT M1: Core Map Infrastructure
+
+```
+TASK: Build the core map infrastructure for ComplianceAI Regulatory Risk Maps
+
+CONTEXT:
+- Adding geographic risk visualization to existing compliance management system
+- Maps show regulatory risk by property/estate/ward
+- Technology: React + TypeScript + Vite + TanStack Query
+
+REQUIREMENTS:
+
+1. Install dependencies:
+   npm install react-leaflet@4 leaflet@1.9 @types/leaflet
+
+2. Create base map component at src/components/maps/BaseMap.tsx:
+   - OpenStreetMap tiles (free, no API key): https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+   - Default center: UK (lat: 54.5, lng: -2, zoom: 6)
+   - Responsive container filling parent
+   - Controls: zoom, scale
+   - Handle dark/light mode with different tile URLs
+
+3. Create SSR-safe wrapper at src/components/maps/MapContainer.tsx:
+   - Check typeof window !== 'undefined' before rendering
+   - Import Leaflet CSS properly
+   - Loading skeleton while map initializes
+
+4. Create property markers at src/components/maps/PropertyMarkers.tsx:
+   interface PropertyMarker {
+     id: string;
+     name: string;
+     lat: number;
+     lng: number;
+     riskScore: number; // 0-100
+   }
+   - Color by risk: red (0-60), amber (60-85), green (85-100)
+   - Use react-leaflet-cluster for clustering when zoomed out
+   - Popup on click showing: name, address, risk score, "View Details" link
+
+5. Create custom marker icons:
+   - Circle markers with risk color
+   - Size: 12px default, 16px on hover
+   - White border for visibility
+
+6. Create test page at src/pages/maps/index.tsx:
+   - Full-screen map
+   - 20 sample properties in London area (random lat/lng between 51.4-51.6, -0.3-0.1)
+   - Random risk scores
+
+7. Add Leaflet CSS import in main.tsx or App.tsx:
+   import 'leaflet/dist/leaflet.css';
+
+TECHNICAL NOTES:
+- Fix Leaflet default marker icon issue (common React-Leaflet problem)
+- Ensure map container has explicit height (h-screen or similar)
+- Attribution required: "© OpenStreetMap contributors"
+
+DELIVERABLES:
+- Working map component rendering UK view
+- Clustered property markers with risk coloring
+- Popups on marker click
+- Test page demonstrating functionality
+```
+
+-----
+
+## PROMPT M2: Geocoding Service
+
+```
+TASK: Build UK postcode geocoding service using Postcodes.io API
+
+CONTEXT:
+- Properties have UK postcodes, need lat/lng for maps
+- Postcodes.io is free, no API key needed
+- Also retrieves ward/LSOA for aggregation
+
+REQUIREMENTS:
+
+1. Create geocoding service at src/lib/geo/postcodes.ts:
+
+   interface GeocodeResult {
+     postcode: string;
+     latitude: number;
+     longitude: number;
+     ward: string;
+     wardCode: string;
+     lsoa: string;
+     msoa: string;
+   }
+
+   // Single postcode lookup
+   async function lookupPostcode(postcode: string): Promise<GeocodeResult | null>
+   
+   // Bulk lookup (max 100 per call)
+   async function bulkLookupPostcodes(postcodes: string[]): Promise<Map<string, GeocodeResult>>
+
+2. API endpoints:
+   
+   GET https://api.postcodes.io/postcodes/{postcode}
+   
+   POST https://api.postcodes.io/postcodes
+   Body: { "postcodes": ["SW1A 1AA", "EC2R 8AH"] }
+
+3. Handle edge cases:
+   - Invalid postcodes (return null)
+   - Terminated postcodes (API returns them differently)
+   - Rate limiting (add small delay between bulk batches)
+
+4. Create API route at src/app/api/geo/geocode/route.ts (or Express equivalent):
+   
+   POST /api/geo/geocode
+   Body: { propertyIds: string[] } or { all: true }
+   
+   - Fetch properties without lat/lng from database
+   - Batch postcodes (100 per Postcodes.io call)
+   - Update database with results
+   - Return: { updated: number, failed: number, errors: string[] }
+
+5. Update Property schema/model:
+   Add nullable fields:
+   - latitude: Float?
+   - longitude: Float?
+   - ward: String?
+   - wardCode: String?
+   - lsoa: String?
+   - msoa: String?
+
+6. Create background job (if using pg-boss or BullMQ):
+   - Job: geocode-properties
+   - Process all properties without coordinates
+   - Run on-demand or after property import
+
+7. Add UI trigger in settings/admin:
+   - "Geocode All Properties" button
+   - Shows progress: "Geocoding... 234/500"
+   - Results summary after completion
+
+EXAMPLE POSTCODES.IO RESPONSE:
+{
+  "status": 200,
+  "result": {
+    "postcode": "SW1A 1AA",
+    "longitude": -0.141588,
+    "latitude": 51.501009,
+    "admin_ward": "St James's",
+    "codes": {
+      "admin_ward": "E05013806"
+    },
+    "lsoa": "Westminster 018C",
+    "msoa": "Westminster 018"
+  }
+}
+
+DELIVERABLES:
+- Geocoding service with single and bulk lookup
+- API endpoint for triggering geocoding
+- Database schema updates
+- Admin UI for manual trigger
+```
+
+-----
+
+## PROMPT M3: Risk Score Calculation Engine
+
+```
+TASK: Build risk score calculation engine for geographic risk visualization
+
+CONTEXT:
+- ComplianceAI has compliance records and certificates
+- Need composite risk scores at property/estate/ward levels
+- Scores drive heatmap colors
+
+REQUIREMENTS:
+
+1. Create types at src/lib/risk/types.ts:
+
+   type ComplianceStream = 'gas' | 'electrical' | 'fire' | 'asbestos' | 'lift' | 'water';
+   
+   interface StreamScore {
+     stream: ComplianceStream;
+     compliance: number;      // 0-100%
+     total: number;           // Total properties/units requiring this
+     compliant: number;       // Count currently compliant
+     overdueCount: number;    // Overdue certificates
+     dueSoonCount: number;    // Due in 30 days
+   }
+   
+   interface DefectCounts {
+     critical: number;  // C1, ID, Intolerable
+     major: number;     // C2, AR, Substantial  
+     minor: number;     // C3, FI, Advisory
+   }
+   
+   interface RiskScore {
+     compositeScore: number;  // 0-100, higher = safer
+     streams: StreamScore[];
+     defects: DefectCounts;
+     trend: 'improving' | 'stable' | 'deteriorating';
+     propertyCount: number;
+     unitCount: number;
+   }
+
+2. Create calculator at src/lib/risk/calculator.ts:
+
+   const STREAM_WEIGHTS = {
+     gas: 0.25,        // Life safety - highest
+     electrical: 0.20, // Fire/electrocution
+     fire: 0.25,       // Evacuation/life safety  
+     asbestos: 0.15,   // Long-term health
+     lift: 0.10,       // Access/mobility
+     water: 0.05,      // Legionella
+   };
+
+   const DEFECT_PENALTIES = {
+     critical: 15,
+     major: 5,
+     minor: 1,
+   };
+
+   function calculateCompositeScore(streams: StreamScore[], defects: DefectCounts): number {
+     // Weighted average of stream compliance
+     let weightedSum = 0;
+     for (const stream of streams) {
+       weightedSum += stream.compliance * STREAM_WEIGHTS[stream.stream];
+     }
+     
+     // Apply defect penalties
+     const penalty = 
+       (defects.critical * DEFECT_PENALTIES.critical) +
+       (defects.major * DEFECT_PENALTIES.major) +
+       (defects.minor * DEFECT_PENALTIES.minor);
+     
+     // Clamp to 0-100
+     return Math.max(0, Math.min(100, weightedSum - penalty));
+   }
+
+3. Create aggregation functions:
+
+   async function calculatePropertyRisk(propertyId: string): Promise<RiskScore>
+   async function calculateEstateRisk(estateId: string): Promise<RiskScore>
+   async function calculateWardRisk(wardCode: string, orgId: string): Promise<RiskScore>
+   async function calculateOrganisationRisk(orgId: string): Promise<RiskScore>
+
+4. Query logic for stream compliance:
+   - Gas: Count properties where latest gas certificate is valid and not expired
+   - Electrical: Count where EICR is valid within 5 years
+   - Fire: Count where FRA is current (typically annual for HRBs)
+   - etc.
+
+5. Query logic for defects:
+   Map certificate findings to severity:
+   - Gas: ID → critical, AR → major, NCS → minor
+   - Electrical: C1 → critical, C2 → major, C3/FI → minor
+   - Fire: Intolerable → critical, Substantial → major, Tolerable → minor
+
+6. Create RiskSnapshot model for pre-computation:
+
+   model RiskSnapshot {
+     id             String   @id @default(uuid())
+     organisationId String
+     level          String   // PROPERTY, ESTATE, WARD, ORG
+     levelId        String   // The ID of the property/estate/ward
+     compositeScore Float
+     gasScore       Float
+     electricalScore Float
+     fireScore      Float
+     asbestosScore  Float
+     liftScore      Float
+     waterScore     Float
+     criticalDefects Int
+     majorDefects    Int
+     minorDefects    Int
+     previousScore  Float?
+     trend          String?  // improving, stable, deteriorating
+     calculatedAt   DateTime
+     
+     @@unique([organisationId, level, levelId])
+     @@index([organisationId, level])
+   }
+
+7. Create background job to compute snapshots:
+   - Run nightly at 2am
+   - Calculate for all levels
+   - Compare to previous snapshot for trend
+
+8. Create API endpoint:
+   GET /api/risk/scores?level=estate&orgId=xxx
+   Returns array of RiskScore objects for map display
+
+DELIVERABLES:
+- Risk calculation service with composite scoring
+- Aggregation at property/estate/ward/org levels
+- RiskSnapshot model for caching
+- Background job for nightly computation
+- API endpoint for retrieving scores
+```
+
+-----
+
+## PROMPT M4: Risk Heatmap Page
+
+```
+TASK: Build the interactive Risk Heatmap visualization page
+
+CONTEXT:
+- Risk scores calculated and available via API
+- Need to visualize on map with filters
+- Users click areas to see details
+
+REQUIREMENTS:
+
+1. Create heatmap page at src/pages/maps/risk-heatmap.tsx:
+   - Full-screen layout: map (left 70%) + sidebar (right 30%)
+   - Filter bar at top
+   - Legend at bottom of map
+
+2. Create filter bar at src/components/maps/RiskFilters.tsx:
+   
+   interface RiskFilters {
+     level: 'property' | 'estate' | 'ward';
+     streams: ComplianceStream[] | 'all';
+     period: 'current' | '3m' | '6m' | '12m';
+     maxScore?: number;  // Only show areas below this score
+   }
+   
+   Components:
+   - Aggregation dropdown: Property | Estate | Ward
+   - Stream checkboxes: All, Gas, Electrical, Fire, etc.
+   - Period dropdown
+   - "Show only at-risk" toggle
+
+3. Create colored markers based on risk:
+   
+   function getRiskColor(score: number): string {
+     if (score < 60) return '#EF4444';  // Red - high risk
+     if (score < 85) return '#F59E0B';  // Amber - medium
+     return '#10B981';                   // Green - low risk
+   }
+   
+   - Properties: CircleMarker with risk color
+   - Estates: Larger circle or polygon if boundaries available
+   - Wards: Use GeoJSON polygons (from UK-GeoJSON)
+
+4. Create area detail sidebar at src/components/maps/AreaDetailPanel.tsx:
+   
+   When area clicked, show:
+   - Area name (large heading)
+   - Overall score (large number with color)
+   - Property/unit counts
+   - Per-stream breakdown:
+     | Stream    | Score | Status |
+     |-----------|-------|--------|
+     | Gas       | 95%   | ✅     |
+     | Electrical| 67%   | ⚠️     |
+   - Top defects list with counts
+   - Trend indicator (sparkline or arrow)
+   - Quick action buttons: View Properties, Export
+
+5. Create trend sparkline at src/components/maps/TrendSparkline.tsx:
+   - Small inline chart (100px x 30px)
+   - 6 data points showing last 6 months
+   - Green line if improving, red if deteriorating
+
+6. Data fetching with TanStack Query:
+   
+   const { data: riskData } = useQuery({
+     queryKey: ['risk-scores', filters],
+     queryFn: () => fetchRiskScores(filters),
+   });
+   
+   const { data: areaDetail } = useQuery({
+     queryKey: ['area-detail', selectedAreaId],
+     queryFn: () => fetchAreaDetail(selectedAreaId),
+     enabled: !!selectedAreaId,
+   });
+
+7. Create legend component at src/components/maps/RiskLegend.tsx:
+   - Horizontal bar at bottom
+   - Color scale: Red → Amber → Green
+   - Labels: "High Risk (0-60%)" | "Medium (60-85%)" | "Low (85%+)"
+
+8. Empty and loading states:
+   - Skeleton map while loading
+   - "No properties match filters" message
+   - "Click an area to see details" prompt in sidebar
+
+9. Make sidebar collapsible on mobile
+
+DELIVERABLES:
+- Complete risk heatmap page with filters
+- Colored markers/polygons by risk level
+- Clickable areas with detail sidebar
+- Trend visualization
+- Legend and loading states
+- Responsive design
+```
+
+-----
+
+## PROMPT M5: Scenario Analysis Feature
+
+```
+TASK: Build the Scenario / Stress-Test Analysis feature
+
+CONTEXT:
+- Boards want "what-if" analysis for risk scenarios
+- Shows how risk map would change under different assumptions
+- NOT scheduling - purely risk insight
+
+REQUIREMENTS:
+
+1. Create scenario page at src/pages/maps/scenarios.tsx:
+   - Left panel: scenario controls
+   - Center: map view
+   - Right panel: impact summary
+
+2. Define scenarios at src/lib/scenarios/types.ts:
+
+   type ScenarioType = 
+     | 'advisory_as_failure'
+     | 'certificate_slip'
+     | 'dual_failure'
+     | 'capacity_reduction'
+     | 'hrb_only';
+
+   interface Scenario {
+     type: ScenarioType;
+     enabled: boolean;
+     params: {
+       slipPercentage?: number;      // For certificate_slip
+       capacityReduction?: number;   // For capacity_reduction
+     };
+     impact?: {
+       additionalPropertiesAtRisk: number;
+       scoreChange: number;
+     };
+   }
+
+3. Create scenario panel at src/components/maps/ScenarioPanel.tsx:
+   
+   Scenarios to implement:
+   
+   a) Advisory as Failure
+      - Toggle: on/off
+      - Logic: Reclassify C3, FI, NCS, Advisory findings as major defects
+      - Impact text: "+X properties at risk"
+   
+   b) Certificate Slip
+      - Toggle: on/off
+      - Slider: 10% to 50% (default 20%)
+      - Logic: Mark X% of due-in-30-days certificates as overdue
+      - Impact text: "+X properties affected"
+   
+   c) Dual System Failure
+      - Toggle: on/off
+      - Logic: Find properties where 2+ streams non-compliant
+      - Impact text: "X blocks with no safe egress"
+   
+   d) HRB Focus
+      - Toggle: on/off
+      - Logic: Filter to 18m+ / 7+ storey buildings only
+      - Impact text: "Showing X of Y buildings"
+
+4. Create scenario calculation API at src/app/api/maps/scenario/route.ts:
+
+   POST /api/maps/scenario
+   Body: { scenarios: Scenario[] }
+   
+   Response: {
+     baseline: { score: number, propertiesAtRisk: number },
+     scenario: { score: number, propertiesAtRisk: number },
+     impact: {
+       scoreChange: number,
+       additionalAtRisk: number,
+       newHotspots: Array<{ id, name, baselineScore, scenarioScore }>,
+     },
+     affectedAreas: Array<{ id, name, lat, lng, baselineScore, scenarioScore }>,
+   }
+
+5. Implement scenario logic:
+   
+   // Advisory as Failure
+   function applyAdvisoryAsFailure(riskData) {
+     // Move all minor defects to major
+     // Recalculate composite scores
+   }
+   
+   // Certificate Slip
+   function applyCertificateSlip(riskData, slipPercentage) {
+     // Find certificates due in 30 days
+     // Mark X% as overdue
+     // Recalculate compliance percentages
+   }
+
+6. Update map when scenarios active:
+   - Add banner: "⚠️ SCENARIO MODE - Showing hypothetical risk"
+   - Different color scheme (slightly desaturated?)
+   - Pulse animation on newly-at-risk areas
+
+7. Create impact summary at src/components/maps/ScenarioImpact.tsx:
+   - Side-by-side comparison cards:
+     | Metric            | Baseline | Scenario | Change |
+     |-------------------|----------|----------|--------|
+     | Risk Score        | 78       | 61       | -17    |
+     | Properties at Risk| 23       | 68       | +45    |
+     | Critical Blocks   | 2        | 6        | +4     |
+   - "Most Impacted Areas" list
+
+8. Add export:
+   - "Download Scenario Report" button
+   - PDF with assumptions, calculations, recommendations
+
+DELIVERABLES:
+- Scenario analysis page
+- Multiple scenario types with parameters
+- Real-time map updates
+- Impact comparison metrics
+- Export capability
+```
+
+-----
+
+## PROMPT M6: Regulatory Evidence View
+
+```
+TASK: Build the Board/Regulator Evidence View with full traceability
+
+CONTEXT:
+- Regulators (BSR, RSH) inspect housing associations
+- Boards need to demonstrate compliance
+- Every number must link to source certificates (traceability is key)
+
+REQUIREMENTS:
+
+1. Create evidence page at src/pages/maps/evidence.tsx:
+   - Map with estate/ward view
+   - "Board Mode" toggle for simplified view
+   - Export controls
+
+2. Create evidence panel at src/components/maps/EvidencePanel.tsx:
+   
+   When estate/area clicked, show:
+   
+   ┌─────────────────────────────────────────┐
+   │ HIGHGATE ESTATE                         │
+   │ 12 blocks • 847 units • 8 HRBs          │
+   ├─────────────────────────────────────────┤
+   │ COMPLIANCE COVERAGE                     │
+   │                                         │
+   │ Stream      Target  Actual  Gap   Due   │
+   │ ─────────────────────────────────────── │
+   │ Gas Safety   100%   98.2%  -1.8%  (15)  │  ← Click row to see certs
+   │ EICR         100%   94.1%  -5.9%  (47)  │
+   │ FRA          100%   100%    0%    (0)   │
+   │ Asbestos     100%   97.3%  -2.7%  (22)  │
+   │ Lifts        100%   87.5% -12.5%  (1)   │
+   │ Water        100%   91.2%  -8.8%  (7)   │
+   ├─────────────────────────────────────────┤
+   │ HIGH-SEVERITY FINDINGS (4)              │
+   │                                         │
+   │ Ref     Type  Property     Age   Due    │
+   │ ─────────────────────────────────────── │
+   │ RA-123  C2    Block A #12  12d   7 days │  ← Click to see cert
+   │ RA-124  ID    Block C #45  2d    TODAY  │
+   │ RA-125  C2    Block A #8   8d    14 days│
+   │ RA-126  C1    Block D #3   1d    NOW    │
+   ├─────────────────────────────────────────┤
+   │ [View All Certificates]                 │
+   │ [Download Evidence Pack]                │
+   └─────────────────────────────────────────┘
+
+3. Implement traceability:
+   
+   // Every percentage links to filtered certificate list
+   <button onClick={() => navigate(`/certificates?stream=gas&status=overdue&estate=${estateId}`)}>
+     {gasCompliance}%
+   </button>
+   
+   // Every finding links to source certificate
+   <button onClick={() => openCertificate(finding.certificateId)}>
+     {finding.ref}
+   </button>
+   
+   // Certificate viewer opens in modal or new tab
+   // Shows: PDF image, extracted data, remedial actions
+
+4. Create Board Mode at src/components/maps/BoardMode.tsx:
+   
+   Simplified view for non-technical board members:
+   - Large traffic light: 🔴 🟡 🟢
+   - Simple yes/no answers:
+     "Are we compliant?" → "94% compliant (target: 100%)"
+     "What's at risk?" → "4 high-severity findings open"
+     "Are we improving?" → "↗️ Up 3% this quarter"
+   - Larger fonts
+   - No technical jargon
+
+5. Create evidence export at src/lib/exports/evidence-pack.ts:
+   
+   async function generateEvidencePack(areaId: string, options: ExportOptions) {
+     // Generate PDF with:
+     // - Executive summary
+     // - Compliance by stream table
+     // - High-severity findings list
+     // - Certificate references (as appendix)
+     // - Trend charts
+     
+     // Use jsPDF for PDF generation
+     // Include clickable links to certificates where possible
+   }
+   
+   Export options:
+   - Report type: Board Summary | Full Pack | Regulator Submission
+   - Include sections: checkboxes
+   - Format: PDF | Excel | Both (ZIP)
+
+6. Add HRB (Higher Risk Building) filter:
+   - Toggle to show only HRBs (18m+ height OR 7+ storeys)
+   - For Building Safety Regulator focus
+   - Highlight these buildings differently on map
+
+7. Create quick answers panel at src/components/maps/RegulatorQuestions.tsx:
+   
+   Pre-built views for common inspection questions:
+   - "Show highest residual risks" → Filter to score < 70
+   - "How long have findings been open?" → Sort by age
+   - "HRB compliance status?" → Enable HRB filter
+   
+   Click a question, map/filters update automatically
+
+8. API endpoint for evidence data:
+   
+   GET /api/maps/evidence/:areaId
+   Returns: {
+     area: { id, name, level },
+     summary: { compliance, openHighSeverity, avgFindingAge, hrbCount },
+     streams: [...],
+     findings: [...],
+     certificateLinks: [...],  // For traceability
+   }
+
+CRITICAL: TRACEABILITY
+Every number must link to evidence. When regulator clicks "94.1%",
+they see the 47 overdue certificates. They click a certificate,
+they see the PDF. This is what differentiates real compliance
+software from spreadsheets.
+
+DELIVERABLES:
+- Evidence view page with geographic organization
+- Detailed compliance breakdown with clickable rows
+- Traceability to source certificates
+- Board Mode for simplified view
+- Evidence Pack PDF/Excel export
+- HRB filter
+- Quick answers for common regulator questions
+```
+
+-----
+
+## Usage Notes
+
+### For Replit Agent:
+
+1. Copy each prompt into the Replit Agent chat
+1. Wait for completion before moving to next prompt
+1. Test functionality between prompts
+1. Prompts are designed to be self-contained but build on each other
+
+### For Lovable:
+
+Use the Lovable prompts from the main specification for UI-heavy components like:
+
+- Risk dashboard cards
+- Scenario control panel
+- Export modal
+
+### Dependencies to Pre-install:
+
+```bash
+npm install react-leaflet@4 leaflet@1.9 @types/leaflet
+npm install jspdf xlsx  # For exports
+npm install react-leaflet-cluster  # Optional, for marker clustering
+```
+
+### Testing Approach:
+
+- M1: Verify map renders with sample data
+- M2: Test with real UK postcodes
+- M3: Verify scores calculate correctly
+- M4: Test filter interactions
+- M5: Verify scenario calculations
+- M6: Test traceability links work

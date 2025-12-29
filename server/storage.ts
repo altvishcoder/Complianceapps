@@ -8,6 +8,7 @@ import {
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
   factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, rateLimitEntries,
+  systemLogs,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -41,10 +42,11 @@ import {
   type FactorySettingsAudit, type InsertFactorySettingsAudit,
   type ApiClient, type InsertApiClient,
   type UploadSession, type InsertUploadSession,
-  type IngestionJob, type InsertIngestionJob
+  type IngestionJob, type InsertIngestionJob,
+  type SystemLog
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray, count, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, count, gte, lte, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -289,6 +291,9 @@ export interface IStorage {
   dismissAiSuggestion(id: string, reason?: string): Promise<AiSuggestion | undefined>;
   resolveAiSuggestion(id: string, userId?: string): Promise<AiSuggestion | undefined>;
   autoResolveAiSuggestions(organisationId: string): Promise<number>;
+  
+  // System Logs
+  getSystemLogs(filters: { level?: string; source?: string; search?: string; limit: number; offset: number }): Promise<{ logs: SystemLog[]; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1765,6 +1770,38 @@ export class DatabaseStorage implements IStorage {
       .where(lte(rateLimitEntries.windowResetAt, new Date()))
       .returning();
     return result.length;
+  }
+
+  async getSystemLogs(filters: { level?: string; source?: string; search?: string; limit: number; offset: number }): Promise<{ logs: SystemLog[]; total: number }> {
+    const conditions = [];
+    
+    if (filters.level) {
+      conditions.push(eq(systemLogs.level, filters.level as any));
+    }
+    if (filters.source) {
+      conditions.push(eq(systemLogs.source, filters.source as any));
+    }
+    if (filters.search) {
+      conditions.push(ilike(systemLogs.message, `%${filters.search}%`));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [totalResult] = await db.select({ count: count() })
+      .from(systemLogs)
+      .where(whereClause);
+    
+    const logs = await db.select()
+      .from(systemLogs)
+      .where(whereClause)
+      .orderBy(desc(systemLogs.timestamp))
+      .limit(filters.limit)
+      .offset(filters.offset);
+    
+    return {
+      logs,
+      total: totalResult?.count ?? 0
+    };
   }
 }
 

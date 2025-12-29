@@ -3859,6 +3859,27 @@ export async function registerRoutes(
     }
   });
   
+  app.get("/api/admin/logs", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { level, source, search, limit = "100", offset = "0" } = req.query;
+      
+      const logs = await storage.getSystemLogs({
+        level: level as string | undefined,
+        source: source as string | undefined,
+        search: search as string | undefined,
+        limit: Math.min(parseInt(limit as string) || 100, 500),
+        offset: parseInt(offset as string) || 0,
+      });
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching logs:", error);
+      res.status(500).json({ error: "Failed to fetch logs" });
+    }
+  });
+  
   // ===== API DOCUMENTATION ENDPOINT =====
   app.get("/api/admin/openapi", (req, res) => {
     const openApiSpec = {
