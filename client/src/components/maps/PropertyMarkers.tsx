@@ -96,12 +96,18 @@ export function PropertyMarkers({ properties, onPropertyClick }: PropertyMarkers
                   </div>
                 )}
                 
-                <Link href={`/properties/${property.id}`}>
-                  <Button variant="outline" size="sm" className="w-full" data-testid={`button-view-property-${property.id}`}>
-                    <ExternalLink className="h-3 w-3 mr-2" />
-                    View Details
-                  </Button>
-                </Link>
+                {property.id.startsWith('prop-') ? (
+                  <div className="text-xs text-muted-foreground text-center py-1 bg-muted rounded">
+                    Sample data - connect real properties to enable details
+                  </div>
+                ) : (
+                  <Link href={`/properties/${property.id}`}>
+                    <Button variant="outline" size="sm" className="w-full" data-testid={`button-view-property-${property.id}`}>
+                      <ExternalLink className="h-3 w-3 mr-2" />
+                      View Details
+                    </Button>
+                  </Link>
+                )}
               </div>
             </Popup>
           </CircleMarker>

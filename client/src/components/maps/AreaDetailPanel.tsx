@@ -180,12 +180,18 @@ export function AreaDetailPanel({
             )}
 
             <div className="flex flex-col gap-2 pt-4 border-t">
-              <Link href={`/properties?${areaLevel}Id=${areaId}`}>
-                <Button variant="outline" className="w-full" data-testid="button-view-properties">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Properties
-                </Button>
-              </Link>
+              {areaId.startsWith('area-') || areaId.startsWith('prop-') ? (
+                <div className="text-xs text-muted-foreground text-center py-2 bg-muted rounded">
+                  Sample data - connect real properties to enable navigation
+                </div>
+              ) : (
+                <Link href={`/properties?${areaLevel}Id=${areaId}`}>
+                  <Button variant="outline" className="w-full" data-testid="button-view-properties">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View Properties
+                  </Button>
+                </Link>
+              )}
               {onExport && (
                 <Button variant="outline" className="w-full" onClick={onExport} data-testid="button-export">
                   <Download className="h-4 w-4 mr-2" />
