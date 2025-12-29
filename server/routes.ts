@@ -2145,23 +2145,103 @@ export async function registerRoutes(
         };
       }).filter(t => t.total > 0); // Only include types that have at least 1 certificate
       
-      // Hazard distribution by category
-      const hazardCategories = allActions.filter(a => a.status === 'OPEN').reduce((acc, action) => {
-        const category = action.category || 'Other';
-        acc[category] = (acc[category] || 0) + 1;
+      // Hazard distribution by severity (clickable)
+      const hazardSeverities = allActions.filter(a => a.status === 'OPEN').reduce((acc, action) => {
+        const severity = action.severity || 'STANDARD';
+        acc[severity] = (acc[severity] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
+      
+      const severityLabels: Record<string, string> = {
+        'IMMEDIATE': 'Immediate',
+        'URGENT': 'Urgent',
+        'STANDARD': 'Standard',
+        'LOW': 'Low'
+      };
+      
+      // Certificates expiring in next 30 days
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const expiringCertificates = allCertificates
+        .filter(c => {
+          if (!c.expiryDate) return false;
+          const expiry = new Date(c.expiryDate);
+          return expiry > new Date() && expiry <= thirtyDaysFromNow;
+        })
+        .sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime())
+        .slice(0, 10)
+        .map(c => {
+          const property = allProperties.find(p => p.id === c.propertyId);
+          return {
+            id: c.id,
+            propertyAddress: property ? `${property.addressLine1}, ${property.postcode}` : 'Unknown Property',
+            type: c.certificateType?.replace(/_/g, ' ') || 'Unknown',
+            expiryDate: c.expiryDate
+          };
+        });
+      
+      // Urgent remedial actions (IMMEDIATE or URGENT severity, OPEN status)
+      const urgentActions = allActions
+        .filter(a => a.status === 'OPEN' && (a.severity === 'IMMEDIATE' || a.severity === 'URGENT'))
+        .sort((a, b) => {
+          const severityOrder: Record<string, number> = { 'IMMEDIATE': 0, 'URGENT': 1 };
+          return (severityOrder[a.severity || ''] ?? 2) - (severityOrder[b.severity || ''] ?? 2);
+        })
+        .slice(0, 10)
+        .map(a => {
+          const property = allProperties.find(p => p.id === a.propertyId);
+          return {
+            id: a.id,
+            description: a.description || 'No description',
+            severity: a.severity,
+            propertyAddress: property ? `${property.addressLine1}, ${property.postcode}` : 'Unknown Property',
+            dueDate: a.dueDate
+          };
+        });
+      
+      // Properties with most compliance issues
+      const propertyIssues = allProperties.map(p => {
+        const propActions = allActions.filter(a => a.propertyId === p.id && a.status === 'OPEN');
+        const criticalCount = propActions.filter(a => a.severity === 'IMMEDIATE' || a.severity === 'URGENT').length;
+        return {
+          id: p.id,
+          address: `${p.addressLine1}, ${p.postcode}`,
+          issueCount: propActions.length,
+          criticalCount
+        };
+      })
+        .filter(p => p.issueCount > 0)
+        .sort((a, b) => b.criticalCount - a.criticalCount || b.issueCount - a.issueCount)
+        .slice(0, 10);
+      
+      // Awaab's Law breaches - actions that are overdue based on severity timescales
+      const awaabsBreaches = allActions.filter(a => {
+        if (a.status !== 'OPEN') return false;
+        if (!a.dueDate) return false;
+        const target = new Date(a.dueDate);
+        return target < new Date();
+      }).length;
       
       res.json({
         overallCompliance: complianceRate,
         activeHazards,
         immediateHazards,
-        awaabsLawBreaches: 0, // Placeholder
+        awaabsLawBreaches: awaabsBreaches,
         pendingCertificates: pendingCerts,
         totalProperties: allProperties.length,
         totalCertificates: totalCerts,
-        complianceByType,
-        hazardDistribution: Object.entries(hazardCategories).map(([name, value]) => ({ name, value })),
+        complianceByType: complianceByType.map(t => ({
+          ...t,
+          code: t.type.replace(/ /g, '_').toUpperCase()
+        })),
+        hazardDistribution: Object.entries(hazardSeverities).map(([severity, value]) => ({ 
+          name: severityLabels[severity] || severity, 
+          value,
+          severity 
+        })),
+        expiringCertificates,
+        urgentActions,
+        problemProperties: propertyIssues,
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);

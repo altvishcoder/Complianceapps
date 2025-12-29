@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { LucideIcon, TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
+import { Link } from "wouter";
 
 interface StatsCardProps {
   title: string;
@@ -10,6 +11,7 @@ interface StatsCardProps {
   trendValue?: string;
   status?: "default" | "success" | "warning" | "danger" | "info";
   onClick?: () => void;
+  href?: string;
   isActive?: boolean;
   "data-testid"?: string;
 }
@@ -23,6 +25,7 @@ export function StatsCard({
   trendValue,
   status = "default",
   onClick,
+  href,
   isActive = false,
   "data-testid": testId
 }: StatsCardProps) {
@@ -58,22 +61,10 @@ export function StatsCard({
     info: "ring-blue-500",
   };
 
-  return (
-    <div 
-      className={cn(
-        "relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border",
-        bgColors[status],
-        borderColors[status],
-        onClick && "cursor-pointer",
-        isActive && `ring-2 ${ringColors[status]}`
-      )}
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      aria-pressed={onClick ? isActive : undefined}
-      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
-      data-testid={testId}
-    >
+  const isClickable = onClick || href;
+  
+  const cardContent = (
+    <>
       <div className="absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8">
         <div className={cn(
           "w-full h-full rounded-full bg-gradient-to-br opacity-10",
@@ -107,9 +98,44 @@ export function StatsCard({
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
           <p className="text-3xl font-bold font-display tracking-tight">{value}</p>
-          <p className="text-xs text-muted-foreground mt-2">{description}</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">{description}</p>
+            {isClickable && (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
         </div>
       </div>
+    </>
+  );
+
+  const cardClasses = cn(
+    "relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border",
+    bgColors[status],
+    borderColors[status],
+    isClickable && "cursor-pointer",
+    isActive && `ring-2 ${ringColors[status]}`
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={cardClasses} data-testid={testId}>
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return (
+    <div 
+      className={cardClasses}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? isActive : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      data-testid={testId}
+    >
+      {cardContent}
     </div>
   );
 }
