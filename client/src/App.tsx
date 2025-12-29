@@ -9,18 +9,15 @@ import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: ComponentType }) {
   const [, setLocation] = useLocation();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const userId = localStorage.getItem("user_id");
 
   useEffect(() => {
-    const userId = localStorage.getItem("user_id");
     if (!userId) {
       setLocation("/login");
-    } else {
-      setIsAuthenticated(true);
     }
-  }, [setLocation]);
+  }, [userId, setLocation]);
 
-  if (isAuthenticated === null) {
+  if (!userId) {
     return null;
   }
 
