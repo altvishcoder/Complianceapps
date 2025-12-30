@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter } from "lucide-react";
+import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLayoutEffect } from "react";
 import { useLocation } from "wouter";
@@ -460,6 +460,10 @@ export default function Configuration() {
     ? normalisationRules 
     : normalisationRules.filter(r => r.complianceStreamId && selectedStreamFilters.includes(r.complianceStreamId));
 
+  const filteredComplianceStreams = selectedStreamFilters.length === 0 
+    ? complianceStreams 
+    : complianceStreams.filter(s => selectedStreamFilters.includes(s.id));
+
   if (!isAuthorized) {
     return (
       <div className="flex h-screen bg-muted/30 items-center justify-center">
@@ -534,8 +538,9 @@ export default function Configuration() {
                     })}
                   </div>
                   {selectedStreamFilters.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clearStreamFilters} className="text-muted-foreground" data-testid="button-clear-filters">
-                      Clear filters
+                    <Button variant="outline" size="sm" onClick={clearStreamFilters} className="gap-1" data-testid="button-clear-filters">
+                      <X className="h-3 w-3" />
+                      Reset ({selectedStreamFilters.length})
                     </Button>
                   )}
                 </div>
@@ -716,7 +721,7 @@ export default function Configuration() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {complianceStreams.map((stream) => (
+                          {filteredComplianceStreams.map((stream) => (
                             <TableRow key={stream.id} data-testid={`row-stream-${stream.id}`}>
                               <TableCell>
                                 <div className="flex items-center gap-2">
