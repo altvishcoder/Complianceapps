@@ -221,11 +221,11 @@ Want me to help you with something else? You can:
           .where(or(...propIds.map(id => eq(properties.id, id))))
           .limit(5);
         
-        response += `**🔧 Properties with Open Actions:**\n\n`;
+        response += `**🔧 Properties with Open Remedial Actions:**\n\n`;
         for (const p of propsWithActionDetails) {
           const actionInfo = propsWithActions.find(a => a.propertyId === p.id);
           response += `- **${p.addressLine1}**, ${p.postcode} - ${actionInfo?.actionCount || 0} open action${(actionInfo?.actionCount || 0) !== 1 ? 's' : ''}\n`;
-          response += `  [View actions for this property →](/actions?propertyId=${p.id})\n\n`;
+          response += `  [View property details →](/properties/${p.id})\n\n`;
         }
       }
     }
