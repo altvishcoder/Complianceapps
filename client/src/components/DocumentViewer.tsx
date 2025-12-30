@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ZoomIn, ZoomOut, RotateCw, FileImage, AlertCircle, Info } from "lucide-react";
+import { AlertTriangle, ZoomIn, ZoomOut, RotateCw, FileImage, AlertCircle, Info, FileText, ExternalLink } from "lucide-react";
 
 interface Defect {
   code?: string;
@@ -24,6 +24,18 @@ interface DocumentViewerProps {
   }>;
 }
 
+const isPdfFile = (fileName?: string, storageKey?: string | null): boolean => {
+  if (fileName?.toLowerCase().endsWith('.pdf')) return true;
+  if (storageKey?.toLowerCase().includes('.pdf')) return true;
+  return false;
+};
+
+const isImageFile = (fileName?: string, storageKey?: string | null): boolean => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+  const name = (fileName || storageKey || '').toLowerCase();
+  return imageExtensions.some(ext => name.endsWith(ext));
+};
+
 const getSeverityColor = (code?: string, classification?: string, severity?: string) => {
   if (code === "C1" || classification?.includes("Immediately Dangerous") || severity === "IMMEDIATE") {
     return { bg: "bg-red-500", text: "text-red-600", border: "border-red-500", label: "Critical", ring: "ring-red-500", bgLight: "bg-red-50" };
@@ -41,6 +53,12 @@ export function DocumentViewer({ storageKey, fileName, defects = [], observation
   const [zoom, setZoom] = useState(100);
   const [selectedDefect, setSelectedDefect] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  const fileType = useMemo(() => {
+    if (isPdfFile(fileName, storageKey)) return 'pdf';
+    if (isImageFile(fileName, storageKey)) return 'image';
+    return 'unknown';
+  }, [fileName, storageKey]);
 
   const allIssues = [
     ...defects.map((d) => ({
@@ -70,8 +88,9 @@ export function DocumentViewer({ storageKey, fileName, defects = [], observation
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <FileImage className="h-5 w-5" />
+                {fileType === 'pdf' ? <FileText className="h-5 w-5" /> : <FileImage className="h-5 w-5" />}
                 Document Preview
+                {fileType === 'pdf' && <Badge variant="outline" className="ml-2">PDF</Badge>}
               </CardTitle>
               {hasImage && (
                 <div className="flex items-center gap-2">
@@ -111,37 +130,74 @@ export function DocumentViewer({ storageKey, fileName, defects = [], observation
               style={{ maxHeight: "600px" }}
             >
               {hasImage ? (
-                <div className="relative inline-block min-w-full">
-                  <img
-                    src={storageKey}
-                    alt={fileName || "Certificate document"}
-                    className="mx-auto transition-transform"
-                    style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
-                    data-testid="document-image"
-                  />
-                  {allIssues.length > 0 && (
-                    <div className="absolute top-4 left-4 flex flex-wrap gap-2 max-w-[90%]">
-                      {allIssues.map((issue, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setSelectedDefect(selectedDefect === idx ? null : idx)}
-                          className={`
-                            flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium
-                            transition-all cursor-pointer shadow-md
-                            ${selectedDefect === idx 
-                              ? `${issue.bg} text-white ring-2 ring-offset-2 ${issue.ring}` 
-                              : `bg-white/90 ${issue.text} border ${issue.border}`
-                            }
-                          `}
-                          data-testid={`defect-marker-${idx}`}
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                          {issue.code || `Issue ${idx + 1}`}
-                        </button>
-                      ))}
+                <>
+                  {fileType === 'pdf' ? (
+                    <div className="w-full" style={{ minHeight: "600px" }}>
+                      <object
+                        data={storageKey || undefined}
+                        type="application/pdf"
+                        className="w-full h-full"
+                        style={{ height: "600px", transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
+                        data-testid="document-pdf"
+                      >
+                        <div className="flex flex-col items-center justify-center py-16 bg-muted/30 rounded-lg">
+                          <FileText className="h-16 w-16 mb-4 text-muted-foreground opacity-50" />
+                          <p className="text-lg font-medium mb-2">PDF Preview Not Available</p>
+                          <p className="text-sm text-muted-foreground mb-4">Your browser may not support embedded PDF viewing</p>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => window.open(storageKey || '', '_blank')}
+                            className="gap-2"
+                            data-testid="open-pdf-external"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Open PDF in New Tab
+                          </Button>
+                        </div>
+                      </object>
+                      {allIssues.length > 0 && (
+                        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-sm text-amber-700">
+                            <AlertTriangle className="h-4 w-4 inline mr-2" />
+                            {allIssues.length} issue(s) detected - see panel on the right
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative inline-block min-w-full">
+                      <img
+                        src={storageKey || undefined}
+                        alt={fileName || "Certificate document"}
+                        className="mx-auto transition-transform"
+                        style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
+                        data-testid="document-image"
+                      />
+                      {allIssues.length > 0 && (
+                        <div className="absolute top-4 left-4 flex flex-wrap gap-2 max-w-[90%]">
+                          {allIssues.map((issue, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setSelectedDefect(selectedDefect === idx ? null : idx)}
+                              className={`
+                                flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium
+                                transition-all cursor-pointer shadow-md
+                                ${selectedDefect === idx 
+                                  ? `${issue.bg} text-white ring-2 ring-offset-2 ${issue.ring}` 
+                                  : `bg-white/90 ${issue.text} border ${issue.border}`
+                                }
+                              `}
+                              data-testid={`defect-marker-${idx}`}
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              {issue.code || `Issue ${idx + 1}`}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <FileImage className="h-16 w-16 mb-4 opacity-50" />
