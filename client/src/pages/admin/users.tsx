@@ -13,7 +13,11 @@ import {
   Key,
   RefreshCw,
   Building,
-  Settings
+  Settings,
+  Wand2,
+  Copy,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,13 +89,45 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-  const [inviteData, setInviteData] = useState({ name: "", email: "", username: "", role: "VIEWER", password: "" });
-  const [isInviting, setIsInviting] = useState(false);
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [addUserData, setAddUserData] = useState({ name: "", email: "", username: "", role: "VIEWER", password: "" });
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [showAddUserPassword, setShowAddUserPassword] = useState(false);
 
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+
+  const generateSecurePassword = () => {
+    const length = 16;
+    const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lowercase = 'abcdefghjkmnpqrstuvwxyz';
+    const numbers = '23456789';
+    const symbols = '!@#$%&*';
+    const allChars = uppercase + lowercase + numbers + symbols;
+    
+    let password = '';
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+    
+    for (let i = 4; i < length; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: "Password copied to clipboard" });
+    } catch {
+      toast({ title: "Error", description: "Failed to copy to clipboard", variant: "destructive" });
+    }
+  };
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const { data: users = [], isLoading, refetch } = useQuery<User[]>({
@@ -128,18 +164,18 @@ export default function AdminUsersPage() {
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleInviteUser = async () => {
-    if (!inviteData.name || !inviteData.email || !inviteData.username || !inviteData.password) {
+  const handleAddUser = async () => {
+    if (!addUserData.name || !addUserData.email || !addUserData.username || !addUserData.password) {
       toast({ title: "Error", description: "Please fill in all fields.", variant: "destructive" });
       return;
     }
     
-    setIsInviting(true);
+    setIsAddingUser(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(inviteData)
+        body: JSON.stringify(addUserData)
       });
       
       const data = await res.json();
@@ -155,10 +191,11 @@ export default function AdminUsersPage() {
       
       toast({ 
         title: "User Created", 
-        description: `${inviteData.name} has been added successfully.` 
+        description: `${addUserData.name} has been added successfully.` 
       });
-      setIsInviteDialogOpen(false);
-      setInviteData({ name: "", email: "", username: "", role: "VIEWER", password: "" });
+      setIsAddUserDialogOpen(false);
+      setAddUserData({ name: "", email: "", username: "", role: "VIEWER", password: "" });
+      setShowAddUserPassword(false);
       refetch();
     } catch (error) {
       toast({ 
@@ -167,7 +204,7 @@ export default function AdminUsersPage() {
         variant: "destructive" 
       });
     } finally {
-      setIsInviting(false);
+      setIsAddingUser(false);
     }
   };
 
@@ -259,9 +296,9 @@ export default function AdminUsersPage() {
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh
                 </Button>
-                <Button onClick={() => setIsInviteDialogOpen(true)} data-testid="button-invite-user">
+                <Button onClick={() => setIsAddUserDialogOpen(true)} data-testid="button-add-user">
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Invite User
+                  Add User
                 </Button>
               </div>
             </div>
@@ -469,64 +506,107 @@ export default function AdminUsersPage() {
         </main>
       </div>
 
-      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+      <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite New User</DialogTitle>
+            <DialogTitle>Add New User</DialogTitle>
             <DialogDescription>
               Create a new user account. They will be able to log in immediately with the provided credentials.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="invite-name">Full Name</Label>
+              <Label htmlFor="add-user-name">Full Name</Label>
               <Input 
-                id="invite-name" 
-                value={inviteData.name}
-                onChange={(e) => setInviteData({...inviteData, name: e.target.value})}
+                id="add-user-name" 
+                value={addUserData.name}
+                onChange={(e) => setAddUserData({...addUserData, name: e.target.value})}
                 placeholder="John Doe"
-                data-testid="input-invite-name"
+                data-testid="input-add-user-name"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="invite-username">Username</Label>
+              <Label htmlFor="add-user-username">Username</Label>
               <Input 
-                id="invite-username" 
-                value={inviteData.username}
-                onChange={(e) => setInviteData({...inviteData, username: e.target.value})}
+                id="add-user-username" 
+                value={addUserData.username}
+                onChange={(e) => setAddUserData({...addUserData, username: e.target.value})}
                 placeholder="johndoe"
-                data-testid="input-invite-username"
+                data-testid="input-add-user-username"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="invite-email">Email</Label>
+              <Label htmlFor="add-user-email">Email</Label>
               <Input 
-                id="invite-email" 
+                id="add-user-email" 
                 type="email"
-                value={inviteData.email}
-                onChange={(e) => setInviteData({...inviteData, email: e.target.value})}
+                value={addUserData.email}
+                onChange={(e) => setAddUserData({...addUserData, email: e.target.value})}
                 placeholder="john@company.com"
-                data-testid="input-invite-email"
+                data-testid="input-add-user-email"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="invite-password">Initial Password</Label>
-              <Input 
-                id="invite-password" 
-                type="password"
-                value={inviteData.password}
-                onChange={(e) => setInviteData({...inviteData, password: e.target.value})}
-                placeholder="Enter initial password"
-                data-testid="input-invite-password"
-              />
+              <Label htmlFor="add-user-password">Password</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input 
+                    id="add-user-password" 
+                    type={showAddUserPassword ? "text" : "password"}
+                    value={addUserData.password}
+                    onChange={(e) => setAddUserData({...addUserData, password: e.target.value})}
+                    placeholder="Enter or generate password"
+                    data-testid="input-add-user-password"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowAddUserPassword(!showAddUserPassword)}
+                  >
+                    {showAddUserPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const pwd = generateSecurePassword();
+                    setAddUserData({...addUserData, password: pwd});
+                    setShowAddUserPassword(true);
+                  }}
+                  title="Generate Password"
+                  data-testid="button-generate-password"
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+                {addUserData.password && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(addUserData.password)}
+                    title="Copy Password"
+                    data-testid="button-copy-password"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Click the wand to generate a secure password. Make sure to copy it before closing.
+              </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="invite-role">Role</Label>
+              <Label htmlFor="add-user-role">Role</Label>
               <Select 
-                value={inviteData.role} 
-                onValueChange={(val) => setInviteData({...inviteData, role: val})}
+                value={addUserData.role} 
+                onValueChange={(val) => setAddUserData({...addUserData, role: val})}
               >
-                <SelectTrigger data-testid="select-invite-role">
+                <SelectTrigger data-testid="select-add-user-role">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -540,21 +620,21 @@ export default function AdminUsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setIsAddUserDialogOpen(false); setShowAddUserPassword(false); }}>
               Cancel
             </Button>
             <Button 
-              onClick={handleInviteUser} 
-              disabled={isInviting}
-              data-testid="button-confirm-invite"
+              onClick={handleAddUser} 
+              disabled={isAddingUser}
+              data-testid="button-confirm-add-user"
             >
-              {isInviting ? "Creating..." : "Create User"}
+              {isAddingUser ? "Creating..." : "Create User"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={(open) => { setIsResetPasswordDialogOpen(open); if (!open) setShowResetPassword(false); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
@@ -565,21 +645,61 @@ export default function AdminUsersPage() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="new-password">New Password</Label>
-              <Input 
-                id="new-password" 
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-                data-testid="input-new-password"
-              />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input 
+                    id="new-password" 
+                    type={showResetPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter or generate password"
+                    data-testid="input-new-password"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                  >
+                    {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const pwd = generateSecurePassword();
+                    setNewPassword(pwd);
+                    setShowResetPassword(true);
+                  }}
+                  title="Generate Password"
+                  data-testid="button-generate-reset-password"
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+                {newPassword && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(newPassword)}
+                    title="Copy Password"
+                    data-testid="button-copy-reset-password"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                The password will be encrypted and stored securely.
+                Click the wand to generate a secure password. Make sure to copy it before closing.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsResetPasswordDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setIsResetPasswordDialogOpen(false); setShowResetPassword(false); }}>
               Cancel
             </Button>
             <Button 
