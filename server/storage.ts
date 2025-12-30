@@ -133,7 +133,7 @@ export interface IStorage {
   deleteCertificateType(id: string): Promise<boolean>;
   
   // Configuration - Classification Codes
-  listClassificationCodes(certificateTypeId?: string): Promise<ClassificationCode[]>;
+  listClassificationCodes(filters?: { certificateTypeId?: string; complianceStreamId?: string }): Promise<ClassificationCode[]>;
   getClassificationCode(id: string): Promise<ClassificationCode | undefined>;
   getClassificationCodeByCode(code: string, certificateTypeId?: string): Promise<ClassificationCode | undefined>;
   createClassificationCode(code: InsertClassificationCode): Promise<ClassificationCode>;
@@ -141,21 +141,21 @@ export interface IStorage {
   deleteClassificationCode(id: string): Promise<boolean>;
   
   // Configuration - Extraction Schemas
-  listExtractionSchemas(): Promise<ExtractionSchema[]>;
+  listExtractionSchemas(filters?: { complianceStreamId?: string }): Promise<ExtractionSchema[]>;
   getExtractionSchema(id: string): Promise<ExtractionSchema | undefined>;
   createExtractionSchema(schema: InsertExtractionSchema): Promise<ExtractionSchema>;
   updateExtractionSchema(id: string, updates: Partial<InsertExtractionSchema>): Promise<ExtractionSchema | undefined>;
   deleteExtractionSchema(id: string): Promise<boolean>;
   
   // Configuration - Compliance Rules
-  listComplianceRules(): Promise<ComplianceRule[]>;
+  listComplianceRules(filters?: { complianceStreamId?: string }): Promise<ComplianceRule[]>;
   getComplianceRule(id: string): Promise<ComplianceRule | undefined>;
   createComplianceRule(rule: InsertComplianceRule): Promise<ComplianceRule>;
   updateComplianceRule(id: string, updates: Partial<InsertComplianceRule>): Promise<ComplianceRule | undefined>;
   deleteComplianceRule(id: string): Promise<boolean>;
   
   // Configuration - Normalisation Rules
-  listNormalisationRules(): Promise<NormalisationRule[]>;
+  listNormalisationRules(filters?: { complianceStreamId?: string }): Promise<NormalisationRule[]>;
   getNormalisationRule(id: string): Promise<NormalisationRule | undefined>;
   createNormalisationRule(rule: InsertNormalisationRule): Promise<NormalisationRule>;
   updateNormalisationRule(id: string, updates: Partial<InsertNormalisationRule>): Promise<NormalisationRule | undefined>;
@@ -930,13 +930,19 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Configuration - Classification Codes
-  async listClassificationCodes(certificateTypeId?: string): Promise<ClassificationCode[]> {
-    if (certificateTypeId) {
-      return db.select().from(classificationCodes)
-        .where(eq(classificationCodes.certificateTypeId, certificateTypeId))
-        .orderBy(classificationCodes.displayOrder);
+  async listClassificationCodes(filters?: { certificateTypeId?: string; complianceStreamId?: string }): Promise<ClassificationCode[]> {
+    let query = db.select().from(classificationCodes);
+    if (filters?.certificateTypeId && filters?.complianceStreamId) {
+      query = query.where(and(
+        eq(classificationCodes.certificateTypeId, filters.certificateTypeId),
+        eq(classificationCodes.complianceStreamId, filters.complianceStreamId)
+      )) as typeof query;
+    } else if (filters?.certificateTypeId) {
+      query = query.where(eq(classificationCodes.certificateTypeId, filters.certificateTypeId)) as typeof query;
+    } else if (filters?.complianceStreamId) {
+      query = query.where(eq(classificationCodes.complianceStreamId, filters.complianceStreamId)) as typeof query;
     }
-    return db.select().from(classificationCodes).orderBy(classificationCodes.displayOrder);
+    return query.orderBy(classificationCodes.displayOrder);
   }
   
   async getClassificationCode(id: string): Promise<ClassificationCode | undefined> {
@@ -977,7 +983,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Configuration - Extraction Schemas
-  async listExtractionSchemas(): Promise<ExtractionSchema[]> {
+  async listExtractionSchemas(filters?: { complianceStreamId?: string }): Promise<ExtractionSchema[]> {
+    if (filters?.complianceStreamId) {
+      return db.select().from(extractionSchemas)
+        .where(eq(extractionSchemas.complianceStreamId, filters.complianceStreamId))
+        .orderBy(desc(extractionSchemas.createdAt));
+    }
     return db.select().from(extractionSchemas).orderBy(desc(extractionSchemas.createdAt));
   }
   
@@ -1005,7 +1016,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Configuration - Compliance Rules
-  async listComplianceRules(): Promise<ComplianceRule[]> {
+  async listComplianceRules(filters?: { complianceStreamId?: string }): Promise<ComplianceRule[]> {
+    if (filters?.complianceStreamId) {
+      return db.select().from(complianceRules)
+        .where(eq(complianceRules.complianceStreamId, filters.complianceStreamId))
+        .orderBy(complianceRules.ruleCode);
+    }
     return db.select().from(complianceRules).orderBy(complianceRules.ruleCode);
   }
   
@@ -1033,7 +1049,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Configuration - Normalisation Rules
-  async listNormalisationRules(): Promise<NormalisationRule[]> {
+  async listNormalisationRules(filters?: { complianceStreamId?: string }): Promise<NormalisationRule[]> {
+    if (filters?.complianceStreamId) {
+      return db.select().from(normalisationRules)
+        .where(eq(normalisationRules.complianceStreamId, filters.complianceStreamId))
+        .orderBy(desc(normalisationRules.priority));
+    }
     return db.select().from(normalisationRules).orderBy(desc(normalisationRules.priority));
   }
   

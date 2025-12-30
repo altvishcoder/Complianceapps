@@ -2649,7 +2649,8 @@ export async function registerRoutes(
   app.get("/api/config/classification-codes", async (req, res) => {
     try {
       const certificateTypeId = req.query.certificateTypeId as string | undefined;
-      const codes = await storage.listClassificationCodes(certificateTypeId);
+      const complianceStreamId = req.query.complianceStreamId as string | undefined;
+      const codes = await storage.listClassificationCodes({ certificateTypeId, complianceStreamId });
       res.json(codes);
     } catch (error) {
       console.error("Error fetching classification codes:", error);
@@ -2719,7 +2720,8 @@ export async function registerRoutes(
   // ===== CONFIGURATION - EXTRACTION SCHEMAS =====
   app.get("/api/config/extraction-schemas", async (req, res) => {
     try {
-      const schemas = await storage.listExtractionSchemas();
+      const complianceStreamId = req.query.complianceStreamId as string | undefined;
+      const schemas = await storage.listExtractionSchemas({ complianceStreamId });
       res.json(schemas);
     } catch (error) {
       console.error("Error fetching extraction schemas:", error);
@@ -2789,7 +2791,8 @@ export async function registerRoutes(
   // ===== CONFIGURATION - COMPLIANCE RULES =====
   app.get("/api/config/compliance-rules", async (req, res) => {
     try {
-      const rules = await storage.listComplianceRules();
+      const complianceStreamId = req.query.complianceStreamId as string | undefined;
+      const rules = await storage.listComplianceRules({ complianceStreamId });
       res.json(rules);
     } catch (error) {
       console.error("Error fetching compliance rules:", error);
@@ -2859,7 +2862,8 @@ export async function registerRoutes(
   // ===== CONFIGURATION - NORMALISATION RULES =====
   app.get("/api/config/normalisation-rules", async (req, res) => {
     try {
-      const rules = await storage.listNormalisationRules();
+      const complianceStreamId = req.query.complianceStreamId as string | undefined;
+      const rules = await storage.listNormalisationRules({ complianceStreamId });
       res.json(rules);
     } catch (error) {
       console.error("Error fetching normalisation rules:", error);
@@ -4689,7 +4693,7 @@ export async function registerRoutes(
       
       const scrubbedLogs = result.logs.map(log => ({
         ...log,
-        metadata: scrubMetadata(log.metadata as Record<string, unknown> | null)
+        context: scrubMetadata(log.context as Record<string, unknown> | null)
       }));
       
       res.json({ logs: scrubbedLogs, total: result.total });

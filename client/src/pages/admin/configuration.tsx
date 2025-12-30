@@ -315,12 +315,13 @@ export default function Configuration() {
   const handleSaveCode = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const certTypeId = formData.get("certificateTypeId") as string;
     const data: InsertClassificationCode = {
       code: formData.get("code") as string,
       name: formData.get("name") as string,
       severity: formData.get("severity") as string,
       description: formData.get("description") as string,
-      certificateTypeId: formData.get("certificateTypeId") as string || undefined,
+      certificateTypeId: certTypeId === "__ALL__" ? undefined : certTypeId || undefined,
       colorCode: formData.get("colorCode") as string || undefined,
       actionRequired: formData.get("actionRequired") as string || undefined,
       timeframeHours: parseInt(formData.get("timeframeHours") as string) || undefined,
@@ -399,6 +400,18 @@ export default function Configuration() {
       INFO: "bg-gray-500",
     };
     return <Badge className={colors[severity] || "bg-gray-500"}>{severity}</Badge>;
+  };
+
+  const getStreamName = (streamId: string | null | undefined) => {
+    if (!streamId) return <span className="text-muted-foreground">-</span>;
+    const stream = complianceStreams.find(s => s.id === streamId);
+    if (!stream) return <span className="text-muted-foreground">Unknown</span>;
+    const color = stream.colorCode || "#6366F1";
+    return (
+      <Badge variant="outline" className="font-normal" style={{ borderColor: color, color: color }}>
+        {stream.name}
+      </Badge>
+    );
   };
 
   if (!isAuthorized) {
@@ -883,12 +896,12 @@ export default function Configuration() {
                           </div>
                           <div>
                             <Label htmlFor="certificateTypeId">Certificate Type</Label>
-                            <Select name="certificateTypeId" defaultValue={editingCode?.certificateTypeId || ""}>
+                            <Select name="certificateTypeId" defaultValue={editingCode?.certificateTypeId || "__ALL__"}>
                               <SelectTrigger data-testid="select-cert-type">
                                 <SelectValue placeholder="Select type (optional)" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">All Types</SelectItem>
+                                <SelectItem value="__ALL__">All Types</SelectItem>
                                 {certificateTypes.map((type) => (
                                   <SelectItem key={type.id} value={type.id}>{type.shortName}</SelectItem>
                                 ))}
@@ -950,6 +963,7 @@ export default function Configuration() {
                           <TableRow>
                             <TableHead>Code</TableHead>
                             <TableHead>Name</TableHead>
+                            <TableHead>Stream</TableHead>
                             <TableHead>Severity</TableHead>
                             <TableHead>Timeframe</TableHead>
                             <TableHead>Status</TableHead>
@@ -968,6 +982,7 @@ export default function Configuration() {
                                 </div>
                               </TableCell>
                               <TableCell>{code.name}</TableCell>
+                              <TableCell>{getStreamName(code.complianceStreamId)}</TableCell>
                               <TableCell>{getSeverityBadge(code.severity)}</TableCell>
                               <TableCell>{code.timeframeHours ? `${code.timeframeHours}h` : "-"}</TableCell>
                               <TableCell>
@@ -1027,7 +1042,10 @@ export default function Configuration() {
                                   <Code className="h-5 w-5 text-primary" />
                                 </div>
                                 <div>
-                                  <p className="font-medium">{schema.documentType}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{schema.documentType}</p>
+                                    {getStreamName(schema.complianceStreamId)}
+                                  </div>
                                   <p className="text-sm text-muted-foreground">Version {schema.version}</p>
                                 </div>
                               </div>
@@ -1155,7 +1173,10 @@ export default function Configuration() {
                             <div key={rule.id} className="p-3 border rounded-lg space-y-2" data-testid={`row-rule-${rule.id}`}>
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <div className="font-medium text-sm">{rule.ruleName}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm">{rule.ruleName}</span>
+                                    {getStreamName(rule.complianceStreamId)}
+                                  </div>
                                   <div className="text-xs text-muted-foreground font-mono">{rule.ruleCode}</div>
                                 </div>
                                 <div className="flex items-center gap-2">
