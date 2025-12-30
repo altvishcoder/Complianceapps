@@ -2549,10 +2549,7 @@ export async function registerRoutes(
         pendingCertificates: pendingCerts,
         totalProperties: allProperties.length,
         totalCertificates: totalCerts,
-        complianceByType: complianceByType.map(t => ({
-          ...t,
-          code: t.type.replace(/ /g, '_').toUpperCase()
-        })),
+        complianceByType,
         hazardDistribution: Object.entries(hazardSeverities).map(([severity, value]) => ({ 
           name: severityLabels[severity] || severity, 
           value,
