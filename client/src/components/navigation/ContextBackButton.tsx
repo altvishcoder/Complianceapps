@@ -19,7 +19,7 @@ export function ContextBackButton({
   const fromPath = params.get('from');
   
   const pathLabels: Record<string, string> = {
-    '/dashboard': 'Compliance Cockpit',
+    '/dashboard': 'Overview Hub',
     '/compliance': 'Analytics Hub',
     '/certificates': 'Certificates',
     '/properties': 'Properties',

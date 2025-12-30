@@ -136,7 +136,7 @@ export default function Dashboard() {
   const [isConfiguring, setIsConfiguring] = useState(false);
   
   useEffect(() => {
-    document.title = "Compliance Cockpit - ComplianceAI";
+    document.title = "Overview Hub - ComplianceAI";
   }, []);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
@@ -207,7 +207,7 @@ export default function Dashboard() {
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Compliance Cockpit" />
+          <Header title="Overview Hub" />
           <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Dashboard content">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
             <span className="sr-only">Loading dashboard data</span>
@@ -723,7 +723,7 @@ export default function Dashboard() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Compliance Cockpit" />
+        <Header title="Overview Hub" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Dashboard content">
           
           <div className="flex items-center justify-between mb-2">

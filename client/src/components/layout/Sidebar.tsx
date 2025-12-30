@@ -38,7 +38,7 @@ import { actionsApi, certificatesApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
-  { name: "Compliance Cockpit", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Overview Hub", href: "/dashboard", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Components", href: "/components", icon: Package },
   { name: "Certificates", href: "/certificates", icon: Files },
@@ -259,7 +259,7 @@ export function Sidebar() {
           <div className="mt-8">
             <div className="mb-2 px-3 flex items-center gap-2">
               <Shield className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin Panel</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Cockpit</span>
             </div>
             <nav className="space-y-1">
               {/* Admin-only items: Settings and Test Suite */}
