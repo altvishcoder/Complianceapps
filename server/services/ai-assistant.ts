@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from '../logger';
 import { db } from '../db';
-import { complianceStreams, certificateTypes, complianceRules, properties, certificates, remedialActions } from '@shared/schema';
-import { count, eq, and, lt, gte, isNotNull } from 'drizzle-orm';
+import { properties, certificates, remedialActions } from '@shared/schema';
+import { count } from 'drizzle-orm';
 
 const anthropic = new Anthropic();
 
@@ -23,43 +23,13 @@ export interface AssistantResponse {
 
 async function getComplianceContext(): Promise<string> {
   try {
-    const [streams, types, rules, propertiesCount, certsCount, actionsCount] = await Promise.all([
-      db.select({ name: complianceStreams.name, code: complianceStreams.code }).from(complianceStreams).limit(20),
-      db.select({ name: certificateTypes.name, code: certificateTypes.code, validityMonths: certificateTypes.validityMonths }).from(certificateTypes).limit(30),
-      db.select({ name: complianceRules.ruleName, legislation: complianceRules.legislation }).from(complianceRules).limit(20),
+    const [propertiesCount, certsCount, actionsCount] = await Promise.all([
       db.select({ count: count() }).from(properties),
       db.select({ count: count() }).from(certificates),
       db.select({ count: count() }).from(remedialActions),
     ]);
 
-    const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const [expiringSoonCount] = await db
-      .select({ count: count() })
-      .from(certificates)
-      .where(and(
-        isNotNull(certificates.expiryDate),
-        gte(certificates.expiryDate, now.toISOString()),
-        lt(certificates.expiryDate, thirtyDaysFromNow.toISOString())
-      ));
-
-    return `
-CURRENT SYSTEM DATA:
-- Total properties: ${propertiesCount[0]?.count || 0}
-- Total certificates: ${certsCount[0]?.count || 0}
-- Certificates expiring in 30 days: ${expiringSoonCount?.count || 0}
-- Open remedial actions: ${actionsCount[0]?.count || 0}
-
-COMPLIANCE STREAMS (Categories):
-${streams.map(s => `- ${s.name} (${s.code})`).join('\n')}
-
-CERTIFICATE TYPES:
-${types.map(t => `- ${t.name} (${t.code}): Valid for ${t.validityMonths || 12} months`).join('\n')}
-
-KEY UK REGULATIONS:
-${rules.map(r => `- ${r.name}: ${r.legislation || 'No specific legislation'}`).join('\n')}
-`;
+    return `SYSTEM: ${propertiesCount[0]?.count || 0} properties, ${certsCount[0]?.count || 0} certificates, ${actionsCount[0]?.count || 0} actions.`;
   } catch (error) {
     logger.warn({ error }, 'Failed to load compliance context');
     return '';
@@ -105,8 +75,8 @@ export async function chatWithAssistant(
       : SYSTEM_PROMPT;
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 512,
       system: systemContent,
       messages: messages.map(m => ({
         role: m.role,
