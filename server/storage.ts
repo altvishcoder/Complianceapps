@@ -3,7 +3,7 @@ import {
   users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions, contractors,
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
-  certificateTypes, classificationCodes,
+  complianceStreams, certificateTypes, classificationCodes,
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
@@ -18,6 +18,7 @@ import {
   type Extraction, type InsertExtraction,
   type RemedialAction, type InsertRemedialAction,
   type Contractor, type InsertContractor,
+  type ComplianceStream, type InsertComplianceStream,
   type CertificateType, type InsertCertificateType,
   type ClassificationCode, type InsertClassificationCode,
   type ExtractionSchema, type InsertExtractionSchema,
@@ -114,6 +115,14 @@ export interface IStorage {
   updateContractorStatus(id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'): Promise<Contractor | undefined>;
   bulkApproveContractors(ids: string[]): Promise<number>;
   bulkRejectContractors(ids: string[]): Promise<number>;
+  
+  // Configuration - Compliance Streams
+  listComplianceStreams(): Promise<ComplianceStream[]>;
+  getComplianceStream(id: string): Promise<ComplianceStream | undefined>;
+  getComplianceStreamByCode(code: string): Promise<ComplianceStream | undefined>;
+  createComplianceStream(stream: InsertComplianceStream): Promise<ComplianceStream>;
+  updateComplianceStream(id: string, updates: Partial<InsertComplianceStream>): Promise<ComplianceStream | undefined>;
+  deleteComplianceStream(id: string): Promise<boolean>;
   
   // Configuration - Certificate Types
   listCertificateTypes(): Promise<CertificateType[]>;
@@ -852,6 +861,39 @@ export class DatabaseStorage implements IStorage {
     ]);
     
     console.log("Demo data seeded successfully");
+  }
+  
+  // Configuration - Compliance Streams
+  async listComplianceStreams(): Promise<ComplianceStream[]> {
+    return db.select().from(complianceStreams).orderBy(complianceStreams.displayOrder);
+  }
+  
+  async getComplianceStream(id: string): Promise<ComplianceStream | undefined> {
+    const [stream] = await db.select().from(complianceStreams).where(eq(complianceStreams.id, id));
+    return stream || undefined;
+  }
+  
+  async getComplianceStreamByCode(code: string): Promise<ComplianceStream | undefined> {
+    const [stream] = await db.select().from(complianceStreams).where(eq(complianceStreams.code, code));
+    return stream || undefined;
+  }
+  
+  async createComplianceStream(stream: InsertComplianceStream): Promise<ComplianceStream> {
+    const [created] = await db.insert(complianceStreams).values(stream).returning();
+    return created;
+  }
+  
+  async updateComplianceStream(id: string, updates: Partial<InsertComplianceStream>): Promise<ComplianceStream | undefined> {
+    const [updated] = await db.update(complianceStreams)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(complianceStreams.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteComplianceStream(id: string): Promise<boolean> {
+    const result = await db.delete(complianceStreams).where(eq(complianceStreams.id, id)).returning();
+    return result.length > 0;
   }
   
   // Configuration - Certificate Types

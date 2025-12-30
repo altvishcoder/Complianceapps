@@ -383,13 +383,35 @@ export const normalisationRules = pgTable("normalisation_rules", {
 // SYSTEM CONFIGURATION TABLES
 // ==========================================
 
+// Compliance Streams Configuration (Gas Safety, Electrical, Fire Safety, etc.)
+export const complianceStreams = pgTable("compliance_streams", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  code: text("code").notNull().unique(), // "GAS_HEATING", "ELECTRICAL", "FIRE_SAFETY", etc.
+  name: text("name").notNull(), // "Gas & Heating Safety"
+  description: text("description"),
+  
+  // Stream configuration
+  colorCode: text("color_code"), // Hex color for UI display
+  iconName: text("icon_name"), // Icon identifier for UI
+  
+  // System flags
+  isSystem: boolean("is_system").notNull().default(false), // Cannot be deleted/modified if true
+  isActive: boolean("is_active").notNull().default(true), // Can be disabled without deletion
+  
+  displayOrder: integer("display_order").notNull().default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Certificate Types Configuration
 export const certificateTypes = pgTable("certificate_types", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   code: text("code").notNull().unique(), // "GAS_SAFETY", "EICR", etc.
   name: text("name").notNull(), // "Gas Safety Certificate (CP12)"
   shortName: text("short_name").notNull(), // "Gas Safety"
-  complianceStream: text("compliance_stream").notNull(), // "GAS", "ELECTRICAL", "FIRE", etc.
+  complianceStream: text("compliance_stream").notNull(), // "GAS_HEATING", "ELECTRICAL", "FIRE_SAFETY", etc.
+  streamId: varchar("stream_id").references(() => complianceStreams.id), // FK to compliance_streams
   description: text("description"),
   
   // Validity configuration
@@ -1129,6 +1151,7 @@ export const insertComplianceRuleSchema = createInsertSchema(complianceRules).om
 export const insertNormalisationRuleSchema = createInsertSchema(normalisationRules).omit({ id: true });
 
 // Configuration Insert Schemas
+export const insertComplianceStreamSchema = createInsertSchema(complianceStreams).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCertificateTypeSchema = createInsertSchema(certificateTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClassificationCodeSchema = createInsertSchema(classificationCodes).omit({ id: true, createdAt: true, updatedAt: true });
 
@@ -1194,6 +1217,9 @@ export type NormalisationRule = typeof normalisationRules.$inferSelect;
 export type InsertNormalisationRule = z.infer<typeof insertNormalisationRuleSchema>;
 
 // Configuration Types
+export type ComplianceStream = typeof complianceStreams.$inferSelect;
+export type InsertComplianceStream = z.infer<typeof insertComplianceStreamSchema>;
+
 export type CertificateType = typeof certificateTypes.$inferSelect;
 export type InsertCertificateType = z.infer<typeof insertCertificateTypeSchema>;
 

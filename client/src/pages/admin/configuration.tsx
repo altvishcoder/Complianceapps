@@ -12,16 +12,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2 } from "lucide-react";
+import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLayoutEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { 
-  certificateTypesApi, classificationCodesApi, extractionSchemasApi, 
+  complianceStreamsApi, certificateTypesApi, classificationCodesApi, extractionSchemasApi, 
   complianceRulesApi, normalisationRulesApi 
 } from "@/lib/api";
 import type { 
+  ComplianceStream, InsertComplianceStream,
   CertificateType, ClassificationCode, ExtractionSchema, 
   ComplianceRule, NormalisationRule, InsertCertificateType, InsertClassificationCode 
 } from "@shared/schema";
@@ -36,11 +37,13 @@ export default function Configuration() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [editingStream, setEditingStream] = useState<ComplianceStream | null>(null);
   const [editingCertType, setEditingCertType] = useState<CertificateType | null>(null);
   const [editingCode, setEditingCode] = useState<ClassificationCode | null>(null);
   const [editingSchema, setEditingSchema] = useState<ExtractionSchema | null>(null);
   const [editingRule, setEditingRule] = useState<ComplianceRule | null>(null);
   const [editingNormRule, setEditingNormRule] = useState<NormalisationRule | null>(null);
+  const [showStreamDialog, setShowStreamDialog] = useState(false);
   const [showCertTypeDialog, setShowCertTypeDialog] = useState(false);
   const [showCodeDialog, setShowCodeDialog] = useState(false);
   const [showSchemaDialog, setShowSchemaDialog] = useState(false);
@@ -56,6 +59,12 @@ export default function Configuration() {
       setIsAuthorized(false);
     }
   }, []);
+
+  const { data: complianceStreams = [], isLoading: streamsLoading } = useQuery({
+    queryKey: ["complianceStreams"],
+    queryFn: complianceStreamsApi.list,
+    enabled: isAuthorized,
+  });
 
   const { data: certificateTypes = [], isLoading: typesLoading } = useQuery({
     queryKey: ["certificateTypes"],
@@ -85,6 +94,43 @@ export default function Configuration() {
     queryKey: ["normalisationRules"],
     queryFn: normalisationRulesApi.list,
     enabled: isAuthorized,
+  });
+
+  const createStreamMutation = useMutation({
+    mutationFn: (data: InsertComplianceStream) => complianceStreamsApi.create(data),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Compliance stream created" });
+      queryClient.invalidateQueries({ queryKey: ["complianceStreams"] });
+      setShowStreamDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateStreamMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InsertComplianceStream> }) => 
+      complianceStreamsApi.update(id, data),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Compliance stream updated" });
+      queryClient.invalidateQueries({ queryKey: ["complianceStreams"] });
+      setShowStreamDialog(false);
+      setEditingStream(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteStreamMutation = useMutation({
+    mutationFn: (id: string) => complianceStreamsApi.delete(id),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Compliance stream deleted" });
+      queryClient.invalidateQueries({ queryKey: ["complianceStreams"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const createCertTypeMutation = useMutation({
@@ -202,6 +248,47 @@ export default function Configuration() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const handleSaveStream = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    if (editingStream) {
+      // For existing streams, only send isActive for system streams (preserve isSystem)
+      if (editingStream.isSystem) {
+        // System streams can only toggle isActive
+        updateStreamMutation.mutate({ 
+          id: editingStream.id, 
+          data: { isActive: formData.get("isActive") === "on" }
+        });
+      } else {
+        // Custom streams can update all fields except isSystem
+        const data: Partial<InsertComplianceStream> = {
+          code: formData.get("code") as string,
+          name: formData.get("name") as string,
+          description: formData.get("description") as string || undefined,
+          colorCode: formData.get("colorCode") as string || "#6366F1",
+          iconName: formData.get("iconName") as string || "FileCheck",
+          displayOrder: parseInt(formData.get("displayOrder") as string) || 0,
+          isActive: formData.get("isActive") === "on",
+        };
+        updateStreamMutation.mutate({ id: editingStream.id, data });
+      }
+    } else {
+      // New streams are never system streams
+      const data: InsertComplianceStream = {
+        code: formData.get("code") as string,
+        name: formData.get("name") as string,
+        description: formData.get("description") as string || undefined,
+        colorCode: formData.get("colorCode") as string || "#6366F1",
+        iconName: formData.get("iconName") as string || "FileCheck",
+        displayOrder: parseInt(formData.get("displayOrder") as string) || 0,
+        isActive: formData.get("isActive") === "on",
+        isSystem: false,
+      };
+      createStreamMutation.mutate(data);
+    }
+  };
 
   const handleSaveCertType = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -357,8 +444,12 @@ export default function Configuration() {
               <Settings className="h-8 w-8 text-muted-foreground" />
             </div>
 
-            <Tabs defaultValue="cert-types" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="streams" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="streams" data-testid="tab-streams">
+                  <Layers className="h-4 w-4 mr-2" />
+                  Streams
+                </TabsTrigger>
                 <TabsTrigger value="cert-types" data-testid="tab-cert-types">
                   <FileText className="h-4 w-4 mr-2" />
                   Certificate Types
@@ -376,6 +467,206 @@ export default function Configuration() {
                   Domain Rules
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="streams" className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Compliance Streams</strong> are high-level categories that group related certificate types (e.g., Gas & Heating, Electrical, Fire Safety). 
+                    Each stream represents a distinct regulatory area in UK social housing compliance. System streams cannot be deleted but can be disabled.
+                  </AlertDescription>
+                </Alert>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Compliance Streams</CardTitle>
+                      <CardDescription>Configure the compliance categories for your organisation.</CardDescription>
+                    </div>
+                    <Dialog open={showStreamDialog} onOpenChange={(open) => {
+                      setShowStreamDialog(open);
+                      if (!open) setEditingStream(null);
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button data-testid="button-add-stream">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Stream
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>{editingStream ? "Edit" : "Add"} Compliance Stream</DialogTitle>
+                          <DialogDescription>
+                            Configure the compliance stream details.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSaveStream} className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="code">Code</Label>
+                              <Input 
+                                id="code" 
+                                name="code" 
+                                placeholder="GAS_HEATING" 
+                                defaultValue={editingStream?.code || ""} 
+                                required 
+                                disabled={editingStream?.isSystem}
+                                data-testid="input-stream-code" 
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="colorCode">Colour</Label>
+                              <Input 
+                                id="colorCode" 
+                                name="colorCode" 
+                                type="color" 
+                                defaultValue={editingStream?.colorCode || "#6366F1"} 
+                                data-testid="input-stream-color" 
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="name">Name</Label>
+                            <Input 
+                              id="name" 
+                              name="name" 
+                              placeholder="Gas & Heating Safety" 
+                              defaultValue={editingStream?.name || ""} 
+                              required 
+                              disabled={editingStream?.isSystem}
+                              data-testid="input-stream-name" 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="description">Description</Label>
+                            <Textarea 
+                              id="description" 
+                              name="description" 
+                              placeholder="Description of the compliance stream..." 
+                              defaultValue={editingStream?.description || ""} 
+                              disabled={editingStream?.isSystem}
+                              data-testid="input-stream-description" 
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="iconName">Icon Name</Label>
+                              <Input 
+                                id="iconName" 
+                                name="iconName" 
+                                placeholder="Flame" 
+                                defaultValue={editingStream?.iconName || ""} 
+                                disabled={editingStream?.isSystem}
+                                data-testid="input-stream-icon" 
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="displayOrder">Display Order</Label>
+                              <Input 
+                                id="displayOrder" 
+                                name="displayOrder" 
+                                type="number" 
+                                defaultValue={editingStream?.displayOrder || 0} 
+                                disabled={editingStream?.isSystem}
+                                data-testid="input-stream-display-order" 
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch 
+                              id="isActive" 
+                              name="isActive" 
+                              defaultChecked={editingStream?.isActive ?? true} 
+                              data-testid="switch-stream-is-active" 
+                            />
+                            <Label htmlFor="isActive">Active</Label>
+                          </div>
+                          <DialogFooter>
+                            <Button type="submit" disabled={createStreamMutation.isPending || updateStreamMutation.isPending} data-testid="button-save-stream">
+                              {(createStreamMutation.isPending || updateStreamMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                              Save
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </CardHeader>
+                  <CardContent>
+                    {streamsLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : complianceStreams.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No compliance streams configured yet.</p>
+                        <p className="text-sm">Add your first compliance stream to get started.</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Stream</TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {complianceStreams.map((stream) => (
+                            <TableRow key={stream.id} data-testid={`row-stream-${stream.id}`}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full" 
+                                    style={{ backgroundColor: stream.colorCode || "#6366F1" }} 
+                                  />
+                                  <span className="font-medium">{stream.name}</span>
+                                  {stream.isSystem && (
+                                    <Badge variant="outline" className="text-xs">
+                                      <Lock className="h-3 w-3 mr-1" />
+                                      System
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{stream.code}</TableCell>
+                              <TableCell className="max-w-xs truncate text-muted-foreground text-sm">
+                                {stream.description}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={stream.isActive ? "default" : "secondary"}>
+                                  {stream.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => { setEditingStream(stream); setShowStreamDialog(true); }} 
+                                  data-testid={`button-edit-stream-${stream.id}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                {!stream.isSystem && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => deleteStreamMutation.mutate(stream.id)} 
+                                    data-testid={`button-delete-stream-${stream.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
               <TabsContent value="cert-types" className="space-y-4">
                 <Alert className="bg-blue-50 border-blue-200">
@@ -426,18 +717,22 @@ export default function Configuration() {
                           </div>
                           <div>
                             <Label htmlFor="complianceStream">Compliance Stream</Label>
-                            <Select name="complianceStream" defaultValue={editingCertType?.complianceStream || "GAS"}>
+                            <Select name="complianceStream" defaultValue={editingCertType?.complianceStream || complianceStreams[0]?.code || ""}>
                               <SelectTrigger data-testid="select-compliance-stream">
-                                <SelectValue />
+                                <SelectValue placeholder="Select a stream" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="GAS">Gas</SelectItem>
-                                <SelectItem value="ELECTRICAL">Electrical</SelectItem>
-                                <SelectItem value="FIRE">Fire Safety</SelectItem>
-                                <SelectItem value="ASBESTOS">Asbestos</SelectItem>
-                                <SelectItem value="WATER">Water/Legionella</SelectItem>
-                                <SelectItem value="LIFT">Lift/LOLER</SelectItem>
-                                <SelectItem value="ENERGY">Energy</SelectItem>
+                                {complianceStreams.filter(s => s.isActive).map((stream) => (
+                                  <SelectItem key={stream.id} value={stream.code}>
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-2 h-2 rounded-full" 
+                                        style={{ backgroundColor: stream.colorCode || "#6366F1" }} 
+                                      />
+                                      {stream.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>

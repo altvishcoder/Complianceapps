@@ -2,6 +2,7 @@
 import type { 
   Property, Certificate, RemedialAction,
   Scheme, Block, InsertProperty, InsertCertificate, Contractor, InsertContractor,
+  ComplianceStream, InsertComplianceStream,
   CertificateType, InsertCertificateType, ClassificationCode, InsertClassificationCode,
   ExtractionSchema, InsertExtractionSchema, ComplianceRule, InsertComplianceRule,
   NormalisationRule, InsertNormalisationRule,
@@ -276,6 +277,27 @@ export const contractorsApi = {
       method: "POST",
       body: JSON.stringify({ ids }),
     }),
+};
+
+// Configuration - Compliance Streams
+export const complianceStreamsApi = {
+  list: () => fetchJSON<ComplianceStream[]>(`${API_BASE}/config/compliance-streams`),
+  
+  get: (id: string) => fetchJSON<ComplianceStream>(`${API_BASE}/config/compliance-streams/${id}`),
+  
+  create: (data: InsertComplianceStream) => fetchJSON<ComplianceStream>(`${API_BASE}/config/compliance-streams`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertComplianceStream>) => fetchJSON<ComplianceStream>(`${API_BASE}/config/compliance-streams/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/config/compliance-streams/${id}`, {
+    method: "DELETE",
+  }),
 };
 
 // Configuration - Certificate Types

@@ -1,6 +1,6 @@
 // Seed script for initial ComplianceAI data
 import { db } from "./db";
-import { organisations, schemes, blocks, properties, users, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings } from "@shared/schema";
+import { organisations, schemes, blocks, properties, users, complianceStreams, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -302,6 +302,44 @@ async function seedConfiguration() {
   }
   
   console.log("🔧 Seeding/updating configuration data (upsert mode)...");
+  
+  // ==================== COMPLIANCE STREAMS ====================
+  // Comprehensive compliance streams covering all UK social housing regulations
+  const streamsData = [
+    { code: "GAS_HEATING", name: "Gas & Heating Safety", description: "Gas safety, boilers, oil, LPG, solid fuel, heat pumps per Gas Safety Regulations 1998", colorCode: "#EF4444", iconName: "Flame", isSystem: true, isActive: true, displayOrder: 1 },
+    { code: "ELECTRICAL", name: "Electrical Safety", description: "Electrical installations, testing, PAT per Electrical Safety Standards Regulations 2020", colorCode: "#F59E0B", iconName: "Zap", isSystem: true, isActive: true, displayOrder: 2 },
+    { code: "ENERGY", name: "Energy & Efficiency", description: "EPC, SAP assessments, energy efficiency per MEES Regulations", colorCode: "#22C55E", iconName: "Leaf", isSystem: true, isActive: true, displayOrder: 3 },
+    { code: "FIRE_SAFETY", name: "Fire Safety", description: "Fire risk assessments, alarms, doors, extinguishers per RRO 2005 & FSA 2022", colorCode: "#DC2626", iconName: "FireExtinguisher", isSystem: true, isActive: true, displayOrder: 4 },
+    { code: "ASBESTOS", name: "Asbestos Management", description: "Asbestos surveys, register, R&D per Control of Asbestos Regulations 2012", colorCode: "#7C3AED", iconName: "AlertTriangle", isSystem: true, isActive: true, displayOrder: 5 },
+    { code: "WATER_SAFETY", name: "Water Safety & Legionella", description: "Legionella risk assessments, water testing per HSE ACOP L8", colorCode: "#0EA5E9", iconName: "Droplets", isSystem: true, isActive: true, displayOrder: 6 },
+    { code: "LIFTING", name: "Lifting Equipment", description: "Passenger lifts, hoists, stairlifts per LOLER 1998 & PUWER 1998", colorCode: "#6366F1", iconName: "ArrowUpDown", isSystem: true, isActive: true, displayOrder: 7 },
+    { code: "BUILDING_SAFETY", name: "Building & Structural Safety", description: "Structure, roof, cladding, facades per Building Safety Act 2022", colorCode: "#78716C", iconName: "Building2", isSystem: true, isActive: true, displayOrder: 8 },
+    { code: "EXTERNAL", name: "External Areas & Grounds", description: "Playgrounds, trees, fencing, grounds per BS EN 1176 & BS 5837", colorCode: "#84CC16", iconName: "TreePine", isSystem: true, isActive: true, displayOrder: 9 },
+    { code: "SECURITY", name: "Security & Access", description: "Door entry, CCTV, access control, communal security", colorCode: "#0F172A", iconName: "ShieldCheck", isSystem: true, isActive: true, displayOrder: 10 },
+    { code: "HRB_SPECIFIC", name: "Higher-Risk Buildings (HRB)", description: "Specific requirements for buildings 18m+ per Building Safety Act 2022", colorCode: "#B91C1C", iconName: "Building", isSystem: true, isActive: true, displayOrder: 11 },
+    { code: "HOUSING_HEALTH", name: "Housing Health & Safety", description: "HHSRS hazard assessments, damp & mould per Housing Act 2004", colorCode: "#0D9488", iconName: "Home", isSystem: true, isActive: true, displayOrder: 12 },
+    { code: "ACCESSIBILITY", name: "Accessibility & Adaptations", description: "DDA compliance, adaptations, accessible features", colorCode: "#8B5CF6", iconName: "Accessibility", isSystem: true, isActive: true, displayOrder: 13 },
+    { code: "PEST_CONTROL", name: "Pest Control", description: "Pest inspections and treatment records", colorCode: "#A3A3A3", iconName: "Bug", isSystem: true, isActive: true, displayOrder: 14 },
+    { code: "WASTE", name: "Waste Management", description: "Bin stores, recycling, waste disposal compliance", colorCode: "#65A30D", iconName: "Trash2", isSystem: true, isActive: true, displayOrder: 15 },
+    { code: "COMMUNAL", name: "Communal Areas", description: "Communal cleaning, lighting, general maintenance", colorCode: "#EC4899", iconName: "Users", isSystem: true, isActive: true, displayOrder: 16 },
+  ];
+  
+  for (const stream of streamsData) {
+    await db.insert(complianceStreams).values(stream)
+      .onConflictDoUpdate({
+        target: complianceStreams.code,
+        set: {
+          name: stream.name,
+          description: stream.description,
+          colorCode: stream.colorCode,
+          iconName: stream.iconName,
+          isSystem: stream.isSystem,
+          displayOrder: stream.displayOrder,
+          updatedAt: new Date()
+        }
+      });
+  }
+  console.log(`✓ Upserted ${streamsData.length} compliance streams`);
   
   // ==================== CERTIFICATE TYPES ====================
   // Comprehensive compliance types based on UK social housing regulations

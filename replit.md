@@ -26,7 +26,8 @@ Preferred communication style: Simple, everyday language.
 -   **Database**: PostgreSQL.
 -   **Migrations**: Drizzle Kit.
 -   **Data Model**: Follows UKHDS 5-level asset hierarchy (Organisation, Scheme, Block, Property, Unit, Component).
--   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 categories aligned with UK social housing regulations.
+-   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 compliance streams aligned with UK social housing regulations.
+-   **Compliance Streams**: 16 high-level compliance categories (Gas & Heating, Electrical, Energy, Fire Safety, Asbestos, Water Safety, Lifting Equipment, Building Safety, External Areas, Security, HRB-specific, Housing Health, Accessibility, Pest Control, Waste, Communal) with system protection (isSystem streams cannot be deleted, only disabled).
 -   **Configuration Data**: Comprehensive industry-standard configuration:
     - 80 certificate types across all compliance streams
     - 45 extraction schemas for AI document processing

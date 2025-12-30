@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
-  insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
+  insertComplianceStreamSchema, insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
   insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
@@ -2474,6 +2474,104 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+  
+  // ===== CONFIGURATION - COMPLIANCE STREAMS =====
+  app.get("/api/config/compliance-streams", async (req, res) => {
+    try {
+      const streams = await storage.listComplianceStreams();
+      res.json(streams);
+    } catch (error) {
+      console.error("Error fetching compliance streams:", error);
+      res.status(500).json({ error: "Failed to fetch compliance streams" });
+    }
+  });
+  
+  app.get("/api/config/compliance-streams/:id", async (req, res) => {
+    try {
+      const stream = await storage.getComplianceStream(req.params.id);
+      if (!stream) {
+        return res.status(404).json({ error: "Compliance stream not found" });
+      }
+      res.json(stream);
+    } catch (error) {
+      console.error("Error fetching compliance stream:", error);
+      res.status(500).json({ error: "Failed to fetch compliance stream" });
+    }
+  });
+  
+  app.post("/api/config/compliance-streams", async (req, res) => {
+    try {
+      const data = insertComplianceStreamSchema.parse(req.body);
+      const stream = await storage.createComplianceStream(data);
+      res.status(201).json(stream);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating compliance stream:", error);
+        res.status(500).json({ error: "Failed to create compliance stream" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/compliance-streams/:id", async (req, res) => {
+    try {
+      // Check if stream is a system stream
+      const existingStream = await storage.getComplianceStream(req.params.id);
+      if (!existingStream) {
+        return res.status(404).json({ error: "Compliance stream not found" });
+      }
+      
+      // For system streams, only allow toggling isActive
+      const updateData = insertComplianceStreamSchema.partial().parse(req.body);
+      if (existingStream.isSystem) {
+        const allowedUpdates: any = {};
+        if (updateData.isActive !== undefined) {
+          allowedUpdates.isActive = updateData.isActive;
+        }
+        if (Object.keys(allowedUpdates).length === 0) {
+          return res.status(403).json({ error: "Cannot modify system stream properties other than isActive" });
+        }
+        const updated = await storage.updateComplianceStream(req.params.id, allowedUpdates);
+        return res.json(updated);
+      }
+      
+      // Never allow changing isSystem field on any stream
+      const { isSystem: _, ...safeUpdateData } = updateData as any;
+      const updated = await storage.updateComplianceStream(req.params.id, safeUpdateData);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating compliance stream:", error);
+        res.status(500).json({ error: "Failed to update compliance stream" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/compliance-streams/:id", async (req, res) => {
+    try {
+      // Check if stream is a system stream
+      const existingStream = await storage.getComplianceStream(req.params.id);
+      if (!existingStream) {
+        return res.status(404).json({ error: "Compliance stream not found" });
+      }
+      
+      if (existingStream.isSystem) {
+        return res.status(403).json({ error: "Cannot delete system streams. Use isActive to disable." });
+      }
+      
+      const deleted = await storage.deleteComplianceStream(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Compliance stream not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting compliance stream:", error);
+      res.status(500).json({ error: "Failed to delete compliance stream" });
     }
   });
   
