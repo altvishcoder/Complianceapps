@@ -27,7 +27,13 @@ Preferred communication style: Simple, everyday language.
 -   **Migrations**: Drizzle Kit.
 -   **Data Model**: Follows UKHDS 5-level asset hierarchy (Organisation, Scheme, Block, Property, Unit, Component).
 -   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 categories aligned with UK social housing regulations.
--   **Configuration Data**: Extensive certificate types, extraction schemas, compliance rules, normalization rules, component types, and classification codes.
+-   **Configuration Data**: Comprehensive industry-standard configuration:
+    - 80 certificate types across all compliance streams
+    - 45 extraction schemas for AI document processing
+    - 64 compliance rules with UK legislation references (Gas Safety Regs 1998, BS 7671, RRO 2005, CAR 2012, LOLER 1998, BSA 2022, etc.)
+    - 46 normalisation rules for data standardisation
+    - 70 classification codes with remedial action automation settings (autoCreateAction, actionSeverity, costEstimateLow/High)
+    - 36 component types aligned with HACT standards
 
 ### Key Features
 -   **AI-powered Document Extraction**: Processes uploaded compliance certificates using AI, covering 45 extraction schemas.
