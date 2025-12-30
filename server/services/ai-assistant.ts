@@ -243,20 +243,36 @@ Want me to help you with something else? You can:
 async function searchProperties(query: string): Promise<string | null> {
   const searchTerms = query.toLowerCase();
   
-  // Check for compliance-based queries first
-  const wantsNonCompliant = searchTerms.includes('non-compliant') || searchTerms.includes('non compliant') || 
+  // Skip if query is too short or looks like general chat
+  if (query.length < 5) return null;
+  
+  // Skip off-topic questions - let LLM handle redirection
+  const offTopicIndicators = ['what do you think', 'opinion', 'politics', 'weather', 'news', 'joke', 
+    'how are you', 'hello', 'hi there', 'thanks', 'thank you', 'bye', 'goodbye', 'who are you',
+    'recipe', 'cook', 'movie', 'music', 'sport', 'game', 'travel', 'vacation'];
+  if (offTopicIndicators.some(term => searchTerms.includes(term))) {
+    return null; // Let LLM handle this with proper redirection
+  }
+  
+  // Check for compliance-based queries first - must include property-related terms
+  const hasPropertyContext = searchTerms.includes('propert') || searchTerms.includes('block') || 
+    searchTerms.includes('scheme') || searchTerms.includes('building') || searchTerms.includes('unit');
+  
+  const wantsNonCompliant = (searchTerms.includes('non-compliant') || searchTerms.includes('non compliant') || 
     searchTerms.includes('issues') || searchTerms.includes('problem') || searchTerms.includes('low compliance') ||
-    searchTerms.includes('failing') || searchTerms.includes('at risk');
-  const wantsExpiring = searchTerms.includes('expir') || searchTerms.includes('due soon') || searchTerms.includes('renew');
-  const wantsCompliant = (searchTerms.includes('compliant') || searchTerms.includes('good')) && !wantsNonCompliant;
+    searchTerms.includes('failing') || searchTerms.includes('at risk')) && hasPropertyContext;
+  const wantsExpiring = (searchTerms.includes('expir') || searchTerms.includes('due soon')) && hasPropertyContext;
   
   if (wantsNonCompliant || wantsExpiring) {
     return await getPropertiesWithIssues();
   }
   
-  // Check if this looks like a property search
-  const propertyIndicators = ['find', 'show', 'details', 'property', 'about', 'where is', 'look up', 'search'];
-  const isPropertySearch = propertyIndicators.some(term => searchTerms.includes(term));
+  // Check if this looks like a property search - need explicit property context
+  const propertyIndicators = ['find', 'show me', 'details for', 'look up', 'search for'];
+  const addressIndicators = ['street', 'road', 'lane', 'avenue', 'drive', 'close', 'way', 'house', 'flat'];
+  const hasAddressHint = addressIndicators.some(term => searchTerms.includes(term)) || /[A-Z]{1,2}\d/.test(query); // Postcode pattern
+  
+  const isPropertySearch = (propertyIndicators.some(term => searchTerms.includes(term)) && hasPropertyContext) || hasAddressHint;
   
   if (!isPropertySearch) return null;
   
