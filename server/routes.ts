@@ -278,6 +278,52 @@ export async function registerRoutes(
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   
+  // ===== AI ASSISTANT CHAT ENDPOINT =====
+  const chatMessageSchema = z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().min(1).max(4000),
+  });
+  
+  const chatRequestSchema = z.object({
+    messages: z.array(chatMessageSchema).min(1).max(20),
+  });
+  
+  app.post("/api/assistant/chat", async (req, res) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      const parseResult = chatRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid request format", details: parseResult.error.issues });
+      }
+      
+      const { messages } = parseResult.data;
+      
+      const { chatWithAssistant } = await import('./services/ai-assistant');
+      const result = await chatWithAssistant(messages, user.organisationId || undefined);
+      
+      if (result.success) {
+        res.json({ 
+          message: result.message,
+          tokensUsed: result.tokensUsed 
+        });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to get response" });
+      }
+    } catch (error) {
+      console.error("AI Assistant error:", error);
+      res.status(500).json({ error: "Failed to process chat request" });
+    }
+  });
+  
   // ===== GLOBAL SEARCH (PostgreSQL Full-Text Search) =====
   app.get("/api/search", async (req, res) => {
     try {

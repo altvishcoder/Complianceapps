@@ -59,6 +59,7 @@ import EvidencePage from "@/pages/maps/evidence";
 import LandingPage from "@/pages/landing";
 import HelpPage from "@/pages/help";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
+import { AIAssistant } from "@/components/AIAssistant";
 
 function Router() {
   return (
@@ -106,11 +107,13 @@ function Router() {
 
 function AppContent() {
   useExtractionEvents();
+  
   return (
     <>
       <Toaster />
       <KeyboardShortcutsDialog />
       <Router />
+      <AIAssistant />
     </>
   );
 }
