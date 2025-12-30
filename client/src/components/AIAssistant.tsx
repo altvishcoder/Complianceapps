@@ -134,33 +134,8 @@ export function AIAssistant() {
         throw new Error('Failed to get response');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
-      
-      const decoder = new TextDecoder();
-      let assistantMessage = '';
-      
-      setMessages([...newMessages, { role: 'assistant', content: '' }]);
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.text) {
-                assistantMessage += data.text;
-                setMessages([...newMessages, { role: 'assistant', content: assistantMessage }]);
-              }
-            } catch {}
-          }
-        }
-      }
+      const data = await response.json();
+      setMessages([...newMessages, { role: 'assistant', content: data.message }]);
     } catch (error) {
       setMessages([
         ...newMessages,
@@ -304,8 +279,10 @@ export function AIAssistant() {
                     <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
-                    <div className="rounded-lg px-4 py-2 bg-muted">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <div className="rounded-lg px-4 py-3 bg-muted flex items-center gap-1">
+                      <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                     </div>
                   </div>
                 )}

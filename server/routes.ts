@@ -307,23 +307,14 @@ export async function registerRoutes(
       
       const { messages } = parseResult.data;
       
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache, no-transform');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no');
-      res.flushHeaders();
+      const { chatWithAssistant } = await import('./services/ai-assistant');
+      const result = await chatWithAssistant(messages, user.organisationId || undefined);
       
-      const { chatWithAssistantStream } = await import('./services/ai-assistant');
-      
-      for await (const chunk of chatWithAssistantStream(messages, user.organisationId || undefined)) {
-        res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
-        if (typeof (res as any).flush === 'function') {
-          (res as any).flush();
-        }
+      if (result.success) {
+        res.json({ message: result.message });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to get response" });
       }
-      
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
     } catch (error) {
       console.error("AI Assistant error:", error);
       res.status(500).json({ error: "Failed to process chat request" });
