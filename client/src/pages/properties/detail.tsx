@@ -4,12 +4,70 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft, Wrench } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { propertiesApi } from "@/lib/api";
+
+function PropertyDetailSkeleton() {
+  return (
+    <div className="flex h-screen bg-muted/30">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Property Details" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 rounded" />
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-9 w-36" />
+            </div>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1 h-fit">
+              <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="contents">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  ))}
+                </div>
+                <Separator />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-12 w-full rounded-md" />
+                <Skeleton className="h-12 w-full rounded-md" />
+              </CardContent>
+            </Card>
+            <div className="md:col-span-2">
+              <Skeleton className="h-10 w-full rounded-md mb-4" />
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-40" />
+                  <Skeleton className="h-4 w-64" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {[1,2,3].map(i => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
 
 export default function PropertyDetail() {
   const [match, params] = useRoute("/properties/:id");
@@ -20,7 +78,7 @@ export default function PropertyDetail() {
     enabled: !!params?.id,
   });
 
-  if (isLoading || !property) return <div className="p-8">Loading...</div>;
+  if (isLoading || !property) return <PropertyDetailSkeleton />;
   
   const certificates = property.certificates || [];
   const actions = property.actions || [];
