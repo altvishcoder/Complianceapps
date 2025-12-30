@@ -61,18 +61,28 @@ interface ExtractionSettings {
 
 async function getExtractionSettings(): Promise<ExtractionSettings> {
   try {
+    // Load both AI category (visible in UI) and EXTRACTION category settings
     const settings = await db
       .select()
-      .from(factorySettings)
-      .where(eq(factorySettings.category, 'EXTRACTION'));
+      .from(factorySettings);
 
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
 
+    // Use AI category settings (visible in Factory Settings UI) as primary
+    // Fall back to EXTRACTION category for backward compatibility
+    const aiEnabled = 
+      settingsMap.get('AI_EXTRACTION_ENABLED') === 'true' ||
+      settingsMap.get('extraction.enableAIProcessing') === 'true';
+    
+    // AI_CONFIDENCE_THRESHOLD from UI applies to all tiers as base threshold
+    const baseThreshold = parseFloat(settingsMap.get('AI_CONFIDENCE_THRESHOLD') || '0.75');
+    
     return {
-      aiEnabled: settingsMap.get('extraction.enableAIProcessing') === 'true',
-      tier1Threshold: parseFloat(settingsMap.get('extraction.tier1ConfidenceThreshold') || '0.85'),
-      tier2Threshold: parseFloat(settingsMap.get('extraction.tier2ConfidenceThreshold') || '0.80'),
-      tier3Threshold: parseFloat(settingsMap.get('extraction.tier3ConfidenceThreshold') || '0.70'),
+      aiEnabled,
+      // Tier thresholds: use specific EXTRACTION settings if available, else derive from base
+      tier1Threshold: parseFloat(settingsMap.get('extraction.tier1ConfidenceThreshold') || String(Math.max(baseThreshold, 0.85))),
+      tier2Threshold: parseFloat(settingsMap.get('extraction.tier2ConfidenceThreshold') || String(baseThreshold)),
+      tier3Threshold: parseFloat(settingsMap.get('extraction.tier3ConfidenceThreshold') || String(Math.max(baseThreshold - 0.10, 0.60))),
       maxCostPerDocument: parseFloat(settingsMap.get('extraction.maxCostPerDocument') || '0.05'),
     };
   } catch (error) {
