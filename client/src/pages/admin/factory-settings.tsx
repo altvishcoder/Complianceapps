@@ -9,10 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Settings, Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2 } from "lucide-react";
+import { Settings, Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { adminApi } from "@/lib/api";
 
 interface FactorySetting {
   id: string;
@@ -38,6 +39,7 @@ const categoryIcons: Record<string, React.ElementType> = {
   SECURITY: Lock,
   WEBHOOKS: Webhook,
   AI: Cpu,
+  DEMO_DATA: Database,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -47,6 +49,7 @@ const categoryLabels: Record<string, string> = {
   SECURITY: "API Security",
   WEBHOOKS: "Webhooks",
   AI: "AI Extraction",
+  DEMO_DATA: "Demo Data",
 };
 
 export default function FactorySettings() {
@@ -57,6 +60,7 @@ export default function FactorySettings() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
   const [confirmDialog, setConfirmDialog] = useState<{ key: string; value: string } | null>(null);
+  const [activeTab, setActiveTab] = useState("RATE_LIMITING");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -69,6 +73,41 @@ export default function FactorySettings() {
       setIsAuthorized(false);
     }
   }, []);
+
+  const wipeDataMutation = useMutation({
+    mutationFn: (includeProperties: boolean) => adminApi.wipeData(includeProperties),
+    onSuccess: (data) => {
+      toast({ title: "Success", description: data.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const seedDemoMutation = useMutation({
+    mutationFn: () => adminApi.seedDemo(),
+    onSuccess: (data) => {
+      toast({ title: "Success", description: data.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetDemoMutation = useMutation({
+    mutationFn: () => adminApi.resetDemo(),
+    onSuccess: (data) => {
+      toast({ title: "Success", description: data.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isDemoLoading = wipeDataMutation.isPending || seedDemoMutation.isPending || resetDemoMutation.isPending;
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem("user_id") : null;
   
@@ -284,8 +323,8 @@ export default function FactorySettings() {
               <AlertDescription>Failed to load factory settings. Please try again.</AlertDescription>
             </Alert>
           ) : (
-            <Tabs defaultValue="RATE_LIMITING" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+              <TabsList className="grid w-full grid-cols-7">
                 {Object.keys(categoryLabels).map((cat) => {
                   const Icon = categoryIcons[cat] || Settings;
                   return (
@@ -336,6 +375,135 @@ export default function FactorySettings() {
                   </Card>
                 </TabsContent>
               ))}
+
+              <TabsContent value="DEMO_DATA">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      Demo Data Management
+                    </CardTitle>
+                    <CardDescription>
+                      Manage demonstration data for testing and training purposes.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                      <div className="flex gap-2 items-start">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-medium text-amber-800">Important</p>
+                          <p className="text-sm text-amber-700">
+                            These actions modify your database. Wipe operations cannot be undone.
+                            Make sure you have a backup before proceeding.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <Card className="border-2">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Play className="h-4 w-4 text-emerald-600" />
+                            Load Demo Data
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Add sample schemes, blocks, and properties for demonstration purposes.
+                          </p>
+                          <Button 
+                            className="w-full"
+                            variant="outline"
+                            onClick={() => seedDemoMutation.mutate()}
+                            disabled={isDemoLoading}
+                            data-testid="button-seed-demo"
+                          >
+                            {seedDemoMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="mr-2 h-4 w-4" />
+                                Load Demo Data
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-2 border-orange-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Trash2 className="h-4 w-4 text-orange-600" />
+                            Wipe All Data
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Remove all data including properties, schemes, blocks, certificates, and AI model data.
+                          </p>
+                          <Button 
+                            className="w-full"
+                            variant="outline"
+                            onClick={() => wipeDataMutation.mutate(true)}
+                            disabled={isDemoLoading}
+                            data-testid="button-wipe-data"
+                          >
+                            {wipeDataMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Wiping...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Wipe All Data
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-2 border-red-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4 text-red-600" />
+                            Reset Demo
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Wipe everything and start fresh with new demo data.
+                          </p>
+                          <Button 
+                            className="w-full"
+                            variant="destructive"
+                            onClick={() => resetDemoMutation.mutate()}
+                            disabled={isDemoLoading}
+                            data-testid="button-reset-demo"
+                          >
+                            {resetDemoMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Resetting...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Reset Demo
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           )}
         </main>

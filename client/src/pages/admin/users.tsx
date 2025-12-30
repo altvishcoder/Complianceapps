@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -11,10 +11,13 @@ import {
   Shield, 
   Mail, 
   Key,
-  RefreshCw
+  RefreshCw,
+  Building,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
   TableBody, 
@@ -249,7 +252,7 @@ export default function AdminUsersPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight font-display">User Management</h2>
-                <p className="text-muted-foreground">Manage system access, user roles, and passwords.</p>
+                <p className="text-muted-foreground">Manage system access, user roles, and organization settings.</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => refetch()}>
@@ -263,137 +266,205 @@ export default function AdminUsersPage() {
               </div>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>System Users</CardTitle>
-                <CardDescription>
-                  A list of all users with access to the platform. Total: {users.length} users
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center mb-4">
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search users..."
-                      className="pl-9"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      data-testid="input-search-users"
-                    />
-                  </div>
-                </div>
+            <Tabs defaultValue="users" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="users" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Active Users
+                </TabsTrigger>
+                <TabsTrigger value="organization" className="flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  Organization
+                </TabsTrigger>
+              </TabsList>
 
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Change Role</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
-                            Loading users...
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredUsers.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
-                            No users found.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredUsers.map((user) => (
-                          <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
-                                  {user.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{user.name}</span>
-                                  <span className="text-xs text-muted-foreground">{user.email}</span>
-                                </div>
-                                {user.role === "LASHAN_SUPER_USER" && (
-                                  <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-800 text-[10px]">
-                                    OWNER
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="font-normal">
-                                {getRoleIcon(user.role)}
-                                <span className="ml-1.5">{ROLE_LABELS[user.role] || user.role}</span>
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className="bg-emerald-500 hover:bg-emerald-600">
-                                Active
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {user.role !== "LASHAN_SUPER_USER" ? (
-                                <Select 
-                                  value={user.role} 
-                                  onValueChange={(val) => handleRoleChange(user.id, val)}
-                                >
-                                  <SelectTrigger className="w-[160px]" data-testid={`select-role-${user.id}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {ROLE_OPTIONS.map(opt => (
-                                      <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Protected</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-actions-${user.id}`}>
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
-                                    <Mail className="mr-2 h-4 w-4" />
-                                    Copy Email
-                                  </DropdownMenuItem>
-                                  {canResetPassword(user.role) && (
-                                    <>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem onClick={() => openResetPasswordDialog(user)}>
-                                        <Key className="mr-2 h-4 w-4 text-amber-600" />
-                                        Reset Password
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+              <TabsContent value="users">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>System Users</CardTitle>
+                    <CardDescription>
+                      A list of all users with access to the platform. Total: {users.length} users
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center mb-4">
+                      <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="search"
+                          placeholder="Search users..."
+                          className="pl-9"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          data-testid="input-search-users"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Change Role</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {isLoading ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                Loading users...
+                              </TableCell>
+                            </TableRow>
+                          ) : filteredUsers.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                No users found.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            filteredUsers.map((user) => (
+                              <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                                      {user.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{user.name}</span>
+                                      <span className="text-xs text-muted-foreground">{user.email}</span>
+                                    </div>
+                                    {user.role === "LASHAN_SUPER_USER" && (
+                                      <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-800 text-[10px]">
+                                        OWNER
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="font-normal">
+                                    {getRoleIcon(user.role)}
+                                    <span className="ml-1.5">{ROLE_LABELS[user.role] || user.role}</span>
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className="bg-emerald-500 hover:bg-emerald-600">
+                                    Active
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {user.role !== "LASHAN_SUPER_USER" ? (
+                                    <Select 
+                                      value={user.role} 
+                                      onValueChange={(val) => handleRoleChange(user.id, val)}
+                                    >
+                                      <SelectTrigger className="w-[160px]" data-testid={`select-role-${user.id}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {ROLE_OPTIONS.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">Protected</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-actions-${user.id}`}>
+                                        <span className="sr-only">Open menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
+                                        <Mail className="mr-2 h-4 w-4" />
+                                        Copy Email
+                                      </DropdownMenuItem>
+                                      {canResetPassword(user.role) && (
+                                        <>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem onClick={() => openResetPasswordDialog(user)}>
+                                            <Key className="mr-2 h-4 w-4 text-amber-600" />
+                                            Reset Password
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="organization">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building className="h-5 w-5" />
+                      Organization Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure your organization details and default settings.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="org-name">Organization Name</Label>
+                        <div className="relative">
+                          <Building className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input id="org-name" defaultValue="Acme Housing Association" className="pl-9" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-email">Admin Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input id="admin-email" defaultValue="admin@acme-housing.co.uk" className="pl-9" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="mfa-policy">Default MFA Policy</Label>
+                      <Select defaultValue="strict">
+                        <SelectTrigger id="mfa-policy">
+                          <SelectValue placeholder="Select policy" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="strict">Strict (MFA Required for All)</SelectItem>
+                          <SelectItem value="optional">Optional (User Discretion)</SelectItem>
+                          <SelectItem value="admin_only">Admin Only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="pt-4 flex justify-end">
+                      <Button>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Save Organization Settings
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </main>
       </div>
