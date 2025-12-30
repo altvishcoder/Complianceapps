@@ -230,9 +230,28 @@ function detectComponentType(query: string): string | null {
 // Get components needing attention
 async function getComponentsNeedingAttention(typeFilter?: string | null): Promise<string> {
   try {
-    // Get components with upcoming or overdue inspections
     const today = new Date().toISOString().split('T')[0];
+    const typeLabel = typeFilter ? `${typeFilter}s` : 'Components';
     
+    // First check if there are ANY components of this type
+    if (typeFilter) {
+      const allOfType = await db
+        .select({ id: components.id, componentTypeName: componentTypes.name })
+        .from(components)
+        .leftJoin(componentTypes, eq(components.componentTypeId, componentTypes.id))
+        .limit(50);
+      
+      const filterLower = typeFilter.toLowerCase();
+      const matchingCount = allOfType.filter(c => 
+        c.componentTypeName?.toLowerCase().includes(filterLower)
+      ).length;
+      
+      if (matchingCount === 0) {
+        return `🔍 **No ${typeLabel.toLowerCase()} found** in your portfolio. [View all components →](/components)`;
+      }
+    }
+    
+    // Get components with upcoming or overdue inspections
     let query = db
       .select({
         id: components.id,
@@ -266,8 +285,6 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
         c.componentTypeName?.toLowerCase().includes(filterLower)
       );
     }
-    
-    const typeLabel = typeFilter ? `${typeFilter}s` : 'Components';
     
     if (criticalComponents.length === 0) {
       return `✅ **All ${typeLabel.toLowerCase()} up to date!** [View all →](/components)`;
