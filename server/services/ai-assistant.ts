@@ -311,6 +311,14 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
   }
 }
 
+// Shorten address to just street name and number (first 30 chars max)
+function shortenAddress(addr: string | null): string {
+  if (!addr) return 'Unknown';
+  // Take first part before any descriptive text
+  const shortened = addr.split(/,|\s+Building|\s+Property|\s+Contact|\s+Test|\s+Assessment/i)[0].trim();
+  return shortened.length > 35 ? shortened.slice(0, 32) + '...' : shortened;
+}
+
 // Get properties with compliance issues
 async function getPropertiesWithIssues(): Promise<string> {
   try {
@@ -342,29 +350,24 @@ async function getPropertiesWithIssues(): Promise<string> {
       .limit(5);
     
     if (nonCompliantProps.length === 0 && propsWithActions.length === 0) {
-      return `🎉 **Great news!** I couldn't find any properties with major compliance issues right now. Your portfolio is looking healthy!
-
-Want me to help you with something else? You can:
-- Search for a specific property by name or address
-- Ask about compliance requirements
-- Check on upcoming certificate renewals`;
+      return `🎉 **All clear!** No major compliance issues found. [View all properties →](/properties)`;
     }
     
     let response = `⚠️ **Properties Needing Attention**\n\n`;
     
     if (nonCompliantProps.length > 0) {
-      response += `**🔴 Non-Compliant Properties (${nonCompliantProps.length}):**\n\n`;
+      response += `**🔴 Non-Compliant (${nonCompliantProps.length}):**\n`;
       for (const p of nonCompliantProps.slice(0, 5)) {
-        response += `- **${p.addressLine1}**, ${p.postcode}\n`;
-        response += `  ${p.blockName || 'No block'} • [View & fix →](/properties/${p.id})\n\n`;
+        const shortAddr = shortenAddress(p.addressLine1);
+        response += `• [${shortAddr}, ${p.postcode}](/properties/${p.id})\n`;
       }
       if (nonCompliantProps.length > 5) {
-        response += `  ...and ${nonCompliantProps.length - 5} more. [View all properties](/properties?status=NON_COMPLIANT)\n\n`;
+        response += `+${nonCompliantProps.length - 5} more [View all →](/properties?status=NON_COMPLIANT)\n`;
       }
+      response += `\n`;
     }
     
     if (propsWithActions.length > 0) {
-      // Get property details for actions
       const propIds = propsWithActions.map(p => p.propertyId).filter(Boolean) as string[];
       if (propIds.length > 0) {
         const propsWithActionDetails = await db
@@ -377,21 +380,20 @@ Want me to help you with something else? You can:
           .where(or(...propIds.map(id => eq(properties.id, id))))
           .limit(5);
         
-        response += `**🔧 Properties with Open Remedial Actions:**\n\n`;
+        response += `**🔧 Open Actions:**\n`;
         for (const p of propsWithActionDetails) {
           const actionInfo = propsWithActions.find(a => a.propertyId === p.id);
-          response += `- **${p.addressLine1}**, ${p.postcode} - ${actionInfo?.actionCount || 0} open action${(actionInfo?.actionCount || 0) !== 1 ? 's' : ''}\n`;
-          response += `  [View property details →](/properties/${p.id})\n\n`;
+          const shortAddr = shortenAddress(p.addressLine1);
+          const count = actionInfo?.actionCount || 0;
+          response += `• [${shortAddr}, ${p.postcode}](/properties/${p.id}) - ${count} action${count !== 1 ? 's' : ''}\n`;
         }
       }
     }
     
-    response += `💡 **Tip:** Click on any property to see full details and take action!`;
-    
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get properties with issues');
-    return `😅 I had trouble fetching the compliance data. Try refreshing or check the [Properties page](/properties) directly.`;
+    return `😅 Couldn't fetch data. [Check Properties page →](/properties)`;
   }
 }
 
