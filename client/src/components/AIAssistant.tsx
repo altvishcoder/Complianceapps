@@ -111,11 +111,11 @@ export function AIAssistant() {
     }
   }, [isOpen]);
 
-  const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading || !userId) return;
+  const sendMessageWithContent = async (content: string, existingMessages: ChatMessage[]) => {
+    if (!content.trim() || isLoading || !userId) return;
 
-    const userMessage: ChatMessage = { role: 'user', content: inputValue.trim() };
-    const newMessages = [...messages, userMessage];
+    const userMessage: ChatMessage = { role: 'user', content: content.trim() };
+    const newMessages = [...existingMessages, userMessage];
     setMessages(newMessages);
     setInputValue('');
     setIsLoading(true);
@@ -131,12 +131,36 @@ export function AIAssistant() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to get response');
+        throw new Error('Failed to get response');
       }
 
-      const data = await response.json();
-      setMessages([...newMessages, { role: 'assistant', content: data.message }]);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader available');
+      
+      const decoder = new TextDecoder();
+      let assistantMessage = '';
+      
+      setMessages([...newMessages, { role: 'assistant', content: '' }]);
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.text) {
+                assistantMessage += data.text;
+                setMessages([...newMessages, { role: 'assistant', content: assistantMessage }]);
+              }
+            } catch {}
+          }
+        }
+      }
     } catch (error) {
       setMessages([
         ...newMessages,
@@ -145,6 +169,10 @@ export function AIAssistant() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendMessage = async () => {
+    await sendMessageWithContent(inputValue, messages);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -226,31 +254,7 @@ export function AIAssistant() {
                       size="sm"
                       className="w-full text-left justify-start h-auto py-2 px-3 text-xs"
                       onClick={() => {
-                        setInputValue(question);
-                        setTimeout(() => {
-                          const userMessage: ChatMessage = { role: 'user', content: question };
-                          const newMessages = [...messages, userMessage];
-                          setMessages(newMessages);
-                          setInputValue('');
-                          setIsLoading(true);
-                          
-                          fetch('/api/assistant/chat', {
-                            method: 'POST',
-                            headers: { 
-                              'Content-Type': 'application/json',
-                              'X-User-Id': userId!,
-                            },
-                            body: JSON.stringify({ messages: newMessages }),
-                          })
-                            .then(res => res.json())
-                            .then(data => {
-                              setMessages([...newMessages, { role: 'assistant', content: data.message }]);
-                            })
-                            .catch(() => {
-                              setMessages([...newMessages, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
-                            })
-                            .finally(() => setIsLoading(false));
-                        }, 0);
+                        sendMessageWithContent(question, messages);
                       }}
                     >
                       {question}

@@ -278,7 +278,7 @@ export async function registerRoutes(
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   
-  // ===== AI ASSISTANT CHAT ENDPOINT =====
+  // ===== AI ASSISTANT CHAT ENDPOINT (Streaming) =====
   const chatMessageSchema = z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string().min(1).max(4000),
@@ -307,17 +307,18 @@ export async function registerRoutes(
       
       const { messages } = parseResult.data;
       
-      const { chatWithAssistant } = await import('./services/ai-assistant');
-      const result = await chatWithAssistant(messages, user.organisationId || undefined);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
       
-      if (result.success) {
-        res.json({ 
-          message: result.message,
-          tokensUsed: result.tokensUsed 
-        });
-      } else {
-        res.status(500).json({ error: result.error || "Failed to get response" });
+      const { chatWithAssistantStream } = await import('./services/ai-assistant');
+      
+      for await (const chunk of chatWithAssistantStream(messages, user.organisationId || undefined)) {
+        res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
       }
+      
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
     } catch (error) {
       console.error("AI Assistant error:", error);
       res.status(500).json({ error: "Failed to process chat request" });

@@ -104,3 +104,35 @@ export async function chatWithAssistant(
     };
   }
 }
+
+export async function* chatWithAssistantStream(
+  messages: ChatMessage[],
+  organisationId?: string
+): AsyncGenerator<string, void, unknown> {
+  try {
+    const complianceContext = await getComplianceContext();
+    
+    const systemContent = complianceContext 
+      ? `${SYSTEM_PROMPT}\n\n${complianceContext}`
+      : SYSTEM_PROMPT;
+
+    const stream = anthropic.messages.stream({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 512,
+      system: systemContent,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+    });
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        yield event.delta.text;
+      }
+    }
+  } catch (error: any) {
+    logger.error({ error }, 'AI Assistant stream error');
+    yield 'I apologize, but I encountered an error. Please try again.';
+  }
+}
