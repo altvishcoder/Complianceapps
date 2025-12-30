@@ -1767,10 +1767,21 @@ export async function processExtractionAndSave(
       { forceAI: true }
     );
     
-    const tierToNumber: Record<string, number> = {
-      'tier-0': 0, 'tier-0.5': 0.5, 'tier-1': 1, 'tier-1.5': 1.5, 
-      'tier-2': 2, 'tier-3': 3, 'tier-4': 4
+    // Map tier strings to integer ordinals (0-6) for database storage
+    const tierToOrdinal: Record<string, number> = {
+      'tier-0': 0, 'tier-0.5': 1, 'tier-1': 2, 'tier-1.5': 3, 
+      'tier-2': 4, 'tier-3': 5, 'tier-4': 6
     };
+    
+    // Validate and normalize the tier string
+    const normalizedTier = orchestratorResult.finalTier?.toLowerCase();
+    const tierOrdinal = tierToOrdinal[normalizedTier];
+    if (tierOrdinal === undefined) {
+      logger.warn({ 
+        certificateId, 
+        receivedTier: orchestratorResult.finalTier 
+      }, "Unknown tier value received, defaulting to tier-4 (manual review)");
+    }
     
     const result = {
       extractedData: orchestratorResult.data ? {
@@ -1783,8 +1794,9 @@ export async function processExtractionAndSave(
           tier: orchestratorResult.finalTier
         }
       } : null,
-      tier: tierToNumber[orchestratorResult.finalTier] ?? 2,
-      tierName: orchestratorResult.requiresReview ? 'HUMAN_REVIEW' : orchestratorResult.finalTier.toUpperCase(),
+      tier: tierOrdinal ?? 6,
+      tierName: normalizedTier || 'tier-4',
+      tierDisplayName: orchestratorResult.requiresReview ? 'HUMAN_REVIEW' : orchestratorResult.finalTier.toUpperCase(),
       confidence: orchestratorResult.confidence,
       processingTimeMs: orchestratorResult.totalProcessingTimeMs,
       tierHistory: orchestratorResult.tierAudit,
@@ -1836,10 +1848,11 @@ export async function processExtractionAndSave(
       normalisedOutput: normalisedOutput,
       confidence: result.confidence,
       processingTier: result.tier,
+      tierName: result.tierName,
       processingTimeMs: result.processingTimeMs,
       processingCost: 0,
       validationPassed: result.confidence >= 0.7,
-      status: result.tier === 3 ? 'AWAITING_REVIEW' : 'AWAITING_REVIEW',
+      status: result.tier === 5 ? 'AWAITING_REVIEW' : 'AWAITING_REVIEW',
     });
 
     logger.info({ 

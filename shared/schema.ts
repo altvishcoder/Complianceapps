@@ -232,7 +232,8 @@ export const extractionRuns = pgTable("extraction_runs", {
   
   // Quality metrics
   confidence: real("confidence").notNull().default(0),
-  processingTier: integer("processing_tier").notNull().default(4),
+  processingTier: integer("processing_tier").notNull().default(6), // 0-6 ordinal (tier-0 to tier-4)
+  tierName: text("tier_name"), // Canonical tier string: "tier-0", "tier-0.5", "tier-1", "tier-1.5", "tier-2", "tier-3", "tier-4"
   processingTimeMs: integer("processing_time_ms").notNull().default(0),
   processingCost: real("processing_cost").notNull().default(0),
   
