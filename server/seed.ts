@@ -341,6 +341,92 @@ async function seedConfiguration() {
   }
   console.log(`✓ Upserted ${streamsData.length} compliance streams`);
   
+  // Fetch all streams to get their IDs for linking
+  const allStreams = await db.select().from(complianceStreams);
+  const streamCodeToId: Record<string, string> = {};
+  for (const stream of allStreams) {
+    streamCodeToId[stream.code] = stream.id;
+  }
+  
+  // Document type to stream code mapping (used for extraction schemas, compliance rules, etc.)
+  const documentTypeToStreamCode: Record<string, string> = {
+    // Gas & Heating
+    "GAS": "GAS_HEATING", "GAS_SVC": "GAS_HEATING", "OIL": "GAS_HEATING", "OIL_TANK": "GAS_HEATING",
+    "LPG": "GAS_HEATING", "SOLID": "GAS_HEATING", "BIO": "GAS_HEATING", "HVAC": "GAS_HEATING",
+    "MECH": "GAS_HEATING", "ASHP": "GAS_HEATING", "GSHP": "GAS_HEATING",
+    // Electrical
+    "EICR": "ELECTRICAL", "EIC": "ELECTRICAL", "MEIWC": "ELECTRICAL", "PAT": "ELECTRICAL",
+    "EMLT": "ELECTRICAL", "EMLT_M": "ELECTRICAL", "ELEC_HEAT": "ELECTRICAL",
+    // Energy
+    "EPC": "ENERGY", "SAP": "ENERGY", "DEC": "ENERGY",
+    // Fire Safety
+    "FRA": "FIRE_SAFETY", "FRAEW": "FIRE_SAFETY", "FD": "FIRE_SAFETY", "FD_Q": "FIRE_SAFETY",
+    "FA": "FIRE_SAFETY", "FA_W": "FIRE_SAFETY", "FA_Q": "FIRE_SAFETY", "SD": "FIRE_SAFETY",
+    "CO": "FIRE_SAFETY", "SPRINK": "FIRE_SAFETY", "DRY": "FIRE_SAFETY", "WET": "FIRE_SAFETY",
+    "AOV": "FIRE_SAFETY", "SMOKE_V": "FIRE_SAFETY", "EXT": "FIRE_SAFETY", "COMPART": "FIRE_SAFETY",
+    // Asbestos
+    "ASB": "ASBESTOS", "ASB_M": "ASBESTOS", "ASB_R": "ASBESTOS", "ASB_D": "ASBESTOS", "ASB_REF": "ASBESTOS",
+    // Water Safety
+    "LEG": "WATER_SAFETY", "LEG_M": "WATER_SAFETY", "WATER": "WATER_SAFETY", "TANK": "WATER_SAFETY", "TMV": "WATER_SAFETY",
+    // Lifting Equipment
+    "LIFT": "LIFTING", "LIFT_M": "LIFTING", "STAIR": "LIFTING", "HOIST": "LIFTING", "PLAT": "LIFTING",
+    // Building Safety
+    "HHSRS": "BUILDING_SAFETY", "STRUCT": "BUILDING_SAFETY", "DAMP": "BUILDING_SAFETY",
+    "ROOF": "BUILDING_SAFETY", "CHIMNEY": "BUILDING_SAFETY", "DRAIN": "BUILDING_SAFETY", "LIGHT": "BUILDING_SAFETY",
+    // External Areas
+    "PLAY": "EXTERNAL", "PLAY_Q": "EXTERNAL", "TREE": "EXTERNAL",
+    // Access Equipment (use LIFTING for now)
+    "FALL": "LIFTING", "ACCESS": "LIFTING",
+    // Security
+    "CCTV": "SECURITY", "ENTRY": "SECURITY", "ALARM": "SECURITY",
+    // HRB Specific
+    "SIB": "HRB_SPECIFIC", "WAYFIND": "HRB_SPECIFIC", "SC": "HRB_SPECIFIC",
+    "RES": "HRB_SPECIFIC", "PEEP": "HRB_SPECIFIC", "BEEP": "HRB_SPECIFIC"
+  };
+  
+  // Classification code to stream code mapping (based on which certificate types use these codes)
+  const classificationCodeToStreamCode: Record<string, string> = {
+    // Gas Safety codes
+    "ID": "GAS_HEATING", "AR": "GAS_HEATING", "NCS": "GAS_HEATING",
+    // EICR codes
+    "C1": "ELECTRICAL", "C2": "ELECTRICAL", "C3": "ELECTRICAL", "FI": "ELECTRICAL",
+    // Fire Risk codes
+    "TRIVIAL": "FIRE_SAFETY", "TOLERABLE": "FIRE_SAFETY", "MODERATE": "FIRE_SAFETY",
+    "SUBSTANTIAL": "FIRE_SAFETY", "INTOLERABLE": "FIRE_SAFETY",
+    // Asbestos codes
+    "ACM_LOW": "ASBESTOS", "ACM_MEDIUM": "ASBESTOS", "ACM_HIGH": "ASBESTOS", "ACM_CRITICAL": "ASBESTOS",
+    // LOLER Lift codes
+    "LIFT_SAFE": "LIFTING", "LIFT_MINOR": "LIFTING", "LIFT_SIGNIFICANT": "LIFTING", "LIFT_DANGEROUS": "LIFTING",
+    // EPC codes
+    "EPC_A": "ENERGY", "EPC_B": "ENERGY", "EPC_C": "ENERGY", "EPC_D": "ENERGY",
+    "EPC_E": "ENERGY", "EPC_F": "ENERGY", "EPC_G": "ENERGY",
+    // Legionella codes
+    "LEG_LOW": "WATER_SAFETY", "LEG_MEDIUM": "WATER_SAFETY", "LEG_HIGH": "WATER_SAFETY", "LEG_OUTBREAK": "WATER_SAFETY",
+    // Fire Door codes
+    "FD_PASS": "FIRE_SAFETY", "FD_MINOR": "FIRE_SAFETY", "FD_SIGNIFICANT": "FIRE_SAFETY",
+    "FD_FAIL": "FIRE_SAFETY", "FD_CRITICAL": "FIRE_SAFETY",
+    // Fire Alarm codes
+    "FA_PASS": "FIRE_SAFETY", "FA_MINOR": "FIRE_SAFETY", "FA_FAULT": "FIRE_SAFETY", "FA_CRITICAL": "FIRE_SAFETY",
+    // Playground codes
+    "PLAY_LOW": "EXTERNAL", "PLAY_MEDIUM": "EXTERNAL", "PLAY_HIGH": "EXTERNAL", "PLAY_CRITICAL": "EXTERNAL",
+    // Tree codes
+    "TREE_SAFE": "EXTERNAL", "TREE_ROUTINE": "EXTERNAL", "TREE_PRIORITY": "EXTERNAL",
+    "TREE_URGENT": "EXTERNAL", "TREE_DANGEROUS": "EXTERNAL",
+    // HHSRS codes
+    "HHSRS_CAT1": "HOUSING_HEALTH", "HHSRS_CAT2_HIGH": "HOUSING_HEALTH",
+    "HHSRS_CAT2_MED": "HOUSING_HEALTH", "HHSRS_CAT2_LOW": "HOUSING_HEALTH",
+    // Damp & Mould codes
+    "DAMP_MINOR": "HOUSING_HEALTH", "DAMP_MODERATE": "HOUSING_HEALTH",
+    "DAMP_SEVERE": "HOUSING_HEALTH", "DAMP_CRITICAL": "HOUSING_HEALTH",
+    // Emergency Lighting codes
+    "EMLT_PASS": "ELECTRICAL", "EMLT_FAIL": "ELECTRICAL", "EMLT_CRITICAL": "ELECTRICAL",
+    // Sprinkler codes
+    "SPRINK_PASS": "FIRE_SAFETY", "SPRINK_DEFECT": "FIRE_SAFETY", "SPRINK_CRITICAL": "FIRE_SAFETY",
+    // AOV codes
+    "AOV_PASS": "FIRE_SAFETY", "AOV_DEFECT": "FIRE_SAFETY", "AOV_CRITICAL": "FIRE_SAFETY"
+    // Generic codes (PASS, FAIL, UNSATISFACTORY, REVIEW) intentionally omitted - they apply across streams
+  };
+  
   // ==================== CERTIFICATE TYPES ====================
   // Comprehensive compliance types based on UK social housing regulations
   const certTypesData = [
@@ -443,13 +529,15 @@ async function seedConfiguration() {
   ];
   
   for (const certType of certTypesData) {
-    await db.insert(certificateTypes).values(certType)
+    const streamId = streamCodeToId[certType.complianceStream] || null;
+    await db.insert(certificateTypes).values({ ...certType, streamId })
       .onConflictDoUpdate({
         target: certificateTypes.code,
         set: {
           name: certType.name,
           shortName: certType.shortName,
           complianceStream: certType.complianceStream,
+          streamId: streamId,
           description: certType.description,
           validityMonths: certType.validityMonths,
           warningDays: certType.warningDays,
@@ -460,7 +548,7 @@ async function seedConfiguration() {
         }
       });
   }
-  console.log(`✓ Upserted ${certTypesData.length} certificate types`);
+  console.log(`✓ Upserted ${certTypesData.length} certificate types with stream links`);
   
   // ==================== CLASSIFICATION CODES ====================
   // Comprehensive defect/risk classification codes for all certificate types with remedial action settings
@@ -572,8 +660,12 @@ async function seedConfiguration() {
   
   // Delete existing and re-insert (classification codes don't have unique constraint on code alone)
   await db.delete(classificationCodes);
-  await db.insert(classificationCodes).values(classificationCodesData);
-  console.log(`✓ Replaced ${classificationCodesData.length} classification codes`);
+  const classificationCodesWithStream = classificationCodesData.map(code => ({
+    ...code,
+    complianceStreamId: classificationCodeToStreamCode[code.code] ? streamCodeToId[classificationCodeToStreamCode[code.code]] : null
+  }));
+  await db.insert(classificationCodes).values(classificationCodesWithStream);
+  console.log(`✓ Replaced ${classificationCodesData.length} classification codes with stream links`);
   
   // ==================== EXTRACTION SCHEMAS ====================
   // Comprehensive schemas for all 60+ certificate types aligned with UK social housing standards
@@ -1348,10 +1440,14 @@ async function seedConfiguration() {
     }
   ];
   
-  // Delete existing and re-insert extraction schemas
+  // Delete existing and re-insert extraction schemas with stream links
   await db.delete(extractionSchemas);
-  await db.insert(extractionSchemas).values(extractionSchemasData);
-  console.log(`✓ Replaced ${extractionSchemasData.length} extraction schemas`);
+  const extractionSchemasWithStream = extractionSchemasData.map(schema => ({
+    ...schema,
+    complianceStreamId: documentTypeToStreamCode[schema.documentType] ? streamCodeToId[documentTypeToStreamCode[schema.documentType]] : null
+  }));
+  await db.insert(extractionSchemas).values(extractionSchemasWithStream);
+  console.log(`✓ Replaced ${extractionSchemasData.length} extraction schemas with stream links`);
   
   // ==================== COMPONENT TYPES ====================
   const componentTypesData: Array<{
@@ -1504,12 +1600,14 @@ async function seedConfiguration() {
   ];
   
   for (const rule of complianceRulesData) {
-    await db.insert(complianceRules).values(rule)
+    const streamId = documentTypeToStreamCode[rule.documentType] ? streamCodeToId[documentTypeToStreamCode[rule.documentType]] : null;
+    await db.insert(complianceRules).values({ ...rule, complianceStreamId: streamId })
       .onConflictDoUpdate({
         target: complianceRules.ruleCode,
         set: {
           ruleName: rule.ruleName,
           documentType: rule.documentType,
+          complianceStreamId: streamId,
           description: rule.description,
           legislation: rule.legislation,
           conditions: rule.conditions,
@@ -1521,7 +1619,7 @@ async function seedConfiguration() {
         }
       });
   }
-  console.log(`✓ Upserted ${complianceRulesData.length} compliance rules`);
+  console.log(`✓ Upserted ${complianceRulesData.length} compliance rules with stream links`);
   
   // ==================== NORMALISATION RULES ====================
   // Comprehensive data transformation rules for extracted certificate data
