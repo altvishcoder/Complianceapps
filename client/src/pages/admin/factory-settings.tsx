@@ -268,11 +268,11 @@ export default function FactorySettings() {
 
   if (!isAuthorized) {
     return (
-      <div className="flex min-h-screen" data-testid="page-factory-settings">
+      <div className="flex min-h-screen items-start" data-testid="page-factory-settings">
         <Sidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-screen">
           <Header title="Factory Settings" />
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-6 overflow-auto">
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
@@ -286,11 +286,11 @@ export default function FactorySettings() {
   }
 
   return (
-    <div className="flex min-h-screen" data-testid="page-factory-settings">
+    <div className="flex min-h-screen items-start" data-testid="page-factory-settings">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-screen">
         <Header title="Factory Settings" />
-        <main className="flex-1 p-6 space-y-6">
+        <main className="flex-1 p-6 space-y-6 overflow-auto">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Factory Settings</h1>
