@@ -196,13 +196,36 @@ async function getCertificatesPendingReview(): Promise<string> {
   }
 }
 
+// Component type keywords mapping
+const COMPONENT_TYPE_KEYWORDS: Record<string, string[]> = {
+  'boiler': ['boiler', 'boilers', 'heating'],
+  'lift': ['lift', 'lifts', 'elevator', 'elevators', 'loler'],
+  'water heater': ['water heater', 'water heaters', 'hot water'],
+  'smoke detector': ['smoke detector', 'smoke detectors', 'smoke alarm'],
+  'fire alarm': ['fire alarm', 'fire alarms'],
+  'sprinkler': ['sprinkler', 'sprinklers'],
+  'emergency lighting': ['emergency light', 'emergency lighting'],
+  'fire door': ['fire door', 'fire doors'],
+  'roof': ['roof', 'roofs', 'roof structure'],
+};
+
+function detectComponentType(query: string): string | null {
+  const lowerQuery = query.toLowerCase();
+  for (const [typeName, keywords] of Object.entries(COMPONENT_TYPE_KEYWORDS)) {
+    if (keywords.some(kw => lowerQuery.includes(kw))) {
+      return typeName;
+    }
+  }
+  return null;
+}
+
 // Get components needing attention
-async function getComponentsNeedingAttention(): Promise<string> {
+async function getComponentsNeedingAttention(typeFilter?: string | null): Promise<string> {
   try {
     // Get components with upcoming or overdue inspections
     const today = new Date().toISOString().split('T')[0];
     
-    const criticalComponents = await db
+    let query = db
       .select({
         id: components.id,
         location: components.location,
@@ -224,13 +247,25 @@ async function getComponentsNeedingAttention(): Promise<string> {
         )
       )
       .orderBy(components.nextInspectionDue)
-      .limit(10);
+      .limit(20);
     
-    if (criticalComponents.length === 0) {
-      return `✅ **All components up to date!** [View all →](/components)`;
+    let criticalComponents = await query;
+    
+    // Apply type filter if specified
+    if (typeFilter) {
+      const filterLower = typeFilter.toLowerCase();
+      criticalComponents = criticalComponents.filter(c => 
+        c.componentTypeName?.toLowerCase().includes(filterLower)
+      );
     }
     
-    let response = `🔧 **Components Needing Attention: ${criticalComponents.length}**\n\n`;
+    const typeLabel = typeFilter ? `${typeFilter}s` : 'Components';
+    
+    if (criticalComponents.length === 0) {
+      return `✅ **All ${typeLabel.toLowerCase()} up to date!** [View all →](/components)`;
+    }
+    
+    let response = `🔧 **${typeLabel} Needing Attention: ${criticalComponents.length}**\n\n`;
     
     for (const c of criticalComponents.slice(0, 5)) {
       const typeName = c.componentTypeName || 'Component';
@@ -351,14 +386,15 @@ async function searchProperties(query: string): Promise<string | null> {
   }
   
   // Check for component queries
+  const detectedType = detectComponentType(query);
   const hasComponentContext = searchTerms.includes('component') || searchTerms.includes('asset') || 
-    searchTerms.includes('equipment') || searchTerms.includes('boiler') || searchTerms.includes('lift') ||
-    searchTerms.includes('appliance');
+    searchTerms.includes('equipment') || searchTerms.includes('appliance') || detectedType !== null;
   const wantsComponentAttention = (searchTerms.includes('attention') || searchTerms.includes('overdue') || 
-    searchTerms.includes('critical') || searchTerms.includes('need') || searchTerms.includes('inspection')) && hasComponentContext;
+    searchTerms.includes('critical') || searchTerms.includes('need') || searchTerms.includes('inspection') ||
+    searchTerms.includes('show') || searchTerms.includes('find') || searchTerms.includes('check')) && hasComponentContext;
   
-  if (wantsComponentAttention || (searchTerms.includes('find') && hasComponentContext)) {
-    return await getComponentsNeedingAttention();
+  if (wantsComponentAttention) {
+    return await getComponentsNeedingAttention(detectedType);
   }
   
   // Check for pending certificates queries
