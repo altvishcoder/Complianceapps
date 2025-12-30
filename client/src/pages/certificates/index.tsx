@@ -83,13 +83,16 @@ export default function CertificatesPage() {
     return new Date(cert.expiryDate) < new Date();
   };
   
+  const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
+  
   const filteredCertificates = certificates.filter((cert) => {
     const matchesSearch = searchTerm === '' || 
       cert.property?.addressLine1?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cert.certificateType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cert.fileName?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = !statusFilter || cert.status === statusFilter;
+    const matchesStatus = !statusFilter || 
+      (statusFilter === 'PENDING' ? PENDING_STATUSES.includes(cert.status) : cert.status === statusFilter);
     const matchesType = !typeFilter || cert.certificateType === typeFilter;
     const matchesOverdue = !overdueFilter || isOverdue(cert);
     

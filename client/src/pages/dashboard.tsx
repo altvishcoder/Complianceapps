@@ -146,7 +146,7 @@ export default function Dashboard() {
               value={String(stats?.pendingCertificates || 0)}
               description="In ingestion queue"
               icon={FileText}
-              href="/certificates?status=NEEDS_REVIEW&from=/dashboard"
+              href="/certificates?status=PENDING&from=/dashboard"
               data-testid="stat-pending-certs"
             />
           </div>
