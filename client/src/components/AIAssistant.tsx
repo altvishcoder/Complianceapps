@@ -10,6 +10,60 @@ interface ChatMessage {
   content: string;
 }
 
+function formatMessage(text: string): React.ReactNode {
+  const lines = text.split('\n');
+  
+  return lines.map((line, lineIndex) => {
+    let formatted: React.ReactNode = line;
+    
+    formatted = line.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i}>{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+    
+    const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('• ');
+    const isNumbered = /^\d+[\.\)]\s/.test(line.trim());
+    
+    if (isBullet) {
+      const content = line.trim().replace(/^[-•]\s*/, '');
+      return (
+        <div key={lineIndex} className="flex gap-2 ml-2">
+          <span>•</span>
+          <span>{content.split(/(\*\*[^*]+\*\*)/).map((part, i) => 
+            part.startsWith('**') && part.endsWith('**') 
+              ? <strong key={i}>{part.slice(2, -2)}</strong> 
+              : part
+          )}</span>
+        </div>
+      );
+    }
+    
+    if (isNumbered) {
+      return (
+        <div key={lineIndex} className="ml-2">
+          {line.split(/(\*\*[^*]+\*\*)/).map((part, i) => 
+            part.startsWith('**') && part.endsWith('**') 
+              ? <strong key={i}>{part.slice(2, -2)}</strong> 
+              : part
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div key={lineIndex} className={line.trim() === '' ? 'h-2' : ''}>
+        {line.split(/(\*\*[^*]+\*\*)/).map((part, i) => 
+          part.startsWith('**') && part.endsWith('**') 
+            ? <strong key={i}>{part.slice(2, -2)}</strong> 
+            : part
+        )}
+      </div>
+    );
+  });
+}
+
 function useAuthState() {
   const [userId, setUserId] = useState<string | null>(() => localStorage.getItem('user_id'));
   
@@ -130,7 +184,7 @@ export function AIAssistant() {
           <div className="flex items-center justify-between p-4 border-b bg-primary text-primary-foreground rounded-t-lg">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <span className="font-semibold">AI Assistant</span>
+              <span className="font-semibold">ComplianceAI Assistant</span>
             </div>
             <Button
               data-testid="button-close-ai-assistant"
@@ -199,7 +253,11 @@ export function AIAssistant() {
                           : "bg-muted"
                       )}
                     >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      {message.role === 'assistant' ? (
+                        <div className="space-y-1">{formatMessage(message.content)}</div>
+                      ) : (
+                        <p>{message.content}</p>
+                      )}
                     </div>
                     {message.role === 'user' && (
                       <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary flex items-center justify-center">
