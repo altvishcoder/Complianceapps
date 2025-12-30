@@ -100,7 +100,7 @@ const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
   ],
 };
 
-function getFollowUpSuggestions(topic: string): string {
+function getFollowUpSuggestions(topic: string, askedQuestions: string[]): string[] {
   const topicLower = topic.toLowerCase();
   let suggestions: string[] = FOLLOW_UP_SUGGESTIONS["default"];
   
@@ -111,9 +111,17 @@ function getFollowUpSuggestions(topic: string): string {
     }
   }
   
-  // Keep it compact - just 2 suggestions
-  const shortSuggestions = suggestions.slice(0, 2);
-  return `\n\n---\n💡 **Try asking:**\n${shortSuggestions.map(s => `• ${s}`).join('\n')}`;
+  // Filter out questions user has already asked (fuzzy match)
+  const askedLower = askedQuestions.map(q => q.toLowerCase());
+  const filtered = suggestions.filter(s => {
+    const sLower = s.toLowerCase();
+    return !askedLower.some(asked => 
+      asked.includes(sLower.slice(0, 20)) || sLower.includes(asked.slice(0, 20))
+    );
+  });
+  
+  // Return 2 suggestions max
+  return filtered.slice(0, 2);
 }
 
 function findCachedResponse(query: string): string | null {
@@ -547,6 +555,7 @@ export interface ChatMessage {
 export interface AssistantResponse {
   success: boolean;
   message: string;
+  suggestions?: string[];
   tokensUsed?: {
     input: number;
     output: number;
@@ -599,6 +608,9 @@ export async function chatWithAssistant(
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
     const isFollowUp = messages.length > 1; // Has previous conversation
     
+    // Get all user questions for filtering suggestions
+    const askedQuestions = messages.filter(m => m.role === 'user').map(m => m.content);
+    
     // Check if this looks like a follow-up question
     const followUpIndicators = ['more', 'also', 'what about', 'and', 'tell me more', 'explain', 'why', 'how come', 'can you'];
     const looksLikeFollowUp = isFollowUp && lastUserMessage && 
@@ -609,10 +621,11 @@ export async function chatWithAssistant(
       const cachedResponse = findCachedResponse(lastUserMessage.content);
       if (cachedResponse) {
         logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving cached FAQ response');
-        const followUps = getFollowUpSuggestions(lastUserMessage.content);
+        const suggestions = getFollowUpSuggestions(lastUserMessage.content, askedQuestions);
         return {
           success: true,
-          message: cachedResponse + followUps,
+          message: cachedResponse,
+          suggestions,
           tokensUsed: { input: 0, output: 0 },
         };
       }
@@ -621,10 +634,11 @@ export async function chatWithAssistant(
       const propertyResponse = await searchProperties(lastUserMessage.content);
       if (propertyResponse) {
         logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving property search response');
-        const followUps = getFollowUpSuggestions(lastUserMessage.content);
+        const suggestions = getFollowUpSuggestions(lastUserMessage.content, askedQuestions);
         return {
           success: true,
-          message: propertyResponse + followUps,
+          message: propertyResponse,
+          suggestions,
           tokensUsed: { input: 0, output: 0 },
         };
       }
@@ -650,14 +664,15 @@ export async function chatWithAssistant(
     const textContent = response.content.find(c => c.type === 'text');
     let message = textContent?.type === 'text' ? textContent.text : 'I apologize, but I was unable to generate a response.';
     
-    // Add follow-up suggestions for LLM responses too
-    if (lastUserMessage) {
-      message += getFollowUpSuggestions(lastUserMessage.content);
-    }
+    // Get suggestions for LLM responses too
+    const suggestions = lastUserMessage 
+      ? getFollowUpSuggestions(lastUserMessage.content, askedQuestions)
+      : [];
 
     return {
       success: true,
       message,
+      suggestions,
       tokensUsed: {
         input: response.usage.input_tokens,
         output: response.usage.output_tokens,

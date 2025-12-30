@@ -11,6 +11,7 @@ const PUBLIC_ROUTES = ['/', '/login', '/register', '/mfa'];
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  suggestions?: string[];
 }
 
 function formatInlineContent(text: string, onNavigate?: (url: string) => void): React.ReactNode[] {
@@ -154,7 +155,11 @@ export function AIAssistant() {
       }
 
       const data = await response.json();
-      setMessages([...newMessages, { role: 'assistant', content: data.message }]);
+      setMessages([...newMessages, { 
+        role: 'assistant', 
+        content: data.message,
+        suggestions: data.suggestions || []
+      }]);
     } catch (error) {
       setMessages([
         ...newMessages,
@@ -265,18 +270,36 @@ export function AIAssistant() {
                         <Bot className="h-4 w-4 text-primary" />
                       </div>
                     )}
-                    <div
-                      className={cn(
-                        "rounded-lg px-4 py-2 max-w-[80%] text-sm",
-                        message.role === 'user'
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      )}
-                    >
-                      {message.role === 'assistant' ? (
-                        <div className="space-y-1">{formatMessage(message.content, handleNavigate)}</div>
-                      ) : (
-                        <p>{message.content}</p>
+                    <div className="flex flex-col gap-2 max-w-[80%]">
+                      <div
+                        className={cn(
+                          "rounded-lg px-4 py-2 text-sm",
+                          message.role === 'user'
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        )}
+                      >
+                        {message.role === 'assistant' ? (
+                          <div className="space-y-1">{formatMessage(message.content, handleNavigate)}</div>
+                        ) : (
+                          <p>{message.content}</p>
+                        )}
+                      </div>
+                      {message.role === 'assistant' && message.suggestions && message.suggestions.length > 0 && index === messages.length - 1 && !isLoading && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {message.suggestions.map((suggestion, sIdx) => (
+                            <Button
+                              key={sIdx}
+                              variant="outline"
+                              size="sm"
+                              className="h-auto py-1.5 px-2.5 text-xs bg-background hover:bg-muted"
+                              onClick={() => sendMessageWithContent(suggestion, messages)}
+                              data-testid={`button-suggestion-${sIdx}`}
+                            >
+                              💡 {suggestion}
+                            </Button>
+                          ))}
+                        </div>
                       )}
                     </div>
                     {message.role === 'user' && (

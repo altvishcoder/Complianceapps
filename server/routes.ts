@@ -311,7 +311,7 @@ export async function registerRoutes(
       const result = await chatWithAssistant(messages, user.organisationId || undefined);
       
       if (result.success) {
-        res.json({ message: result.message });
+        res.json({ message: result.message, suggestions: result.suggestions || [] });
       } else {
         res.status(500).json({ error: result.error || "Failed to get response" });
       }
