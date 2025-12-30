@@ -295,21 +295,13 @@ async function seedDemoData(orgId: string) {
 }
 
 async function seedConfiguration() {
-  // Check if configuration already exists
-  const [existingCertType] = await db.select().from(certificateTypes).limit(1);
-  const [existingFactorySetting] = await db.select().from(factorySettings).limit(1);
-  
   // Always seed factory settings if they don't exist
+  const [existingFactorySetting] = await db.select().from(factorySettings).limit(1);
   if (!existingFactorySetting) {
     await seedFactorySettings();
   }
   
-  if (existingCertType) {
-    console.log("✓ Configuration already seeded");
-    return;
-  }
-  
-  console.log("🔧 Seeding configuration data...");
+  console.log("🔧 Seeding/updating configuration data (upsert mode)...");
   
   // ==================== CERTIFICATE TYPES ====================
   // Comprehensive compliance types based on UK social housing regulations
@@ -338,7 +330,7 @@ async function seedConfiguration() {
     
     // ========== ENERGY (31-35) ==========
     { code: "EPC", name: "Energy Performance Certificate", shortName: "EPC", complianceStream: "ENERGY", description: "Energy efficiency rating required for lettings (10 year validity)", validityMonths: 120, warningDays: 180, requiredFields: ["certificateNumber", "assessorName", "currentRating", "issueDate"], displayOrder: 31, isActive: true },
-    { code: "SAP", name: "SAP Assessment", shortName: "SAP", complianceStream: "ENERGY", description: "Standard Assessment Procedure calculation for new builds", validityMonths: null, warningDays: null, requiredFields: ["assessmentDate", "assessorName", "sapRating"], displayOrder: 32, isActive: true },
+    { code: "SAP", name: "SAP Assessment", shortName: "SAP", complianceStream: "ENERGY", description: "Standard Assessment Procedure calculation for new builds", validityMonths: 0, warningDays: 0, requiredFields: ["assessmentDate", "assessorName", "sapRating"], displayOrder: 32, isActive: true },
     { code: "DEC", name: "Display Energy Certificate", shortName: "DEC", complianceStream: "ENERGY", description: "Annual energy display certificate for public buildings", validityMonths: 12, warningDays: 60, requiredFields: ["certificateNumber", "assessorName", "rating", "issueDate"], displayOrder: 33, isActive: true },
     
     // ========== FIRE SAFETY (41-60) ==========
@@ -347,7 +339,7 @@ async function seedConfiguration() {
     { code: "FD", name: "Fire Door Inspection Report", shortName: "Fire Doors", complianceStream: "FIRE_SAFETY", description: "Fire door inspection (quarterly for HRBs, annual otherwise)", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "doorsInspected", "defectsFound"], displayOrder: 43, isActive: true },
     { code: "FD_Q", name: "Fire Door Quarterly Inspection", shortName: "Fire Door Q", complianceStream: "FIRE_SAFETY", description: "Quarterly fire door inspection for high-rise buildings", validityMonths: 3, warningDays: 14, requiredFields: ["inspectionDate", "inspectorName", "doorsInspected"], displayOrder: 44, isActive: true },
     { code: "FA", name: "Fire Alarm System Certificate", shortName: "Fire Alarm", complianceStream: "FIRE_SAFETY", description: "Annual fire alarm system inspection under BS 5839", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "engineerName", "systemType", "nextInspectionDate"], displayOrder: 45, isActive: true },
-    { code: "FA_W", name: "Fire Alarm Weekly Test", shortName: "Fire Alarm W", complianceStream: "FIRE_SAFETY", description: "Weekly fire alarm call point test", validityMonths: null, warningDays: 3, requiredFields: ["testDate", "testerName", "result"], displayOrder: 46, isActive: true },
+    { code: "FA_W", name: "Fire Alarm Weekly Test", shortName: "Fire Alarm W", complianceStream: "FIRE_SAFETY", description: "Weekly fire alarm call point test", validityMonths: 0, warningDays: 3, requiredFields: ["testDate", "testerName", "result"], displayOrder: 46, isActive: true },
     { code: "FA_Q", name: "Fire Alarm Quarterly Inspection", shortName: "Fire Alarm Q", complianceStream: "FIRE_SAFETY", description: "Quarterly fire alarm maintenance visit", validityMonths: 3, warningDays: 14, requiredFields: ["inspectionDate", "engineerName", "findings"], displayOrder: 47, isActive: true },
     { code: "SD", name: "Smoke Detector Certificate", shortName: "Smoke Detectors", complianceStream: "FIRE_SAFETY", description: "Annual smoke detector testing and certification", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "testerName", "detectorsCount"], displayOrder: 48, isActive: true },
     { code: "CO", name: "Carbon Monoxide Detector Certificate", shortName: "CO Detectors", complianceStream: "FIRE_SAFETY", description: "Annual CO detector testing and certification", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "testerName", "detectorsCount"], displayOrder: 49, isActive: true },
@@ -360,11 +352,11 @@ async function seedConfiguration() {
     { code: "COMPART", name: "Compartmentation Survey", shortName: "Compartmentation", complianceStream: "FIRE_SAFETY", description: "Fire compartmentation survey and inspection", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "surveyorName", "findings"], displayOrder: 56, isActive: true },
     
     // ========== ASBESTOS (61-70) ==========
-    { code: "ASB", name: "Asbestos Management Survey", shortName: "Asbestos Survey", complianceStream: "ASBESTOS", description: "Asbestos management survey under Control of Asbestos Regulations 2012", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "surveyType", "acmsIdentified"], displayOrder: 61, isActive: true },
+    { code: "ASB", name: "Asbestos Management Survey", shortName: "Asbestos Survey", complianceStream: "ASBESTOS", description: "Asbestos management survey under Control of Asbestos Regulations 2012", validityMonths: 0, warningDays: 0, requiredFields: ["surveyDate", "surveyorName", "surveyType", "acmsIdentified"], displayOrder: 61, isActive: true },
     { code: "ASB_M", name: "Asbestos Management Plan", shortName: "Asbestos Plan", complianceStream: "ASBESTOS", description: "Annual asbestos management plan review", validityMonths: 12, warningDays: 60, requiredFields: ["reviewDate", "reviewer", "acmsStatus"], displayOrder: 62, isActive: true },
     { code: "ASB_R", name: "Asbestos Re-inspection", shortName: "Asbestos Reinsp", complianceStream: "ASBESTOS", description: "Annual ACM condition reinspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "acmsInspected", "conditionChanges"], displayOrder: 63, isActive: true },
-    { code: "ASB_D", name: "Asbestos Demolition Survey", shortName: "Asbestos Demo", complianceStream: "ASBESTOS", description: "Refurbishment and demolition asbestos survey", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "surveyType"], displayOrder: 64, isActive: true },
-    { code: "ASB_REF", name: "Asbestos Refurbishment Survey", shortName: "Asbestos Refurb", complianceStream: "ASBESTOS", description: "Pre-works asbestos survey for refurbishment", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "worksArea"], displayOrder: 65, isActive: true },
+    { code: "ASB_D", name: "Asbestos Demolition Survey", shortName: "Asbestos Demo", complianceStream: "ASBESTOS", description: "Refurbishment and demolition asbestos survey", validityMonths: 0, warningDays: 0, requiredFields: ["surveyDate", "surveyorName", "surveyType"], displayOrder: 64, isActive: true },
+    { code: "ASB_REF", name: "Asbestos Refurbishment Survey", shortName: "Asbestos Refurb", complianceStream: "ASBESTOS", description: "Pre-works asbestos survey for refurbishment", validityMonths: 0, warningDays: 0, requiredFields: ["surveyDate", "surveyorName", "worksArea"], displayOrder: 65, isActive: true },
     
     // ========== WATER SAFETY (71-80) ==========
     { code: "LEG", name: "Legionella Risk Assessment", shortName: "Legionella", complianceStream: "WATER_SAFETY", description: "Water hygiene risk assessment under HSE ACOP L8 (2-year validity)", validityMonths: 24, warningDays: 90, requiredFields: ["assessmentDate", "assessorName", "riskLevel", "controlMeasures"], displayOrder: 71, isActive: true },
@@ -381,9 +373,9 @@ async function seedConfiguration() {
     { code: "PLAT", name: "Platform Lift Examination", shortName: "Platform Lift", complianceStream: "LIFTING_EQUIPMENT", description: "Six-monthly platform lift thorough examination", validityMonths: 6, warningDays: 30, requiredFields: ["examinationDate", "engineerName", "safeForUse"], displayOrder: 85, isActive: true },
     
     // ========== BUILDING SAFETY (91-100) ==========
-    { code: "HHSRS", name: "HHSRS Assessment", shortName: "HHSRS", complianceStream: "BUILDING_SAFETY", description: "Housing Health and Safety Rating System assessment", validityMonths: null, warningDays: null, requiredFields: ["assessmentDate", "assessorName", "hazards"], displayOrder: 91, isActive: true },
+    { code: "HHSRS", name: "HHSRS Assessment", shortName: "HHSRS", complianceStream: "BUILDING_SAFETY", description: "Housing Health and Safety Rating System assessment", validityMonths: 0, warningDays: 0, requiredFields: ["assessmentDate", "assessorName", "hazards"], displayOrder: 91, isActive: true },
     { code: "STRUCT", name: "Structural Survey", shortName: "Structural", complianceStream: "BUILDING_SAFETY", description: "Structural condition survey (5-year cycle)", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "engineerName", "findings"], displayOrder: 92, isActive: true },
-    { code: "DAMP", name: "Damp & Mould Survey", shortName: "Damp/Mould", complianceStream: "BUILDING_SAFETY", description: "Damp and mould investigation report", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "findings", "recommendations"], displayOrder: 93, isActive: true },
+    { code: "DAMP", name: "Damp & Mould Survey", shortName: "Damp/Mould", complianceStream: "BUILDING_SAFETY", description: "Damp and mould investigation report", validityMonths: 0, warningDays: 0, requiredFields: ["surveyDate", "surveyorName", "findings", "recommendations"], displayOrder: 93, isActive: true },
     { code: "ROOF", name: "Roof Survey", shortName: "Roof", complianceStream: "BUILDING_SAFETY", description: "Roof condition survey (5-year cycle)", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "surveyorName", "roofCondition"], displayOrder: 94, isActive: true },
     { code: "CHIMNEY", name: "Chimney Inspection", shortName: "Chimney", complianceStream: "BUILDING_SAFETY", description: "Annual chimney inspection and sweep record", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "sweepName", "condition"], displayOrder: 95, isActive: true },
     { code: "DRAIN", name: "Drainage Survey", shortName: "Drainage", complianceStream: "BUILDING_SAFETY", description: "CCTV drainage survey (5-year cycle)", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "operatorName", "findings"], displayOrder: 96, isActive: true },
@@ -405,15 +397,32 @@ async function seedConfiguration() {
     
     // ========== HRB SPECIFIC - Building Safety Act (116-125) ==========
     { code: "SIB", name: "Secure Information Box Certificate", shortName: "Secure Info Box", complianceStream: "HRB_SPECIFIC", description: "Annual secure information box inspection (HRB requirement)", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "contentsVerified"], displayOrder: 116, isActive: true },
-    { code: "WAYFIND", name: "Wayfinding Signage Inspection", shortName: "Wayfinding", complianceStream: "HRB_SPECIFIC", description: "Wayfinding and floor identification signage check", validityMonths: null, warningDays: null, requiredFields: ["inspectionDate", "inspectorName", "signageStatus"], displayOrder: 117, isActive: true },
+    { code: "WAYFIND", name: "Wayfinding Signage Inspection", shortName: "Wayfinding", complianceStream: "HRB_SPECIFIC", description: "Wayfinding and floor identification signage check", validityMonths: 0, warningDays: 0, requiredFields: ["inspectionDate", "inspectorName", "signageStatus"], displayOrder: 117, isActive: true },
     { code: "SC", name: "Building Safety Case", shortName: "Safety Case", complianceStream: "HRB_SPECIFIC", description: "Building Safety Case document (2-year review)", validityMonths: 24, warningDays: 180, requiredFields: ["reviewDate", "reviewer", "caseStatus"], displayOrder: 118, isActive: true },
     { code: "RES", name: "Resident Engagement Strategy", shortName: "Resident Strategy", complianceStream: "HRB_SPECIFIC", description: "Resident engagement strategy review (2-year cycle)", validityMonths: 24, warningDays: 90, requiredFields: ["reviewDate", "reviewer", "strategyStatus"], displayOrder: 119, isActive: true },
     { code: "PEEP", name: "PEEP Assessment", shortName: "PEEP", complianceStream: "HRB_SPECIFIC", description: "Personal Emergency Evacuation Plan assessment", validityMonths: 12, warningDays: 60, requiredFields: ["assessmentDate", "assessorName", "residentName"], displayOrder: 120, isActive: true },
     { code: "BEEP", name: "Building Emergency Evacuation Plan", shortName: "BEEP", complianceStream: "HRB_SPECIFIC", description: "Building emergency evacuation plan review", validityMonths: 12, warningDays: 60, requiredFields: ["reviewDate", "reviewer", "planStatus"], displayOrder: 121, isActive: true }
   ];
   
-  await db.insert(certificateTypes).values(certTypesData);
-  console.log("✓ Created certificate types");
+  for (const certType of certTypesData) {
+    await db.insert(certificateTypes).values(certType)
+      .onConflictDoUpdate({
+        target: certificateTypes.code,
+        set: {
+          name: certType.name,
+          shortName: certType.shortName,
+          complianceStream: certType.complianceStream,
+          description: certType.description,
+          validityMonths: certType.validityMonths,
+          warningDays: certType.warningDays,
+          requiredFields: certType.requiredFields,
+          displayOrder: certType.displayOrder,
+          isActive: certType.isActive,
+          updatedAt: new Date()
+        }
+      });
+  }
+  console.log(`✓ Upserted ${certTypesData.length} certificate types`);
   
   // ==================== CLASSIFICATION CODES ====================
   const classificationCodesData = [
@@ -457,8 +466,10 @@ async function seedConfiguration() {
     { code: "EPC_G", name: "EPC Rating G", severity: "CRITICAL", colorCode: "#991B1B", description: "EPC Rating G (1-20) - cannot legally rent", actionRequired: "Urgent improvement works", timeframeHours: 720, displayOrder: 27, isActive: true }
   ];
   
+  // Delete existing and re-insert (classification codes don't have unique constraint on code alone)
+  await db.delete(classificationCodes);
   await db.insert(classificationCodes).values(classificationCodesData);
-  console.log("✓ Created classification codes");
+  console.log(`✓ Replaced ${classificationCodesData.length} classification codes`);
   
   // ==================== EXTRACTION SCHEMAS ====================
   const extractionSchemasData = [
@@ -583,8 +594,10 @@ async function seedConfiguration() {
     }
   ];
   
+  // Delete existing and re-insert extraction schemas
+  await db.delete(extractionSchemas);
   await db.insert(extractionSchemas).values(extractionSchemasData);
-  console.log("✓ Created extraction schemas");
+  console.log(`✓ Replaced ${extractionSchemasData.length} extraction schemas`);
   
   // ==================== COMPONENT TYPES ====================
   const componentTypesData: Array<{
@@ -639,8 +652,27 @@ async function seedConfiguration() {
     { code: "ASBESTOS_ACM", name: "Asbestos Containing Material", category: "STRUCTURE", description: "Known or presumed ACM location", hactElementCode: "STRUCT-001", expectedLifespanYears: null, relatedCertificateTypes: ["ASBESTOS"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 60, isActive: true }
   ];
   
-  await db.insert(componentTypes).values(componentTypesData);
-  console.log("✓ Created component types");
+  for (const compType of componentTypesData) {
+    await db.insert(componentTypes).values(compType)
+      .onConflictDoUpdate({
+        target: componentTypes.code,
+        set: {
+          name: compType.name,
+          category: compType.category,
+          description: compType.description,
+          hactElementCode: compType.hactElementCode,
+          expectedLifespanYears: compType.expectedLifespanYears,
+          relatedCertificateTypes: compType.relatedCertificateTypes,
+          inspectionFrequencyMonths: compType.inspectionFrequencyMonths,
+          isHighRisk: compType.isHighRisk,
+          buildingSafetyRelevant: compType.buildingSafetyRelevant,
+          displayOrder: compType.displayOrder,
+          isActive: compType.isActive,
+          updatedAt: new Date()
+        }
+      });
+  }
+  console.log(`✓ Upserted ${componentTypesData.length} component types`);
   
   // ==================== COMPLIANCE RULES ====================
   const complianceRulesData = [
@@ -694,8 +726,25 @@ async function seedConfiguration() {
     }
   ];
   
-  await db.insert(complianceRules).values(complianceRulesData);
-  console.log("✓ Created compliance rules");
+  for (const rule of complianceRulesData) {
+    await db.insert(complianceRules).values(rule)
+      .onConflictDoUpdate({
+        target: complianceRules.ruleCode,
+        set: {
+          ruleName: rule.ruleName,
+          documentType: rule.documentType,
+          description: rule.description,
+          conditions: rule.conditions,
+          conditionLogic: rule.conditionLogic,
+          action: rule.action,
+          severity: rule.severity,
+          priority: rule.priority,
+          isActive: rule.isActive,
+          updatedAt: new Date()
+        }
+      });
+  }
+  console.log(`✓ Upserted ${complianceRulesData.length} compliance rules`);
   
   // ==================== NORMALISATION RULES ====================
   const normalisationRulesData = [
@@ -748,8 +797,10 @@ async function seedConfiguration() {
     }
   ];
   
+  // Delete existing and re-insert normalisation rules
+  await db.delete(normalisationRules);
   await db.insert(normalisationRules).values(normalisationRulesData);
-  console.log("✓ Created normalisation rules");
+  console.log(`✓ Replaced ${normalisationRulesData.length} normalisation rules`);
   
 }
 
