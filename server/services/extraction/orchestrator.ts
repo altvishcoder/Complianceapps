@@ -16,6 +16,9 @@ import type {
 import { analyseDocument, type FormatAnalysis } from './format-detector';
 import { extractQRAndMetadata, type QRMetadataResult } from './qr-metadata';
 import { extractWithTemplate } from './template-patterns';
+import { extractWithClaudeText } from './claude-text';
+import { extractWithAzureDI, isAzureDIConfigured } from './azure-di';
+import { extractWithClaudeVision, extractWithClaudeVisionFromPDF } from './claude-vision';
 import { logger } from '../../logger';
 
 const TIER_ORDER: Record<ExtractionTier, number> = {
@@ -393,6 +396,18 @@ export async function extractCertificate(
         rawOutput: null,
       });
 
+      await recordTierAudit(
+        certificateId,
+        null,
+        'tier-2',
+        'skipped',
+        0,
+        0,
+        0,
+        'AI processing disabled in factory settings',
+        formatAnalysis
+      );
+
       tierAudit.push({
         tier: 'tier-3',
         attemptedAt: new Date(),
@@ -405,6 +420,18 @@ export async function extractCertificate(
         escalationReason: 'AI processing disabled in factory settings',
         rawOutput: null,
       });
+
+      await recordTierAudit(
+        certificateId,
+        null,
+        'tier-3',
+        'skipped',
+        0,
+        0,
+        0,
+        'AI processing disabled in factory settings',
+        formatAnalysis
+      );
 
       tierAudit.push({
         tier: 'tier-4',
@@ -516,6 +543,327 @@ export async function extractCertificate(
     };
   }
 
+  const tier15Threshold = extractionSettings.tier1Threshold;
+  const tier2Threshold = extractionSettings.tier2Threshold;
+  const tier3Threshold = extractionSettings.tier3Threshold;
+
+  if (formatAnalysis.hasTextLayer && formatAnalysis.textContent) {
+    const tier15Start = Date.now();
+    const claudeTextResult = await extractWithClaudeText(
+      formatAnalysis.textContent,
+      formatAnalysis.detectedCertificateType
+    );
+    const tier15Time = Date.now() - tier15Start;
+    totalCost += claudeTextResult.cost;
+
+    if (totalCost > maxCost) {
+      const costExceededReason = `Cost limit exceeded (${totalCost.toFixed(4)} > ${maxCost})`;
+      
+      tierAudit.push({
+        tier: 'tier-1.5',
+        attemptedAt: new Date(tier15Start),
+        completedAt: new Date(),
+        status: 'escalated',
+        confidence: claudeTextResult.confidence,
+        processingTimeMs: tier15Time,
+        cost: claudeTextResult.cost,
+        extractedFieldCount: countFields(claudeTextResult.data),
+        escalationReason: costExceededReason,
+        rawOutput: null,
+      });
+
+      await recordTierAudit(
+        certificateId, null, 'tier-1.5', 'escalated',
+        claudeTextResult.confidence, tier15Time, countFields(claudeTextResult.data),
+        costExceededReason, formatAnalysis
+      );
+
+      warnings.push(`Cost limit exceeded. Routing to manual review.`);
+
+      return createManualReviewResult(
+        startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit,
+        claudeTextResult.data
+      );
+    }
+
+    if (claudeTextResult.success && claudeTextResult.confidence >= tier15Threshold) {
+      tierAudit.push({
+        tier: 'tier-1.5',
+        attemptedAt: new Date(tier15Start),
+        completedAt: new Date(),
+        status: 'success',
+        confidence: claudeTextResult.confidence,
+        processingTimeMs: tier15Time,
+        cost: claudeTextResult.cost,
+        extractedFieldCount: countFields(claudeTextResult.data),
+        escalationReason: null,
+        rawOutput: claudeTextResult.data as unknown as Record<string, unknown>,
+      });
+
+      await recordTierAudit(
+        certificateId, null, 'tier-1.5', 'success',
+        claudeTextResult.confidence, tier15Time, countFields(claudeTextResult.data),
+        null, formatAnalysis
+      );
+
+      return {
+        success: true,
+        data: claudeTextResult.data,
+        finalTier: 'tier-1.5',
+        confidence: claudeTextResult.confidence,
+        totalProcessingTimeMs: Date.now() - startTime,
+        totalCost,
+        requiresReview: false,
+        warnings,
+        rawText: formatAnalysis.textContent,
+        documentFormat: formatAnalysis.format,
+        documentClassification: formatAnalysis.classification,
+        pageCount: formatAnalysis.pageCount,
+        qrCodes: qrMetadata?.qrCodes || [],
+        metadata: qrMetadata?.metadata || null,
+        tierAudit,
+      };
+    }
+
+    const tier15Status: TierStatus = claudeTextResult.success ? 'escalated' : 'failed';
+    const tier15Reason = claudeTextResult.error || `Confidence ${claudeTextResult.confidence.toFixed(2)} below threshold`;
+    
+    tierAudit.push({
+      tier: 'tier-1.5',
+      attemptedAt: new Date(tier15Start),
+      completedAt: new Date(),
+      status: tier15Status,
+      confidence: claudeTextResult.confidence,
+      processingTimeMs: tier15Time,
+      cost: claudeTextResult.cost,
+      extractedFieldCount: countFields(claudeTextResult.data),
+      escalationReason: tier15Reason,
+      rawOutput: null,
+    });
+
+    await recordTierAudit(
+      certificateId, null, 'tier-1.5', tier15Status,
+      claudeTextResult.confidence, tier15Time, countFields(claudeTextResult.data),
+      tier15Reason, formatAnalysis
+    );
+  }
+
+  if (totalCost > maxCost) {
+    warnings.push(`Cost limit exceeded after Tier 1.5 (${totalCost.toFixed(4)} > ${maxCost}). Routing to manual review.`);
+    return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit);
+  }
+
+  if (isAzureDIConfigured() && totalCost + TIER_COST_ESTIMATES['tier-2'] <= maxCost) {
+    const tier2Start = Date.now();
+    const azureResult = await extractWithAzureDI(buffer, mimeType);
+    const tier2Time = Date.now() - tier2Start;
+    totalCost += azureResult.cost;
+
+    if (azureResult.success && azureResult.confidence >= tier2Threshold) {
+      tierAudit.push({
+        tier: 'tier-2',
+        attemptedAt: new Date(tier2Start),
+        completedAt: new Date(),
+        status: 'success',
+        confidence: azureResult.confidence,
+        processingTimeMs: tier2Time,
+        cost: azureResult.cost,
+        extractedFieldCount: countFields(azureResult.data),
+        escalationReason: null,
+        rawOutput: azureResult.structuredData,
+      });
+
+      await recordTierAudit(
+        certificateId, null, 'tier-2', 'success',
+        azureResult.confidence, tier2Time, countFields(azureResult.data),
+        null, formatAnalysis
+      );
+
+      return {
+        success: true,
+        data: azureResult.data,
+        finalTier: 'tier-2',
+        confidence: azureResult.confidence,
+        totalProcessingTimeMs: Date.now() - startTime,
+        totalCost,
+        requiresReview: false,
+        warnings,
+        rawText: azureResult.rawText,
+        documentFormat: formatAnalysis.format,
+        documentClassification: formatAnalysis.classification,
+        pageCount: azureResult.pageCount,
+        qrCodes: qrMetadata?.qrCodes || [],
+        metadata: qrMetadata?.metadata || null,
+        tierAudit,
+      };
+    }
+
+    const tier2Status: TierStatus = azureResult.success ? 'escalated' : 'failed';
+    const tier2Reason = azureResult.error || `Confidence ${azureResult.confidence.toFixed(2)} below threshold`;
+
+    tierAudit.push({
+      tier: 'tier-2',
+      attemptedAt: new Date(tier2Start),
+      completedAt: new Date(),
+      status: tier2Status,
+      confidence: azureResult.confidence,
+      processingTimeMs: tier2Time,
+      cost: azureResult.cost,
+      extractedFieldCount: countFields(azureResult.data),
+      escalationReason: tier2Reason,
+      rawOutput: null,
+    });
+
+    await recordTierAudit(
+      certificateId, null, 'tier-2', tier2Status,
+      azureResult.confidence, tier2Time, countFields(azureResult.data),
+      tier2Reason, formatAnalysis
+    );
+
+    if (totalCost > maxCost) {
+      warnings.push(`Cost limit exceeded after Tier 2 (${totalCost.toFixed(4)} > ${maxCost}). Routing to manual review.`);
+      return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, azureResult.data);
+    }
+  } else if (!isAzureDIConfigured()) {
+    tierAudit.push({
+      tier: 'tier-2',
+      attemptedAt: new Date(),
+      completedAt: new Date(),
+      status: 'skipped',
+      confidence: 0,
+      processingTimeMs: 0,
+      cost: 0,
+      extractedFieldCount: 0,
+      escalationReason: 'Azure Document Intelligence not configured',
+      rawOutput: null,
+    });
+
+    await recordTierAudit(
+      certificateId, null, 'tier-2', 'skipped',
+      0, 0, 0, 'Azure Document Intelligence not configured', formatAnalysis
+    );
+  } else if (isAzureDIConfigured()) {
+    const budgetSkipReason = `Insufficient budget remaining (${(maxCost - totalCost).toFixed(4)} < ${TIER_COST_ESTIMATES['tier-2']})`;
+    
+    tierAudit.push({
+      tier: 'tier-2',
+      attemptedAt: new Date(),
+      completedAt: new Date(),
+      status: 'skipped',
+      confidence: 0,
+      processingTimeMs: 0,
+      cost: 0,
+      extractedFieldCount: 0,
+      escalationReason: budgetSkipReason,
+      rawOutput: null,
+    });
+
+    await recordTierAudit(
+      certificateId, null, 'tier-2', 'skipped',
+      0, 0, 0, budgetSkipReason, formatAnalysis
+    );
+  }
+
+  if (totalCost + TIER_COST_ESTIMATES['tier-3'] <= maxCost) {
+    const tier3Start = Date.now();
+    let visionResult;
+
+    if (formatAnalysis.format === 'image' || mimeType.startsWith('image/')) {
+      visionResult = await extractWithClaudeVision(buffer, mimeType, formatAnalysis.detectedCertificateType);
+    } else {
+      visionResult = await extractWithClaudeVisionFromPDF(buffer, formatAnalysis.detectedCertificateType);
+    }
+
+    const tier3Time = Date.now() - tier3Start;
+    totalCost += visionResult.cost;
+
+    if (visionResult.success && visionResult.confidence >= tier3Threshold) {
+      tierAudit.push({
+        tier: 'tier-3',
+        attemptedAt: new Date(tier3Start),
+        completedAt: new Date(),
+        status: 'success',
+        confidence: visionResult.confidence,
+        processingTimeMs: tier3Time,
+        cost: visionResult.cost,
+        extractedFieldCount: countFields(visionResult.data),
+        escalationReason: null,
+        rawOutput: visionResult.data as unknown as Record<string, unknown>,
+      });
+
+      await recordTierAudit(
+        certificateId, null, 'tier-3', 'success',
+        visionResult.confidence, tier3Time, countFields(visionResult.data),
+        null, formatAnalysis
+      );
+
+      return {
+        success: true,
+        data: visionResult.data,
+        finalTier: 'tier-3',
+        confidence: visionResult.confidence,
+        totalProcessingTimeMs: Date.now() - startTime,
+        totalCost,
+        requiresReview: false,
+        warnings,
+        rawText: formatAnalysis.textContent,
+        documentFormat: formatAnalysis.format,
+        documentClassification: formatAnalysis.classification,
+        pageCount: formatAnalysis.pageCount,
+        qrCodes: qrMetadata?.qrCodes || [],
+        metadata: qrMetadata?.metadata || null,
+        tierAudit,
+      };
+    }
+
+    const tier3Status: TierStatus = visionResult.success ? 'escalated' : 'failed';
+    const tier3Reason = visionResult.error || `Confidence ${visionResult.confidence.toFixed(2)} below threshold`;
+
+    tierAudit.push({
+      tier: 'tier-3',
+      attemptedAt: new Date(tier3Start),
+      completedAt: new Date(),
+      status: tier3Status,
+      confidence: visionResult.confidence,
+      processingTimeMs: tier3Time,
+      cost: visionResult.cost,
+      extractedFieldCount: countFields(visionResult.data),
+      escalationReason: tier3Reason,
+      rawOutput: null,
+    });
+
+    await recordTierAudit(
+      certificateId, null, 'tier-3', tier3Status,
+      visionResult.confidence, tier3Time, countFields(visionResult.data),
+      tier3Reason, formatAnalysis
+    );
+
+    if (totalCost > maxCost) {
+      warnings.push(`Cost limit exceeded after Tier 3 (${totalCost.toFixed(4)} > ${maxCost}). Routing to manual review.`);
+      return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, visionResult.data);
+    }
+  } else {
+    const tier3BudgetReason = `Insufficient budget remaining (${(maxCost - totalCost).toFixed(4)} < ${TIER_COST_ESTIMATES['tier-3']})`;
+    
+    tierAudit.push({
+      tier: 'tier-3',
+      attemptedAt: new Date(),
+      completedAt: new Date(),
+      status: 'skipped',
+      confidence: 0,
+      processingTimeMs: 0,
+      cost: 0,
+      extractedFieldCount: 0,
+      escalationReason: tier3BudgetReason,
+      rawOutput: null,
+    });
+
+    await recordTierAudit(
+      certificateId, null, 'tier-3', 'skipped',
+      0, 0, 0, tier3BudgetReason, formatAnalysis
+    );
+  }
+
   tierAudit.push({
     tier: 'tier-4',
     attemptedAt: new Date(),
@@ -525,27 +873,43 @@ export async function extractCertificate(
     processingTimeMs: 0,
     cost: 0,
     extractedFieldCount: 0,
-    escalationReason: 'AI tiers not fully implemented yet',
+    escalationReason: 'All AI tiers exhausted or confidence too low',
     rawOutput: null,
   });
 
   await recordTierAudit(
-    certificateId,
-    null,
-    'tier-4',
-    'success',
-    0,
-    0,
-    0,
-    'AI tiers not fully implemented yet',
-    formatAnalysis
+    certificateId, null, 'tier-4', 'success',
+    0, 0, 0, 'All AI tiers exhausted', formatAnalysis
   );
 
-  warnings.push('AI processing tiers (1.5, 2, 3) are being implemented. Manual review required.');
+  warnings.push('Automatic extraction did not achieve sufficient confidence. Manual review required.');
 
+  return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit);
+}
+
+function countFields(data: ExtractedCertificateData): number {
+  let count = 0;
+  const fields = ['certificateNumber', 'propertyAddress', 'inspectionDate', 'expiryDate', 'outcome', 'engineerName', 'engineerRegistration'];
+  for (const field of fields) {
+    if (data[field as keyof ExtractedCertificateData]) count++;
+  }
+  if (data.appliances?.length) count++;
+  if (data.defects?.length) count++;
+  return count;
+}
+
+function createManualReviewResult(
+  startTime: number,
+  totalCost: number,
+  warnings: string[],
+  formatAnalysis: FormatAnalysis,
+  qrMetadata: QRMetadataResult | undefined,
+  tierAudit: TierAuditEntry[],
+  partialData?: ExtractedCertificateData
+): ExtractionResult {
   return {
     success: false,
-    data: {
+    data: partialData || {
       certificateType: formatAnalysis.detectedCertificateType,
       certificateNumber: null,
       propertyAddress: null,
@@ -565,7 +929,7 @@ export async function extractCertificate(
     finalTier: 'tier-4',
     confidence: 0,
     totalProcessingTimeMs: Date.now() - startTime,
-    totalCost: totalCost,
+    totalCost,
     requiresReview: true,
     warnings,
     rawText: formatAnalysis.textContent,
