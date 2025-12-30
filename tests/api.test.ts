@@ -136,4 +136,57 @@ describe('API Integration Tests', () => {
       expect(Array.isArray(data)).toBe(true);
     });
   });
+
+  describe('Model Insights API', () => {
+    it('should return model insights data', async () => {
+      const response = await fetchAPI('/model-insights');
+      expect(response.ok).toBe(true);
+      const data = await response.json();
+      expect(data).toHaveProperty('accuracy');
+      expect(data).toHaveProperty('extractionStats');
+    });
+
+    it('should run benchmark and return score', async () => {
+      const response = await fetchAPI('/model-insights/run-benchmark', {
+        method: 'POST',
+      });
+      expect(response.ok).toBe(true);
+      const data = await response.json();
+      expect(data).toHaveProperty('score');
+      expect(data).toHaveProperty('passed');
+      expect(data).toHaveProperty('date');
+    });
+
+    it('should export training data as JSONL with valid structure', async () => {
+      const response = await fetchAPI('/model-insights/export-training-data', {
+        method: 'POST',
+      });
+      expect(response.ok).toBe(true);
+      const contentType = response.headers.get('content-type');
+      expect(contentType).toContain('application/jsonl');
+      const contentDisposition = response.headers.get('content-disposition');
+      expect(contentDisposition).toContain('training-data.jsonl');
+      
+      const body = await response.text();
+      if (body.trim().length > 0) {
+        const lines = body.trim().split('\n');
+        for (const line of lines) {
+          const parsed = JSON.parse(line);
+          expect(parsed).toHaveProperty('source');
+          expect(parsed).toHaveProperty('input');
+          expect(parsed.input).toHaveProperty('documentType');
+          expect(parsed.input).toHaveProperty('certificateType');
+          expect(parsed).toHaveProperty('output');
+          expect(parsed).toHaveProperty('metadata');
+        }
+      }
+    });
+
+    it('should return AI suggestions', async () => {
+      const response = await fetchAPI('/model-insights/ai-suggestions');
+      expect(response.ok).toBe(true);
+      const data = await response.json();
+      expect(data).toHaveProperty('suggestions');
+    });
+  });
 });

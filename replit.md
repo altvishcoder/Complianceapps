@@ -52,6 +52,26 @@ Hierarchy relationships:
 
 Key enums define compliance statuses, property types, certificate types, and action severities aligned with UK housing regulations.
 
+### Compliance Type Taxonomy (v3.0)
+The system supports 60+ compliance types organized into 12 categories aligned with UK social housing regulations:
+
+| Category | Code Range | Examples |
+|----------|------------|----------|
+| **Gas & Heating** | 1-11 | GAS, GAS_SVC, OIL, OIL_TANK, LPG, SOLID, BIO, HVAC, MECH, ASHP, GSHP |
+| **Electrical** | 21-27 | EICR, EIC, MEIWC, PAT, EMLT, EMLT_M, ELEC_HEAT |
+| **Energy** | 31-33 | EPC, SAP, DEC |
+| **Fire Safety** | 41-56 | FRA, FRAEW, FD, FD_Q, FA, FA_W, FA_Q, SD, CO, SPRINK, DRY, WET, AOV, SMOKE_V, EXT, COMPART |
+| **Asbestos** | 61-65 | ASB, ASB_M, ASB_R, ASB_D, ASB_REF |
+| **Water Safety** | 71-75 | LEG, LEG_M, WATER, TANK, TMV |
+| **Lifting Equipment** | 81-85 | LIFT, LIFT_M, STAIR, HOIST, PLAT |
+| **Building Safety** | 91-97 | HHSRS, STRUCT, DAMP, ROOF, CHIMNEY, DRAIN, LIGHT |
+| **External Areas** | 101-103 | PLAY, PLAY_Q, TREE |
+| **Access Equipment** | 106-107 | FALL, ACCESS |
+| **Security** | 111-113 | CCTV, ENTRY, ALARM |
+| **HRB Specific** | 116-121 | SIB, WAYFIND, SC, RES, PEEP, BEEP |
+
+Each type includes: code, name, shortName, complianceStream, description, validityMonths, warningDays, requiredFields, displayOrder, isActive.
+
 ### Compliance Fields
 Extended schema fields for UK social housing compliance:
 

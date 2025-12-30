@@ -1554,17 +1554,90 @@ export async function registerRoutes(
   
   app.post("/api/model-insights/export-training-data", async (req, res) => {
     try {
-      const reviews = await db.select().from(humanReviews).orderBy(desc(humanReviews.reviewedAt));
-      const trainingData = reviews.map(r => JSON.stringify({
-        input: {},
-        output: r.approvedOutput,
-        changes: r.fieldChanges,
-        errorTags: r.errorTags,
-      })).join('\n');
+      // Join human reviews with extraction runs to get the full training context
+      const reviews = await db.select({
+        review: humanReviews,
+        extractionRun: extractionRuns,
+        certificate: certificates,
+      })
+        .from(humanReviews)
+        .innerJoin(extractionRuns, eq(humanReviews.extractionRunId, extractionRuns.id))
+        .leftJoin(certificates, eq(extractionRuns.certificateId, certificates.id))
+        .orderBy(desc(humanReviews.reviewedAt));
+      
+      if (reviews.length === 0) {
+        // If no human reviews, export approved extraction runs instead
+        const approvedRuns = await db.select({
+          run: extractionRuns,
+          certificate: certificates,
+        })
+          .from(extractionRuns)
+          .leftJoin(certificates, eq(extractionRuns.certificateId, certificates.id))
+          .where(eq(extractionRuns.status, 'APPROVED'))
+          .orderBy(desc(extractionRuns.createdAt));
+        
+        if (approvedRuns.length === 0) {
+          // Return empty JSONL with placeholder to ensure valid file
+          res.setHeader('Content-Type', 'application/jsonl');
+          res.setHeader('Content-Disposition', 'attachment; filename=training-data.jsonl');
+          res.send('');
+          return;
+        }
+        
+        const trainingData = approvedRuns
+          .filter(r => r.run !== null)
+          .map(r => JSON.stringify({
+            source: 'approved_extraction',
+            input: {
+              documentType: r.run!.documentType || 'UNKNOWN',
+              certificateType: r.certificate?.certificateType || 'UNKNOWN',
+              rawOutput: r.run!.rawOutput || {},
+            },
+            output: r.run!.finalOutput || r.run!.normalisedOutput || r.run!.validatedOutput || r.run!.rawOutput || {},
+            metadata: {
+              confidence: r.run!.confidence || 0,
+              modelVersion: r.run!.modelVersion || 'unknown',
+              promptVersion: r.run!.promptVersion || 'unknown',
+              certificateId: r.run!.certificateId,
+            }
+          })).join('\n');
+        
+        res.setHeader('Content-Type', 'application/jsonl');
+        res.setHeader('Content-Disposition', 'attachment; filename=training-data.jsonl');
+        res.send(trainingData);
+        return;
+      }
+      
+      const trainingData = reviews
+        .filter(r => r.extractionRun !== null)
+        .map(r => JSON.stringify({
+          source: 'human_review',
+          input: {
+            documentType: r.extractionRun!.documentType || 'UNKNOWN',
+            certificateType: r.certificate?.certificateType || 'UNKNOWN',
+            rawOutput: r.extractionRun!.rawOutput || {},
+            validatedOutput: r.extractionRun!.validatedOutput || null,
+          },
+          output: r.review.approvedOutput || {},
+          corrections: {
+            fieldChanges: r.review.fieldChanges || [],
+            addedItems: r.review.addedItems || [],
+            removedItems: r.review.removedItems || [],
+            errorTags: r.review.errorTags || [],
+            wasCorrect: r.review.wasCorrect ?? false,
+            changeCount: r.review.changeCount || 0,
+          },
+          metadata: {
+            modelVersion: r.extractionRun!.modelVersion || 'unknown',
+            promptVersion: r.extractionRun!.promptVersion || 'unknown',
+            reviewerId: r.review.reviewerId,
+            certificateId: r.extractionRun!.certificateId,
+          }
+        })).join('\n');
       
       res.setHeader('Content-Type', 'application/jsonl');
       res.setHeader('Content-Disposition', 'attachment; filename=training-data.jsonl');
-      res.send(trainingData || '{}');
+      res.send(trainingData);
     } catch (error) {
       console.error("Error exporting training data:", error);
       res.status(500).json({ error: "Failed to export" });

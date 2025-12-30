@@ -312,127 +312,104 @@ async function seedConfiguration() {
   console.log("🔧 Seeding configuration data...");
   
   // ==================== CERTIFICATE TYPES ====================
+  // Comprehensive compliance types based on UK social housing regulations
   const certTypesData = [
-    {
-      code: "GAS_SAFETY",
-      name: "Gas Safety Certificate (CP12)",
-      shortName: "Gas Safety",
-      complianceStream: "GAS",
-      description: "Annual gas safety check required under Gas Safety (Installation and Use) Regulations 1998",
-      validityMonths: 12,
-      warningDays: 60,
-      requiredFields: ["certificateNumber", "engineerName", "gasRegisterId", "issueDate", "expiryDate"],
-      displayOrder: 1,
-      isActive: true
-    },
-    {
-      code: "EICR",
-      name: "Electrical Installation Condition Report",
-      shortName: "EICR",
-      complianceStream: "ELECTRICAL",
-      description: "Periodic electrical safety inspection required every 5 years under Electrical Safety Standards Regulations 2020",
-      validityMonths: 60,
-      warningDays: 90,
-      requiredFields: ["certificateNumber", "engineerName", "issueDate", "nextInspectionDate", "overallAssessment"],
-      displayOrder: 2,
-      isActive: true
-    },
-    {
-      code: "FIRE_RISK",
-      name: "Fire Risk Assessment",
-      shortName: "Fire Risk",
-      complianceStream: "FIRE",
-      description: "Fire safety assessment required under Regulatory Reform (Fire Safety) Order 2005",
-      validityMonths: 12,
-      warningDays: 60,
-      requiredFields: ["assessmentDate", "assessorName", "riskRating", "nextReviewDate"],
-      displayOrder: 3,
-      isActive: true
-    },
-    {
-      code: "ASBESTOS",
-      name: "Asbestos Management Survey",
-      shortName: "Asbestos",
-      complianceStream: "ASBESTOS",
-      description: "Asbestos survey and management plan under Control of Asbestos Regulations 2012",
-      validityMonths: 12,
-      warningDays: 60,
-      requiredFields: ["surveyDate", "surveyorName", "surveyType", "acmsIdentified"],
-      displayOrder: 4,
-      isActive: true
-    },
-    {
-      code: "LEGIONELLA",
-      name: "Legionella Risk Assessment",
-      shortName: "Legionella",
-      complianceStream: "WATER",
-      description: "Water hygiene risk assessment under HSE Approved Code of Practice L8",
-      validityMonths: 24,
-      warningDays: 60,
-      requiredFields: ["assessmentDate", "assessorName", "riskLevel", "controlMeasures"],
-      displayOrder: 5,
-      isActive: true
-    },
-    {
-      code: "LIFT_LOLER",
-      name: "Lift Thorough Examination (LOLER)",
-      shortName: "Lift/LOLER",
-      complianceStream: "LIFT",
-      description: "Six-monthly lift inspection under LOLER 1998",
-      validityMonths: 6,
-      warningDays: 30,
-      requiredFields: ["examinationDate", "engineerName", "liftId", "safeForUse", "nextExaminationDate"],
-      displayOrder: 6,
-      isActive: true
-    },
-    {
-      code: "EPC",
-      name: "Energy Performance Certificate",
-      shortName: "EPC",
-      complianceStream: "ENERGY",
-      description: "Energy efficiency rating required for lettings",
-      validityMonths: 120,
-      warningDays: 180,
-      requiredFields: ["certificateNumber", "assessorName", "currentRating", "issueDate"],
-      displayOrder: 7,
-      isActive: true
-    },
-    {
-      code: "PAT",
-      name: "Portable Appliance Testing",
-      shortName: "PAT",
-      complianceStream: "ELECTRICAL",
-      description: "Testing of portable electrical appliances in communal areas",
-      validityMonths: 12,
-      warningDays: 30,
-      requiredFields: ["testDate", "testerName", "appliancesTested", "passRate"],
-      displayOrder: 8,
-      isActive: true
-    },
-    {
-      code: "FIRE_ALARM",
-      name: "Fire Alarm System Certificate",
-      shortName: "Fire Alarm",
-      complianceStream: "FIRE",
-      description: "Annual fire alarm system inspection under BS 5839",
-      validityMonths: 12,
-      warningDays: 30,
-      requiredFields: ["inspectionDate", "engineerName", "systemType", "nextInspectionDate"],
-      displayOrder: 9,
-      isActive: true
-    },
-    {
-      code: "EMERGENCY_LIGHTING",
-      name: "Emergency Lighting Certificate",
-      shortName: "Emergency Lighting",
-      complianceStream: "FIRE",
-      description: "Annual emergency lighting inspection under BS 5266",
-      validityMonths: 12,
-      warningDays: 30,
-      requiredFields: ["testDate", "engineerName", "luminairesTested", "nextTestDate"],
-      displayOrder: 10,
-      isActive: true
-    }
+    // ========== GAS & HEATING (1-20) ==========
+    { code: "GAS", name: "Gas Safety Certificate (CP12/LGSR)", shortName: "Gas Safety", complianceStream: "GAS_HEATING", description: "Annual gas safety check required under Gas Safety (Installation and Use) Regulations 1998", validityMonths: 12, warningDays: 60, requiredFields: ["certificateNumber", "engineerName", "gasRegisterId", "issueDate", "expiryDate"], displayOrder: 1, isActive: true },
+    { code: "GAS_SVC", name: "Gas Servicing Certificate", shortName: "Gas Service", complianceStream: "GAS_HEATING", description: "Annual gas appliance servicing by Gas Safe engineer", validityMonths: 12, warningDays: 30, requiredFields: ["certificateNumber", "engineerName", "gasRegisterId", "issueDate"], displayOrder: 2, isActive: true },
+    { code: "OIL", name: "Oil Heating Certificate (OFTEC)", shortName: "Oil Heating", complianceStream: "GAS_HEATING", description: "Annual oil boiler inspection by OFTEC technician", validityMonths: 12, warningDays: 60, requiredFields: ["certificateNumber", "technicianName", "oftecNumber", "issueDate"], displayOrder: 3, isActive: true },
+    { code: "OIL_TANK", name: "Oil Tank Inspection", shortName: "Oil Tank", complianceStream: "GAS_HEATING", description: "Annual oil tank inspection and integrity check", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "technicianName", "tankCondition"], displayOrder: 4, isActive: true },
+    { code: "LPG", name: "LPG Safety Certificate", shortName: "LPG", complianceStream: "GAS_HEATING", description: "Annual LPG installation safety check by Gas Safe engineer", validityMonths: 12, warningDays: 60, requiredFields: ["certificateNumber", "engineerName", "gasRegisterId", "issueDate"], displayOrder: 5, isActive: true },
+    { code: "SOLID", name: "Solid Fuel Certificate (HETAS)", shortName: "Solid Fuel", complianceStream: "GAS_HEATING", description: "Annual solid fuel appliance inspection by HETAS engineer", validityMonths: 12, warningDays: 60, requiredFields: ["certificateNumber", "engineerName", "hetasNumber", "issueDate"], displayOrder: 6, isActive: true },
+    { code: "BIO", name: "Biomass Certificate", shortName: "Biomass", complianceStream: "GAS_HEATING", description: "Annual biomass heating system inspection", validityMonths: 12, warningDays: 30, requiredFields: ["certificateNumber", "engineerName", "issueDate"], displayOrder: 7, isActive: true },
+    { code: "HVAC", name: "HVAC Systems Certificate", shortName: "HVAC", complianceStream: "GAS_HEATING", description: "Air conditioning and ventilation system inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "engineerName", "systemType"], displayOrder: 8, isActive: true },
+    { code: "MECH", name: "Mechanical Servicing", shortName: "Mechanical", complianceStream: "GAS_HEATING", description: "Mechanical plant and equipment servicing", validityMonths: 12, warningDays: 30, requiredFields: ["serviceDate", "engineerName", "equipmentList"], displayOrder: 9, isActive: true },
+    { code: "ASHP", name: "Air Source Heat Pump Certificate", shortName: "ASHP", complianceStream: "GAS_HEATING", description: "Annual air source heat pump inspection", validityMonths: 12, warningDays: 30, requiredFields: ["certificateNumber", "engineerName", "mcsNumber", "issueDate"], displayOrder: 10, isActive: true },
+    { code: "GSHP", name: "Ground Source Heat Pump Certificate", shortName: "GSHP", complianceStream: "GAS_HEATING", description: "Annual ground source heat pump inspection", validityMonths: 12, warningDays: 30, requiredFields: ["certificateNumber", "engineerName", "mcsNumber", "issueDate"], displayOrder: 11, isActive: true },
+    
+    // ========== ELECTRICAL (21-30) ==========
+    { code: "EICR", name: "Electrical Installation Condition Report", shortName: "EICR", complianceStream: "ELECTRICAL", description: "Periodic electrical safety inspection required every 5 years under Electrical Safety Standards Regulations 2020", validityMonths: 60, warningDays: 90, requiredFields: ["certificateNumber", "engineerName", "issueDate", "nextInspectionDate", "overallAssessment"], displayOrder: 21, isActive: true },
+    { code: "EIC", name: "Electrical Installation Certificate", shortName: "EIC", complianceStream: "ELECTRICAL", description: "Certificate for new electrical installations", validityMonths: 60, warningDays: 90, requiredFields: ["certificateNumber", "engineerName", "issueDate"], displayOrder: 22, isActive: true },
+    { code: "MEIWC", name: "Minor Electrical Works Certificate", shortName: "MEIWC", complianceStream: "ELECTRICAL", description: "Certificate for minor electrical works", validityMonths: 60, warningDays: 90, requiredFields: ["certificateNumber", "engineerName", "worksDescription", "issueDate"], displayOrder: 23, isActive: true },
+    { code: "PAT", name: "Portable Appliance Testing", shortName: "PAT", complianceStream: "ELECTRICAL", description: "Testing of portable electrical appliances", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "testerName", "appliancesTested", "passRate"], displayOrder: 24, isActive: true },
+    { code: "EMLT", name: "Emergency Lighting Certificate", shortName: "Emergency Lighting", complianceStream: "ELECTRICAL", description: "Annual emergency lighting inspection under BS 5266", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "engineerName", "luminairesTested", "nextTestDate"], displayOrder: 25, isActive: true },
+    { code: "EMLT_M", name: "Emergency Lighting Monthly Test", shortName: "Em Light Monthly", complianceStream: "ELECTRICAL", description: "Monthly emergency lighting functional test", validityMonths: 1, warningDays: 7, requiredFields: ["testDate", "testerName", "result"], displayOrder: 26, isActive: true },
+    { code: "ELEC_HEAT", name: "Electric Heating Inspection", shortName: "Electric Heating", complianceStream: "ELECTRICAL", description: "Annual electric heating system inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "engineerName", "heaterCount"], displayOrder: 27, isActive: true },
+    
+    // ========== ENERGY (31-35) ==========
+    { code: "EPC", name: "Energy Performance Certificate", shortName: "EPC", complianceStream: "ENERGY", description: "Energy efficiency rating required for lettings (10 year validity)", validityMonths: 120, warningDays: 180, requiredFields: ["certificateNumber", "assessorName", "currentRating", "issueDate"], displayOrder: 31, isActive: true },
+    { code: "SAP", name: "SAP Assessment", shortName: "SAP", complianceStream: "ENERGY", description: "Standard Assessment Procedure calculation for new builds", validityMonths: null, warningDays: null, requiredFields: ["assessmentDate", "assessorName", "sapRating"], displayOrder: 32, isActive: true },
+    { code: "DEC", name: "Display Energy Certificate", shortName: "DEC", complianceStream: "ENERGY", description: "Annual energy display certificate for public buildings", validityMonths: 12, warningDays: 60, requiredFields: ["certificateNumber", "assessorName", "rating", "issueDate"], displayOrder: 33, isActive: true },
+    
+    // ========== FIRE SAFETY (41-60) ==========
+    { code: "FRA", name: "Fire Risk Assessment", shortName: "Fire Risk", complianceStream: "FIRE_SAFETY", description: "Fire safety assessment required under Regulatory Reform (Fire Safety) Order 2005", validityMonths: 12, warningDays: 60, requiredFields: ["assessmentDate", "assessorName", "riskRating", "nextReviewDate"], displayOrder: 41, isActive: true },
+    { code: "FRAEW", name: "External Wall Fire Risk Appraisal", shortName: "FRAEW/EWS1", complianceStream: "FIRE_SAFETY", description: "Fire risk appraisal of external walls under PAS 9980", validityMonths: 60, warningDays: 180, requiredFields: ["appraisalDate", "engineerName", "ews1Rating"], displayOrder: 42, isActive: true },
+    { code: "FD", name: "Fire Door Inspection Report", shortName: "Fire Doors", complianceStream: "FIRE_SAFETY", description: "Fire door inspection (quarterly for HRBs, annual otherwise)", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "doorsInspected", "defectsFound"], displayOrder: 43, isActive: true },
+    { code: "FD_Q", name: "Fire Door Quarterly Inspection", shortName: "Fire Door Q", complianceStream: "FIRE_SAFETY", description: "Quarterly fire door inspection for high-rise buildings", validityMonths: 3, warningDays: 14, requiredFields: ["inspectionDate", "inspectorName", "doorsInspected"], displayOrder: 44, isActive: true },
+    { code: "FA", name: "Fire Alarm System Certificate", shortName: "Fire Alarm", complianceStream: "FIRE_SAFETY", description: "Annual fire alarm system inspection under BS 5839", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "engineerName", "systemType", "nextInspectionDate"], displayOrder: 45, isActive: true },
+    { code: "FA_W", name: "Fire Alarm Weekly Test", shortName: "Fire Alarm W", complianceStream: "FIRE_SAFETY", description: "Weekly fire alarm call point test", validityMonths: null, warningDays: 3, requiredFields: ["testDate", "testerName", "result"], displayOrder: 46, isActive: true },
+    { code: "FA_Q", name: "Fire Alarm Quarterly Inspection", shortName: "Fire Alarm Q", complianceStream: "FIRE_SAFETY", description: "Quarterly fire alarm maintenance visit", validityMonths: 3, warningDays: 14, requiredFields: ["inspectionDate", "engineerName", "findings"], displayOrder: 47, isActive: true },
+    { code: "SD", name: "Smoke Detector Certificate", shortName: "Smoke Detectors", complianceStream: "FIRE_SAFETY", description: "Annual smoke detector testing and certification", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "testerName", "detectorsCount"], displayOrder: 48, isActive: true },
+    { code: "CO", name: "Carbon Monoxide Detector Certificate", shortName: "CO Detectors", complianceStream: "FIRE_SAFETY", description: "Annual CO detector testing and certification", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "testerName", "detectorsCount"], displayOrder: 49, isActive: true },
+    { code: "SPRINK", name: "Sprinkler System Certificate", shortName: "Sprinklers", complianceStream: "FIRE_SAFETY", description: "Annual sprinkler system inspection by LPCB contractor", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "engineerName", "systemType"], displayOrder: 50, isActive: true },
+    { code: "DRY", name: "Dry Riser Certificate", shortName: "Dry Riser", complianceStream: "FIRE_SAFETY", description: "Six-monthly dry riser testing", validityMonths: 6, warningDays: 30, requiredFields: ["testDate", "engineerName", "testResult"], displayOrder: 51, isActive: true },
+    { code: "WET", name: "Wet Riser Certificate", shortName: "Wet Riser", complianceStream: "FIRE_SAFETY", description: "Six-monthly wet riser testing", validityMonths: 6, warningDays: 30, requiredFields: ["testDate", "engineerName", "testResult"], displayOrder: 52, isActive: true },
+    { code: "AOV", name: "Automatic Opening Vent Certificate", shortName: "AOV", complianceStream: "FIRE_SAFETY", description: "Annual AOV smoke ventilation system test", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "engineerName", "aovCount", "result"], displayOrder: 53, isActive: true },
+    { code: "SMOKE_V", name: "Smoke Ventilation Certificate", shortName: "Smoke Vent", complianceStream: "FIRE_SAFETY", description: "Annual smoke ventilation system inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "engineerName", "systemType"], displayOrder: 54, isActive: true },
+    { code: "EXT", name: "Fire Extinguisher Certificate", shortName: "Extinguishers", complianceStream: "FIRE_SAFETY", description: "Annual fire extinguisher service by BAFE contractor", validityMonths: 12, warningDays: 30, requiredFields: ["serviceDate", "engineerName", "extinguishersCount"], displayOrder: 55, isActive: true },
+    { code: "COMPART", name: "Compartmentation Survey", shortName: "Compartmentation", complianceStream: "FIRE_SAFETY", description: "Fire compartmentation survey and inspection", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "surveyorName", "findings"], displayOrder: 56, isActive: true },
+    
+    // ========== ASBESTOS (61-70) ==========
+    { code: "ASB", name: "Asbestos Management Survey", shortName: "Asbestos Survey", complianceStream: "ASBESTOS", description: "Asbestos management survey under Control of Asbestos Regulations 2012", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "surveyType", "acmsIdentified"], displayOrder: 61, isActive: true },
+    { code: "ASB_M", name: "Asbestos Management Plan", shortName: "Asbestos Plan", complianceStream: "ASBESTOS", description: "Annual asbestos management plan review", validityMonths: 12, warningDays: 60, requiredFields: ["reviewDate", "reviewer", "acmsStatus"], displayOrder: 62, isActive: true },
+    { code: "ASB_R", name: "Asbestos Re-inspection", shortName: "Asbestos Reinsp", complianceStream: "ASBESTOS", description: "Annual ACM condition reinspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "acmsInspected", "conditionChanges"], displayOrder: 63, isActive: true },
+    { code: "ASB_D", name: "Asbestos Demolition Survey", shortName: "Asbestos Demo", complianceStream: "ASBESTOS", description: "Refurbishment and demolition asbestos survey", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "surveyType"], displayOrder: 64, isActive: true },
+    { code: "ASB_REF", name: "Asbestos Refurbishment Survey", shortName: "Asbestos Refurb", complianceStream: "ASBESTOS", description: "Pre-works asbestos survey for refurbishment", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "worksArea"], displayOrder: 65, isActive: true },
+    
+    // ========== WATER SAFETY (71-80) ==========
+    { code: "LEG", name: "Legionella Risk Assessment", shortName: "Legionella", complianceStream: "WATER_SAFETY", description: "Water hygiene risk assessment under HSE ACOP L8 (2-year validity)", validityMonths: 24, warningDays: 90, requiredFields: ["assessmentDate", "assessorName", "riskLevel", "controlMeasures"], displayOrder: 71, isActive: true },
+    { code: "LEG_M", name: "Legionella Monitoring", shortName: "Legionella Mon", complianceStream: "WATER_SAFETY", description: "Monthly legionella monitoring and temperature checks", validityMonths: 1, warningDays: 7, requiredFields: ["monitoringDate", "monitorName", "temperatures"], displayOrder: 72, isActive: true },
+    { code: "WATER", name: "Water Hygiene Report", shortName: "Water Hygiene", complianceStream: "WATER_SAFETY", description: "Annual water hygiene inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "findings"], displayOrder: 73, isActive: true },
+    { code: "TANK", name: "Water Tank Inspection", shortName: "Water Tank", complianceStream: "WATER_SAFETY", description: "Annual cold water storage tank inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "tankCondition"], displayOrder: 74, isActive: true },
+    { code: "TMV", name: "TMV Servicing Certificate", shortName: "TMV", complianceStream: "WATER_SAFETY", description: "Annual thermostatic mixing valve servicing", validityMonths: 12, warningDays: 30, requiredFields: ["serviceDate", "engineerName", "tmvCount"], displayOrder: 75, isActive: true },
+    
+    // ========== LIFTING EQUIPMENT (81-90) ==========
+    { code: "LIFT", name: "Lift Thorough Examination (LOLER)", shortName: "Lift/LOLER", complianceStream: "LIFTING_EQUIPMENT", description: "Six-monthly lift inspection under LOLER 1998", validityMonths: 6, warningDays: 30, requiredFields: ["examinationDate", "engineerName", "liftId", "safeForUse", "nextExaminationDate"], displayOrder: 81, isActive: true },
+    { code: "LIFT_M", name: "Lift Monthly Check", shortName: "Lift Monthly", complianceStream: "LIFTING_EQUIPMENT", description: "Monthly lift safety check for high-rise buildings", validityMonths: 1, warningDays: 7, requiredFields: ["checkDate", "checkerName", "result"], displayOrder: 82, isActive: true },
+    { code: "STAIR", name: "Stairlift Examination", shortName: "Stairlift", complianceStream: "LIFTING_EQUIPMENT", description: "Six-monthly stairlift thorough examination", validityMonths: 6, warningDays: 30, requiredFields: ["examinationDate", "engineerName", "safeForUse"], displayOrder: 83, isActive: true },
+    { code: "HOIST", name: "Hoist Examination", shortName: "Hoist", complianceStream: "LIFTING_EQUIPMENT", description: "Six-monthly hoist thorough examination", validityMonths: 6, warningDays: 30, requiredFields: ["examinationDate", "engineerName", "safeForUse"], displayOrder: 84, isActive: true },
+    { code: "PLAT", name: "Platform Lift Examination", shortName: "Platform Lift", complianceStream: "LIFTING_EQUIPMENT", description: "Six-monthly platform lift thorough examination", validityMonths: 6, warningDays: 30, requiredFields: ["examinationDate", "engineerName", "safeForUse"], displayOrder: 85, isActive: true },
+    
+    // ========== BUILDING SAFETY (91-100) ==========
+    { code: "HHSRS", name: "HHSRS Assessment", shortName: "HHSRS", complianceStream: "BUILDING_SAFETY", description: "Housing Health and Safety Rating System assessment", validityMonths: null, warningDays: null, requiredFields: ["assessmentDate", "assessorName", "hazards"], displayOrder: 91, isActive: true },
+    { code: "STRUCT", name: "Structural Survey", shortName: "Structural", complianceStream: "BUILDING_SAFETY", description: "Structural condition survey (5-year cycle)", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "engineerName", "findings"], displayOrder: 92, isActive: true },
+    { code: "DAMP", name: "Damp & Mould Survey", shortName: "Damp/Mould", complianceStream: "BUILDING_SAFETY", description: "Damp and mould investigation report", validityMonths: null, warningDays: null, requiredFields: ["surveyDate", "surveyorName", "findings", "recommendations"], displayOrder: 93, isActive: true },
+    { code: "ROOF", name: "Roof Survey", shortName: "Roof", complianceStream: "BUILDING_SAFETY", description: "Roof condition survey (5-year cycle)", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "surveyorName", "roofCondition"], displayOrder: 94, isActive: true },
+    { code: "CHIMNEY", name: "Chimney Inspection", shortName: "Chimney", complianceStream: "BUILDING_SAFETY", description: "Annual chimney inspection and sweep record", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "sweepName", "condition"], displayOrder: 95, isActive: true },
+    { code: "DRAIN", name: "Drainage Survey", shortName: "Drainage", complianceStream: "BUILDING_SAFETY", description: "CCTV drainage survey (5-year cycle)", validityMonths: 60, warningDays: 180, requiredFields: ["surveyDate", "operatorName", "findings"], displayOrder: 96, isActive: true },
+    { code: "LIGHT", name: "Lightning Protection Certificate", shortName: "Lightning", complianceStream: "BUILDING_SAFETY", description: "Annual lightning protection system inspection", validityMonths: 12, warningDays: 30, requiredFields: ["testDate", "engineerName", "systemStatus"], displayOrder: 97, isActive: true },
+    
+    // ========== EXTERNAL AREAS (101-105) ==========
+    { code: "PLAY", name: "Playground Inspection", shortName: "Playground", complianceStream: "EXTERNAL_AREAS", description: "Annual playground equipment safety inspection", validityMonths: 12, warningDays: 60, requiredFields: ["inspectionDate", "inspectorName", "equipmentList", "findings"], displayOrder: 101, isActive: true },
+    { code: "PLAY_Q", name: "Playground Quarterly Inspection", shortName: "Playground Q", complianceStream: "EXTERNAL_AREAS", description: "Quarterly operational playground inspection", validityMonths: 3, warningDays: 14, requiredFields: ["inspectionDate", "inspectorName", "findings"], displayOrder: 102, isActive: true },
+    { code: "TREE", name: "Tree Survey", shortName: "Tree Survey", complianceStream: "EXTERNAL_AREAS", description: "Tree condition survey (3-year cycle)", validityMonths: 36, warningDays: 90, requiredFields: ["surveyDate", "arboristName", "treesAssessed", "recommendations"], displayOrder: 103, isActive: true },
+    
+    // ========== ACCESS EQUIPMENT (106-110) ==========
+    { code: "FALL", name: "Fall Arrest System Certificate", shortName: "Fall Arrest", complianceStream: "ACCESS_EQUIPMENT", description: "Annual fall arrest and anchor point inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "anchorCount", "result"], displayOrder: 106, isActive: true },
+    { code: "ACCESS", name: "Access Equipment Inspection", shortName: "Access Equip", complianceStream: "ACCESS_EQUIPMENT", description: "Annual access equipment and ladders inspection", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "equipmentList"], displayOrder: 107, isActive: true },
+    
+    // ========== SECURITY (111-115) ==========
+    { code: "CCTV", name: "CCTV Maintenance Certificate", shortName: "CCTV", complianceStream: "SECURITY", description: "Annual CCTV system maintenance", validityMonths: 12, warningDays: 30, requiredFields: ["serviceDate", "engineerName", "cameraCount"], displayOrder: 111, isActive: true },
+    { code: "ENTRY", name: "Door Entry System Certificate", shortName: "Door Entry", complianceStream: "SECURITY", description: "Annual door entry system maintenance", validityMonths: 12, warningDays: 30, requiredFields: ["serviceDate", "engineerName", "systemType"], displayOrder: 112, isActive: true },
+    { code: "ALARM", name: "Intruder Alarm Certificate", shortName: "Intruder Alarm", complianceStream: "SECURITY", description: "Annual intruder alarm system maintenance", validityMonths: 12, warningDays: 30, requiredFields: ["serviceDate", "engineerName", "systemType"], displayOrder: 113, isActive: true },
+    
+    // ========== HRB SPECIFIC - Building Safety Act (116-125) ==========
+    { code: "SIB", name: "Secure Information Box Certificate", shortName: "Secure Info Box", complianceStream: "HRB_SPECIFIC", description: "Annual secure information box inspection (HRB requirement)", validityMonths: 12, warningDays: 30, requiredFields: ["inspectionDate", "inspectorName", "contentsVerified"], displayOrder: 116, isActive: true },
+    { code: "WAYFIND", name: "Wayfinding Signage Inspection", shortName: "Wayfinding", complianceStream: "HRB_SPECIFIC", description: "Wayfinding and floor identification signage check", validityMonths: null, warningDays: null, requiredFields: ["inspectionDate", "inspectorName", "signageStatus"], displayOrder: 117, isActive: true },
+    { code: "SC", name: "Building Safety Case", shortName: "Safety Case", complianceStream: "HRB_SPECIFIC", description: "Building Safety Case document (2-year review)", validityMonths: 24, warningDays: 180, requiredFields: ["reviewDate", "reviewer", "caseStatus"], displayOrder: 118, isActive: true },
+    { code: "RES", name: "Resident Engagement Strategy", shortName: "Resident Strategy", complianceStream: "HRB_SPECIFIC", description: "Resident engagement strategy review (2-year cycle)", validityMonths: 24, warningDays: 90, requiredFields: ["reviewDate", "reviewer", "strategyStatus"], displayOrder: 119, isActive: true },
+    { code: "PEEP", name: "PEEP Assessment", shortName: "PEEP", complianceStream: "HRB_SPECIFIC", description: "Personal Emergency Evacuation Plan assessment", validityMonths: 12, warningDays: 60, requiredFields: ["assessmentDate", "assessorName", "residentName"], displayOrder: 120, isActive: true },
+    { code: "BEEP", name: "Building Emergency Evacuation Plan", shortName: "BEEP", complianceStream: "HRB_SPECIFIC", description: "Building emergency evacuation plan review", validityMonths: 12, warningDays: 60, requiredFields: ["reviewDate", "reviewer", "planStatus"], displayOrder: 121, isActive: true }
   ];
   
   await db.insert(certificateTypes).values(certTypesData);

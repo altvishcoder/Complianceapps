@@ -60,7 +60,6 @@ const aiNavigation = [
 
 // Admin-only items in Admin Panel
 const adminOnlyNavigation = [
-  { name: "Asset Hierarchy", href: "/admin/hierarchy", icon: Building2 },
   { name: "User Management", href: "/admin/users", icon: UserCog },
   { name: "Integrations", href: "/admin/integrations", icon: Webhook },
   { name: "API Integration", href: "/admin/api-integration", icon: Key },
@@ -76,6 +75,7 @@ const lashanSuperUserNav = [
 // Configuration visible to both admin and compliance manager
 const configurationNav = [
   { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
+  { name: "Asset Hierarchy", href: "/admin/hierarchy", icon: Building2 },
 ];
 
 const SIDEBAR_SCROLL_KEY = 'sidebar_scroll_position';
