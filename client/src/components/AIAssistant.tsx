@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/mfa'];
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -85,6 +88,7 @@ function useAuthState() {
 }
 
 export function AIAssistant() {
+  const [location] = useLocation();
   const userId = useAuthState();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -92,6 +96,8 @@ export function AIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  const isPublicRoute = PUBLIC_ROUTES.includes(location);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -155,7 +161,7 @@ export function AIAssistant() {
     "When does an EICR need renewing?",
   ];
 
-  if (!userId) {
+  if (!userId || isPublicRoute) {
     return null;
   }
 
