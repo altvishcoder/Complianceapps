@@ -227,30 +227,21 @@ async function getComponentsNeedingAttention(): Promise<string> {
       .limit(10);
     
     if (criticalComponents.length === 0) {
-      return `✅ **All components up to date!**
-
-No components are overdue for inspection. Great job staying on top of maintenance!
-
-Need to check something specific? Try:
-- "Find boiler components"
-- "Show lift equipment"`;
+      return `✅ **All components up to date!** [View all →](/components)`;
     }
     
-    let response = `🔧 **Components Needing Attention (${criticalComponents.length})**\n\n`;
+    let response = `🔧 **Components Needing Attention: ${criticalComponents.length}**\n\n`;
     
     for (const c of criticalComponents.slice(0, 5)) {
-      const overdue = c.nextInspectionDue ? `Overdue: ${c.nextInspectionDue}` : 'No inspection date set';
-      response += `- **${c.componentTypeName || 'Component'}**${c.manufacturer ? ` - ${c.manufacturer}` : ''}\n`;
-      response += `  📍 ${c.propertyAddress || 'Unknown'}, ${c.propertyPostcode || ''}\n`;
-      response += `  ⚠️ ${overdue}\n`;
-      if (c.propertyId) {
-        response += `  [View property →](/properties/${c.propertyId})\n`;
-      }
-      response += `\n`;
+      const typeName = c.componentTypeName || 'Component';
+      const shortAddr = c.propertyPostcode || 'Unknown';
+      const status = c.nextInspectionDue ? `⚠️ Overdue` : `❓ No date`;
+      const link = c.propertyId ? `[${shortAddr}](/properties/${c.propertyId})` : shortAddr;
+      response += `• ${typeName} - ${link} ${status}\n`;
     }
     
     if (criticalComponents.length > 5) {
-      response += `...and ${criticalComponents.length - 5} more. [View all components](/components)\n`;
+      response += `\n+${criticalComponents.length - 5} more [View all →](/components)`;
     }
     
     return response;
