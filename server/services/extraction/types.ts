@@ -34,22 +34,25 @@ export type DocumentClassification =
   | 'unknown';
 
 export type CertificateTypeCode = 
-  | 'GAS' | 'GAS_SVC' | 'OIL' | 'OIL_TANK' | 'LPG' | 'SOLID' | 'BIO' | 'HVAC' | 'MECH' | 'RENEW' | 'ASHP' | 'GSHP'
-  | 'ELEC' | 'EICR' | 'PAT' | 'EMLT' | 'EMLT_M' | 'ELEC_HEAT'
+  | 'GAS' | 'GAS_SAFETY' | 'GAS_SVC' | 'OIL' | 'OIL_TANK' | 'LPG' | 'SOLID' | 'BIO' | 'HVAC' | 'MECH' | 'RENEW' | 'ASHP' | 'GSHP'
+  | 'ELEC' | 'EIC' | 'EICR' | 'MEIWC' | 'PAT' | 'EMLT' | 'EMLT_M' | 'ELEC_HEAT'
   | 'EPC' | 'SAP' | 'DEC'
-  | 'FIRE' | 'FRA' | 'FRAEW' | 'FIRE_ALARM' | 'FIRE_ALARM_M' | 'FIRE_EXT' | 'FIRE_DOOR' | 'FIRE_DOOR_Q' | 'DRY_RISER' | 'WET_RISER' | 'SPRINKLER' | 'SMOKE_CO' | 'AOV' | 'COMPART' | 'FIRE_STOP' | 'FIRE_EVP' | 'EVAC_CHAIR' | 'ESCAPE_LTNG'
-  | 'ASBESTOS' | 'ASB_SURVEY' | 'ASB_MGMT' | 'ASB_REINSP'
-  | 'LEGIONELLA' | 'LEG_RA' | 'LEG_MONITOR' | 'WATER_TANK' | 'TMV'
-  | 'LIFT' | 'STAIRLIFT' | 'HOIST' | 'LOLER'
-  | 'STRUCT' | 'BLDG_SAFETY' | 'BSR_REG' | 'FACADE' | 'ROOF'
-  | 'PLAY' | 'TREE' | 'LAND' | 'BOUNDARY' | 'PARKING' | 'DRAINAGE'
-  | 'SEC_DOOR' | 'SEC_GATE' | 'CCTV' | 'ACCESS_CTRL' | 'INTERCOM'
-  | 'RESIDENT_ENG' | 'BSM_STRATEGY' | 'GOLDEN_THREAD' | 'RESIDENT_INFO'
-  | 'HHSRS' | 'DAMP_MOULD' | 'VENTILATION' | 'RADON'
+  | 'FIRE' | 'FRA' | 'FIRE_RISK' | 'FIRE_RISK_ASSESSMENT' | 'FRAEW' | 'FA' | 'FA_Q' | 'FA_W' | 'FIRE_ALARM' | 'FIRE_ALARM_M' 
+  | 'FD' | 'FD_Q' | 'FIRE_EXT' | 'EXT' | 'FIRE_DOOR' | 'FIRE_DOOR_Q' | 'DRY' | 'DRY_RISER' | 'WET' | 'WET_RISER' 
+  | 'SPRINK' | 'SPRINKLER' | 'CO' | 'SD' | 'SMOKE_CO' | 'SMOKE_V' | 'AOV' | 'COMPART' | 'FIRE_STOP' | 'FIRE_EVP' | 'EVAC_CHAIR' | 'ESCAPE_LTNG'
+  | 'ASB' | 'ASBESTOS' | 'ASBESTOS_SURVEY' | 'ASB_M' | 'ASB_D' | 'ASB_R' | 'ASB_REF' | 'ASB_SURVEY' | 'ASB_MGMT' | 'ASB_REINSP'
+  | 'LEG' | 'LEGIONELLA' | 'LEGIONELLA_ASSESSMENT' | 'LEG_M' | 'LEG_RA' | 'LEG_MONITOR' | 'TMV' | 'TANK' | 'WATER' | 'WATER_TANK'
+  | 'LIFT' | 'LIFT_LOLER' | 'LIFT_M' | 'PLAT' | 'STAIR' | 'STAIRLIFT' | 'HOIST' | 'FALL' | 'ACCESS' | 'LOLER'
+  | 'STRUCT' | 'ROOF' | 'DRAIN' | 'DRAINAGE' | 'CHIMNEY' | 'BLDG_SAFETY' | 'BSR_REG' | 'FACADE' | 'LIGHT' | 'DAMP' | 'DAMP_MOULD'
+  | 'HHSRS' | 'VENTILATION' | 'RADON'
+  | 'PLAY' | 'PLAY_Q' | 'TREE' | 'LAND' | 'BOUNDARY' | 'PARKING'
+  | 'CCTV' | 'ALARM' | 'ENTRY' | 'SEC_DOOR' | 'SEC_GATE' | 'ACCESS_CTRL' | 'INTERCOM'
+  | 'PEEP' | 'BEEP' | 'SC' | 'RES' | 'SIB' | 'WAYFIND' | 'RESIDENT_ENG' | 'BSM_STRATEGY' | 'GOLDEN_THREAD' | 'RESIDENT_INFO'
   | 'DDA' | 'ADAPT'
   | 'PEST'
   | 'WASTE' | 'RECYCLING'
   | 'COMM_CLEAN' | 'GRAFFITI'
+  | 'EMERGENCY_LIGHTING'
   | 'UNKNOWN';
 
 export interface ApplianceRecord {

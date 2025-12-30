@@ -9,7 +9,7 @@ import {
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
   insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
-  componentTypes, components, units, componentCertificates, users,
+  componentTypes, components, units, componentCertificates, users, extractionTierAudits,
   type ApiClient
 } from "@shared/schema";
 import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
@@ -1632,6 +1632,163 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching model insights:", error);
       res.status(500).json({ error: "Failed to fetch insights" });
+    }
+  });
+  
+  app.get("/api/model-insights/tier-stats", async (req, res) => {
+    try {
+      const allAudits = await db.select().from(extractionTierAudits).orderBy(extractionTierAudits.attemptedAt);
+      
+      if (allAudits.length === 0) {
+        return res.json({
+          summary: {
+            totalExtractionRuns: 0,
+            totalCertificates: 0,
+            totalTierAttempts: 0,
+            avgTiersPerRun: 0,
+            totalCost: 0,
+            avgCostPerRun: 0,
+            totalProcessingTimeMs: 0,
+            avgProcessingTimeMs: 0,
+          },
+          tierDistribution: [],
+          finalTierDistribution: [],
+          escalationReasons: [],
+          costByTier: [],
+          processingTimeByTier: [],
+          recentExtractions: [],
+        });
+      }
+      
+      const extractionRuns: Map<string, typeof allAudits> = new Map();
+      allAudits.forEach(audit => {
+        const runKey = audit.extractionRunId || audit.certificateId;
+        if (!extractionRuns.has(runKey)) {
+          extractionRuns.set(runKey, []);
+        }
+        extractionRuns.get(runKey)!.push(audit);
+      });
+      
+      const uniqueCertificates = new Set(allAudits.map(a => a.certificateId));
+      const totalExtractionRuns = extractionRuns.size;
+      const totalCertificates = uniqueCertificates.size;
+      
+      const tierCounts: Record<string, number> = {};
+      const tierCostSums: Record<string, number> = {};
+      const tierTimeSums: Record<string, number> = {};
+      const tierSuccessCount: Record<string, number> = {};
+      const escalationReasons: Record<string, number> = {};
+      
+      allAudits.forEach(audit => {
+        const tier = audit.tier;
+        tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+        tierCostSums[tier] = (tierCostSums[tier] || 0) + (audit.cost || 0);
+        tierTimeSums[tier] = (tierTimeSums[tier] || 0) + (audit.processingTimeMs || 0);
+        
+        if (audit.status === 'success') {
+          tierSuccessCount[tier] = (tierSuccessCount[tier] || 0) + 1;
+        }
+        
+        if (audit.status === 'escalated' && audit.escalationReason) {
+          escalationReasons[audit.escalationReason] = (escalationReasons[audit.escalationReason] || 0) + 1;
+        }
+      });
+      
+      const finalTierCounts: Record<string, number> = {};
+      const runStats: Array<{
+        runKey: string;
+        certificateId: string;
+        tiersAttempted: number;
+        finalTier: string;
+        finalStatus: string;
+        totalCost: number;
+        totalTimeMs: number;
+        attemptedAt: Date | null;
+      }> = [];
+      
+      extractionRuns.forEach((runAudits, runKey) => {
+        const sortedAudits = runAudits.sort((a, b) => a.tierOrder - b.tierOrder);
+        const lastAudit = sortedAudits[sortedAudits.length - 1];
+        if (lastAudit) {
+          finalTierCounts[lastAudit.tier] = (finalTierCounts[lastAudit.tier] || 0) + 1;
+        }
+        
+        runStats.push({
+          runKey,
+          certificateId: runAudits[0]?.certificateId,
+          tiersAttempted: runAudits.length,
+          finalTier: lastAudit?.tier || 'unknown',
+          finalStatus: lastAudit?.status || 'unknown',
+          totalCost: runAudits.reduce((sum, a) => sum + (a.cost || 0), 0),
+          totalTimeMs: runAudits.reduce((sum, a) => sum + (a.processingTimeMs || 0), 0),
+          attemptedAt: runAudits[0]?.attemptedAt || null,
+        });
+      });
+      
+      const totalCost = allAudits.reduce((sum, a) => sum + (a.cost || 0), 0);
+      const totalProcessingTimeMs = allAudits.reduce((sum, a) => sum + (a.processingTimeMs || 0), 0);
+      
+      const tierOrder = ['tier-0', 'tier-0.5', 'tier-1', 'tier-1.5', 'tier-2', 'tier-3', 'tier-4'];
+      const tierLabels: Record<string, string> = {
+        'tier-0': 'Tier 0 (Format Detection)',
+        'tier-0.5': 'Tier 0.5 (Classification)',
+        'tier-1': 'Tier 1 (Template Match)',
+        'tier-1.5': 'Tier 1.5 (Normalisation)',
+        'tier-2': 'Tier 2 (Simple AI)',
+        'tier-3': 'Tier 3 (Advanced AI)',
+        'tier-4': 'Tier 4 (Human Review)',
+      };
+      
+      const recentExtractions = runStats
+        .sort((a, b) => (b.attemptedAt?.getTime() || 0) - (a.attemptedAt?.getTime() || 0))
+        .slice(0, 10);
+      
+      res.json({
+        summary: {
+          totalExtractionRuns,
+          totalCertificates,
+          totalTierAttempts: allAudits.length,
+          avgTiersPerRun: totalExtractionRuns > 0 ? allAudits.length / totalExtractionRuns : 0,
+          totalCost: Math.round(totalCost * 10000) / 10000,
+          avgCostPerRun: totalExtractionRuns > 0 ? Math.round((totalCost / totalExtractionRuns) * 10000) / 10000 : 0,
+          totalProcessingTimeMs,
+          avgProcessingTimeMs: totalExtractionRuns > 0 ? Math.round(totalProcessingTimeMs / totalExtractionRuns) : 0,
+        },
+        tierDistribution: tierOrder.map(tier => ({
+          tier,
+          label: tierLabels[tier] || tier,
+          count: tierCounts[tier] || 0,
+          percentage: allAudits.length > 0 ? Math.round(((tierCounts[tier] || 0) / allAudits.length) * 100) : 0,
+          successCount: tierSuccessCount[tier] || 0,
+          successRate: tierCounts[tier] ? Math.round(((tierSuccessCount[tier] || 0) / tierCounts[tier]) * 100) : 0,
+        })),
+        finalTierDistribution: tierOrder.map(tier => ({
+          tier,
+          label: tierLabels[tier] || tier,
+          count: finalTierCounts[tier] || 0,
+          percentage: totalExtractionRuns > 0 ? Math.round(((finalTierCounts[tier] || 0) / totalExtractionRuns) * 100) : 0,
+        })),
+        escalationReasons: Object.entries(escalationReasons)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([reason, count]) => ({ reason, count, percentage: Math.round((count / allAudits.length) * 100) })),
+        costByTier: tierOrder.map(tier => ({
+          tier,
+          label: tierLabels[tier] || tier,
+          totalCost: Math.round((tierCostSums[tier] || 0) * 10000) / 10000,
+          avgCost: tierCounts[tier] ? Math.round(((tierCostSums[tier] || 0) / tierCounts[tier]) * 10000) / 10000 : 0,
+        })),
+        processingTimeByTier: tierOrder.map(tier => ({
+          tier,
+          label: tierLabels[tier] || tier,
+          totalTimeMs: tierTimeSums[tier] || 0,
+          avgTimeMs: tierCounts[tier] ? Math.round((tierTimeSums[tier] || 0) / tierCounts[tier]) : 0,
+        })),
+        recentExtractions,
+      });
+    } catch (error) {
+      console.error("Error fetching tier stats:", error);
+      res.status(500).json({ error: "Failed to fetch tier statistics" });
     }
   });
   

@@ -1,0 +1,85 @@
+{
+  "property": {
+    "address_line_1": "",
+    "address_line_2": "",
+    "city": "",
+    "postcode": ""
+  },
+  "inspection": {
+    "date": "",
+    "next_due_date": "2034-10-14",
+    "outcome": "A",
+    "certificate_number": "EPC-5JI9I0YI"
+  },
+  "engineer": {
+    "name": "",
+    "company": "",
+    "registration_id": "",
+    "registration_type": ""
+  },
+  "findings": {
+    "observations": [],
+    "remedial_actions": []
+  },
+  "_raw": {
+    "certificateType": "EPC",
+    "appliances": [],
+    "defects": [],
+    "additionalFields": {},
+    "certificateNumber": "EPC-5JI9I0YI",
+    "inspectionDate": "2024-10-15",
+    "expiryDate": "2034-10-14",
+    "outcome": "A",
+    "documentType": "EPC",
+    "_tierHistory": [
+      {
+        "tier": "tier-0",
+        "attemptedAt": "2025-12-30T17:34:30.468Z",
+        "completedAt": "2025-12-30T17:34:32.077Z",
+        "status": "success",
+        "confidence": 1,
+        "processingTimeMs": 1609,
+        "cost": 0,
+        "extractedFieldCount": 0,
+        "escalationReason": null,
+        "rawOutput": {
+          "format": "pdf-native",
+          "classification": "structured_certificate",
+          "detectedCertificateType": "EPC",
+          "hasTextLayer": true,
+          "isScanned": false,
+          "isHybrid": false,
+          "textContent": "Energy Performance Certificate  Non-Domestic Building Certificate Reference: EPC-5JI9I0YI   C  69 | 65  Property Address  Greenfield Community Centre 45 Parkway Drive, Sheffield, S9 4RT UPRN: 100045789632  Assessment Details  Date of Assessment: 15/10/2024 Valid Until: 14/10/2034 Type: Non-Domestic  Energy Rating  A+   0-25  A   26-50  B   51-75  C   76-100 69 Current D   101-125  E   126-150  F   151-175  G   176+  Environmental Impact (CO2) Rating  Current: 65 kg CO2/m²/year Potential: 42 kg CO2/m²/year  Recommendations for Improvement  Recommendation   Indicative Cost   Typical Saving  Install solar PV panels (25 kWp)   £30,000 - £45,000   £4,200/year Upgrade heating controls to BMS   £8,000 - £12,000   £1,800/year Install LED lighting throughout   £5,000 - £8,000   £1,200/year Add cavity wall insulation   £3,000 - £5,000   £600/year Replace single glazed windows   £15,000 - £25,000   £900/year  Assessor Details  Name: James Richardson MRICS Accreditation: Elmhurst Energy (EES/018456) Company: GreenSurvey Ltd Tel: 0114 278 9012 Email: assessments@greensurvey.co.uk  This certificate has been produced under the Energy Performance of Buildings Regulations. Certificate lodged on EPC Register: 26/12/2025",
+          "pageCount": 1,
+          "textQuality": 1,
+          "avgCharsPerPage": 1222
+        }
+      },
+      {
+        "tier": "tier-1",
+        "attemptedAt": "2025-12-30T17:34:32.092Z",
+        "completedAt": "2025-12-30T17:34:32.093Z",
+        "status": "success",
+        "confidence": 1,
+        "processingTimeMs": 1,
+        "cost": 0,
+        "extractedFieldCount": 4,
+        "escalationReason": null,
+        "rawOutput": {
+          "certificateType": "EPC",
+          "appliances": [],
+          "defects": [],
+          "additionalFields": {},
+          "certificateNumber": "EPC-5JI9I0YI",
+          "inspectionDate": "2024-10-15",
+          "expiryDate": "2034-10-14",
+          "outcome": "A"
+        }
+      }
+    ],
+    "_extractionMethod": {
+      "ocrProvider": "PATTERN_MATCHING",
+      "tier": "tier-1"
+    }
+  }
+}

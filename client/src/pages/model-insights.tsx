@@ -88,6 +88,58 @@ interface AISuggestionsData {
   generatedAt: string;
 }
 
+interface TierStatsData {
+  summary: {
+    totalExtractions: number;
+    totalTierAttempts: number;
+    avgTiersPerExtraction: number;
+    totalCost: number;
+    avgCostPerExtraction: number;
+    totalProcessingTimeMs: number;
+    avgProcessingTimeMs: number;
+  };
+  tierDistribution: Array<{
+    tier: string;
+    label: string;
+    count: number;
+    percentage: number;
+    successCount: number;
+    successRate: number;
+  }>;
+  finalTierDistribution: Array<{
+    tier: string;
+    label: string;
+    count: number;
+    percentage: number;
+  }>;
+  escalationReasons: Array<{
+    reason: string;
+    count: number;
+    percentage: number;
+  }>;
+  costByTier: Array<{
+    tier: string;
+    label: string;
+    totalCost: number;
+    avgCost: number;
+  }>;
+  processingTimeByTier: Array<{
+    tier: string;
+    label: string;
+    totalTimeMs: number;
+    avgTimeMs: number;
+  }>;
+  recentExtractions: Array<{
+    certificateId: string;
+    tiersAttempted: number;
+    finalTier: string;
+    finalStatus: string;
+    totalCost: number;
+    totalTimeMs: number;
+    attemptedAt: string;
+  }>;
+}
+
 function MetricCard({ 
   title, 
   value, 
@@ -173,6 +225,15 @@ export default function ModelInsightsPage() {
     queryFn: async () => {
       const res = await fetch('/api/model-insights/ai-suggestions');
       if (!res.ok) throw new Error('Failed to fetch AI suggestions');
+      return res.json();
+    },
+  });
+  
+  const { data: tierStats, isLoading: tierStatsLoading } = useQuery<TierStatsData>({
+    queryKey: ['tier-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/model-insights/tier-stats');
+      if (!res.ok) throw new Error('Failed to fetch tier statistics');
       return res.json();
     },
   });
@@ -389,6 +450,10 @@ export default function ModelInsightsPage() {
                     <TabsTrigger value="benchmarks" className="text-xs lg:text-sm">
                       <span className="hidden sm:inline">Benchmarks</span>
                       <span className="sm:hidden">Bench</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="tiers" className="text-xs lg:text-sm">
+                      <span className="hidden sm:inline">Tier Analytics</span>
+                      <span className="sm:hidden">Tiers</span>
                     </TabsTrigger>
                   </TabsList>
                 </CardHeader>
@@ -759,6 +824,198 @@ export default function ModelInsightsPage() {
                         </CardContent>
                       </Card>
                     </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="tiers" className="mt-0">
+                    {tierStatsLoading ? (
+                      <div className="flex items-center justify-center h-48">
+                        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : tierStats ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-blue-700">Extraction Runs</div>
+                              <div className="text-2xl font-bold text-blue-800">{tierStats.summary.totalExtractionRuns}</div>
+                              <div className="text-xs text-blue-600">{tierStats.summary.totalCertificates} certificates</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-emerald-700">Avg Tiers/Run</div>
+                              <div className="text-2xl font-bold text-emerald-800">{tierStats.summary.avgTiersPerRun?.toFixed(1) || '0'}</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-amber-700">Avg Cost/Run</div>
+                              <div className="text-2xl font-bold text-amber-800">${tierStats.summary.avgCostPerRun?.toFixed(4) || '0.0000'}</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-purple-700">Avg Time</div>
+                              <div className="text-2xl font-bold text-purple-800">{(tierStats.summary.avgProcessingTimeMs / 1000).toFixed(1)}s</div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Where Extractions End (Final Tier)</CardTitle>
+                              <CardDescription className="text-xs">Lower tiers = better (cheaper, faster)</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              {tierStats.finalTierDistribution.some(t => t.count > 0) ? (
+                                <ResponsiveContainer width="100%" height={220}>
+                                  <BarChart data={tierStats.finalTierDistribution.filter(t => t.count > 0)} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis type="number" fontSize={11} />
+                                    <YAxis type="category" dataKey="label" width={140} fontSize={10} tickFormatter={(v) => v.replace(/Tier \d+\.?\d* \(|\)/g, '')} />
+                                    <Tooltip formatter={(v) => [`${v} extractions`, 'Count']} />
+                                    <Bar dataKey="count" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              ) : (
+                                <div className="h-[220px] flex items-center justify-center text-muted-foreground">
+                                  No extraction data yet
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                          
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Tier Success Rates</CardTitle>
+                              <CardDescription className="text-xs">Percentage of attempts that succeed at each tier</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              {tierStats.tierDistribution.some(t => t.count > 0) ? (
+                                <ResponsiveContainer width="100%" height={220}>
+                                  <BarChart data={tierStats.tierDistribution.filter(t => t.count > 0)}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="tier" fontSize={10} tickFormatter={(v) => v.replace('tier-', 'T')} />
+                                    <YAxis domain={[0, 100]} fontSize={11} />
+                                    <Tooltip formatter={(v) => [`${v}%`, 'Success Rate']} />
+                                    <Bar dataKey="successRate" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              ) : (
+                                <div className="h-[220px] flex items-center justify-center text-muted-foreground">
+                                  No tier data yet
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Cost by Tier</CardTitle>
+                              <CardDescription className="text-xs">Total cost incurred at each tier</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              {tierStats.costByTier.some(t => t.totalCost > 0) ? (
+                                <ResponsiveContainer width="100%" height={180}>
+                                  <BarChart data={tierStats.costByTier.filter(t => t.totalCost > 0)}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="tier" fontSize={10} tickFormatter={(v) => v.replace('tier-', 'T')} />
+                                    <YAxis fontSize={11} tickFormatter={(v) => `$${v.toFixed(2)}`} />
+                                    <Tooltip formatter={(v: number) => [`$${v.toFixed(4)}`, 'Total Cost']} />
+                                    <Bar dataKey="totalCost" fill="#eab308" radius={[4, 4, 0, 0]} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              ) : (
+                                <div className="h-[180px] flex items-center justify-center text-muted-foreground">
+                                  No cost data yet
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                          
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Processing Time by Tier</CardTitle>
+                              <CardDescription className="text-xs">Average processing time at each tier</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              {tierStats.processingTimeByTier.some(t => t.avgTimeMs > 0) ? (
+                                <ResponsiveContainer width="100%" height={180}>
+                                  <BarChart data={tierStats.processingTimeByTier.filter(t => t.avgTimeMs > 0)}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="tier" fontSize={10} tickFormatter={(v) => v.replace('tier-', 'T')} />
+                                    <YAxis fontSize={11} tickFormatter={(v) => `${(v/1000).toFixed(1)}s`} />
+                                    <Tooltip formatter={(v: number) => [`${(v/1000).toFixed(2)}s`, 'Avg Time']} />
+                                    <Bar dataKey="avgTimeMs" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              ) : (
+                                <div className="h-[180px] flex items-center justify-center text-muted-foreground">
+                                  No timing data yet
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        {tierStats.escalationReasons.length > 0 && (
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Top Escalation Reasons</CardTitle>
+                              <CardDescription className="text-xs">Why extractions move to higher tiers</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                {tierStats.escalationReasons.map((reason, i) => (
+                                  <div key={i} className="flex items-center justify-between">
+                                    <span className="text-sm text-muted-foreground truncate max-w-[200px]">{reason.reason}</span>
+                                    <div className="flex items-center gap-2">
+                                      <Progress value={reason.percentage} className="w-20 h-2" />
+                                      <span className="text-xs font-medium w-12 text-right">{reason.count}x</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                        
+                        {tierStats.recentExtractions.length > 0 && (
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Recent Extractions</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                {tierStats.recentExtractions.map((extraction, i) => (
+                                  <div key={i} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                                    <div className="flex flex-col">
+                                      <span className="font-mono text-xs">{extraction.certificateId.slice(0, 8)}...</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {extraction.tiersAttempted} tier{extraction.tiersAttempted !== 1 ? 's' : ''} tried
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant={extraction.finalStatus === 'success' ? 'default' : 'secondary'} className="text-xs">
+                                        {extraction.finalTier.replace('tier-', 'T')}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">${extraction.totalCost.toFixed(4)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-48 flex items-center justify-center text-muted-foreground">
+                        No tier data available
+                      </div>
+                    )}
                   </TabsContent>
                 </CardContent>
               </Tabs>
