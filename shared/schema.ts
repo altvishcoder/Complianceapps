@@ -248,6 +248,55 @@ export const extractionRuns = pgTable("extraction_runs", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Extraction Tier Status Enum
+export const extractionTierStatusEnum = pgEnum('extraction_tier_status', [
+  'success',      // Extraction completed with sufficient confidence
+  'escalated',    // Confidence too low, moving to next tier
+  'skipped',      // Tier was skipped (e.g., AI disabled)
+  'failed',       // Tier failed to process
+  'pending'       // Not yet attempted
+]);
+
+// Extraction Tier Audits (tracks each tier a certificate passes through)
+export const extractionTierAudits = pgTable("extraction_tier_audits", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  certificateId: varchar("certificate_id").references(() => certificates.id, { onDelete: 'cascade' }).notNull(),
+  extractionRunId: varchar("extraction_run_id").references(() => extractionRuns.id, { onDelete: 'cascade' }),
+  
+  // Tier identification
+  tier: text("tier").notNull(), // "tier-0", "tier-0.5", "tier-1", "tier-1.5", "tier-2", "tier-3", "tier-4"
+  tierOrder: integer("tier_order").notNull(), // 0, 1, 2, 3, 4, 5, 6 for ordering
+  
+  // Timing
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  processingTimeMs: integer("processing_time_ms").notNull().default(0),
+  
+  // Results
+  status: extractionTierStatusEnum("status").notNull().default('pending'),
+  confidence: real("confidence").notNull().default(0),
+  cost: real("cost").notNull().default(0), // Cost in GBP
+  extractedFieldCount: integer("extracted_field_count").notNull().default(0),
+  
+  // Why it moved to next tier
+  escalationReason: text("escalation_reason"),
+  
+  // Document analysis (Tier 0)
+  documentFormat: text("document_format"), // pdf-native, pdf-scanned, docx, xlsx, image, etc.
+  documentClassification: text("document_classification"), // structured_certificate, complex_document, etc.
+  pageCount: integer("page_count"),
+  textQuality: real("text_quality"), // 0-1 quality score
+  
+  // QR/Metadata (Tier 0.5)
+  qrCodesFound: json("qr_codes_found"), // [{provider, url, verificationCode}]
+  metadataExtracted: json("metadata_extracted"), // {dateTaken, gpsCoordinates, software}
+  
+  // Raw output for debugging
+  rawOutput: json("raw_output"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Human Reviews (Data Flywheel - Phase 4)
 export const humanReviews = pgTable("human_reviews", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -1017,7 +1066,7 @@ export const extractionSchemaRelations = relations(extractionSchemas, ({ many })
   extractionRuns: many(extractionRuns),
 }));
 
-export const extractionRunRelations = relations(extractionRuns, ({ one }) => ({
+export const extractionRunRelations = relations(extractionRuns, ({ one, many }) => ({
   certificate: one(certificates, {
     fields: [extractionRuns.certificateId],
     references: [certificates.id],
@@ -1025,6 +1074,18 @@ export const extractionRunRelations = relations(extractionRuns, ({ one }) => ({
   schema: one(extractionSchemas, {
     fields: [extractionRuns.schemaId],
     references: [extractionSchemas.id],
+  }),
+  tierAudits: many(extractionTierAudits),
+}));
+
+export const extractionTierAuditRelations = relations(extractionTierAudits, ({ one }) => ({
+  certificate: one(certificates, {
+    fields: [extractionTierAudits.certificateId],
+    references: [certificates.id],
+  }),
+  extractionRun: one(extractionRuns, {
+    fields: [extractionTierAudits.extractionRunId],
+    references: [extractionRuns.id],
   }),
 }));
 
@@ -1147,6 +1208,7 @@ export const insertContractorSchema = createInsertSchema(contractors).omit({ id:
 // Lashan Owned Model Insert Schemas
 export const insertExtractionSchemaSchema = createInsertSchema(extractionSchemas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertExtractionRunSchema = createInsertSchema(extractionRuns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertExtractionTierAuditSchema = createInsertSchema(extractionTierAudits).omit({ id: true, createdAt: true });
 export const insertHumanReviewSchema = createInsertSchema(humanReviews).omit({ id: true, reviewedAt: true });
 export const insertBenchmarkSetSchema = createInsertSchema(benchmarkSets).omit({ id: true, createdAt: true });
 export const insertBenchmarkItemSchema = createInsertSchema(benchmarkItems).omit({ id: true, createdAt: true });
@@ -1201,6 +1263,9 @@ export type InsertExtractionSchema = z.infer<typeof insertExtractionSchemaSchema
 
 export type ExtractionRun = typeof extractionRuns.$inferSelect;
 export type InsertExtractionRun = z.infer<typeof insertExtractionRunSchema>;
+
+export type ExtractionTierAudit = typeof extractionTierAudits.$inferSelect;
+export type InsertExtractionTierAudit = z.infer<typeof insertExtractionTierAuditSchema>;
 
 export type HumanReview = typeof humanReviews.$inferSelect;
 export type InsertHumanReview = z.infer<typeof insertHumanReviewSchema>;

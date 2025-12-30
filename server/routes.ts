@@ -1252,6 +1252,24 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to update certificate" });
     }
   });
+
+  app.get("/api/certificates/:id/extraction-audit", async (req, res) => {
+    try {
+      const { getTierAuditForCertificate } = await import('./services/extraction/orchestrator');
+      const audits = await getTierAuditForCertificate(req.params.id);
+      res.json({
+        certificateId: req.params.id,
+        tierProgression: audits,
+        totalTiers: audits.length,
+        finalTier: audits.length > 0 ? audits[audits.length - 1].tier : null,
+        totalCost: audits.reduce((sum, a) => sum + (a.cost || 0), 0),
+        totalProcessingTimeMs: audits.reduce((sum, a) => sum + (a.processingTimeMs || 0), 0),
+      });
+    } catch (error) {
+      console.error("Error fetching extraction audit:", error);
+      res.status(500).json({ error: "Failed to fetch extraction audit" });
+    }
+  });
   
   // ===== REMEDIAL ACTIONS =====
   app.get("/api/actions", async (req, res) => {

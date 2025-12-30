@@ -2002,6 +2002,52 @@ async function seedFactorySettings() {
       valueType: "number",
       isEditable: true,
       validationRules: { min: 10, max: 100 }
+    },
+    // Extraction Settings
+    {
+      key: "extraction.enableAIProcessing",
+      value: "false",
+      category: "EXTRACTION",
+      description: "Enable AI-based document extraction (Azure Document Intelligence + Claude Vision). When disabled, only free tiers (PDF/OCR) are used.",
+      valueType: "boolean",
+      isEditable: true,
+      validationRules: null
+    },
+    {
+      key: "extraction.tier1ConfidenceThreshold",
+      value: "0.85",
+      category: "EXTRACTION",
+      description: "Confidence threshold for Tier 1 (template extraction) to complete without escalation",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0.5, max: 1.0 }
+    },
+    {
+      key: "extraction.tier2ConfidenceThreshold",
+      value: "0.80",
+      category: "EXTRACTION",
+      description: "Confidence threshold for Tier 2 (Azure Document Intelligence) to complete without escalation",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0.5, max: 1.0 }
+    },
+    {
+      key: "extraction.tier3ConfidenceThreshold",
+      value: "0.70",
+      category: "EXTRACTION",
+      description: "Confidence threshold for Tier 3 (Claude Vision) to complete without escalation",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0.5, max: 1.0 }
+    },
+    {
+      key: "extraction.maxCostPerDocument",
+      value: "0.05",
+      category: "EXTRACTION",
+      description: "Maximum cost in GBP allowed per document extraction before routing to manual review",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0.01, max: 1.0 }
     }
   ];
   
