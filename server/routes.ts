@@ -2351,27 +2351,42 @@ export async function registerRoutes(
         c.status === 'UPLOADED' || c.status === 'PROCESSING' || c.status === 'NEEDS_REVIEW'
       ).length;
       
-      // Compliance by type - use correct enum values
-      const certTypes = ['GAS_SAFETY', 'EICR', 'EPC', 'FIRE_RISK_ASSESSMENT', 'LEGIONELLA_ASSESSMENT', 'LIFT_LOLER', 'ASBESTOS_SURVEY'];
-      const complianceByType = certTypes.map(type => {
-        const typeCerts = allCertificates.filter(c => c.certificateType === type);
-        // Count certificates with clear outcomes
-        const satisfactory = typeCerts.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
-        const unsatisfactory = typeCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
-        // Certificates without clear outcome yet (still processing or failed)
-        const unclear = typeCerts.length - satisfactory - unsatisfactory;
+      // Compliance by stream - dynamically load from database
+      const allStreams = await storage.listComplianceStreams();
+      const allCertTypes = await storage.listCertificateTypes();
+      
+      // Build mapping of certificate type code to stream
+      const certTypeToStream: Record<string, { streamId: string; streamName: string; streamCode: string }> = {};
+      for (const ct of allCertTypes) {
+        const stream = allStreams.find(s => s.code === ct.complianceStream);
+        if (stream) {
+          certTypeToStream[ct.code] = { streamId: stream.id, streamName: stream.name, streamCode: stream.code };
+        }
+      }
+      
+      // Group certificates by compliance stream
+      const complianceByStream = allStreams.filter(s => s.isActive).map(stream => {
+        const streamCertTypes = allCertTypes.filter(ct => ct.complianceStream === stream.code).map(ct => ct.code);
+        const streamCerts = allCertificates.filter(c => streamCertTypes.includes(c.certificateType || ''));
+        
+        const satisfactory = streamCerts.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
+        const unsatisfactory = streamCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
+        const unclear = streamCerts.length - satisfactory - unsatisfactory;
         
         return {
-          type: type.replace(/_/g, ' '),
-          total: typeCerts.length,
+          type: stream.name,
+          code: stream.code,
+          streamId: stream.id,
+          total: streamCerts.length,
           satisfactory,
           unsatisfactory,
           unclear,
-          // Compliance rate based on certificates with outcomes
-          compliant: typeCerts.length > 0 ? Math.round((satisfactory / typeCerts.length) * 100) : 0,
-          nonCompliant: typeCerts.length > 0 ? Math.round((unsatisfactory / typeCerts.length) * 100) : 0,
+          compliant: streamCerts.length > 0 ? Math.round((satisfactory / streamCerts.length) * 100) : 0,
+          nonCompliant: streamCerts.length > 0 ? Math.round((unsatisfactory / streamCerts.length) * 100) : 0,
         };
-      }).filter(t => t.total > 0); // Only include types that have at least 1 certificate
+      }).filter(s => s.total > 0); // Only include streams with certificates
+      
+      const complianceByType = complianceByStream;
       
       // Hazard distribution by severity (clickable)
       const hazardSeverities = allActions.filter(a => a.status === 'OPEN').reduce((acc, action) => {

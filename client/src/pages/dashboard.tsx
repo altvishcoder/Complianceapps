@@ -30,16 +30,7 @@ interface DashboardStats {
 
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
 
-const CERT_TYPE_MAP: Record<string, string> = {
-  'Gas Safety': 'GAS_SAFETY',
-  'EICR': 'EICR',
-  'Fire Risk': 'FIRE_RISK',
-  'EPC': 'EPC',
-  'Legionella': 'LEGIONELLA',
-  'Asbestos': 'ASBESTOS',
-  'Lift': 'LIFT_SAFETY',
-  'PAT': 'PAT_TESTING',
-};
+// CERT_TYPE_MAP is no longer needed - compliance streams come from database with code property
 
 const SEVERITY_MAP: Record<string, string> = {
   'Immediate': 'IMMEDIATE',
@@ -68,9 +59,9 @@ export default function Dashboard() {
   
   const handleBarClick = (data: any) => {
     if (data?.activePayload?.[0]?.payload) {
-      const certType = data.activePayload[0].payload.code || CERT_TYPE_MAP[data.activePayload[0].payload.type] || '';
-      if (certType) {
-        setLocation(`/certificates?type=${certType}&from=/dashboard`);
+      const streamCode = data.activePayload[0].payload.code || '';
+      if (streamCode) {
+        setLocation(`/certificates?stream=${streamCode}&from=/dashboard`);
       }
     }
   };
@@ -155,7 +146,7 @@ export default function Dashboard() {
             <Card className="col-span-4">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Compliance Overview (Big 6)</CardTitle>
+                  <CardTitle>Compliance Overview by Stream</CardTitle>
                   <CardDescription>Click any bar to view certificates</CardDescription>
                 </div>
                 <Link href="/certificates?from=/dashboard">

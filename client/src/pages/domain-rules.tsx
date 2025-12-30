@@ -43,9 +43,15 @@ interface NormalisationRule {
   isActive: boolean;
 }
 
-const DOC_TYPES = ['GAS_SAFETY', 'EICR', 'FIRE_RISK_ASSESSMENT', 'ASBESTOS', 'LEGIONELLA', 'EPC', 'LIFT_LOLER'];
 const ACTIONS = ['FLAG_URGENT', 'MARK_INCOMPLETE', 'AUTO_FAIL', 'INFO', 'CREATE_ACTION'];
 const RULE_TYPES = ['MAPPING', 'REGEX', 'TRANSFORM'];
+
+interface CertificateType {
+  id: string;
+  code: string;
+  shortName: string;
+  complianceStream: string;
+}
 
 export default function DomainRulesPage() {
   const { toast } = useToast();
@@ -54,6 +60,17 @@ export default function DomainRulesPage() {
   const [isAddingNorm, setIsAddingNorm] = useState(false);
   const [editingRule, setEditingRule] = useState<ComplianceRule | null>(null);
   const [editingNorm, setEditingNorm] = useState<NormalisationRule | null>(null);
+  
+  const { data: certificateTypes = [] } = useQuery<CertificateType[]>({
+    queryKey: ['certificate-types'],
+    queryFn: async () => {
+      const res = await fetch('/api/config/certificate-types');
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    },
+  });
+  
+  const docTypes = certificateTypes.map(ct => ct.code);
   
   const { data: complianceRules = [], isLoading: loadingCompliance } = useQuery<ComplianceRule[]>({
     queryKey: ['compliance-rules'],
@@ -207,6 +224,7 @@ export default function DomainRulesPage() {
                     <ComplianceRuleForm
                       onSubmit={(data) => createComplianceMutation.mutate(data)}
                       isSubmitting={createComplianceMutation.isPending}
+                      docTypes={docTypes}
                     />
                   </DialogContent>
                 </Dialog>
@@ -378,6 +396,7 @@ export default function DomainRulesPage() {
                   initialData={editingRule}
                   onSubmit={(data) => updateComplianceMutation.mutate({ id: editingRule.id, ...data })}
                   isSubmitting={updateComplianceMutation.isPending}
+                  docTypes={docTypes}
                 />
               )}
             </DialogContent>
@@ -406,16 +425,18 @@ export default function DomainRulesPage() {
 function ComplianceRuleForm({ 
   initialData, 
   onSubmit, 
-  isSubmitting 
+  isSubmitting,
+  docTypes
 }: { 
   initialData?: ComplianceRule;
   onSubmit: (data: Partial<ComplianceRule>) => void;
   isSubmitting: boolean;
+  docTypes: string[];
 }) {
   const [formData, setFormData] = useState({
     ruleCode: initialData?.ruleCode || '',
     ruleName: initialData?.ruleName || '',
-    documentType: initialData?.documentType || 'GAS_SAFETY',
+    documentType: initialData?.documentType || docTypes[0] || '',
     action: initialData?.action || 'INFO',
     priority: initialData?.priority || '',
     description: initialData?.description || '',
@@ -453,7 +474,7 @@ function ComplianceRuleForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              {docTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

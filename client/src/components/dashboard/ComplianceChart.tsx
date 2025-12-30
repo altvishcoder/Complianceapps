@@ -24,7 +24,7 @@ export function ComplianceOverviewChart({ data }: ComplianceOverviewChartProps) 
     <Card className="col-span-4">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Compliance Overview (Big 6)</span>
+          <span>Compliance Overview by Stream</span>
           {unassessedCount > 0 && (
             <span className="text-sm font-normal text-muted-foreground">
               {unassessedCount} category{unassessedCount !== 1 ? 'ies' : 'y'} not assessed
