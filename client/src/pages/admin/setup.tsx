@@ -6,53 +6,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, UserPlus, Users, Key, Mail, Building, Lock, AlertTriangle, Database, Trash2, RefreshCw, Play, Crown, Loader2 } from "lucide-react";
+import { Shield, Mail, Building, Lock, AlertTriangle, Database, Trash2, RefreshCw, Play, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useLayoutEffect } from "react";
-import { useLocation } from "wouter";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { adminApi, usersApi, type SafeUser } from "@/lib/api";
+import { useLocation, Link } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { adminApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSetup() {
   useEffect(() => {
-    document.title = "System Administration - ComplianceAI";
+    document.title = "System Settings - ComplianceAI";
   }, []);
 
   const [, setLocation] = useLocation();
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useEffect(() => {
     const role = localStorage.getItem("user_role");
-    const userId = localStorage.getItem("user_id");
-    if (role === "super_admin" || role === "SUPER_ADMIN") {
+    if (role === "super_admin" || role === "SUPER_ADMIN" || role === "LASHAN_SUPER_USER" || role === "SYSTEM_ADMIN") {
       setIsAuthorized(true);
-      setCurrentUserId(userId);
     } else {
       setIsAuthorized(false);
     }
   }, []);
-
-  const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => usersApi.list(),
-    enabled: isAuthorized,
-  });
-
-  const updateRoleMutation = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) => 
-      usersApi.updateRole(userId, role, currentUserId || ''),
-    onSuccess: () => {
-      toast({ title: "Success", description: "User role updated successfully" });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
 
   const wipeDataMutation = useMutation({
     mutationFn: (includeProperties: boolean) => adminApi.wipeData(includeProperties),
@@ -99,13 +77,13 @@ export default function AdminSetup() {
             </div>
             <CardTitle className="text-destructive">Access Denied</CardTitle>
             <CardDescription>
-              You do not have permission to view the System Administration area.
+              You do not have permission to view System Settings.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="bg-destructive/5 border border-destructive/20 p-3 rounded text-sm text-destructive/80 flex gap-2 items-start">
                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-               <p>This area is restricted to Super Administrator accounts only.</p>
+               <p>This area is restricted to Administrator accounts only.</p>
              </div>
              <Button className="w-full" variant="outline" onClick={() => setLocation("/dashboard")}>
                Return to Dashboard
@@ -121,123 +99,34 @@ export default function AdminSetup() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="System Administration" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="System administration content">
+        <Header title="System Settings" />
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="System settings content">
           
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight font-display">User Management</h2>
-                <p className="text-muted-foreground">Manage access controls and system accounts.</p>
+                <h2 className="text-2xl font-bold tracking-tight font-display">System Settings</h2>
+                <p className="text-muted-foreground">Configure system settings and manage demo data.</p>
               </div>
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite New User
-              </Button>
+              <Link href="/admin/users">
+                <Button variant="outline">
+                  <Shield className="mr-2 h-4 w-4" />
+                  User Management
+                </Button>
+              </Link>
             </div>
 
-            <Tabs defaultValue="users" className="space-y-4">
+            <Tabs defaultValue="setup" className="space-y-4">
               <TabsList>
-                <TabsTrigger value="users">Active Users</TabsTrigger>
-                <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
-                <TabsTrigger value="setup">Initial Setup</TabsTrigger>
+                <TabsTrigger value="setup">Organization Settings</TabsTrigger>
                 <TabsTrigger value="demo">Demo Data</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="users" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>System Accounts</CardTitle>
-                    <CardDescription>Manage user access levels and authentication methods. Only the Super Admin can change user roles.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {usersLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : users.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No users found. Create users through the registration system.
-                      </div>
-                    ) : (
-                    <div className="rounded-md border">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/50 text-muted-foreground font-medium">
-                          <tr>
-                            <th className="p-4">User</th>
-                            <th className="p-4">Role</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4 text-right">Change Role</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {users.map((user) => (
-                            <tr key={user.id} className="hover:bg-muted/20">
-                              <td className="p-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${user.role === 'SUPER_ADMIN' ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white' : 'bg-primary/10 text-primary'}`}>
-                                    {user.role === 'SUPER_ADMIN' ? <Crown className="h-4 w-4" /> : user.name.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="font-medium flex items-center gap-2">
-                                      {user.name}
-                                      {user.role === 'SUPER_ADMIN' && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">SUPER ADMIN</span>
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">{user.email}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="p-4">
-                                <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                  user.role === 'SUPER_ADMIN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                  user.role === 'ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  user.role === 'MANAGER' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                  user.role === 'OFFICER' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                  'bg-slate-50 text-slate-700 border-slate-200'
-                                }`}>
-                                  {user.role.replace('_', ' ')}
-                                </div>
-                              </td>
-                              <td className="p-4">
-                                <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ring-emerald-600/20 bg-emerald-50 text-emerald-700">
-                                  Active
-                                </span>
-                              </td>
-                              <td className="p-4 text-right">
-                                <Select
-                                  value={user.role}
-                                  onValueChange={(newRole) => updateRoleMutation.mutate({ userId: user.id, role: newRole })}
-                                  disabled={updateRoleMutation.isPending || user.id === currentUserId}
-                                >
-                                  <SelectTrigger className="w-[140px]" data-testid={`role-select-${user.id}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                                    <SelectItem value="ADMIN">Admin</SelectItem>
-                                    <SelectItem value="MANAGER">Manager</SelectItem>
-                                    <SelectItem value="OFFICER">Officer</SelectItem>
-                                    <SelectItem value="VIEWER">Viewer</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
               <TabsContent value="setup" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Default Account Configuration</CardTitle>
-                    <CardDescription>Configure the primary administrator account and default settings.</CardDescription>
+                    <CardTitle>Organization Configuration</CardTitle>
+                    <CardDescription>Configure the organization name and default settings.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">

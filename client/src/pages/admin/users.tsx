@@ -1,17 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { 
   Users, 
-  Plus, 
+  UserPlus,
   MoreHorizontal, 
   Search, 
   Shield, 
   Mail, 
-  CheckCircle, 
-  XCircle,
-  Trash2,
-  Edit,
   Key,
   RefreshCw
 } from "lucide-react";
@@ -32,7 +30,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -85,11 +82,9 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", username: "", role: "VIEWER", password: "" });
-
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [inviteData, setInviteData] = useState({ name: "", email: "", username: "", role: "VIEWER", password: "" });
+  const [isInviting, setIsInviting] = useState(false);
 
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
@@ -129,6 +124,49 @@ export default function AdminUsersPage() {
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleInviteUser = async () => {
+    if (!inviteData.name || !inviteData.email || !inviteData.username || !inviteData.password) {
+      toast({ title: "Error", description: "Please fill in all fields.", variant: "destructive" });
+      return;
+    }
+    
+    setIsInviting(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inviteData)
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        toast({ 
+          title: "Error", 
+          description: data.error || "Failed to create user.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      toast({ 
+        title: "User Created", 
+        description: `${inviteData.name} has been added successfully.` 
+      });
+      setIsInviteDialogOpen(false);
+      setInviteData({ name: "", email: "", username: "", role: "VIEWER", password: "" });
+      refetch();
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: "Failed to create user.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsInviting(false);
+    }
+  };
 
   const handleResetPassword = async () => {
     if (!resetPasswordUser || !newPassword) return;
@@ -201,195 +239,288 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold tracking-tight">User Management</h1>
-            <p className="text-muted-foreground">Manage system access and user roles.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setLocation("/dashboard")}>
-              Back to Dashboard
-            </Button>
-            <Button variant="outline" onClick={() => refetch()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>System Users</CardTitle>
-            <CardDescription>
-              A list of all users with access to the platform. Total: {users.length} users
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center mb-4">
-              <div className="relative w-full max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search users..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search-users"
-                />
+    <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="User Management" />
+        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight font-display">User Management</h2>
+                <p className="text-muted-foreground">Manage system access, user roles, and passwords.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => refetch()}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
+                <Button onClick={() => setIsInviteDialogOpen(true)} data-testid="button-invite-user">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Invite User
+                </Button>
               </div>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Change Role</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        Loading users...
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        No users found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
-                              {user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{user.name}</span>
-                              <span className="text-xs text-muted-foreground">{user.email}</span>
-                            </div>
-                            {user.role === "LASHAN_SUPER_USER" && (
-                              <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-800 text-[10px]">
-                                SUPER ADMIN
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="font-normal">
-                            {getRoleIcon(user.role)}
-                            <span className="ml-1.5">{ROLE_LABELS[user.role] || user.role}</span>
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className="bg-emerald-500 hover:bg-emerald-600">
-                            Active
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {user.role !== "LASHAN_SUPER_USER" ? (
-                            <Select 
-                              value={user.role} 
-                              onValueChange={(val) => handleRoleChange(user.id, val)}
-                            >
-                              <SelectTrigger className="w-[160px]" data-testid={`select-role-${user.id}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ROLE_OPTIONS.map(opt => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Protected</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-actions-${user.id}`}>
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
-                                <Mail className="mr-2 h-4 w-4" />
-                                Copy Email
-                              </DropdownMenuItem>
-                              {canResetPassword(user.role) && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => openResetPasswordDialog(user)}>
-                                    <Key className="mr-2 h-4 w-4 text-amber-600" />
-                                    Reset Password
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
+            <Card>
+              <CardHeader>
+                <CardTitle>System Users</CardTitle>
+                <CardDescription>
+                  A list of all users with access to the platform. Total: {users.length} users
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center mb-4">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search users..."
+                      className="pl-9"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      data-testid="input-search-users"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Change Role</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Reset Password</DialogTitle>
-              <DialogDescription>
-                Set a new password for <strong>{resetPasswordUser?.name}</strong> ({resetPasswordUser?.username}).
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input 
-                  id="new-password" 
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  data-testid="input-new-password"
-                />
-                <p className="text-xs text-muted-foreground">
-                  The password will be encrypted and stored securely.
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsResetPasswordDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleResetPassword} 
-                disabled={!newPassword || isResettingPassword}
-                data-testid="button-confirm-reset-password"
-              >
-                {isResettingPassword ? "Resetting..." : "Reset Password"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            Loading users...
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredUsers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            No users found.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredUsers.map((user) => (
+                          <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                                  {user.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{user.name}</span>
+                                  <span className="text-xs text-muted-foreground">{user.email}</span>
+                                </div>
+                                {user.role === "LASHAN_SUPER_USER" && (
+                                  <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-800 text-[10px]">
+                                    OWNER
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="font-normal">
+                                {getRoleIcon(user.role)}
+                                <span className="ml-1.5">{ROLE_LABELS[user.role] || user.role}</span>
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className="bg-emerald-500 hover:bg-emerald-600">
+                                Active
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {user.role !== "LASHAN_SUPER_USER" ? (
+                                <Select 
+                                  value={user.role} 
+                                  onValueChange={(val) => handleRoleChange(user.id, val)}
+                                >
+                                  <SelectTrigger className="w-[160px]" data-testid={`select-role-${user.id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ROLE_OPTIONS.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Protected</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-actions-${user.id}`}>
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    Copy Email
+                                  </DropdownMenuItem>
+                                  {canResetPassword(user.role) && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => openResetPasswordDialog(user)}>
+                                        <Key className="mr-2 h-4 w-4 text-amber-600" />
+                                        Reset Password
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
       </div>
+
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite New User</DialogTitle>
+            <DialogDescription>
+              Create a new user account. They will be able to log in immediately with the provided credentials.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="invite-name">Full Name</Label>
+              <Input 
+                id="invite-name" 
+                value={inviteData.name}
+                onChange={(e) => setInviteData({...inviteData, name: e.target.value})}
+                placeholder="John Doe"
+                data-testid="input-invite-name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="invite-username">Username</Label>
+              <Input 
+                id="invite-username" 
+                value={inviteData.username}
+                onChange={(e) => setInviteData({...inviteData, username: e.target.value})}
+                placeholder="johndoe"
+                data-testid="input-invite-username"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="invite-email">Email</Label>
+              <Input 
+                id="invite-email" 
+                type="email"
+                value={inviteData.email}
+                onChange={(e) => setInviteData({...inviteData, email: e.target.value})}
+                placeholder="john@company.com"
+                data-testid="input-invite-email"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="invite-password">Initial Password</Label>
+              <Input 
+                id="invite-password" 
+                type="password"
+                value={inviteData.password}
+                onChange={(e) => setInviteData({...inviteData, password: e.target.value})}
+                placeholder="Enter initial password"
+                data-testid="input-invite-password"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select 
+                value={inviteData.role} 
+                onValueChange={(val) => setInviteData({...inviteData, role: val})}
+              >
+                <SelectTrigger data-testid="select-invite-role">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleInviteUser} 
+              disabled={isInviting}
+              data-testid="button-confirm-invite"
+            >
+              {isInviting ? "Creating..." : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for <strong>{resetPasswordUser?.name}</strong> ({resetPasswordUser?.username}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input 
+                id="new-password" 
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                data-testid="input-new-password"
+              />
+              <p className="text-xs text-muted-foreground">
+                The password will be encrypted and stored securely.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetPasswordDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleResetPassword} 
+              disabled={!newPassword || isResettingPassword}
+              data-testid="button-confirm-reset-password"
+            >
+              {isResettingPassword ? "Resetting..." : "Reset Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
