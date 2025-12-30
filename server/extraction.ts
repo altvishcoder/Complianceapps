@@ -737,21 +737,22 @@ export function generateRemedialActions(
 }
 
 // Configuration-driven remedial action generation that uses classification codes from database
+// Handles all certificate types: Gas, EICR, Fire, Asbestos, Legionella, LOLER, Playground, Tree, HRB, etc.
 export async function generateRemedialActionsFromConfig(
   data: Record<string, any>, 
   certificateType: string,
   propertyId: string,
   certificateTypeId?: string
 ): Promise<ExtractionResult["remedialActions"]> {
-  // Load classification codes for this certificate type
+  // Load all classification codes (not filtered by certificate type for flexibility)
   const classificationCodes = await storage.listClassificationCodes(certificateTypeId);
   const codeMap = new Map(classificationCodes.map(c => [c.code, c]));
   
   const actions: ExtractionResult["remedialActions"] = [];
   
-  // Helper to format cost estimate from config
-  const formatCostEstimate = (config: typeof classificationCodes[0]): string => {
-    if (config.costEstimateLow && config.costEstimateHigh) {
+  // Helper to format cost estimate from config (stored in pence)
+  const formatCostEstimate = (config: typeof classificationCodes[0] | undefined): string => {
+    if (config?.costEstimateLow && config?.costEstimateHigh) {
       return `£${(config.costEstimateLow / 100).toFixed(0)}-${(config.costEstimateHigh / 100).toFixed(0)}`;
     }
     return "TBD";
@@ -768,90 +769,321 @@ export async function generateRemedialActionsFromConfig(
     return defaultSeverity;
   };
   
-  // Process EICR observations
-  if (certificateType === "EICR" || certificateType === "OTHER") {
+  // Helper to check if action should be auto-created
+  const shouldCreateAction = (config: typeof classificationCodes[0] | undefined): boolean => {
+    if (!config) return true; // Default to creating action if no config
+    return config.autoCreateAction !== false;
+  };
+  
+  // Helper to add action from config
+  const addActionFromConfig = (code: string, description: string, location: string, defaultSeverity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY") => {
+    const config = codeMap.get(code);
+    if (!shouldCreateAction(config)) return;
+    
+    actions.push({
+      code,
+      description: config?.actionRequired || description,
+      location,
+      severity: getSeverity(config, defaultSeverity),
+      costEstimate: formatCostEstimate(config)
+    });
+  };
+  
+  // ========== GAS SAFETY (CP12/LGSR) - ID/AR/NCS codes ==========
+  const gasTypes = ["GAS", "GAS_SAFETY", "GAS_SVC", "BOILER_SVC"];
+  if (gasTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const defects = data.defects || data.observations || [];
+    for (const defect of defects) {
+      const classification = defect.classification?.toUpperCase() || defect.code?.toUpperCase() || "";
+      let code = "NCS"; // Default
+      if (classification.includes("ID") || classification.includes("IMMEDIATELY DANGEROUS")) code = "ID";
+      else if (classification.includes("AR") || classification.includes("AT RISK")) code = "AR";
+      else if (classification.includes("NCS") || classification.includes("NOT TO CURRENT")) code = "NCS";
+      
+      addActionFromConfig(code, defect.description || `Gas defect: ${classification}`, defect.location || "Gas appliance", code === "ID" ? "IMMEDIATE" : code === "AR" ? "URGENT" : "ADVISORY");
+    }
+    
+    // Check overall result
+    const result = (data.overallResult || data.result || "").toUpperCase();
+    if (result === "FAIL" || result === "AT_RISK" || result.includes("DANGEROUS")) {
+      const config = codeMap.get(result === "FAIL" ? "ID" : "AR");
+      if (shouldCreateAction(config) && actions.length === 0) {
+        addActionFromConfig("AR", "Gas safety check requires remediation", "Property", "URGENT");
+      }
+    }
+  }
+  
+  // ========== EICR - C1/C2/C3/FI codes ==========
+  const eicrTypes = ["EICR", "ELECTRICAL", "PIR"];
+  if (eicrTypes.some(t => certificateType.toUpperCase().includes(t))) {
     const observations = data.observations || data.defects || data.defectsAndObservations || [];
     for (const obs of observations) {
-      const code = obs.code || obs.severity || "";
-      const config = codeMap.get(code);
-      
-      // Skip if config says not to auto-create action
-      if (config && config.autoCreateAction === false) continue;
-      
-      if (code === "C1" || code === "C2" || code === "C3") {
-        let defaultSeverity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
-        if (code === "C1") defaultSeverity = "IMMEDIATE";
-        else if (code === "C2") defaultSeverity = "URGENT";
-        else if (code === "C3") defaultSeverity = "ADVISORY";
-        
-        actions.push({
-          code,
-          description: config?.actionRequired || obs.description || "Requires attention",
-          location: obs.location || "Electrical installation",
-          severity: getSeverity(config, defaultSeverity),
-          costEstimate: config ? formatCostEstimate(config) : (defaultSeverity === "IMMEDIATE" ? "£150-400" : "£80-250")
-        });
+      const code = (obs.code || obs.classification || obs.severity || "").toUpperCase();
+      if (code === "C1" || code === "C2" || code === "C3" || code === "FI") {
+        const defaultSeverity = code === "C1" ? "IMMEDIATE" : code === "C2" ? "URGENT" : code === "FI" ? "ROUTINE" : "ADVISORY";
+        addActionFromConfig(code, obs.description || `EICR observation code ${code}`, obs.location || "Electrical installation", defaultSeverity);
+      }
+    }
+    
+    // Check overall assessment
+    const assessment = (data.overallAssessment || data.outcome || "").toUpperCase();
+    if (assessment === "UNSATISFACTORY" && actions.length === 0) {
+      addActionFromConfig("C2", "EICR marked unsatisfactory - requires investigation", "Electrical installation", "URGENT");
+    }
+  }
+  
+  // ========== FIRE RISK ASSESSMENT - Risk rating codes ==========
+  const fraTypes = ["FRA", "FIRE_RISK", "FIRE"];
+  if (fraTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    // Overall risk rating
+    const riskLevel = (data.overallRiskRating || data.riskLevel || data.riskRating || "").toUpperCase();
+    if (riskLevel) {
+      const riskCodes = ["TRIVIAL", "TOLERABLE", "MODERATE", "SUBSTANTIAL", "INTOLERABLE"];
+      if (riskCodes.includes(riskLevel)) {
+        const defaultSeverity = riskLevel === "INTOLERABLE" ? "IMMEDIATE" : riskLevel === "SUBSTANTIAL" ? "URGENT" : riskLevel === "MODERATE" ? "ROUTINE" : "ADVISORY";
+        addActionFromConfig(riskLevel, `Fire risk rated ${riskLevel}`, "Building", defaultSeverity);
+      }
+    }
+    
+    // Individual findings
+    const findings = data.findings || data.recommendations || data.actions || [];
+    for (const finding of findings) {
+      const priority = (finding.priority || finding.severity || "").toUpperCase();
+      if (priority === "HIGH" || priority === "INTOLERABLE" || priority === "SUBSTANTIAL") {
+        addActionFromConfig("SUBSTANTIAL", finding.description || finding.recommendation || "Fire risk finding", finding.location || "Building", "URGENT");
+      } else if (priority === "MEDIUM" || priority === "MODERATE") {
+        addActionFromConfig("MODERATE", finding.description || finding.recommendation || "Fire risk finding", finding.location || "Building", "ROUTINE");
       }
     }
   }
   
-  // Process Gas Safety defects
-  if (certificateType === "GAS_SAFETY" && data.defects) {
-    for (const defect of data.defects) {
-      const code = defect.classification?.includes("ID") ? "ID" : 
-                   defect.classification?.includes("AR") ? "AR" : 
-                   defect.classification?.includes("NCS") ? "NCS" : "OTHER";
-      const config = codeMap.get(code);
+  // ========== ASBESTOS - ACM risk codes ==========
+  const asbestosTypes = ["ASBESTOS", "ACM", "REFURBISHMENT", "DEMOLITION"];
+  if (asbestosTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const acmItems = data.acmItems || data.materials || data.findings || [];
+    for (const item of acmItems) {
+      const risk = (item.riskLevel || item.risk || item.priority || "").toUpperCase();
+      let code = "ACM_LOW";
+      if (risk.includes("CRITICAL") || risk.includes("URGENT")) code = "ACM_CRITICAL";
+      else if (risk.includes("HIGH")) code = "ACM_HIGH";
+      else if (risk.includes("MEDIUM") || risk.includes("MODERATE")) code = "ACM_MEDIUM";
       
-      if (config && config.autoCreateAction === false) continue;
-      
-      let defaultSeverity: "IMMEDIATE" | "URGENT" | "ROUTINE" | "ADVISORY" = "ROUTINE";
-      if (code === "ID") defaultSeverity = "IMMEDIATE";
-      else if (code === "AR") defaultSeverity = "URGENT";
-      
-      actions.push({
-        code: defect.classification || "GAS",
-        description: config?.actionRequired || defect.description,
-        location: defect.location || "Unknown",
-        severity: getSeverity(config, defaultSeverity),
-        costEstimate: config ? formatCostEstimate(config) : (defaultSeverity === "IMMEDIATE" ? "£200-500" : "£100-300")
-      });
+      const defaultSeverity = code === "ACM_CRITICAL" ? "IMMEDIATE" : code === "ACM_HIGH" ? "URGENT" : code === "ACM_MEDIUM" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, item.description || `ACM: ${item.material || "Suspected asbestos"}`, item.location || "Property", defaultSeverity);
     }
   }
   
-  // Process Fire Risk findings
-  if (certificateType === "FIRE_RISK" && data.findings) {
-    for (const finding of data.findings) {
-      const priority = finding.priority?.toUpperCase();
-      const code = priority === "HIGH" ? "FRA-HIGH" : priority === "MEDIUM" ? "FRA-MEDIUM" : "FRA-LOW";
-      const config = codeMap.get(code) || codeMap.get(priority || "");
+  // ========== LEGIONELLA / WATER SAFETY - LEG codes ==========
+  const legionellaTypes = ["LEGIONELLA", "LRA", "WATER", "TMV"];
+  if (legionellaTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const riskLevel = (data.overallRisk || data.riskLevel || data.riskRating || "").toUpperCase();
+    if (riskLevel) {
+      let code = "LEG_LOW";
+      if (riskLevel.includes("OUTBREAK") || riskLevel.includes("CRITICAL")) code = "LEG_OUTBREAK";
+      else if (riskLevel.includes("HIGH")) code = "LEG_HIGH";
+      else if (riskLevel.includes("MEDIUM") || riskLevel.includes("MODERATE")) code = "LEG_MEDIUM";
       
-      if (config && config.autoCreateAction === false) continue;
+      const defaultSeverity = code === "LEG_OUTBREAK" ? "IMMEDIATE" : code === "LEG_HIGH" ? "URGENT" : code === "LEG_MEDIUM" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, `Legionella risk: ${riskLevel}`, "Water system", defaultSeverity);
+    }
+    
+    // Temperature failures
+    const temperatureIssues = data.temperatureFailures || data.failures || [];
+    for (const issue of temperatureIssues) {
+      addActionFromConfig("LEG_MEDIUM", issue.description || "Temperature out of spec", issue.location || "Water outlet", "ROUTINE");
+    }
+  }
+  
+  // ========== LOLER / LIFT INSPECTION - LIFT codes ==========
+  const lolerTypes = ["LOLER", "LIFT", "ELEVATOR", "PELI", "PASSENGER_LIFT"];
+  if (lolerTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const defects = data.defects || data.observations || data.findings || [];
+    for (const defect of defects) {
+      const severity = (defect.severity || defect.classification || defect.category || "").toUpperCase();
+      let code = "LIFT_MINOR";
+      if (severity.includes("DANGEROUS") || severity.includes("CRITICAL") || severity.includes("PROHIBITION")) code = "LIFT_DANGEROUS";
+      else if (severity.includes("SIGNIFICANT") || severity.includes("MAJOR")) code = "LIFT_SIGNIFICANT";
       
-      if (priority === "HIGH" || priority === "MEDIUM") {
-        actions.push({
-          code: `FRA-${finding.itemNumber || ""}`,
-          description: config?.actionRequired || finding.description + (finding.recommendation ? ` - ${finding.recommendation}` : ""),
-          location: finding.location || "Building",
-          severity: getSeverity(config, priority === "HIGH" ? "URGENT" : "ROUTINE"),
-          costEstimate: config ? formatCostEstimate(config) : (priority === "HIGH" ? "£300-1000" : "£100-500")
-        });
+      const defaultSeverity = code === "LIFT_DANGEROUS" ? "IMMEDIATE" : code === "LIFT_SIGNIFICANT" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, defect.description || `Lift defect: ${severity}`, defect.location || "Lift", defaultSeverity);
+    }
+    
+    // Check overall result
+    const result = (data.overallResult || data.outcome || "").toUpperCase();
+    if (result.includes("FAIL") || result.includes("DEFECT") || result.includes("PROHIBITION")) {
+      if (actions.length === 0) {
+        addActionFromConfig("LIFT_SIGNIFICANT", "Lift inspection identified defects", "Lift", "ROUTINE");
       }
     }
   }
   
-  // Fallback: If outcome is UNSATISFACTORY but no actions were generated
+  // ========== FIRE DOOR INSPECTION - FD codes ==========
+  const fireDoorTypes = ["FIRE_DOOR", "FDI"];
+  if (fireDoorTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const defects = data.defects || data.findings || data.issues || [];
+    for (const defect of defects) {
+      const severity = (defect.severity || defect.classification || "").toUpperCase();
+      let code = "FD_MINOR";
+      if (severity.includes("CRITICAL") || severity.includes("FAIL") || severity.includes("REPLACE")) code = "FD_CRITICAL";
+      else if (severity.includes("MAJOR") || severity.includes("SIGNIFICANT")) code = "FD_FAIL";
+      else if (severity.includes("MODERATE") || severity.includes("REPAIR")) code = "FD_SIGNIFICANT";
+      
+      const defaultSeverity = code === "FD_CRITICAL" ? "IMMEDIATE" : code === "FD_FAIL" ? "URGENT" : code === "FD_SIGNIFICANT" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, defect.description || `Fire door defect`, defect.location || defect.doorId || "Fire door", defaultSeverity);
+    }
+    
+    // Overall result
+    const result = (data.overallResult || data.outcome || "").toUpperCase();
+    if (result === "FAIL" && actions.length === 0) {
+      addActionFromConfig("FD_FAIL", "Fire door failed inspection", "Fire door", "URGENT");
+    }
+  }
+  
+  // ========== FIRE ALARM - FA codes ==========
+  const fireAlarmTypes = ["FIRE_ALARM", "AFD"];
+  if (fireAlarmTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const faults = data.faults || data.defects || data.failures || [];
+    for (const fault of faults) {
+      const severity = (fault.severity || fault.type || "").toUpperCase();
+      let code = "FA_MINOR";
+      if (severity.includes("CRITICAL") || severity.includes("SYSTEM")) code = "FA_CRITICAL";
+      else if (severity.includes("FAULT") || severity.includes("FAIL")) code = "FA_FAULT";
+      
+      const defaultSeverity = code === "FA_CRITICAL" ? "IMMEDIATE" : code === "FA_FAULT" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, fault.description || `Fire alarm fault`, fault.location || "Fire alarm system", defaultSeverity);
+    }
+    
+    const result = (data.overallResult || data.outcome || "").toUpperCase();
+    if ((result === "FAIL" || result.includes("DEFECT")) && actions.length === 0) {
+      addActionFromConfig("FA_FAULT", "Fire alarm system fault detected", "Fire alarm system", "ROUTINE");
+    }
+  }
+  
+  // ========== EMERGENCY LIGHTING - EMLT codes ==========
+  const emergencyLightTypes = ["EMERGENCY_LIGHTING", "EML"];
+  if (emergencyLightTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const failures = data.failures || data.defects || data.faults || [];
+    for (const failure of failures) {
+      const isCritical = (failure.affectsEscape || failure.critical || "").toString().toLowerCase() === "true";
+      const code = isCritical ? "EMLT_CRITICAL" : "EMLT_FAIL";
+      const defaultSeverity = isCritical ? "IMMEDIATE" : "URGENT";
+      addActionFromConfig(code, failure.description || "Emergency light failure", failure.location || "Emergency lighting", defaultSeverity);
+    }
+  }
+  
+  // ========== PLAYGROUND INSPECTION - PLAY codes ==========
+  const playgroundTypes = ["PLAYGROUND", "PLAY"];
+  if (playgroundTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const defects = data.defects || data.findings || data.issues || [];
+    for (const defect of defects) {
+      const risk = (defect.riskLevel || defect.severity || "").toUpperCase();
+      let code = "PLAY_LOW";
+      if (risk.includes("CRITICAL") || risk.includes("VERY HIGH")) code = "PLAY_CRITICAL";
+      else if (risk.includes("HIGH")) code = "PLAY_HIGH";
+      else if (risk.includes("MEDIUM") || risk.includes("MODERATE")) code = "PLAY_MEDIUM";
+      
+      const defaultSeverity = code === "PLAY_CRITICAL" ? "IMMEDIATE" : code === "PLAY_HIGH" ? "URGENT" : code === "PLAY_MEDIUM" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, defect.description || `Playground defect: ${risk}`, defect.location || defect.equipment || "Play equipment", defaultSeverity);
+    }
+  }
+  
+  // ========== TREE SURVEY - TREE codes ==========
+  const treeTypes = ["TREE", "ARBORICULTURAL"];
+  if (treeTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const trees = data.trees || data.findings || data.recommendations || [];
+    for (const tree of trees) {
+      const priority = (tree.priority || tree.urgency || tree.risk || "").toUpperCase();
+      let code = "TREE_ROUTINE";
+      if (priority.includes("DANGEROUS") || priority.includes("FELL") || priority.includes("IMMEDIATE")) code = "TREE_DANGEROUS";
+      else if (priority.includes("URGENT")) code = "TREE_URGENT";
+      else if (priority.includes("PRIORITY") || priority.includes("HIGH")) code = "TREE_PRIORITY";
+      
+      const defaultSeverity = code === "TREE_DANGEROUS" ? "IMMEDIATE" : code === "TREE_URGENT" ? "URGENT" : code === "TREE_PRIORITY" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, tree.description || tree.recommendation || `Tree work: ${priority}`, tree.location || tree.treeId || "Tree", defaultSeverity);
+    }
+  }
+  
+  // ========== EPC - EPC codes ==========
+  const epcTypes = ["EPC", "ENERGY"];
+  if (epcTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const rating = (data.currentRating || data.epcRating || data.rating || "").toUpperCase();
+    if (rating && rating.length === 1 && "ABCDEFG".includes(rating)) {
+      const code = `EPC_${rating}`;
+      const config = codeMap.get(code);
+      if (shouldCreateAction(config)) {
+        // Only create action for E, F, G ratings (below minimum standards)
+        if (rating === "E" || rating === "F" || rating === "G") {
+          const defaultSeverity = rating === "G" ? "IMMEDIATE" : rating === "F" ? "URGENT" : "ROUTINE";
+          addActionFromConfig(code, `EPC rating ${rating} - improvement required`, "Property", defaultSeverity);
+        }
+      }
+    }
+  }
+  
+  // ========== HHSRS / HOUSING HEALTH - HHSRS codes ==========
+  const hhsrsTypes = ["HHSRS", "HOUSING", "DAMP", "MOULD"];
+  if (hhsrsTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const hazards = data.hazards || data.findings || data.issues || [];
+    for (const hazard of hazards) {
+      const category = (hazard.category || hazard.band || hazard.severity || "").toUpperCase();
+      let code = "HHSRS_CAT2_LOW";
+      if (category.includes("CAT1") || category.includes("CATEGORY 1") || category.includes("CRITICAL")) code = "HHSRS_CAT1";
+      else if (category.includes("HIGH") || category.includes("BAND A") || category.includes("BAND B")) code = "HHSRS_CAT2_HIGH";
+      else if (category.includes("MEDIUM") || category.includes("BAND C") || category.includes("BAND D")) code = "HHSRS_CAT2_MED";
+      
+      const defaultSeverity = code === "HHSRS_CAT1" ? "IMMEDIATE" : code === "HHSRS_CAT2_HIGH" ? "URGENT" : code === "HHSRS_CAT2_MED" ? "ROUTINE" : "ADVISORY";
+      addActionFromConfig(code, hazard.description || `HHSRS hazard: ${hazard.type || category}`, hazard.location || "Property", defaultSeverity);
+    }
+    
+    // Damp/mould specific
+    const dampLevel = (data.dampLevel || data.mouldLevel || data.severity || "").toUpperCase();
+    if (dampLevel) {
+      let code = "DAMP_MINOR";
+      if (dampLevel.includes("CRITICAL") || dampLevel.includes("SEVERE")) code = "DAMP_CRITICAL";
+      else if (dampLevel.includes("MAJOR") || dampLevel.includes("HIGH")) code = "DAMP_SEVERE";
+      else if (dampLevel.includes("MODERATE") || dampLevel.includes("MEDIUM")) code = "DAMP_MODERATE";
+      
+      if (code !== "DAMP_MINOR") {
+        const defaultSeverity = code === "DAMP_CRITICAL" ? "IMMEDIATE" : code === "DAMP_SEVERE" ? "URGENT" : "ROUTINE";
+        addActionFromConfig(code, `Damp/mould issue: ${dampLevel}`, data.location || "Property", defaultSeverity);
+      }
+    }
+  }
+  
+  // ========== SPRINKLER SYSTEM - SPRINK codes ==========
+  const sprinklerTypes = ["SPRINKLER"];
+  if (sprinklerTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const result = (data.overallResult || data.outcome || "").toUpperCase();
+    if (result.includes("FAIL") || result.includes("CRITICAL")) {
+      addActionFromConfig("SPRINK_CRITICAL", "Sprinkler system failure", "Sprinkler system", "IMMEDIATE");
+    } else if (result.includes("DEFECT")) {
+      addActionFromConfig("SPRINK_DEFECT", "Sprinkler system defect", "Sprinkler system", "ROUTINE");
+    }
+  }
+  
+  // ========== AOV / SMOKE VENTILATION - AOV codes ==========
+  const aovTypes = ["AOV", "SMOKE_VENT"];
+  if (aovTypes.some(t => certificateType.toUpperCase().includes(t))) {
+    const result = (data.overallResult || data.outcome || "").toUpperCase();
+    if (result.includes("FAIL") || result.includes("CRITICAL")) {
+      addActionFromConfig("AOV_CRITICAL", "AOV system failure", "AOV system", "IMMEDIATE");
+    } else if (result.includes("DEFECT")) {
+      addActionFromConfig("AOV_DEFECT", "AOV system defect", "AOV system", "ROUTINE");
+    }
+  }
+  
+  // ========== GENERIC FALLBACK - For any unhandled certificate type ==========
   const outcome = determineOutcome(data, certificateType);
   if (outcome === "UNSATISFACTORY" && actions.length === 0) {
     const docType = data.documentType || certificateType || "Certificate";
-    const fallbackConfig = codeMap.get("REVIEW") || codeMap.get("UNSATISFACTORY");
+    const fallbackConfig = codeMap.get("UNSATISFACTORY") || codeMap.get("FAIL") || codeMap.get("REVIEW");
     
     actions.push({
       code: `REVIEW-${certificateType}`,
-      description: fallbackConfig?.actionRequired || `${docType} marked as unsatisfactory - requires review and remediation`,
+      description: fallbackConfig?.actionRequired || `${docType} marked as ${outcome.toLowerCase()} - requires review and remediation`,
       location: "Property",
       severity: getSeverity(fallbackConfig, "URGENT"),
-      costEstimate: fallbackConfig ? formatCostEstimate(fallbackConfig) : "TBD - requires assessment"
+      costEstimate: formatCostEstimate(fallbackConfig)
     });
   }
   
