@@ -414,6 +414,18 @@ export default function Configuration() {
     );
   };
 
+  const getStreamNameByCode = (streamCode: string | null | undefined) => {
+    if (!streamCode) return <span className="text-muted-foreground">-</span>;
+    const stream = complianceStreams.find(s => s.code === streamCode);
+    if (!stream) return <Badge variant="outline" className="font-normal">{streamCode}</Badge>;
+    const color = stream.colorCode || "#6366F1";
+    return (
+      <Badge variant="outline" className="font-normal" style={{ borderColor: color, color: color }}>
+        {stream.name}
+      </Badge>
+    );
+  };
+
   if (!isAuthorized) {
     return (
       <div className="flex h-screen bg-muted/30 items-center justify-center">
@@ -812,7 +824,7 @@ export default function Configuration() {
                               <TableCell className="font-mono text-sm">{type.code}</TableCell>
                               <TableCell>{type.shortName}</TableCell>
                               <TableCell>
-                                <Badge variant="outline">{type.complianceStream}</Badge>
+                                {getStreamNameByCode(type.complianceStream)}
                               </TableCell>
                               <TableCell>{type.validityMonths} months</TableCell>
                               <TableCell>
@@ -1222,7 +1234,10 @@ export default function Configuration() {
                             <div key={rule.id} className="p-3 border rounded-lg space-y-2" data-testid={`row-norm-rule-${rule.id}`}>
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <div className="font-medium text-sm">{rule.ruleName}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm">{rule.ruleName}</span>
+                                    {getStreamName(rule.complianceStreamId)}
+                                  </div>
                                   <div className="text-xs text-muted-foreground font-mono">{rule.fieldPath}</div>
                                 </div>
                                 <div className="flex items-center gap-2">
