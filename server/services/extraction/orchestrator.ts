@@ -68,22 +68,18 @@ async function getExtractionSettings(): Promise<ExtractionSettings> {
 
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
 
-    // Use AI category settings (visible in Factory Settings UI) as primary
-    // Fall back to EXTRACTION category for backward compatibility
+    // Use AI category settings (visible in Factory Settings UI)
     const aiEnabled = 
       settingsMap.get('AI_EXTRACTION_ENABLED') === 'true' ||
       settingsMap.get('extraction.enableAIProcessing') === 'true';
     
-    // AI_CONFIDENCE_THRESHOLD from UI applies to all tiers as base threshold
-    const baseThreshold = parseFloat(settingsMap.get('AI_CONFIDENCE_THRESHOLD') || '0.75');
-    
     return {
       aiEnabled,
-      // Tier thresholds: use specific EXTRACTION settings if available, else derive from base
-      tier1Threshold: parseFloat(settingsMap.get('extraction.tier1ConfidenceThreshold') || String(Math.max(baseThreshold, 0.85))),
-      tier2Threshold: parseFloat(settingsMap.get('extraction.tier2ConfidenceThreshold') || String(baseThreshold)),
-      tier3Threshold: parseFloat(settingsMap.get('extraction.tier3ConfidenceThreshold') || String(Math.max(baseThreshold - 0.10, 0.60))),
-      maxCostPerDocument: parseFloat(settingsMap.get('extraction.maxCostPerDocument') || '0.05'),
+      // Read tier-specific thresholds from Factory Settings UI
+      tier1Threshold: parseFloat(settingsMap.get('TIER1_CONFIDENCE_THRESHOLD') || settingsMap.get('extraction.tier1ConfidenceThreshold') || '0.85'),
+      tier2Threshold: parseFloat(settingsMap.get('TIER2_CONFIDENCE_THRESHOLD') || settingsMap.get('extraction.tier2ConfidenceThreshold') || '0.80'),
+      tier3Threshold: parseFloat(settingsMap.get('TIER3_CONFIDENCE_THRESHOLD') || settingsMap.get('extraction.tier3ConfidenceThreshold') || '0.70'),
+      maxCostPerDocument: parseFloat(settingsMap.get('MAX_COST_PER_DOCUMENT') || settingsMap.get('extraction.maxCostPerDocument') || '0.05'),
     };
   } catch (error) {
     logger.warn({ error }, 'Failed to load extraction settings, using defaults');
