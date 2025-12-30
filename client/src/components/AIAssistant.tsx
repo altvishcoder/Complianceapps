@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,8 +13,7 @@ interface ChatMessage {
   content: string;
 }
 
-function formatInlineContent(text: string): React.ReactNode[] {
-  // Handle bold (**text**) and links ([text](url))
+function formatInlineContent(text: string, onNavigate?: (url: string) => void): React.ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/);
   
   return parts.map((part, i) => {
@@ -24,18 +23,19 @@ function formatInlineContent(text: string): React.ReactNode[] {
     const linkMatch = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
     if (linkMatch) {
       const [, linkText, linkUrl] = linkMatch;
+      if (linkUrl.startsWith('/') && onNavigate) {
+        return (
+          <button 
+            key={i} 
+            className="text-primary underline hover:text-primary/80 cursor-pointer"
+            onClick={() => onNavigate(linkUrl)}
+          >
+            {linkText}
+          </button>
+        );
+      }
       return (
-        <a 
-          key={i} 
-          href={linkUrl} 
-          className="text-primary underline hover:text-primary/80"
-          onClick={(e) => {
-            if (linkUrl.startsWith('/')) {
-              e.preventDefault();
-              window.location.href = linkUrl;
-            }
-          }}
-        >
+        <a key={i} href={linkUrl} className="text-primary underline hover:text-primary/80" target="_blank" rel="noopener noreferrer">
           {linkText}
         </a>
       );
@@ -44,7 +44,7 @@ function formatInlineContent(text: string): React.ReactNode[] {
   });
 }
 
-function formatMessage(text: string): React.ReactNode {
+function formatMessage(text: string, onNavigate?: (url: string) => void): React.ReactNode {
   const lines = text.split('\n');
   
   return lines.map((line, lineIndex) => {
@@ -56,7 +56,7 @@ function formatMessage(text: string): React.ReactNode {
       return (
         <div key={lineIndex} className="flex gap-2 ml-2">
           <span>•</span>
-          <span>{formatInlineContent(content)}</span>
+          <span>{formatInlineContent(content, onNavigate)}</span>
         </div>
       );
     }
@@ -64,14 +64,14 @@ function formatMessage(text: string): React.ReactNode {
     if (isNumbered) {
       return (
         <div key={lineIndex} className="ml-2">
-          {formatInlineContent(line)}
+          {formatInlineContent(line, onNavigate)}
         </div>
       );
     }
     
     return (
       <div key={lineIndex} className={line.trim() === '' ? 'h-2' : ''}>
-        {formatInlineContent(line)}
+        {formatInlineContent(line, onNavigate)}
       </div>
     );
   });
@@ -98,8 +98,12 @@ function useAuthState() {
 }
 
 export function AIAssistant() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const userId = useAuthState();
+  
+  const handleNavigate = (url: string) => {
+    setLocation(url);
+  };
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -265,7 +269,7 @@ export function AIAssistant() {
                       )}
                     >
                       {message.role === 'assistant' ? (
-                        <div className="space-y-1">{formatMessage(message.content)}</div>
+                        <div className="space-y-1">{formatMessage(message.content, handleNavigate)}</div>
                       ) : (
                         <p>{message.content}</p>
                       )}
