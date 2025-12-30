@@ -127,6 +127,73 @@ Under the Health and Safety at Work Act 1974 and L8 ACOP:
 - Vulnerable occupants`,
 };
 
+const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
+  "gas": [
+    "Show properties with gas safety issues",
+    "What are C1, C2, C3 defect codes?",
+    "When does a gas certificate expire?",
+  ],
+  "eicr": [
+    "Show properties needing EICR renewal",
+    "What are Code 1 and Code 2 defects?",
+    "How long is an EICR valid?",
+  ],
+  "c1 c2 c3": [
+    "Show properties with gas defects",
+    "What is a CP12 certificate?",
+    "Find non-compliant properties",
+  ],
+  "fire": [
+    "Show fire risk assessments due",
+    "What does RRO 2005 require?",
+    "Find buildings needing FRA review",
+  ],
+  "asbestos": [
+    "Show properties needing asbestos surveys",
+    "What's the difference between management and R&D surveys?",
+    "How often should asbestos be re-inspected?",
+  ],
+  "legionella": [
+    "Show properties due water safety checks",
+    "What temperature kills legionella?",
+    "Find properties with water system issues",
+  ],
+  "upload": [
+    "What certificate types are supported?",
+    "How does AI extraction work?",
+    "Show certificates needing review",
+  ],
+  "property": [
+    "Show properties with compliance issues",
+    "Find components needing attention",
+    "How do I upload a certificate?",
+  ],
+  "component": [
+    "What component types are tracked?",
+    "Show properties with equipment issues",
+    "How do I add a new component?",
+  ],
+  "default": [
+    "Show properties with compliance issues",
+    "What certificates expire soon?",
+    "How do I upload a certificate?",
+  ],
+};
+
+function getFollowUpSuggestions(topic: string): string {
+  const topicLower = topic.toLowerCase();
+  let suggestions: string[] = FOLLOW_UP_SUGGESTIONS["default"];
+  
+  for (const [key, sugs] of Object.entries(FOLLOW_UP_SUGGESTIONS)) {
+    if (key !== "default" && topicLower.includes(key)) {
+      suggestions = sugs;
+      break;
+    }
+  }
+  
+  return `\n\n---\n💡 **You might also ask:**\n${suggestions.map(s => `• ${s}`).join('\n')}`;
+}
+
 function findCachedResponse(query: string): string | null {
   const lowerQuery = query.toLowerCase();
   
@@ -551,9 +618,10 @@ export async function chatWithAssistant(
       const cachedResponse = findCachedResponse(lastUserMessage.content);
       if (cachedResponse) {
         logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving cached FAQ response');
+        const followUps = getFollowUpSuggestions(lastUserMessage.content);
         return {
           success: true,
-          message: cachedResponse,
+          message: cachedResponse + followUps,
           tokensUsed: { input: 0, output: 0 },
         };
       }
@@ -562,9 +630,10 @@ export async function chatWithAssistant(
       const propertyResponse = await searchProperties(lastUserMessage.content);
       if (propertyResponse) {
         logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving property search response');
+        const followUps = getFollowUpSuggestions(lastUserMessage.content);
         return {
           success: true,
-          message: propertyResponse,
+          message: propertyResponse + followUps,
           tokensUsed: { input: 0, output: 0 },
         };
       }
@@ -588,7 +657,12 @@ export async function chatWithAssistant(
     });
 
     const textContent = response.content.find(c => c.type === 'text');
-    const message = textContent?.type === 'text' ? textContent.text : 'I apologize, but I was unable to generate a response.';
+    let message = textContent?.type === 'text' ? textContent.text : 'I apologize, but I was unable to generate a response.';
+    
+    // Add follow-up suggestions for LLM responses too
+    if (lastUserMessage) {
+      message += getFollowUpSuggestions(lastUserMessage.content);
+    }
 
     return {
       success: true,
