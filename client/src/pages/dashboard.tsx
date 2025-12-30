@@ -44,7 +44,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   
   useEffect(() => {
-    document.title = "Dashboard - ComplianceAI";
+    document.title = "Command Centre - ComplianceAI";
   }, []);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
@@ -81,7 +81,7 @@ export default function Dashboard() {
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Dashboard" />
+          <Header title="Compliance Command Centre" />
           <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Dashboard content">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
             <span className="sr-only">Loading dashboard data</span>
@@ -99,7 +99,7 @@ export default function Dashboard() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Dashboard" />
+        <Header title="Compliance Command Centre" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Dashboard content">
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -157,10 +157,17 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 {complianceData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={Math.max(320, complianceData.length * 32)}>
                     <BarChart data={complianceData} onClick={handleBarClick} style={{ cursor: 'pointer' }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+                      <XAxis 
+                        dataKey="type" 
+                        tick={{ fontSize: 11 }} 
+                        interval={0}
+                        angle={-35}
+                        textAnchor="end"
+                        height={80}
+                      />
                       <YAxis domain={[0, 100]} />
                       <Tooltip content={({ active, payload }) => {
                         if (active && payload && payload.length) {
@@ -180,7 +187,7 @@ export default function Dashboard() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="flex items-center justify-center h-[320px] text-muted-foreground">
                     No compliance data available
                   </div>
                 )}

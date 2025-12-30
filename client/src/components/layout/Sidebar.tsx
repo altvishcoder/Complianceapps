@@ -38,12 +38,12 @@ import { actionsApi, certificatesApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Command Centre", href: "/dashboard", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Components", href: "/components", icon: Package },
   { name: "Certificates", href: "/certificates", icon: Files },
   { name: "Ingestion Hub", href: "/ingestion", icon: UploadCloud },
-  { name: "Compliance", href: "/compliance", icon: ClipboardCheck },
+  { name: "Analytics Hub", href: "/compliance", icon: ClipboardCheck },
   { name: "Actions", href: "/actions", icon: Wrench },
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },

@@ -42,7 +42,7 @@ import { ContextBackButton } from "@/components/navigation/ContextBackButton";
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);
-  return params.has('status') || params.has('type') || params.has('filter') || params.has('from');
+  return params.has('status') || params.has('type') || params.has('filter') || params.has('stream') || params.has('from');
 }
 
 export default function CertificatesPage() {
@@ -54,11 +54,32 @@ export default function CertificatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [streamFilter, setStreamFilter] = useState<string | null>(null);
   const [overdueFilter, setOverdueFilter] = useState(false);
   const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
   
   const showBackButton = useMemo(() => hasUrlFilters(), []);
+  
+  // Fetch certificate types to map streams to certificate types
+  const { data: certificateTypes = [] } = useQuery<Array<{ code: string; complianceStream: string }>>({
+    queryKey: ["certificate-types"],
+    queryFn: async () => {
+      const res = await fetch('/api/config/certificate-types');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  
+  // Create a Set of certificate type codes that belong to the selected stream
+  const streamCertTypes = useMemo(() => {
+    if (!streamFilter) return null;
+    return new Set(
+      certificateTypes
+        .filter(ct => ct.complianceStream === streamFilter)
+        .map(ct => ct.code)
+    );
+  }, [streamFilter, certificateTypes]);
   
   useEffect(() => {
     const params = new URLSearchParams(searchString);
@@ -70,6 +91,9 @@ export default function CertificatesPage() {
     }
     if (params.get("type")) {
       setTypeFilter(params.get("type"));
+    }
+    if (params.get("stream")) {
+      setStreamFilter(params.get("stream"));
     }
   }, [searchString]);
   
@@ -94,9 +118,10 @@ export default function CertificatesPage() {
     const matchesStatus = !statusFilter || 
       (statusFilter === 'PENDING' ? PENDING_STATUSES.includes(cert.status) : cert.status === statusFilter);
     const matchesType = !typeFilter || cert.certificateType === typeFilter;
+    const matchesStream = !streamCertTypes || streamCertTypes.has(cert.certificateType);
     const matchesOverdue = !overdueFilter || isOverdue(cert);
     
-    return matchesSearch && matchesStatus && matchesType && matchesOverdue;
+    return matchesSearch && matchesStatus && matchesType && matchesStream && matchesOverdue;
   });
   
   const handleStatusClick = (e: React.MouseEvent, status: string) => {
@@ -184,6 +209,18 @@ export default function CertificatesPage() {
                   aria-label={`Remove type filter: ${typeFilter.replace(/_/g, ' ')}`}
                 >
                   Type: {typeFilter.replace(/_/g, ' ')}
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </Button>
+              )}
+              {streamFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                  onClick={() => setStreamFilter(null)}
+                  aria-label={`Remove stream filter: ${streamFilter.replace(/_/g, ' ')}`}
+                >
+                  Stream: {streamFilter.replace(/_/g, ' ')}
                   <X className="h-3 w-3" aria-hidden="true" />
                 </Button>
               )}
