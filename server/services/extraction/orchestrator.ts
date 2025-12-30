@@ -585,10 +585,11 @@ export async function extractCertificate(
       );
 
       warnings.push(`Cost limit exceeded. Routing to manual review.`);
-
+      
+      const bestConf = Math.max(...tierAudit.map(t => t.confidence), claudeTextResult.confidence);
       return createManualReviewResult(
         startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit,
-        claudeTextResult.data
+        bestConf, claudeTextResult.data
       );
     }
 
@@ -728,7 +729,8 @@ export async function extractCertificate(
 
     if (totalCost > maxCost) {
       warnings.push(`Cost limit exceeded after Tier 2 (${totalCost.toFixed(4)} > ${maxCost}). Routing to manual review.`);
-      return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, azureResult.data);
+      const bestConf = Math.max(...tierAudit.map(t => t.confidence), azureResult.confidence);
+      return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, bestConf, azureResult.data);
     }
   } else if (!isAzureDIConfigured()) {
     tierAudit.push({
@@ -846,7 +848,8 @@ export async function extractCertificate(
 
     if (totalCost > maxCost) {
       warnings.push(`Cost limit exceeded after Tier 3 (${totalCost.toFixed(4)} > ${maxCost}). Routing to manual review.`);
-      return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, visionResult.data);
+      const bestConf = Math.max(...tierAudit.map(t => t.confidence), visionResult.confidence);
+      return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, bestConf, visionResult.data);
     }
   } else {
     const tier3BudgetReason = `Insufficient budget remaining (${(maxCost - totalCost).toFixed(4)} < ${TIER_COST_ESTIMATES['tier-3']})`;
@@ -870,27 +873,36 @@ export async function extractCertificate(
     );
   }
 
+  // Find the best confidence achieved across extraction tiers (exclude tier-0/0.5 which are pre-processing)
+  const extractionTiers = tierAudit.filter(t => !t.tier.startsWith('tier-0'));
+  const bestConfidence = extractionTiers.length > 0 
+    ? Math.max(...extractionTiers.map(t => t.confidence), 0) 
+    : 0;
+  const bestTier = extractionTiers.find(t => t.confidence === bestConfidence);
+  
   tierAudit.push({
     tier: 'tier-4',
     attemptedAt: new Date(),
     completedAt: new Date(),
     status: 'success',
-    confidence: 0,
+    confidence: bestConfidence, // Preserve best confidence achieved
     processingTimeMs: 0,
     cost: 0,
-    extractedFieldCount: 0,
-    escalationReason: 'All AI tiers exhausted or confidence too low',
+    extractedFieldCount: bestTier?.extractedFieldCount || 0,
+    escalationReason: `All AI tiers exhausted. Best confidence: ${(bestConfidence * 100).toFixed(0)}% at ${bestTier?.tier || 'unknown'}`,
     rawOutput: null,
   });
 
   await recordTierAudit(
     certificateId, null, 'tier-4', 'success',
-    0, 0, 0, 'All AI tiers exhausted', formatAnalysis
+    bestConfidence, 0, bestTier?.extractedFieldCount || 0, 
+    `All AI tiers exhausted. Best: ${(bestConfidence * 100).toFixed(0)}% at ${bestTier?.tier || 'unknown'}`, 
+    formatAnalysis
   );
 
-  warnings.push('Automatic extraction did not achieve sufficient confidence. Manual review required.');
+  warnings.push(`Automatic extraction achieved ${(bestConfidence * 100).toFixed(0)}% confidence but requires manual review.`);
 
-  return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit);
+  return createManualReviewResult(startTime, totalCost, warnings, formatAnalysis, qrMetadata, tierAudit, bestConfidence);
 }
 
 function countFields(data: ExtractedCertificateData): number {
@@ -911,6 +923,7 @@ function createManualReviewResult(
   formatAnalysis: FormatAnalysis,
   qrMetadata: QRMetadataResult | undefined,
   tierAudit: TierAuditEntry[],
+  bestConfidence: number = 0,
   partialData?: ExtractedCertificateData
 ): ExtractionResult {
   return {
@@ -933,7 +946,7 @@ function createManualReviewResult(
       additionalFields: {},
     },
     finalTier: 'tier-4',
-    confidence: 0,
+    confidence: bestConfidence,
     totalProcessingTimeMs: Date.now() - startTime,
     totalCost,
     requiresReview: true,
