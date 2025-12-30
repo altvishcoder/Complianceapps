@@ -198,40 +198,40 @@ export function AIAssistant() {
         data-testid="button-open-ai-assistant"
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50",
+          "fixed bottom-4 right-4 md:bottom-6 md:right-6 h-12 w-12 md:h-14 md:w-14 rounded-full shadow-lg z-50",
           "bg-primary hover:bg-primary/90 text-primary-foreground",
           isOpen && "hidden"
         )}
         aria-label="Open AI Assistant"
       >
-        <MessageCircle className="h-6 w-6" />
+        <MessageCircle className="h-5 w-5 md:h-6 md:w-6" />
       </Button>
 
       {isOpen && (
         <div
           data-testid="container-ai-assistant"
-          className="fixed bottom-6 right-6 w-96 h-[500px] bg-background border rounded-lg shadow-xl z-50 flex flex-col"
+          className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 w-full md:w-96 h-full md:h-[500px] bg-background border-0 md:border md:rounded-lg shadow-xl z-50 flex flex-col"
           role="dialog"
           aria-label="AI Assistant"
         >
-          <div className="flex items-center justify-between p-4 border-b bg-primary text-primary-foreground rounded-t-lg">
+          <div className="flex items-center justify-between p-3 md:p-4 border-b bg-primary text-primary-foreground md:rounded-t-lg safe-area-top">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <span className="font-semibold">ComplianceAI Assistant</span>
+              <span className="font-semibold text-sm md:text-base">ComplianceAI Assistant</span>
             </div>
             <Button
               data-testid="button-close-ai-assistant"
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(false)}
-              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+              className="h-9 w-9 md:h-8 md:w-8 text-primary-foreground hover:bg-primary-foreground/20"
               aria-label="Close AI Assistant"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5 md:h-4 md:w-4" />
             </Button>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-3 md:p-4 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
@@ -326,7 +326,7 @@ export function AIAssistant() {
             )}
           </ScrollArea>
 
-          <div className="p-4 border-t">
+          <div className="p-3 md:p-4 border-t safe-area-bottom">
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
@@ -336,7 +336,7 @@ export function AIAssistant() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyPress}
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 h-10 md:h-9 text-base md:text-sm"
                 aria-label="Type your message"
               />
               <Button
@@ -344,6 +344,7 @@ export function AIAssistant() {
                 onClick={sendMessage}
                 disabled={!inputValue.trim() || isLoading}
                 size="icon"
+                className="h-10 w-10 md:h-9 md:w-9"
                 aria-label="Send message"
               >
                 {isLoading ? (

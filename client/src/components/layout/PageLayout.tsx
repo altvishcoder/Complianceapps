@@ -19,9 +19,9 @@ export function PageLayout({ title, pageTitle, children }: PageLayoutProps) {
         Skip to main content
       </a>
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header title={title} />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" tabIndex={-1}>
+        <main id="main-content" className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6" tabIndex={-1}>
           {children}
         </main>
       </div>

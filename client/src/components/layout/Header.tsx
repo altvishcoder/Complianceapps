@@ -1,4 +1,4 @@
-import { Bell, Settings, HelpCircle } from "lucide-react";
+import { Bell, Settings, HelpCircle, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -31,29 +31,44 @@ export function Header({ title }: { title: string }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   
   return (
-    <header className="h-16 flex items-center justify-between px-6 bg-background/80 backdrop-blur-xl border-b border-border/50 sticky top-0 z-10">
-      <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-display font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{title}</h1>
+    <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50 sticky top-0 z-10">
+      <div className="flex items-center gap-2 md:gap-4 pl-12 md:pl-0">
+        <h1 className="text-lg md:text-2xl font-display font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent truncate max-w-[180px] md:max-w-none">{title}</h1>
       </div>
       
-      <div className="flex items-center gap-3 flex-1 justify-end max-w-2xl">
-        <GlobalSearch />
+      <div className="flex items-center gap-1 md:gap-3 flex-1 justify-end max-w-2xl">
+        <div className="hidden sm:block">
+          <GlobalSearch />
+        </div>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="sm:hidden text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-9 w-9"
+          aria-label="Search"
+          data-testid="button-mobile-search"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('open-global-search'));
+          }}
+        >
+          <Search className="h-4 w-4" aria-hidden="true" />
+        </Button>
         
         <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>
           <SheetTrigger asChild>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="relative text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-10 w-10"
+              className="relative text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-9 w-9 md:h-10 md:w-10"
               aria-label="Notifications"
               data-testid="button-notifications"
             >
-              <Bell className="h-5 w-5" aria-hidden="true" />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-gradient-to-br from-rose-500 to-red-600 rounded-full ring-2 ring-background animate-pulse" aria-hidden="true"></span>
+              <Bell className="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
+              <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 h-2 w-2 bg-gradient-to-br from-rose-500 to-red-600 rounded-full ring-2 ring-background animate-pulse" aria-hidden="true"></span>
               <span className="sr-only">You have new notifications</span>
             </Button>
           </SheetTrigger>
-          <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetContent className="w-full sm:w-[400px] md:w-[540px]">
             <SheetHeader>
               <SheetTitle>Notifications</SheetTitle>
             </SheetHeader>
@@ -80,18 +95,18 @@ export function Header({ title }: { title: string }) {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-10 w-10"
+          className="hidden sm:flex text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-9 w-9 md:h-10 md:w-10"
           aria-label="Settings"
           data-testid="button-settings"
           onClick={() => navigate('/admin/setup')}
         >
-          <Settings className="h-5 w-5" aria-hidden="true" />
+          <Settings className="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
         </Button>
         
         <Button 
           variant="ghost" 
           size="icon" 
-          className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-10 w-10"
+          className="hidden md:flex text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-10 w-10"
           aria-label="Keyboard shortcuts help"
           data-testid="button-keyboard-help"
           onClick={() => {
@@ -101,13 +116,13 @@ export function Header({ title }: { title: string }) {
           <HelpCircle className="h-5 w-5" aria-hidden="true" />
         </Button>
         
-        <div className="flex items-center gap-3 pl-3 ml-1 border-l border-border/50">
-          <div className="text-right hidden sm:block">
+        <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-3 ml-1 border-l border-border/50">
+          <div className="text-right hidden md:block">
             <p className="text-sm font-medium text-foreground">{localStorage.getItem("user_name") || "Guest User"}</p>
             <p className="text-xs text-muted-foreground">{formatRole(localStorage.getItem("user_role") || "VIEWER")}</p>
           </div>
-          <Avatar className="h-9 w-9 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
-            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold">
+          <Avatar className="h-8 w-8 md:h-9 md:w-9 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
+            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold text-xs md:text-sm">
               {(localStorage.getItem("user_name") || "GU").split(" ").map(n => n.charAt(0)).join("").substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>

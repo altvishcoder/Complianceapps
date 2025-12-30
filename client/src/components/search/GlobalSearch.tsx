@@ -58,8 +58,13 @@ export function GlobalSearch() {
         setOpen(true);
       }
     };
+    const handleOpenSearch = () => setOpen(true);
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("open-global-search", handleOpenSearch);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("open-global-search", handleOpenSearch);
+    };
   }, []);
 
   useEffect(() => {
@@ -163,20 +168,20 @@ export function GlobalSearch() {
       <button
         ref={triggerRef}
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground bg-muted/50 border rounded-lg hover:bg-muted transition-colors"
+        className="flex items-center gap-2 px-2 md:px-3 py-1.5 text-sm text-muted-foreground bg-muted/50 border rounded-lg hover:bg-muted transition-colors"
         data-testid="global-search-trigger"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <Search className="h-4 w-4" />
-        <span className="hidden sm:inline">Search...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono bg-background border rounded">
+        <span className="hidden md:inline">Search...</span>
+        <kbd className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono bg-background border rounded">
           <span className="text-xs">⌘</span>K
         </kbd>
       </button>
 
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && closeAndReset()}>
-        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" aria-describedby={undefined}>
+        <DialogContent className="w-[95vw] max-w-2xl p-0 gap-0 overflow-hidden" aria-describedby={undefined}>
           <VisuallyHidden>
             <DialogTitle>Global Search</DialogTitle>
           </VisuallyHidden>
@@ -312,7 +317,7 @@ export function GlobalSearch() {
             )}
           </div>
 
-          <div className="flex items-center gap-4 px-4 py-2 border-t text-xs text-muted-foreground">
+          <div className="hidden md:flex items-center gap-4 px-4 py-2 border-t text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-muted border rounded">↑</kbd>
               <kbd className="px-1.5 py-0.5 bg-muted border rounded">↓</kbd>
