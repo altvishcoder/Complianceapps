@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { broadcastExtractionEvent } from "./events";
 import { extractWithAzureDocumentIntelligence, isAzureDocumentIntelligenceConfigured, type ExtractionTier } from "./azure-document-intelligence";
 import { logger } from "./logger";
+import type { ExtractedCertificateData as OrchestratorExtractedData, CertificateTypeCode } from "./services/extraction/types";
 
 // Helper to get certificate type config by code
 async function getCertificateTypeIdByCode(code: string) {
@@ -84,6 +85,92 @@ function mapDocumentTypeToCertificateType(documentType: string | undefined): Cer
   }
   
   return undefined;
+}
+
+function mapApplianceOutcome(outcome: string | undefined | null): 'PASS' | 'FAIL' | 'N/A' | null {
+  if (!outcome) return null;
+  const upper = outcome.toUpperCase().trim();
+  if (upper === 'PASS' || upper === 'SATISFACTORY' || upper === 'OK' || upper === 'SAFE' || upper === 'PASSED') return 'PASS';
+  if (upper === 'FAIL' || upper === 'FAILED' || upper === 'UNSATISFACTORY' || 
+      upper === 'ID' || upper === 'IMMEDIATE DANGER' || upper.includes('IMMEDIATE DANGER') ||
+      upper === 'AR' || upper === 'AT RISK' || upper.includes('AT RISK') ||
+      upper === 'NCS' || upper === 'NOT TO CURRENT STANDARD' || upper.includes('NOT TO CURRENT STANDARD') ||
+      upper === 'CONDEMNED' || upper === 'CONDDEM' ||
+      upper === 'UNSAFE' || upper === 'NOT SAFE' ||
+      upper === 'C1' || upper === 'C2' || upper === 'CI' || upper === 'CII' ||
+      upper === 'FURTHER INVESTIGATION' || upper.includes('FURTHER INVESTIGATION') ||
+      upper === 'FI' || upper === 'REQUIRES ACTION' || upper === 'ACTION REQUIRED') return 'FAIL';
+  if (upper === 'N/A' || upper === 'NA' || upper === 'NOT APPLICABLE' || upper === 'NOT TESTED' || 
+      upper === 'SERVICE ONLY' || upper === 'S' ||
+      upper === 'NOT REQUIRED' || upper === 'NOT CHECKED' || upper === 'INSPECTION ONLY') return 'N/A';
+  console.warn(`[mapApplianceOutcome] Unknown outcome token: "${outcome}", defaulting to null`);
+  return null;
+}
+
+function mapDefectPriority(priority: string | undefined | null): 'IMMEDIATE' | 'URGENT' | 'ADVISORY' | 'ROUTINE' | null {
+  if (!priority) return null;
+  const upper = priority.toUpperCase().trim();
+  if (upper === 'IMMEDIATE' || upper === 'C1' || upper === 'ID' || upper === 'DANGER') return 'IMMEDIATE';
+  if (upper === 'URGENT' || upper === 'C2' || upper === 'AR' || upper === 'AT RISK' || upper === 'NCS') return 'URGENT';
+  if (upper === 'ADVISORY' || upper === 'FI' || upper === 'FYI' || upper === 'IMPROVEMENT') return 'ADVISORY';
+  if (upper === 'ROUTINE' || upper === 'C3' || upper === 'OBSERVATION' || upper === 'MINOR') return 'ROUTINE';
+  return null;
+}
+
+function mapCertificateTypeToCode(certType: string | undefined | null): CertificateTypeCode {
+  if (!certType) {
+    logger.warn({ certType }, '[mapCertificateTypeToCode] No certificate type provided, defaulting to UNKNOWN');
+    return 'UNKNOWN';
+  }
+  const upper = certType.toUpperCase().trim();
+  if (upper === 'GAS_SAFETY' || upper === 'GAS' || upper === 'LGSR' || upper === 'CP12' || upper.includes('GAS SAFETY')) return 'GAS';
+  if (upper === 'GAS_SVC' || upper.includes('GAS SERVICE')) return 'GAS_SVC';
+  if (upper === 'OIL' || upper.includes('OIL BOILER')) return 'OIL';
+  if (upper === 'LPG') return 'LPG';
+  if (upper === 'EICR' || upper === 'ELECTRICAL' || upper.includes('ELECTRICAL INSTALLATION')) return 'EICR';
+  if (upper === 'ELEC') return 'ELEC';
+  if (upper === 'PAT' || upper.includes('PORTABLE APPLIANCE')) return 'PAT';
+  if (upper === 'EMLT' || upper.includes('EMERGENCY LIGHT')) return 'EMLT';
+  if (upper === 'EPC' || upper === 'ENERGY' || upper.includes('ENERGY PERFORMANCE')) return 'EPC';
+  if (upper === 'SAP') return 'SAP';
+  if (upper === 'DEC' || upper.includes('DISPLAY ENERGY')) return 'DEC';
+  if (upper === 'FIRE_RISK_ASSESSMENT' || upper === 'FRA' || upper === 'FIRE' || upper.includes('FIRE RISK')) return 'FRA';
+  if (upper === 'FRAEW' || upper.includes('EXTERNAL WALL')) return 'FRAEW';
+  if (upper === 'FIRE_ALARM' || upper.includes('FIRE ALARM')) return 'FIRE_ALARM';
+  if (upper === 'FIRE_EXT' || upper.includes('FIRE EXTINGUISHER')) return 'FIRE_EXT';
+  if (upper === 'FIRE_DOOR' || upper.includes('FIRE DOOR')) return 'FIRE_DOOR';
+  if (upper === 'SMOKE_CO' || upper.includes('SMOKE') || upper.includes('CARBON MONOXIDE DETECTOR')) return 'SMOKE_CO';
+  if (upper === 'AOV') return 'AOV';
+  if (upper === 'SPRINKLER') return 'SPRINKLER';
+  if (upper === 'LEGIONELLA_ASSESSMENT' || upper === 'LEGIONELLA' || upper === 'LEG_RA' || upper.includes('LEGIONELLA')) return 'LEG_RA';
+  if (upper === 'LEG_MONITOR' || upper.includes('LEGIONELLA MONITOR')) return 'LEG_MONITOR';
+  if (upper === 'WATER_TANK' || upper.includes('WATER TANK')) return 'WATER_TANK';
+  if (upper === 'TMV' || upper.includes('THERMOSTATIC MIXING')) return 'TMV';
+  if (upper === 'ASBESTOS_SURVEY' || upper === 'ASBESTOS' || upper === 'ASB_SURVEY' || upper.includes('ASBESTOS')) return 'ASB_SURVEY';
+  if (upper === 'ASB_MGMT' || upper.includes('ASBESTOS MANAGEMENT')) return 'ASB_MGMT';
+  if (upper === 'LIFT_LOLER' || upper === 'LOLER' || upper.includes('LOLER')) return 'LOLER';
+  if (upper === 'LIFT' || upper.includes('PASSENGER LIFT')) return 'LIFT';
+  if (upper === 'STAIRLIFT') return 'STAIRLIFT';
+  if (upper === 'HOIST') return 'HOIST';
+  if (upper === 'STRUCT' || upper.includes('STRUCTURAL')) return 'STRUCT';
+  if (upper === 'BLDG_SAFETY' || upper.includes('BUILDING SAFETY')) return 'BLDG_SAFETY';
+  if (upper === 'BSR_REG' || upper.includes('BSR')) return 'BSR_REG';
+  if (upper === 'FACADE' || upper.includes('CLADDING')) return 'FACADE';
+  if (upper === 'ROOF') return 'ROOF';
+  if (upper === 'PLAY' || upper.includes('PLAYGROUND')) return 'PLAY';
+  if (upper === 'TREE') return 'TREE';
+  if (upper === 'CCTV') return 'CCTV';
+  if (upper === 'ACCESS_CTRL' || upper.includes('ACCESS CONTROL')) return 'ACCESS_CTRL';
+  if (upper === 'HHSRS' || upper.includes('HOUSING HEALTH')) return 'HHSRS';
+  if (upper === 'DAMP_MOULD' || upper.includes('DAMP') || upper.includes('MOULD')) return 'DAMP_MOULD';
+  if (upper === 'VENTILATION') return 'VENTILATION';
+  if (upper === 'DDA' || upper.includes('DISABILITY')) return 'DDA';
+  if (upper === 'PEST' || upper.includes('PEST CONTROL')) return 'PEST';
+  if (upper === 'WASTE' || upper.includes('WASTE')) return 'WASTE';
+  if (upper === 'COMM_CLEAN' || upper.includes('COMMUNAL CLEAN')) return 'COMM_CLEAN';
+  if (upper === 'OTHER') return 'UNKNOWN';
+  logger.warn({ certType, upper }, '[mapCertificateTypeToCode] Unknown certificate type, defaulting to UNKNOWN');
+  return 'UNKNOWN';
 }
 
 // Normalize address from various Claude response formats
@@ -1791,7 +1878,49 @@ export async function processExtractionAndSave(
         costEstimate: action.costEstimate
       });
     }
-    console.log(`[DEBUG] Remedial actions created, now creating components`);
+    console.log(`[DEBUG] Remedial actions created, now linking to classification codes`);
+
+    const mappedCertTypeCode = mapCertificateTypeToCode(detectedCertType || certificateType);
+    const extractedDataForClassification: OrchestratorExtractedData = {
+      certificateType: mappedCertTypeCode as OrchestratorExtractedData['certificateType'],
+      certificateNumber: result.certificateNumber || null,
+      propertyAddress: result.extractedData?.installationAddress || result.extractedData?.propertyAddress || null,
+      uprn: result.extractedData?.uprn || null,
+      inspectionDate: result.issueDate || null,
+      expiryDate: result.expiryDate || null,
+      nextInspectionDate: result.extractedData?.nextServiceDate || null,
+      outcome: result.outcome as OrchestratorExtractedData['outcome'],
+      engineerName: result.extractedData?.engineer?.name || null,
+      engineerRegistration: result.extractedData?.engineer?.gasRegNo || null,
+      contractorName: result.extractedData?.contractor?.name || null,
+      contractorRegistration: result.extractedData?.contractor?.registrationNumber || null,
+      appliances: (result.extractedData?.appliances || []).map((a: any) => ({
+        type: a.type || 'Unknown',
+        make: a.make || null,
+        model: a.model || null,
+        serialNumber: a.serialNumber || null,
+        location: a.location || null,
+        outcome: mapApplianceOutcome(a.result || a.outcome),
+        defects: a.defects || [],
+      })),
+      defects: (result.extractedData?.defects || []).map((d: any) => ({
+        code: d.code || null,
+        description: d.description || d.text || 'Unknown defect',
+        location: d.location || null,
+        priority: mapDefectPriority(d.priority || d.severity),
+        remedialAction: d.recommendation || d.action || null,
+      })),
+      additionalFields: {},
+    };
+
+    const { linkExtractionToClassifications } = await import("./services/extraction/classification-linker");
+    const linkageResult = await linkExtractionToClassifications(
+      certificateId,
+      extractedDataForClassification,
+      mappedCertTypeCode
+    );
+    
+    console.log(`[DEBUG] Classification linking complete: ${linkageResult.actionsCreated} actions created, ${linkageResult.matches.length} matches found`);
 
     // Auto-create component with pending verification based on certificate type
     // Use the DETECTED certificate type, not the initial type (which may be "OTHER")

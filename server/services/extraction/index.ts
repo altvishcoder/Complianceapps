@@ -6,3 +6,4 @@ export * from './claude-text';
 export * from './azure-di';
 export * from './claude-vision';
 export * from './orchestrator';
+export * from './classification-linker';
