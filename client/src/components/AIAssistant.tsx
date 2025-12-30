@@ -227,7 +227,30 @@ export function AIAssistant() {
                       className="w-full text-left justify-start h-auto py-2 px-3 text-xs"
                       onClick={() => {
                         setInputValue(question);
-                        inputRef.current?.focus();
+                        setTimeout(() => {
+                          const userMessage: ChatMessage = { role: 'user', content: question };
+                          const newMessages = [...messages, userMessage];
+                          setMessages(newMessages);
+                          setInputValue('');
+                          setIsLoading(true);
+                          
+                          fetch('/api/assistant/chat', {
+                            method: 'POST',
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'X-User-Id': userId!,
+                            },
+                            body: JSON.stringify({ messages: newMessages }),
+                          })
+                            .then(res => res.json())
+                            .then(data => {
+                              setMessages([...newMessages, { role: 'assistant', content: data.message }]);
+                            })
+                            .catch(() => {
+                              setMessages([...newMessages, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+                            })
+                            .finally(() => setIsLoading(false));
+                        }, 0);
                       }}
                     >
                       {question}
