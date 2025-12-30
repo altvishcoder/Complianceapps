@@ -308,13 +308,18 @@ export async function registerRoutes(
       const { messages } = parseResult.data;
       
       res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
       
       const { chatWithAssistantStream } = await import('./services/ai-assistant');
       
       for await (const chunk of chatWithAssistantStream(messages, user.organisationId || undefined)) {
         res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+        if (typeof (res as any).flush === 'function') {
+          (res as any).flush();
+        }
       }
       
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
