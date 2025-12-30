@@ -5,6 +5,8 @@ import { db } from "./db";
 import { extractionRuns, componentTypes, components, contractors, certificateTypes } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { broadcastExtractionEvent } from "./events";
+import { extractWithAzureDocumentIntelligence, isAzureDocumentIntelligenceConfigured, type ExtractionTier } from "./azure-document-intelligence";
+import { logger } from "./logger";
 
 // Helper to get certificate type config by code
 async function getCertificateTypeIdByCode(code: string) {
@@ -409,6 +411,244 @@ IMPORTANT: Always include "documentType" to identify what type of certificate th
 Also determine if the certificate shows a SATISFACTORY or UNSATISFACTORY outcome based on the findings.`;
 }
 
+export interface TieredExtractionResult {
+  extractedData: Record<string, any>;
+  outcome: "SATISFACTORY" | "UNSATISFACTORY";
+  remedialActions: ExtractionResult["remedialActions"];
+  certificateNumber?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  confidence: number;
+  tier: 1 | 2 | 3;
+  tierName: "AZURE_DOCUMENT_INTELLIGENCE" | "CLAUDE_VISION" | "HUMAN_REVIEW";
+  tierHistory: Array<{
+    tier: number;
+    name: string;
+    succeeded: boolean;
+    confidence: number;
+    error?: string;
+    processingTimeMs: number;
+  }>;
+  processingTimeMs: number;
+}
+
+export async function extractCertificateWithTieredApproach(
+  certificateId: string,
+  certificateType: string,
+  documentBuffer?: Buffer,
+  fileBase64?: string,
+  mimeType?: string
+): Promise<TieredExtractionResult> {
+  const startTime = Date.now();
+  const certificate = await storage.getCertificate(certificateId);
+  if (!certificate) {
+    throw new Error("Certificate not found");
+  }
+
+  const tierHistory: TieredExtractionResult["tierHistory"] = [];
+  const confidenceThreshold = 0.75;
+  
+  logger.info({ 
+    certificateId, 
+    certificateType, 
+    hasBuffer: !!documentBuffer,
+    mimeType,
+    azureConfigured: isAzureDocumentIntelligenceConfigured() 
+  }, "Starting tiered extraction");
+
+  let extractedText: string | undefined;
+  let azureTierResult: ExtractionTier | undefined;
+
+  if (documentBuffer && isAzureDocumentIntelligenceConfigured()) {
+    const effectiveMimeType = mimeType || 'application/pdf';
+    azureTierResult = await extractWithAzureDocumentIntelligence(documentBuffer, effectiveMimeType);
+    
+    tierHistory.push({
+      tier: 1,
+      name: azureTierResult.name,
+      succeeded: azureTierResult.succeeded,
+      confidence: azureTierResult.confidence,
+      error: azureTierResult.error,
+      processingTimeMs: azureTierResult.processingTimeMs
+    });
+    
+    const azureTextLength = azureTierResult.rawText?.length || 0;
+    const azureConfidence = azureTierResult.confidence || 0;
+    const azureIsUsable = azureTierResult.succeeded && 
+                          (azureTextLength > 100 || (azureTextLength > 50 && azureConfidence >= 0.7));
+    
+    if (azureIsUsable) {
+      extractedText = azureTierResult.rawText;
+      logger.info({ 
+        confidence: azureConfidence, 
+        textLength: azureTextLength 
+      }, "Tier 1 (Azure) OCR succeeded, using Azure text for Claude analysis");
+    } else {
+      logger.warn({ 
+        error: azureTierResult.error,
+        textLength: azureTextLength,
+        confidence: azureConfidence
+      }, "Tier 1 (Azure) failed or returned insufficient text, falling back to pdfjs-dist");
+      
+      if (documentBuffer) {
+        try {
+          extractedText = await extractTextFromPdf(documentBuffer);
+          logger.info({ textLength: extractedText?.length }, "Fallback: extracted text with pdfjs-dist after Azure failure");
+        } catch (pdfjsError) {
+          logger.warn({ error: pdfjsError }, "pdfjs-dist extraction failed");
+          if (azureTextLength > 0) {
+            extractedText = azureTierResult.rawText;
+            logger.info({ textLength: azureTextLength }, "Using Azure text as last resort after pdfjs failure");
+          }
+        }
+      }
+    }
+  } else if (documentBuffer) {
+    try {
+      extractedText = await extractTextFromPdf(documentBuffer);
+      logger.info({ textLength: extractedText?.length }, "Azure not configured, extracted text with pdfjs-dist");
+    } catch (pdfjsError) {
+      logger.error({ error: pdfjsError }, "pdfjs-dist extraction failed without Azure fallback");
+    }
+  }
+
+  const effectiveText = extractedText || azureTierResult?.rawText;
+  const hasUsableText = effectiveText && effectiveText.trim().length >= 50;
+  const hasImageInput = fileBase64 && mimeType && mimeType.startsWith('image/');
+  
+  if (!hasUsableText && !hasImageInput) {
+    logger.error({ 
+      textLength: effectiveText?.length || 0,
+      hasFileBase64: !!fileBase64,
+      mimeType 
+    }, "No usable content for Tier 2 (Claude) - requires either OCR text or image");
+    
+    tierHistory.push({
+      tier: 2,
+      name: "CLAUDE_VISION",
+      succeeded: false,
+      confidence: 0,
+      error: "No usable OCR text or image content available",
+      processingTimeMs: 0
+    });
+    
+    return {
+      extractedData: { 
+        rawText: effectiveText,
+        azureStructuredData: azureTierResult?.structuredData,
+        error: "OCR failed to extract usable text from document"
+      },
+      outcome: "UNSATISFACTORY",
+      remedialActions: [],
+      confidence: 0,
+      tier: 3,
+      tierName: "HUMAN_REVIEW",
+      tierHistory,
+      processingTimeMs: Date.now() - startTime
+    };
+  }
+
+  const tier2StartTime = Date.now();
+  let claudeResult: ExtractionResult;
+  let tier2Error: string | undefined;
+
+  try {
+    claudeResult = await extractCertificateWithClaude(
+      certificateId,
+      certificateType,
+      fileBase64,
+      mimeType,
+      effectiveText
+    );
+    
+    tierHistory.push({
+      tier: 2,
+      name: "CLAUDE_VISION",
+      succeeded: true,
+      confidence: claudeResult.confidence,
+      processingTimeMs: Date.now() - tier2StartTime
+    });
+    
+    logger.info({ confidence: claudeResult.confidence }, "Tier 2 (Claude) extraction complete");
+    
+  } catch (error) {
+    tier2Error = error instanceof Error ? error.message : "Unknown Claude error";
+    
+    tierHistory.push({
+      tier: 2,
+      name: "CLAUDE_VISION",
+      succeeded: false,
+      confidence: 0,
+      error: tier2Error,
+      processingTimeMs: Date.now() - tier2StartTime
+    });
+    
+    logger.error({ error: tier2Error }, "Tier 2 (Claude) failed");
+    
+    return {
+      extractedData: { 
+        rawText: extractedText || azureTierResult?.rawText,
+        azureStructuredData: azureTierResult?.structuredData,
+        error: tier2Error 
+      },
+      outcome: "UNSATISFACTORY",
+      remedialActions: [],
+      confidence: 0,
+      tier: 3,
+      tierName: "HUMAN_REVIEW",
+      tierHistory,
+      processingTimeMs: Date.now() - startTime
+    };
+  }
+
+  const finalConfidence = claudeResult.confidence;
+  const needsHumanReview = finalConfidence < confidenceThreshold;
+  
+  const azureProvidedOCR = azureTierResult?.succeeded && 
+                           azureTierResult.rawText && 
+                           extractedText === azureTierResult.rawText;
+  
+  const effectiveTier: 1 | 2 | 3 = needsHumanReview ? 3 : 2;
+  const effectiveTierName: TieredExtractionResult["tierName"] = needsHumanReview ? "HUMAN_REVIEW" : "CLAUDE_VISION";
+
+  const ocrProvider = azureProvidedOCR ? "AZURE_DOCUMENT_INTELLIGENCE" : 
+                      (extractedText ? "PDFJS_LOCAL" : "NONE");
+
+  logger.info({ 
+    finalConfidence, 
+    effectiveTier, 
+    effectiveTierName, 
+    needsHumanReview,
+    ocrProvider,
+    azureAttempted: !!azureTierResult,
+    tierHistoryLength: tierHistory.length
+  }, "Tiered extraction complete");
+
+  return {
+    ...claudeResult,
+    extractedData: {
+      ...claudeResult.extractedData,
+      _extractionMethod: {
+        ocrProvider,
+        analysisProvider: "CLAUDE_VISION",
+        ocrConfidence: azureProvidedOCR ? (azureTierResult?.confidence || 0) : 
+                       (azureTierResult?.succeeded ? azureTierResult.confidence : 0),
+        analysisConfidence: claudeResult.confidence,
+        azureAttempted: !!azureTierResult,
+        azureSucceeded: azureTierResult?.succeeded || false,
+        azureConfidence: azureTierResult?.confidence || 0,
+        azureTextLength: azureTierResult?.rawText?.length || 0,
+        textUsedLength: extractedText?.length || 0,
+        textUsedProvider: ocrProvider
+      }
+    },
+    tier: effectiveTier,
+    tierName: effectiveTierName,
+    tierHistory,
+    processingTimeMs: Date.now() - startTime
+  };
+}
+
 export async function extractCertificateWithClaude(
   certificateId: string,
   certificateType: string,
@@ -745,7 +985,7 @@ export async function generateRemedialActionsFromConfig(
   certificateTypeId?: string
 ): Promise<ExtractionResult["remedialActions"]> {
   // Load all classification codes (not filtered by certificate type for flexibility)
-  const classificationCodes = await storage.listClassificationCodes(certificateTypeId);
+  const classificationCodes = await storage.listClassificationCodes(certificateTypeId ? { certificateTypeId } : undefined);
   const codeMap = new Map(classificationCodes.map(c => [c.code, c]));
   
   const actions: ExtractionResult["remedialActions"] = [];
@@ -1374,50 +1614,117 @@ export async function processExtractionAndSave(
   try {
     await storage.updateCertificate(certificateId, { status: "PROCESSING" });
     
-    let pdfText: string | undefined;
+    let effectiveBuffer = pdfBuffer;
     
-    if (pdfBuffer || (certificate.fileType === 'application/pdf' && !fileBase64)) {
-      if (pdfBuffer) {
-        pdfText = await extractTextFromPdf(pdfBuffer);
-        console.log(`Extracted ${pdfText.length} characters of text from PDF`);
+    if (!effectiveBuffer && fileBase64) {
+      try {
+        effectiveBuffer = Buffer.from(fileBase64, 'base64');
+        logger.info({ certificateId }, "Created buffer from fileBase64 for tiered extraction");
+      } catch (e) {
+        logger.warn({ certificateId, error: e }, "Failed to create buffer from fileBase64");
       }
     }
     
-    const result = await extractCertificateWithClaude(certificateId, certificateType, fileBase64, mimeType, pdfText);
+    if (!effectiveBuffer && certificate.storageKey) {
+      try {
+        const { readFile } = await import("./replit_integrations/object_storage/objectStorage");
+        const storedData = await readFile(certificate.storageKey);
+        if (storedData) {
+          effectiveBuffer = Buffer.from(storedData);
+          logger.info({ certificateId, storageKey: certificate.storageKey }, "Loaded PDF from object storage for tiered extraction");
+        }
+      } catch (e) {
+        logger.warn({ certificateId, error: e }, "Failed to load PDF from object storage");
+      }
+    }
+    
+    if (!effectiveBuffer || effectiveBuffer.length === 0) {
+      const errorMessage = "No document buffer available from any source";
+      logger.error({ 
+        certificateId, 
+        hasPdfBuffer: !!pdfBuffer, 
+        hasFileBase64: !!fileBase64, 
+        hasStorageKey: !!certificate.storageKey,
+        bufferLength: effectiveBuffer?.length || 0
+      }, errorMessage);
+      
+      await storage.updateCertificate(certificateId, { 
+        status: "NEEDS_REVIEW" 
+      });
+      
+      await storage.createExtraction({
+        certificateId,
+        method: "MANUAL",
+        model: "none",
+        promptVersion: "v2.0",
+        extractedData: { error: errorMessage, requiresManualUpload: true },
+        confidence: 0,
+        textQuality: "POOR"
+      });
+      
+      broadcastExtractionEvent({
+        type: 'extraction_failed',
+        certificateId,
+        error: errorMessage
+      });
+      
+      return;
+    }
+    
+    const result = await extractCertificateWithTieredApproach(
+      certificateId, 
+      certificateType, 
+      effectiveBuffer,
+      fileBase64, 
+      mimeType
+    );
+
+    const extractionMethod = result.extractedData?._extractionMethod;
+    const azureProvidedOCR = extractionMethod?.ocrProvider === "AZURE_DOCUMENT_INTELLIGENCE";
+    const methodName = result.tierName === "HUMAN_REVIEW" ? "MANUAL" : 
+                       azureProvidedOCR ? "AZURE_OCR_CLAUDE_ANALYSIS" : "CLAUDE_VISION";
+    const modelVersion = "claude-3-5-haiku-20241022";
 
     await storage.createExtraction({
       certificateId,
-      method: "CLAUDE_VISION",
-      model: "claude-3-5-haiku-20241022",
+      method: methodName,
+      model: modelVersion,
       promptVersion: "v2.0",
       extractedData: result.extractedData,
       confidence: result.confidence,
       textQuality: result.confidence > 0.7 ? "GOOD" : "FAIR"
     });
     
-    // Create extraction run for the AI Model insights
     const docType = result.extractedData?.documentType || certificateType || 'UNKNOWN';
     
-    // Normalize the raw output to the format expected by the human review form
     const normalisedOutput = normalizeExtractionOutput(result.extractedData);
     
     await db.insert(extractionRuns).values({
       certificateId,
-      modelVersion: "claude-3-5-haiku-20241022",
+      modelVersion,
       promptVersion: `${certificateType?.toLowerCase() || 'general'}_v2.0`,
       schemaVersion: "v1.0",
       documentType: docType,
       classificationConfidence: result.confidence,
-      rawOutput: result.extractedData,
+      rawOutput: { ...result.extractedData, _tierHistory: result.tierHistory },
       validatedOutput: result.extractedData,
       normalisedOutput: normalisedOutput,
       confidence: result.confidence,
-      processingTier: result.confidence >= 0.95 ? 1 : result.confidence >= 0.8 ? 2 : 3,
-      processingTimeMs: 0,
+      processingTier: result.tier,
+      processingTimeMs: result.processingTimeMs,
       processingCost: 0,
       validationPassed: result.confidence >= 0.7,
-      status: 'AWAITING_REVIEW',
+      status: result.tier === 3 ? 'AWAITING_REVIEW' : 'AWAITING_REVIEW',
     });
+
+    logger.info({ 
+      certificateId, 
+      tier: result.tier, 
+      tierName: result.tierName, 
+      confidence: result.confidence,
+      processingTimeMs: result.processingTimeMs,
+      tierHistoryCount: result.tierHistory.length
+    }, "Tiered extraction saved successfully");
 
     // Map detected document type to certificate type enum
     const detectedCertType = mapDocumentTypeToCertificateType(result.extractedData?.documentType);
