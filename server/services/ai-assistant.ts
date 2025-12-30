@@ -155,9 +155,86 @@ function findCachedResponse(query: string): string | null {
   return null;
 }
 
-// Search for properties by name/address
+// Get properties with compliance issues
+async function getPropertiesWithIssues(): Promise<string> {
+  try {
+    // Get non-compliant properties
+    const nonCompliantProps = await db
+      .select({
+        id: properties.id,
+        addressLine1: properties.addressLine1,
+        city: properties.city,
+        postcode: properties.postcode,
+        complianceStatus: properties.complianceStatus,
+        blockName: blocks.name,
+      })
+      .from(properties)
+      .leftJoin(blocks, eq(properties.blockId, blocks.id))
+      .where(eq(properties.complianceStatus, 'NON_COMPLIANT'))
+      .limit(10);
+    
+    // Get properties with pending actions
+    const propsWithActions = await db
+      .select({
+        propertyId: remedialActions.propertyId,
+        actionCount: count(),
+      })
+      .from(remedialActions)
+      .where(eq(remedialActions.status, 'OPEN'))
+      .groupBy(remedialActions.propertyId)
+      .orderBy(count())
+      .limit(5);
+    
+    if (nonCompliantProps.length === 0 && propsWithActions.length === 0) {
+      return `🎉 **Great news!** I couldn't find any properties with major compliance issues right now. Your portfolio is looking healthy!
+
+Want me to help you with something else? You can:
+- Search for a specific property by name or address
+- Ask about compliance requirements
+- Check on upcoming certificate renewals`;
+    }
+    
+    let response = `⚠️ **Properties Needing Attention**\n\n`;
+    
+    if (nonCompliantProps.length > 0) {
+      response += `**🔴 Non-Compliant Properties (${nonCompliantProps.length}):**\n\n`;
+      for (const p of nonCompliantProps.slice(0, 5)) {
+        response += `- **${p.addressLine1}**, ${p.postcode}\n`;
+        response += `  ${p.blockName || 'No block'} • [View & fix →](/properties/${p.id})\n\n`;
+      }
+      if (nonCompliantProps.length > 5) {
+        response += `  ...and ${nonCompliantProps.length - 5} more. [View all properties](/properties?status=NON_COMPLIANT)\n\n`;
+      }
+    }
+    
+    if (propsWithActions.length > 0) {
+      response += `**🔧 Properties with Open Actions:**\n`;
+      response += `There are ${propsWithActions.length} properties with outstanding remedial work. [View all actions](/actions)\n\n`;
+    }
+    
+    response += `💡 **Tip:** Click on any property to see full details and take action!`;
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Failed to get properties with issues');
+    return `😅 I had trouble fetching the compliance data. Try refreshing or check the [Properties page](/properties) directly.`;
+  }
+}
+
+// Search for properties by name/address or compliance status
 async function searchProperties(query: string): Promise<string | null> {
   const searchTerms = query.toLowerCase();
+  
+  // Check for compliance-based queries first
+  const wantsNonCompliant = searchTerms.includes('non-compliant') || searchTerms.includes('non compliant') || 
+    searchTerms.includes('issues') || searchTerms.includes('problem') || searchTerms.includes('low compliance') ||
+    searchTerms.includes('failing') || searchTerms.includes('at risk');
+  const wantsExpiring = searchTerms.includes('expir') || searchTerms.includes('due soon') || searchTerms.includes('renew');
+  const wantsCompliant = (searchTerms.includes('compliant') || searchTerms.includes('good')) && !wantsNonCompliant;
+  
+  if (wantsNonCompliant || wantsExpiring) {
+    return await getPropertiesWithIssues();
+  }
   
   // Check if this looks like a property search
   const propertyIndicators = ['find', 'show', 'details', 'property', 'about', 'where is', 'look up', 'search'];
