@@ -6,125 +6,45 @@ import { count, ilike, or, eq, and, isNull, lt, desc } from 'drizzle-orm';
 
 const anthropic = new Anthropic();
 
-// Cached FAQ responses for instant replies
+// Cached FAQ responses for instant replies - kept short for small chat window
 const FAQ_CACHE: Record<string, string> = {
-  "gas safety": `**Gas Safety Requirements for Social Housing**
+  "gas safety": `**Gas Safety** (Gas Safety Regs 1998)
+• Annual check by Gas Safe engineer
+• CP12 certificate every **12 months**
+• Records kept **2 years**, tenant copy within **28 days**`,
 
-Under the Gas Safety (Installation and Use) Regulations 1998, landlords must:
+  "eicr renew": `**EICR** (Electrical Safety Standards 2020)
+• Required every **5 years**
+• Qualified electrician (BS 7671)
+• Fix issues within **28 days** if unsatisfactory`,
 
-- Have all gas appliances, flues, and pipework checked **annually** by a Gas Safe registered engineer
-- Keep records of safety checks for **2 years**
-- Provide tenants with a copy of the gas safety record within **28 days** of the check
+  "c1 c2 c3": `**Gas Defect Codes**
+• **C1** - Immediately Dangerous → Disconnect now
+• **C2** - At Risk → Fix within 24-48 hours  
+• **C3** - Not to standard → Fix at next service
+• **FI** - Further investigation needed`,
 
-**Key points:**
-- Checks must be completed within 12 months of the previous check
-- CP12 (Landlord Gas Safety Record) is the required certificate
-- Failure to comply can result in fines up to £6,000 or imprisonment`,
+  "upload certificate": `**Upload a Certificate**
+1. Go to [Certificates](/certificates)
+2. Click **Upload Certificate** button
+3. Select PDF or image file
+4. AI extracts data automatically
+5. Review and save`,
 
-  "eicr renew": `**EICR Renewal Requirements**
+  "fire risk": `**Fire Risk Assessment** (RRO 2005)
+• Required for all communal areas
+• Review annually or after changes
+• 18m+ buildings: more frequent (BSA 2022)`,
 
-Electrical Installation Condition Reports (EICRs) must be renewed:
+  "asbestos": `**Asbestos** (CAR 2012)
+• Management survey for pre-2000 buildings
+• Re-inspect every 6-12 months
+• R&D survey before intrusive work`,
 
-- **Every 5 years** for rented properties (as per the Electrical Safety Standards in the Private Rented Sector Regulations 2020)
-- Or sooner if the previous report recommends an earlier re-inspection date
-
-**Key requirements:**
-- Must be carried out by a qualified electrician (18th Edition BS 7671)
-- Landlords must provide a copy to tenants within **28 days**
-- Unsatisfactory results require remedial work within **28 days** (or 21 days for urgent issues)`,
-
-  "c1 c2 c3": `**Gas Defect Classifications (C1, C2, C3)**
-
-**C1 - Immediately Dangerous**
-- Risk of injury, fire, or explosion
-- Gas must be disconnected immediately
-- "At Risk" or "Do Not Use" labels applied
-
-**C2 - At Risk**
-- Not immediately dangerous but could become so
-- Should be repaired urgently (typically within 24-48 hours)
-- Appliance may need to be turned off
-
-**C3 - Not to Current Standards**
-- Not meeting current regulations but not dangerous
-- Should be addressed at next service
-- No immediate action required
-
-**FI - Further Investigation**
-- Requires additional testing to determine safety`,
-
-  "upload certificate": `**How to Upload a Certificate**
-
-1. Navigate to **Certificates** in the main menu
-2. Click the **Upload Certificate** button
-3. Select the certificate file (PDF or image)
-4. The AI will automatically extract key information
-5. Review the extracted data and make corrections if needed
-6. Click **Save** to complete the upload
-
-**Tips:**
-- Clear, high-quality scans work best
-- The system supports Gas Safety, EICR, FRA, EPC, and other certificate types
-- Extracted data can be edited before saving`,
-
-  "fire risk": `**Fire Risk Assessment Requirements**
-
-Under the Regulatory Reform (Fire Safety) Order 2005:
-
-- **All communal areas** in residential buildings require a Fire Risk Assessment (FRA)
-- Must be reviewed **regularly** (typically annually, or after significant changes)
-- Higher Risk Buildings (18m+) require more frequent reviews under the Building Safety Act 2022
-
-**FRA must assess:**
-- Fire detection and warning systems
-- Emergency escape routes
-- Fire fighting equipment
-- Compartmentation and fire doors
-- Management procedures
-
-**Responsible Person** must ensure:
-- Assessment is suitable and sufficient
-- Findings are implemented
-- Records are maintained`,
-
-  "asbestos": `**Asbestos Survey Requirements**
-
-Under the Control of Asbestos Regulations 2012:
-
-**Management Survey** - Required for all buildings built before 2000
-- Identifies asbestos-containing materials (ACMs)
-- Assesses condition and risk
-- Should be reviewed annually
-
-**Refurbishment/Demolition Survey** - Required before any intrusive work
-- More thorough and destructive
-- Must be done before refurbishment or demolition
-
-**Key requirements:**
-- Maintain an Asbestos Register
-- Create and implement an Asbestos Management Plan
-- Re-inspect ACMs regularly (typically every 6-12 months)
-- All surveys must be by a UKAS-accredited surveyor`,
-
-  "legionella": `**Legionella Risk Assessment Requirements**
-
-Under the Health and Safety at Work Act 1974 and L8 ACOP:
-
-- **Risk assessment required** for all water systems
-- Review at least every **2 years** (or after significant changes)
-- Temperature monitoring: Hot water should be stored at **60°C+**, delivered at **50°C+**
-- Cold water should be below **20°C**
-
-**Control measures:**
-- Flush little-used outlets weekly
-- Descale showerheads quarterly
-- Annual inspection of water tanks
-- Temperature checks monthly
-
-**High-risk factors:**
-- Water stored between 20-45°C
-- Spray generation (showers, taps)
-- Vulnerable occupants`,
+  "legionella": `**Legionella** (L8 ACOP)
+• Risk assessment every **2 years**
+• Hot water: 60°C+ stored, 50°C+ delivered
+• Cold water: below 20°C`,
 };
 
 const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
@@ -191,7 +111,9 @@ function getFollowUpSuggestions(topic: string): string {
     }
   }
   
-  return `\n\n---\n💡 **You might also ask:**\n${suggestions.map(s => `• ${s}`).join('\n')}`;
+  // Keep it compact - just 2 suggestions
+  const shortSuggestions = suggestions.slice(0, 2);
+  return `\n\n---\n💡 **Try asking:**\n${shortSuggestions.map(s => `• ${s}`).join('\n')}`;
 }
 
 function findCachedResponse(query: string): string | null {
@@ -565,40 +487,21 @@ async function getComplianceContext(): Promise<string> {
   }
 }
 
-const SYSTEM_PROMPT = `You are the ComplianceAI Assistant - a specialist in UK social housing compliance and this platform ONLY.
+const SYSTEM_PROMPT = `You are ComplianceAI Assistant - UK social housing compliance specialist.
 
-**IMPORTANT: You ONLY answer questions about:**
-1. UK social housing compliance requirements and regulations
-2. Certificate types: Gas Safety (CP12), EICR, EPC, Fire Risk Assessment, Asbestos Survey, Legionella, LOLER
-3. UK legislation: Gas Safety Regs 1998, BS 7671, RRO 2005, CAR 2012, Building Safety Act 2022
-4. Defect classifications: C1/C2/C3 (gas), Code 1-4 (electrical)
-5. Remedial actions and compliance deadlines
-6. ComplianceAI platform features and navigation
+**ONLY answer about:** UK compliance, certificates (CP12, EICR, EPC, FRA, Asbestos, Legionella, LOLER), UK regs, defect codes (C1/C2/C3), and this platform.
 
-**If someone asks about ANYTHING else (weather, recipes, coding help, general chat, etc.), politely redirect:**
-"I'm specifically designed to help with UK social housing compliance and the ComplianceAI platform. I can help you with certificate requirements, compliance deadlines, defect codes, or navigating the platform. What would you like to know?"
+**Off-topic?** Politely redirect: "I help with UK housing compliance and this platform. Try asking about certificates, deadlines, or defect codes!"
 
-**Your personality:**
-- Warm and professional - use emojis naturally 🏠 📋 ✅
-- Concise - busy property managers need quick answers
-- Proactive - mention relevant portfolio data when helpful
-- Safety-first - recommend professional inspection when in doubt
+**CRITICAL - Keep responses SHORT:**
+- Max 4-5 bullet points
+- Use bullet points (•) not paragraphs
+- Include key numbers/deadlines only
+- Skip introductions, get to the point
 
-**When discussing the portfolio:**
-- Reference actual numbers from the context provided
-- Be specific: "You've got 3 certificates expiring soon!"
-- Suggest next steps: "Shall I help you find those properties?"
+**Platform pages:** Dashboard, Certificates, Properties, Actions, Human Review
 
-**ComplianceAI Platform Features:**
-- **Dashboard** → Compliance overview, expiring certificates, quick stats
-- **Certificates** → Upload, view, AI-extracted certificate data
-- **Properties** → Portfolio organized by schemes and blocks
-- **Actions** → Track and manage remedial work from inspections
-- **Human Review** → Certificates needing manual verification
-- **Model Insights** → AI extraction accuracy and analytics
-- **Factory Settings** → Configure thresholds and patterns (admin only)
-
-Stay focused on compliance. You're here to keep residents safe! 🏠`;
+Stay brief and helpful! 🏠`;
 
 export async function chatWithAssistant(
   messages: ChatMessage[],
@@ -648,7 +551,7 @@ export async function chatWithAssistant(
 
     const response = await anthropic.messages.create({
       model: 'claude-3-5-haiku-20241022',
-      max_tokens: 512,
+      max_tokens: 256,
       system: systemContent,
       messages: messages.map(m => ({
         role: m.role,
@@ -695,7 +598,7 @@ export async function* chatWithAssistantStream(
 
     const stream = anthropic.messages.stream({
       model: 'claude-3-5-haiku-20241022',
-      max_tokens: 512,
+      max_tokens: 256,
       system: systemContent,
       messages: messages.map(m => ({
         role: m.role,
