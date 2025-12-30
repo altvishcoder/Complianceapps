@@ -208,8 +208,26 @@ Want me to help you with something else? You can:
     }
     
     if (propsWithActions.length > 0) {
-      response += `**🔧 Properties with Open Actions:**\n`;
-      response += `There are ${propsWithActions.length} properties with outstanding remedial work. [View all actions](/actions)\n\n`;
+      // Get property details for actions
+      const propIds = propsWithActions.map(p => p.propertyId).filter(Boolean) as string[];
+      if (propIds.length > 0) {
+        const propsWithActionDetails = await db
+          .select({
+            id: properties.id,
+            addressLine1: properties.addressLine1,
+            postcode: properties.postcode,
+          })
+          .from(properties)
+          .where(or(...propIds.map(id => eq(properties.id, id))))
+          .limit(5);
+        
+        response += `**🔧 Properties with Open Actions:**\n\n`;
+        for (const p of propsWithActionDetails) {
+          const actionInfo = propsWithActions.find(a => a.propertyId === p.id);
+          response += `- **${p.addressLine1}**, ${p.postcode} - ${actionInfo?.actionCount || 0} open action${(actionInfo?.actionCount || 0) !== 1 ? 's' : ''}\n`;
+          response += `  [View actions for this property →](/actions?propertyId=${p.id})\n\n`;
+        }
+      }
     }
     
     response += `💡 **Tip:** Click on any property to see full details and take action!`;
@@ -423,9 +441,15 @@ export async function chatWithAssistant(
 ): Promise<AssistantResponse> {
   try {
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    const isFollowUp = messages.length > 1; // Has previous conversation
     
-    if (lastUserMessage) {
-      // Check FAQ cache first for instant responses
+    // Check if this looks like a follow-up question
+    const followUpIndicators = ['more', 'also', 'what about', 'and', 'tell me more', 'explain', 'why', 'how come', 'can you'];
+    const looksLikeFollowUp = isFollowUp && lastUserMessage && 
+      followUpIndicators.some(ind => lastUserMessage.content.toLowerCase().startsWith(ind));
+    
+    if (lastUserMessage && !looksLikeFollowUp) {
+      // Check FAQ cache first for instant responses (only for first questions)
       const cachedResponse = findCachedResponse(lastUserMessage.content);
       if (cachedResponse) {
         logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving cached FAQ response');
