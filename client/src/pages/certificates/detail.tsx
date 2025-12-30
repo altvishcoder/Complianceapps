@@ -22,6 +22,8 @@ import { useQuery } from "@tanstack/react-query";
 import { certificatesApi, actionsApi } from "@/lib/api";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CertificateAuditTimeline } from "@/components/AuditTimeline";
+import { History } from "lucide-react";
 
 export default function CertificateDetailPage() {
   useEffect(() => {
@@ -314,6 +316,23 @@ export default function CertificateDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          <Separator />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Audit History
+              </CardTitle>
+              <CardDescription>
+                Track all changes and actions for this certificate
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CertificateAuditTimeline certificateId={id!} />
+            </CardContent>
+          </Card>
 
         </main>
       </div>

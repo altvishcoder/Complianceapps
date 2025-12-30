@@ -30,7 +30,8 @@ import {
   Key,
   Activity,
   Map,
-  HelpCircle
+  HelpCircle,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -63,6 +64,7 @@ const adminOnlyNavigation = [
   { name: "User Management", href: "/admin/users", icon: UserCog },
   { name: "Integrations", href: "/admin/integrations", icon: Webhook },
   { name: "API Integration", href: "/admin/api-integration", icon: Key },
+  { name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList },
   { name: "Test Suite", href: "/admin/tests", icon: FlaskConical },
 ];
 

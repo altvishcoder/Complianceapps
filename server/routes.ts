@@ -29,6 +29,7 @@ import {
 } from "./import-parser";
 import { enqueueWebhookEvent } from "./webhook-worker";
 import { enqueueIngestionJob, getQueueStats } from "./job-queue";
+import { recordAudit, extractAuditContext, getChanges } from "./services/audit";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -171,6 +172,23 @@ export async function registerRoutes(
       if (!isValidPassword) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
+      
+      // Record login audit event
+      await recordAudit({
+        organisationId: user.organisationId,
+        eventType: 'USER_LOGIN',
+        entityType: 'USER',
+        entityId: user.id,
+        entityName: user.name || user.username,
+        message: `User ${user.username} logged in`,
+        context: {
+          actorId: user.id,
+          actorName: user.name || user.username,
+          actorType: 'USER',
+          ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+          userAgent: req.headers['user-agent'] as string,
+        },
+      });
       
       // Return user data (excluding password)
       res.json({
@@ -1286,10 +1304,46 @@ export async function registerRoutes(
   app.patch("/api/certificates/:id", async (req, res) => {
     try {
       const updates = req.body;
+      const beforeCert = await storage.getCertificate(req.params.id);
+      if (!beforeCert) {
+        return res.status(404).json({ error: "Certificate not found" });
+      }
+      
       const certificate = await storage.updateCertificate(req.params.id, updates);
       if (!certificate) {
         return res.status(404).json({ error: "Certificate not found" });
       }
+      
+      // Determine event type based on status change
+      let eventType: 'CERTIFICATE_STATUS_CHANGED' | 'CERTIFICATE_APPROVED' | 'CERTIFICATE_REJECTED' = 'CERTIFICATE_STATUS_CHANGED';
+      let message = `Certificate updated`;
+      
+      if (updates.status === 'APPROVED' && beforeCert.status !== 'APPROVED') {
+        eventType = 'CERTIFICATE_APPROVED';
+        message = `Certificate ${certificate.certificateType} approved`;
+      } else if (updates.status === 'REJECTED' && beforeCert.status !== 'REJECTED') {
+        eventType = 'CERTIFICATE_REJECTED';
+        message = `Certificate ${certificate.certificateType} rejected`;
+      } else if (updates.status && updates.status !== beforeCert.status) {
+        message = `Certificate status changed from ${beforeCert.status} to ${updates.status}`;
+      }
+      
+      // Record audit event
+      await recordAudit({
+        organisationId: certificate.organisationId,
+        eventType,
+        entityType: 'CERTIFICATE',
+        entityId: certificate.id,
+        entityName: certificate.fileName,
+        propertyId: certificate.propertyId,
+        certificateId: certificate.id,
+        beforeState: beforeCert,
+        afterState: certificate,
+        changes: getChanges(beforeCert, certificate),
+        message,
+        context: extractAuditContext(req),
+      });
+      
       res.json(certificate);
     } catch (error) {
       console.error("Error updating certificate:", error);
@@ -1375,6 +1429,10 @@ export async function registerRoutes(
   app.patch("/api/actions/:id", async (req, res) => {
     try {
       const updates = req.body;
+      const beforeAction = await storage.getRemedialAction(req.params.id);
+      if (!beforeAction) {
+        return res.status(404).json({ error: "Action not found" });
+      }
       
       // Set resolvedAt when marking as completed
       if (updates.status === 'COMPLETED' || updates.status === 'completed') {
@@ -1396,6 +1454,25 @@ export async function registerRoutes(
         severity: action.severity,
         status: action.status,
         dueDate: action.dueDate
+      });
+      
+      // Record audit event
+      const auditEventType = updates.status === 'COMPLETED' ? 'REMEDIAL_ACTION_COMPLETED' : 'REMEDIAL_ACTION_UPDATED';
+      await recordAudit({
+        organisationId: action.organisationId,
+        eventType: auditEventType,
+        entityType: 'REMEDIAL_ACTION',
+        entityId: action.id,
+        entityName: action.description,
+        propertyId: action.propertyId,
+        certificateId: action.certificateId,
+        beforeState: beforeAction,
+        afterState: action,
+        changes: getChanges(beforeAction, action),
+        message: updates.status === 'COMPLETED' 
+          ? `Remedial action "${action.code}" marked complete`
+          : `Remedial action "${action.code}" updated`,
+        context: extractAuditContext(req),
       });
       
       res.json(action);
@@ -5090,6 +5167,120 @@ export async function registerRoutes(
       }
     };
     res.json(openApiSpec);
+  });
+  
+  // Audit Trail API Routes
+  app.get("/api/audit-events", async (req, res) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const adminRoles = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'COMPLIANCE_MANAGER'];
+      if (!adminRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Forbidden - Admin access required" });
+      }
+      
+      const { entityType, entityId, eventType, actorId, startDate, endDate, limit, offset } = req.query;
+      
+      const result = await storage.listAuditEvents(user.organisationId, {
+        entityType: entityType as string,
+        entityId: entityId as string,
+        eventType: eventType as string,
+        actorId: actorId as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching audit events:", error);
+      res.status(500).json({ error: "Failed to fetch audit events" });
+    }
+  });
+  
+  app.get("/api/audit-events/:entityType/:entityId", async (req, res) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { entityType, entityId } = req.params;
+      
+      // Verify entity belongs to user's organisation before returning audit history
+      if (entityType.toUpperCase() === 'CERTIFICATE') {
+        const cert = await storage.getCertificate(entityId);
+        if (!cert || cert.organisationId !== user.organisationId) {
+          return res.status(403).json({ error: "Access denied to this entity" });
+        }
+      } else if (entityType.toUpperCase() === 'REMEDIAL_ACTION') {
+        const action = await storage.getRemedialAction(entityId);
+        if (!action || action.organisationId !== user.organisationId) {
+          return res.status(403).json({ error: "Access denied to this entity" });
+        }
+      } else if (entityType.toUpperCase() === 'PROPERTY') {
+        const property = await storage.getProperty(entityId);
+        if (!property || property.organisationId !== user.organisationId) {
+          return res.status(403).json({ error: "Access denied to this entity" });
+        }
+      }
+      
+      // Get audit history filtered by user's organisation
+      const events = await storage.getEntityAuditHistoryForOrg(
+        entityType.toUpperCase(), 
+        entityId, 
+        user.organisationId
+      );
+      
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching entity audit history:", error);
+      res.status(500).json({ error: "Failed to fetch audit history" });
+    }
+  });
+  
+  app.get("/api/certificates/:id/audit", async (req, res) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Verify certificate belongs to user's organisation
+      const cert = await storage.getCertificate(req.params.id);
+      if (!cert || cert.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied to this certificate" });
+      }
+      
+      const events = await storage.getEntityAuditHistoryForOrg(
+        'CERTIFICATE', 
+        req.params.id,
+        user.organisationId
+      );
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching certificate audit:", error);
+      res.status(500).json({ error: "Failed to fetch audit history" });
+    }
   });
   
   return httpServer;

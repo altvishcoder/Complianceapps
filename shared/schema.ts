@@ -1565,3 +1565,64 @@ export type InsertIncomingWebhookLog = z.infer<typeof insertIncomingWebhookLogSc
 
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+
+// Audit Trail Enums
+export const auditActorTypeEnum = pgEnum('audit_actor_type', ['USER', 'SYSTEM', 'API']);
+export const auditEventTypeEnum = pgEnum('audit_event_type', [
+  'CERTIFICATE_UPLOADED',
+  'CERTIFICATE_PROCESSED',
+  'CERTIFICATE_STATUS_CHANGED',
+  'CERTIFICATE_APPROVED',
+  'CERTIFICATE_REJECTED',
+  'CERTIFICATE_DELETED',
+  'EXTRACTION_COMPLETED',
+  'REMEDIAL_ACTION_CREATED',
+  'REMEDIAL_ACTION_UPDATED',
+  'REMEDIAL_ACTION_COMPLETED',
+  'PROPERTY_CREATED',
+  'PROPERTY_UPDATED',
+  'PROPERTY_DELETED',
+  'COMPONENT_CREATED',
+  'COMPONENT_UPDATED',
+  'USER_LOGIN',
+  'USER_LOGOUT',
+  'USER_CREATED',
+  'USER_UPDATED',
+  'USER_ROLE_CHANGED',
+  'SETTINGS_CHANGED',
+  'API_KEY_CREATED',
+  'API_KEY_REVOKED',
+  'BULK_IMPORT_COMPLETED',
+]);
+export const auditEntityTypeEnum = pgEnum('audit_entity_type', [
+  'CERTIFICATE', 'PROPERTY', 'COMPONENT', 'REMEDIAL_ACTION', 
+  'USER', 'ORGANISATION', 'API_KEY', 'SETTINGS'
+]);
+
+// Audit Events Table - tracks all changes for compliance
+export const auditEvents = pgTable("audit_events", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  actorId: varchar("actor_id"),
+  actorName: text("actor_name"),
+  actorType: auditActorTypeEnum("actor_type").notNull().default('USER'),
+  eventType: auditEventTypeEnum("event_type").notNull(),
+  entityType: auditEntityTypeEnum("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  entityName: text("entity_name"),
+  propertyId: varchar("property_id").references(() => properties.id),
+  certificateId: varchar("certificate_id").references(() => certificates.id),
+  beforeState: json("before_state"),
+  afterState: json("after_state"),
+  changes: json("changes"),
+  message: text("message").notNull(),
+  metadata: json("metadata"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Audit Events Insert Schema
+export const insertAuditEventSchema = createInsertSchema(auditEvents).omit({ id: true, createdAt: true });
+export type AuditEvent = typeof auditEvents.$inferSelect;
+export type InsertAuditEvent = z.infer<typeof insertAuditEventSchema>;

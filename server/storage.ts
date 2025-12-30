@@ -8,7 +8,7 @@ import {
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
   factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, rateLimitEntries,
-  systemLogs,
+  systemLogs, auditEvents,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -44,7 +44,8 @@ import {
   type ApiClient, type InsertApiClient,
   type UploadSession, type InsertUploadSession,
   type IngestionJob, type InsertIngestionJob,
-  type SystemLog
+  type SystemLog,
+  type AuditEvent, type InsertAuditEvent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
@@ -314,6 +315,21 @@ export interface IStorage {
     certificates: Array<{ type: string; status: string; expiryDate: string | null }>;
     actions: Array<{ severity: string; status: string }>;
   }>>;
+  
+  // Audit Trail
+  recordAuditEvent(event: InsertAuditEvent): Promise<AuditEvent>;
+  listAuditEvents(organisationId: string, filters?: { 
+    entityType?: string; 
+    entityId?: string; 
+    eventType?: string;
+    actorId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ events: AuditEvent[]; total: number }>;
+  getEntityAuditHistory(entityType: string, entityId: string): Promise<AuditEvent[]>;
+  getEntityAuditHistoryForOrg(entityType: string, entityId: string, organisationId: string): Promise<AuditEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1946,6 +1962,80 @@ export class DatabaseStorage implements IStorage {
     }
     
     return result;
+  }
+  
+  // Audit Trail Implementation
+  async recordAuditEvent(event: InsertAuditEvent): Promise<AuditEvent> {
+    const [created] = await db.insert(auditEvents).values(event).returning();
+    return created;
+  }
+  
+  async listAuditEvents(organisationId: string, filters?: { 
+    entityType?: string; 
+    entityId?: string; 
+    eventType?: string;
+    actorId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ events: AuditEvent[]; total: number }> {
+    const conditions = [eq(auditEvents.organisationId, organisationId)];
+    
+    if (filters?.entityType) {
+      conditions.push(eq(auditEvents.entityType, filters.entityType as any));
+    }
+    if (filters?.entityId) {
+      conditions.push(eq(auditEvents.entityId, filters.entityId));
+    }
+    if (filters?.eventType) {
+      conditions.push(eq(auditEvents.eventType, filters.eventType as any));
+    }
+    if (filters?.actorId) {
+      conditions.push(eq(auditEvents.actorId, filters.actorId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(auditEvents.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(auditEvents.createdAt, filters.endDate));
+    }
+    
+    const [{ total }] = await db.select({ total: count() })
+      .from(auditEvents)
+      .where(and(...conditions));
+    
+    const events = await db.select()
+      .from(auditEvents)
+      .where(and(...conditions))
+      .orderBy(desc(auditEvents.createdAt))
+      .limit(filters?.limit || 50)
+      .offset(filters?.offset || 0);
+    
+    return { events, total: Number(total) };
+  }
+  
+  async getEntityAuditHistory(entityType: string, entityId: string): Promise<AuditEvent[]> {
+    return db.select()
+      .from(auditEvents)
+      .where(and(
+        eq(auditEvents.entityType, entityType as any),
+        eq(auditEvents.entityId, entityId)
+      ))
+      .orderBy(desc(auditEvents.createdAt))
+      .limit(100);
+  }
+  
+  async getEntityAuditHistoryForOrg(entityType: string, entityId: string, organisationId: string): Promise<AuditEvent[]> {
+    return db.select()
+      .from(auditEvents)
+      .where(and(
+        eq(auditEvents.entityType, entityType as any),
+        eq(auditEvents.entityId, entityId),
+        eq(auditEvents.organisationId, organisationId)
+      ))
+      .orderBy(desc(auditEvents.createdAt))
+      .limit(100);
   }
 }
 
