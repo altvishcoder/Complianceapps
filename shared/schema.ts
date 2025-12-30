@@ -199,6 +199,7 @@ export const extractionSchemas = pgTable("extraction_schemas", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   version: text("version").notNull(), // "v1.0", "v1.1", etc.
   documentType: text("document_type").notNull(), // GAS_SAFETY, EICR, FRA, etc.
+  complianceStreamId: varchar("compliance_stream_id"), // Link to compliance stream (FK added after stream table defined)
   schemaJson: json("schema_json").notNull(), // The actual JSON schema definition
   promptTemplate: text("prompt_template"), // Associated prompt template
   isActive: boolean("is_active").notNull().default(false),
@@ -344,6 +345,7 @@ export const complianceRules = pgTable("compliance_rules", {
   ruleCode: text("rule_code").notNull().unique(), // "EICR_C1_URGENT"
   ruleName: text("rule_name").notNull(),
   documentType: text("document_type").notNull(),
+  complianceStreamId: varchar("compliance_stream_id"), // Link to compliance stream
   
   // Rule definition
   conditions: json("conditions").notNull(), // [{field, operator, value}]
@@ -369,6 +371,7 @@ export const normalisationRules = pgTable("normalisation_rules", {
   ruleName: text("rule_name").notNull(),
   fieldPath: text("field_path").notNull(), // "engineer.company", "inspection.outcome"
   ruleType: text("rule_type").notNull(), // "MAPPING", "REGEX", "TRANSFORM"
+  complianceStreamId: varchar("compliance_stream_id"), // Link to compliance stream
   
   // Rule definition
   inputPatterns: text("input_patterns").array(), // Patterns to match
@@ -435,6 +438,7 @@ export const classificationCodes = pgTable("classification_codes", {
   code: text("code").notNull(), // "C1", "C2", "C3", "FI", "LIM", "N/A"
   name: text("name").notNull(), // "Danger Present"
   certificateTypeId: varchar("certificate_type_id").references(() => certificateTypes.id),
+  complianceStreamId: varchar("compliance_stream_id"), // Link to compliance stream
   
   // Classification details
   severity: text("severity").notNull(), // "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"
