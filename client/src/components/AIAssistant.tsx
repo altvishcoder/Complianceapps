@@ -221,13 +221,13 @@ export function AIAssistant() {
             {messages.length === 0 ? (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Hello! I'm your ComplianceAI assistant. I can help you with:
+                  👋 Hello! I'm your ComplianceAI assistant - here to help with <strong>UK social housing compliance</strong> and this platform.
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>UK social housing compliance requirements</li>
-                  <li>Certificate types and renewal schedules</li>
-                  <li>Defect classifications and remedial actions</li>
-                  <li>Platform features and navigation</li>
+                  <li>Gas Safety, EICR, FRA, Asbestos, Legionella, EPC</li>
+                  <li>Defect codes (C1/C2/C3) & renewal deadlines</li>
+                  <li>Find properties, check compliance status</li>
+                  <li>Navigate the ComplianceAI platform</li>
                 </ul>
                 <div className="pt-4 space-y-2">
                   <p className="text-xs text-muted-foreground font-medium">Suggested questions:</p>
