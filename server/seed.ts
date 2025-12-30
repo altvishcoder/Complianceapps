@@ -1693,10 +1693,44 @@ async function seedConfiguration() {
     { ruleName: "Clean Company Name", fieldPath: "companyName", ruleType: "REGEX", inputPatterns: ["\\s+"], outputValue: " ", priority: 101, isActive: true }
   ];
   
-  // Delete existing and re-insert normalisation rules
+  // Mapping: normalisation rule name patterns to stream codes
+  const normRuleToStreamCode: Record<string, string> = {
+    // Gas/Heating stream rules
+    "Gas Safe": "GAS_HEATING",
+    "OFTEC": "GAS_HEATING",
+    "HETAS": "GAS_HEATING",
+    "Gas ID": "GAS_HEATING",
+    "Gas AR": "GAS_HEATING",
+    "Gas NCS": "GAS_HEATING",
+    // Electrical stream rules
+    "EICR C1": "ELECTRICAL",
+    "EICR C2": "ELECTRICAL",
+    "EICR C3": "ELECTRICAL",
+    "EICR FI": "ELECTRICAL",
+    // Energy stream rules
+    "EPC Rating": "ENERGY",
+    "Potential EPC": "ENERGY",
+    "MCS": "ENERGY",
+    // Fire Safety stream rules
+    "Fire Risk": "FIRE_SAFETY",
+  };
+  
+  const getStreamIdForNormRule = (ruleName: string): string | null => {
+    for (const [pattern, streamCode] of Object.entries(normRuleToStreamCode)) {
+      if (ruleName.includes(pattern)) {
+        return streamCodeToId[streamCode] || null;
+      }
+    }
+    return null; // Universal rules don't have a stream
+  };
+  
+  // Delete existing and re-insert normalisation rules with stream links
   await db.delete(normalisationRules);
-  await db.insert(normalisationRules).values(normalisationRulesData);
-  console.log(`✓ Replaced ${normalisationRulesData.length} normalisation rules`);
+  for (const rule of normalisationRulesData) {
+    const streamId = getStreamIdForNormRule(rule.ruleName);
+    await db.insert(normalisationRules).values({ ...rule, complianceStreamId: streamId });
+  }
+  console.log(`✓ Replaced ${normalisationRulesData.length} normalisation rules with stream links`);
   
 }
 

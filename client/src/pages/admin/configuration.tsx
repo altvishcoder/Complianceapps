@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers } from "lucide-react";
+import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLayoutEffect } from "react";
 import { useLocation } from "wouter";
@@ -49,6 +49,7 @@ export default function Configuration() {
   const [showSchemaDialog, setShowSchemaDialog] = useState(false);
   const [showRuleDialog, setShowRuleDialog] = useState(false);
   const [showNormRuleDialog, setShowNormRuleDialog] = useState(false);
+  const [selectedStreamFilters, setSelectedStreamFilters] = useState<string[]>([]);
 
   useEffect(() => {
     const role = localStorage.getItem("user_role");
@@ -426,6 +427,39 @@ export default function Configuration() {
     );
   };
 
+  const toggleStreamFilter = (streamId: string) => {
+    setSelectedStreamFilters(prev => 
+      prev.includes(streamId) 
+        ? prev.filter(id => id !== streamId)
+        : [...prev, streamId]
+    );
+  };
+
+  const clearStreamFilters = () => setSelectedStreamFilters([]);
+
+  const filteredCertificateTypes = selectedStreamFilters.length === 0 
+    ? certificateTypes 
+    : certificateTypes.filter(t => {
+        const stream = complianceStreams.find(s => s.code === t.complianceStream);
+        return stream && selectedStreamFilters.includes(stream.id);
+      });
+
+  const filteredClassificationCodes = selectedStreamFilters.length === 0 
+    ? classificationCodes 
+    : classificationCodes.filter(c => c.complianceStreamId && selectedStreamFilters.includes(c.complianceStreamId));
+
+  const filteredExtractionSchemas = selectedStreamFilters.length === 0 
+    ? extractionSchemas 
+    : extractionSchemas.filter(s => s.complianceStreamId && selectedStreamFilters.includes(s.complianceStreamId));
+
+  const filteredComplianceRules = selectedStreamFilters.length === 0 
+    ? complianceRules 
+    : complianceRules.filter(r => r.complianceStreamId && selectedStreamFilters.includes(r.complianceStreamId));
+
+  const filteredNormalisationRules = selectedStreamFilters.length === 0 
+    ? normalisationRules 
+    : normalisationRules.filter(r => r.complianceStreamId && selectedStreamFilters.includes(r.complianceStreamId));
+
   if (!isAuthorized) {
     return (
       <div className="flex h-screen bg-muted/30 items-center justify-center">
@@ -468,6 +502,50 @@ export default function Configuration() {
               </div>
               <Settings className="h-8 w-8 text-muted-foreground" />
             </div>
+
+            <Card className="bg-muted/30">
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Filter className="h-4 w-4" />
+                    Filter by Stream:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {complianceStreams.filter(s => s.isActive).map(stream => {
+                      const isSelected = selectedStreamFilters.includes(stream.id);
+                      const color = stream.colorCode || "#6366F1";
+                      return (
+                        <Badge
+                          key={stream.id}
+                          variant={isSelected ? "default" : "outline"}
+                          className="cursor-pointer transition-all hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          style={isSelected ? { backgroundColor: color, borderColor: color } : { borderColor: color, color: color }}
+                          onClick={() => toggleStreamFilter(stream.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStreamFilter(stream.id); } }}
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={isSelected}
+                          aria-label={`Filter by ${stream.name}`}
+                          data-testid={`filter-stream-${stream.code}`}
+                        >
+                          {stream.name}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  {selectedStreamFilters.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearStreamFilters} className="text-muted-foreground" data-testid="button-clear-filters">
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+                {selectedStreamFilters.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Showing {selectedStreamFilters.length} stream{selectedStreamFilters.length > 1 ? 's' : ''}: {selectedStreamFilters.map(id => complianceStreams.find(s => s.id === id)?.name).join(', ')}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             <Tabs defaultValue="streams" className="space-y-4">
               <TabsList className="grid w-full grid-cols-5">
@@ -819,7 +897,7 @@ export default function Configuration() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {certificateTypes.map((type) => (
+                          {filteredCertificateTypes.map((type) => (
                             <TableRow key={type.id} data-testid={`row-cert-type-${type.id}`}>
                               <TableCell className="font-mono text-sm">{type.code}</TableCell>
                               <TableCell>{type.shortName}</TableCell>
@@ -983,7 +1061,7 @@ export default function Configuration() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {classificationCodes.map((code) => (
+                          {filteredClassificationCodes.map((code) => (
                             <TableRow key={code.id} data-testid={`row-code-${code.id}`}>
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -1046,7 +1124,7 @@ export default function Configuration() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {extractionSchemas.map((schema) => (
+                        {filteredExtractionSchemas.map((schema) => (
                           <div key={schema.id} className="border rounded-lg p-4 space-y-3" data-testid={`row-schema-${schema.id}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -1181,7 +1259,7 @@ export default function Configuration() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {complianceRules.map((rule) => (
+                          {filteredComplianceRules.map((rule) => (
                             <div key={rule.id} className="p-3 border rounded-lg space-y-2" data-testid={`row-rule-${rule.id}`}>
                               <div className="flex items-center justify-between">
                                 <div>
@@ -1230,7 +1308,7 @@ export default function Configuration() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {normalisationRules.map((rule) => (
+                          {filteredNormalisationRules.map((rule) => (
                             <div key={rule.id} className="p-3 border rounded-lg space-y-2" data-testid={`row-norm-rule-${rule.id}`}>
                               <div className="flex items-center justify-between">
                                 <div>
