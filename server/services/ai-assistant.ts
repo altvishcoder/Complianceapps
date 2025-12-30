@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from '../logger';
 import { db } from '../db';
-import { properties, certificates, remedialActions, blocks, schemes } from '@shared/schema';
-import { count, ilike, or, eq, and } from 'drizzle-orm';
+import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes } from '@shared/schema';
+import { count, ilike, or, eq, and, isNull, lt, desc } from 'drizzle-orm';
 
 const anthropic = new Anthropic();
 
@@ -155,6 +155,70 @@ function findCachedResponse(query: string): string | null {
   return null;
 }
 
+// Get components needing attention
+async function getComponentsNeedingAttention(): Promise<string> {
+  try {
+    // Get components with upcoming or overdue inspections
+    const today = new Date().toISOString().split('T')[0];
+    
+    const criticalComponents = await db
+      .select({
+        id: components.id,
+        location: components.location,
+        manufacturer: components.manufacturer,
+        model: components.model,
+        nextInspectionDue: components.nextInspectionDue,
+        componentTypeName: componentTypes.name,
+        propertyId: components.propertyId,
+        propertyAddress: properties.addressLine1,
+        propertyPostcode: properties.postcode,
+      })
+      .from(components)
+      .leftJoin(componentTypes, eq(components.componentTypeId, componentTypes.id))
+      .leftJoin(properties, eq(components.propertyId, properties.id))
+      .where(
+        or(
+          lt(components.nextInspectionDue, today),
+          isNull(components.nextInspectionDue)
+        )
+      )
+      .orderBy(components.nextInspectionDue)
+      .limit(10);
+    
+    if (criticalComponents.length === 0) {
+      return `✅ **All components up to date!**
+
+No components are overdue for inspection. Great job staying on top of maintenance!
+
+Need to check something specific? Try:
+- "Find boiler components"
+- "Show lift equipment"`;
+    }
+    
+    let response = `🔧 **Components Needing Attention (${criticalComponents.length})**\n\n`;
+    
+    for (const c of criticalComponents.slice(0, 5)) {
+      const overdue = c.nextInspectionDue ? `Overdue: ${c.nextInspectionDue}` : 'No inspection date set';
+      response += `- **${c.componentTypeName || 'Component'}**${c.manufacturer ? ` - ${c.manufacturer}` : ''}\n`;
+      response += `  📍 ${c.propertyAddress || 'Unknown'}, ${c.propertyPostcode || ''}\n`;
+      response += `  ⚠️ ${overdue}\n`;
+      if (c.propertyId) {
+        response += `  [View property →](/properties/${c.propertyId})\n`;
+      }
+      response += `\n`;
+    }
+    
+    if (criticalComponents.length > 5) {
+      response += `...and ${criticalComponents.length - 5} more. [View all components](/components)\n`;
+    }
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Failed to get components needing attention');
+    return `😅 Couldn't fetch component data. Check the [Components page](/components) directly.`;
+  }
+}
+
 // Get properties with compliance issues
 async function getPropertiesWithIssues(): Promise<string> {
   try {
@@ -252,6 +316,17 @@ async function searchProperties(query: string): Promise<string | null> {
     'recipe', 'cook', 'movie', 'music', 'sport', 'game', 'travel', 'vacation'];
   if (offTopicIndicators.some(term => searchTerms.includes(term))) {
     return null; // Let LLM handle this with proper redirection
+  }
+  
+  // Check for component queries
+  const hasComponentContext = searchTerms.includes('component') || searchTerms.includes('asset') || 
+    searchTerms.includes('equipment') || searchTerms.includes('boiler') || searchTerms.includes('lift') ||
+    searchTerms.includes('appliance');
+  const wantsComponentAttention = (searchTerms.includes('attention') || searchTerms.includes('overdue') || 
+    searchTerms.includes('critical') || searchTerms.includes('need') || searchTerms.includes('inspection')) && hasComponentContext;
+  
+  if (wantsComponentAttention || (searchTerms.includes('find') && hasComponentContext)) {
+    return await getComponentsNeedingAttention();
   }
   
   // Check for compliance-based queries first - must include property-related terms

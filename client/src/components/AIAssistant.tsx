@@ -168,10 +168,10 @@ export function AIAssistant() {
   };
 
   const suggestedQuestions = [
-    "What gas safety requirements apply to social housing?",
-    "How do I upload a certificate?",
+    "Show properties with compliance issues",
     "What are C1, C2, C3 defect codes?",
-    "When does an EICR need renewing?",
+    "Find components needing attention",
+    "How do I upload a certificate?",
   ];
 
   if (!userId || isPublicRoute) {
@@ -219,18 +219,11 @@ export function AIAssistant() {
 
           <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  👋 Hello! I'm your ComplianceAI assistant - here to help with <strong>UK social housing compliance</strong> and this platform.
+                  👋 Hi! I help with <strong>UK social housing compliance</strong> and ComplianceAI.
                 </p>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Gas Safety, EICR, FRA, Asbestos, Legionella, EPC</li>
-                  <li>Defect codes (C1/C2/C3) & renewal deadlines</li>
-                  <li>Find properties, check compliance status</li>
-                  <li>Navigate the ComplianceAI platform</li>
-                </ul>
-                <div className="pt-4 space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Suggested questions:</p>
+                <div className="space-y-1.5">
                   {suggestedQuestions.map((question, index) => (
                     <Button
                       key={index}
