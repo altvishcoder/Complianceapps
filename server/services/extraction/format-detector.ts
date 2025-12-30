@@ -1,5 +1,12 @@
-import * as pdfjs from 'pdfjs-dist';
 import type { DocumentFormat, DocumentClassification, CertificateTypeCode } from './types';
+
+let pdfjs: any = null;
+async function getPdfjs() {
+  if (!pdfjs) {
+    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  }
+  return pdfjs;
+}
 
 export interface FormatAnalysis {
   format: DocumentFormat;
@@ -66,8 +73,9 @@ export async function analysePdf(buffer: Buffer): Promise<FormatAnalysis> {
   let pageCount = 1;
 
   try {
+    const pdfjsLib = await getPdfjs();
     const data = new Uint8Array(buffer);
-    const pdf = await pdfjs.getDocument({ data }).promise;
+    const pdf = await pdfjsLib.getDocument({ data }).promise;
     pageCount = pdf.numPages;
 
     for (let i = 1; i <= pageCount; i++) {

@@ -8,6 +8,7 @@ import { broadcastExtractionEvent } from "./events";
 import { extractWithAzureDocumentIntelligence, isAzureDocumentIntelligenceConfigured, type ExtractionTier } from "./azure-document-intelligence";
 import { logger } from "./logger";
 import type { ExtractedCertificateData as OrchestratorExtractedData, CertificateTypeCode } from "./services/extraction/types";
+import { extractCertificate as extractWithOrchestrator } from "./services/extraction/orchestrator";
 
 // Helper to get certificate type config by code
 async function getCertificateTypeIdByCode(code: string) {
@@ -1758,33 +1759,70 @@ export async function processExtractionAndSave(
       return;
     }
     
-    const result = await extractCertificateWithTieredApproach(
-      certificateId, 
-      certificateType, 
+    const orchestratorResult = await extractWithOrchestrator(
+      certificateId,
       effectiveBuffer,
-      fileBase64, 
-      mimeType
+      mimeType || 'application/pdf',
+      certificate.fileName || 'document.pdf',
+      { forceAI: true }
     );
+    
+    const tierToNumber: Record<string, number> = {
+      'tier-0': 0, 'tier-0.5': 0.5, 'tier-1': 1, 'tier-1.5': 1.5, 
+      'tier-2': 2, 'tier-3': 3, 'tier-4': 4
+    };
+    
+    const result = {
+      extractedData: orchestratorResult.data ? {
+        ...orchestratorResult.data,
+        documentType: orchestratorResult.data.certificateType,
+        _tierHistory: orchestratorResult.tierAudit,
+        _extractionMethod: {
+          ocrProvider: orchestratorResult.finalTier === 'tier-2' ? 'AZURE_DOCUMENT_INTELLIGENCE' : 
+                       orchestratorResult.finalTier === 'tier-3' ? 'CLAUDE_VISION' : 'PATTERN_MATCHING',
+          tier: orchestratorResult.finalTier
+        }
+      } : null,
+      tier: tierToNumber[orchestratorResult.finalTier] ?? 2,
+      tierName: orchestratorResult.requiresReview ? 'HUMAN_REVIEW' : orchestratorResult.finalTier.toUpperCase(),
+      confidence: orchestratorResult.confidence,
+      processingTimeMs: orchestratorResult.totalProcessingTimeMs,
+      tierHistory: orchestratorResult.tierAudit,
+      certificateNumber: orchestratorResult.data?.certificateNumber || null,
+      issueDate: orchestratorResult.data?.inspectionDate || null,
+      expiryDate: orchestratorResult.data?.expiryDate || null,
+      outcome: orchestratorResult.data?.outcome || null,
+      remedialActions: (orchestratorResult.data?.defects || []).map(d => ({
+        code: d.code || 'DEFECT',
+        description: d.description,
+        location: d.location || 'General',
+        severity: d.priority || 'ROUTINE',
+        costEstimate: null
+      }))
+    };
 
-    const extractionMethod = result.extractedData?._extractionMethod;
-    const azureProvidedOCR = extractionMethod?.ocrProvider === "AZURE_DOCUMENT_INTELLIGENCE";
-    const methodName = result.tierName === "HUMAN_REVIEW" ? "MANUAL" : 
-                       azureProvidedOCR ? "AZURE_OCR_CLAUDE_ANALYSIS" : "CLAUDE_VISION";
-    const modelVersion = "claude-3-5-haiku-20241022";
+    const methodName = orchestratorResult.finalTier === 'tier-4' ? "MANUAL" :
+                       orchestratorResult.finalTier === 'tier-2' ? "AZURE_OCR_CLAUDE_ANALYSIS" : 
+                       orchestratorResult.finalTier === 'tier-3' ? "CLAUDE_VISION" :
+                       orchestratorResult.finalTier.startsWith('tier-1') ? "PATTERN_MATCHING" : "METADATA_EXTRACTION";
+    const modelVersion = orchestratorResult.finalTier === 'tier-3' ? "claude-sonnet-4-20250514" : 
+                         orchestratorResult.finalTier === 'tier-2' ? "azure-di-v3.1" : "pattern-v1.0";
 
+    const extractedDataForStorage = result.extractedData || {};
+    
     await storage.createExtraction({
       certificateId,
       method: methodName,
       model: modelVersion,
       promptVersion: "v2.0",
-      extractedData: result.extractedData,
+      extractedData: extractedDataForStorage,
       confidence: result.confidence,
       textQuality: result.confidence > 0.7 ? "GOOD" : "FAIR"
     });
     
     const docType = result.extractedData?.documentType || certificateType || 'UNKNOWN';
     
-    const normalisedOutput = normalizeExtractionOutput(result.extractedData);
+    const normalisedOutput = normalizeExtractionOutput(extractedDataForStorage);
     
     await db.insert(extractionRuns).values({
       certificateId,
@@ -1793,8 +1831,8 @@ export async function processExtractionAndSave(
       schemaVersion: "v1.0",
       documentType: docType,
       classificationConfidence: result.confidence,
-      rawOutput: { ...result.extractedData, _tierHistory: result.tierHistory },
-      validatedOutput: result.extractedData,
+      rawOutput: { ...extractedDataForStorage, _tierHistory: result.tierHistory },
+      validatedOutput: extractedDataForStorage,
       normalisedOutput: normalisedOutput,
       confidence: result.confidence,
       processingTier: result.tier,
@@ -1816,12 +1854,15 @@ export async function processExtractionAndSave(
     // Map detected document type to certificate type enum
     const detectedCertType = mapDocumentTypeToCertificateType(result.extractedData?.documentType);
     
+    // Map outcome to accepted values (N/A maps to null)
+    const mappedOutcome = result.outcome === 'N/A' ? null : result.outcome;
+    
     await storage.updateCertificate(certificateId, {
       status: "NEEDS_REVIEW",
       certificateNumber: result.certificateNumber,
       issueDate: result.issueDate,
       expiryDate: result.expiryDate,
-      outcome: result.outcome,
+      outcome: mappedOutcome,
       // Update certificate type if we detected a specific type
       ...(detectedCertType && { certificateType: detectedCertType })
     });
@@ -1829,9 +1870,9 @@ export async function processExtractionAndSave(
     // Update property with extracted metadata and address
     const property = await storage.getProperty(certificate.propertyId);
     if (property) {
-      const extractedAddress = result.extractedData?.installationAddress || 
+      const extractedAddress = (extractedDataForStorage as any).installationAddress || 
                                result.extractedData?.propertyAddress ||
-                               result.extractedData?.premisesAddress;
+                               (extractedDataForStorage as any).premisesAddress;
       
       const updates: Record<string, any> = { 
         extractedMetadata: result.extractedData 
@@ -1881,19 +1922,20 @@ export async function processExtractionAndSave(
     console.log(`[DEBUG] Remedial actions created, now linking to classification codes`);
 
     const mappedCertTypeCode = mapCertificateTypeToCode(detectedCertType || certificateType);
+    const anyData = extractedDataForStorage as any;
     const extractedDataForClassification: OrchestratorExtractedData = {
       certificateType: mappedCertTypeCode as OrchestratorExtractedData['certificateType'],
       certificateNumber: result.certificateNumber || null,
-      propertyAddress: result.extractedData?.installationAddress || result.extractedData?.propertyAddress || null,
+      propertyAddress: anyData.installationAddress || result.extractedData?.propertyAddress || null,
       uprn: result.extractedData?.uprn || null,
       inspectionDate: result.issueDate || null,
       expiryDate: result.expiryDate || null,
-      nextInspectionDate: result.extractedData?.nextServiceDate || null,
-      outcome: result.outcome as OrchestratorExtractedData['outcome'],
-      engineerName: result.extractedData?.engineer?.name || null,
-      engineerRegistration: result.extractedData?.engineer?.gasRegNo || null,
-      contractorName: result.extractedData?.contractor?.name || null,
-      contractorRegistration: result.extractedData?.contractor?.registrationNumber || null,
+      nextInspectionDate: anyData.nextServiceDate || result.extractedData?.nextInspectionDate || null,
+      outcome: (result.outcome === 'N/A' ? null : result.outcome) as OrchestratorExtractedData['outcome'],
+      engineerName: anyData.engineer?.name || result.extractedData?.engineerName || null,
+      engineerRegistration: anyData.engineer?.gasRegNo || result.extractedData?.engineerRegistration || null,
+      contractorName: anyData.contractor?.name || result.extractedData?.contractorName || null,
+      contractorRegistration: anyData.contractor?.registrationNumber || result.extractedData?.contractorRegistration || null,
       appliances: (result.extractedData?.appliances || []).map((a: any) => ({
         type: a.type || 'Unknown',
         make: a.make || null,
