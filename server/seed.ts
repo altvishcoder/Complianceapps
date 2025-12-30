@@ -472,10 +472,12 @@ async function seedConfiguration() {
   console.log(`✓ Replaced ${classificationCodesData.length} classification codes`);
   
   // ==================== EXTRACTION SCHEMAS ====================
+  // Comprehensive schemas for all 60+ certificate types aligned with UK social housing standards
   const extractionSchemasData = [
+    // ========== GAS & HEATING SCHEMAS ==========
     {
       version: "2.0",
-      documentType: "GAS_SAFETY",
+      documentType: "GAS",
       schemaJson: {
         certificateNumber: { type: "string", required: true },
         engineerName: { type: "string", required: true },
@@ -484,111 +486,759 @@ async function seedConfiguration() {
         issueDate: { type: "date", required: true },
         expiryDate: { type: "date", required: true },
         propertyAddress: { type: "string", required: true },
-        appliancesTested: { type: "array", required: true },
+        appliancesTested: { type: "array", required: true, items: { make: "string", model: "string", location: "string", result: "string" } },
         defects: { type: "array", required: false },
-        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "AT_RISK"] }
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "AT_RISK", "ID", "AR", "NCS"] }
       },
-      promptTemplate: "Extract all gas safety certificate information including engineer details, appliances tested, and any defects found.",
+      promptTemplate: "Extract CP12/LGSR gas safety certificate details including engineer Gas Safe ID, all appliances tested with make/model/location, and any defect codes (ID/AR/NCS).",
       isActive: true,
       isDeprecated: false
     },
+    {
+      version: "2.0",
+      documentType: "GAS_SVC",
+      schemaJson: {
+        serviceDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        gasRegisterId: { type: "string", required: true },
+        applianceType: { type: "string", required: true },
+        applianceMake: { type: "string", required: false },
+        applianceModel: { type: "string", required: false },
+        serialNumber: { type: "string", required: false },
+        worksCompleted: { type: "array", required: false },
+        partsReplaced: { type: "array", required: false }
+      },
+      promptTemplate: "Extract gas servicing certificate details including appliance information and works completed.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "OIL",
+      schemaJson: {
+        certificateNumber: { type: "string", required: true },
+        engineerName: { type: "string", required: true },
+        oftecRegistrationId: { type: "string", required: true },
+        issueDate: { type: "date", required: true },
+        expiryDate: { type: "date", required: true },
+        applianceType: { type: "string", required: true },
+        combustionAnalysis: { type: "object", required: false },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "AT_RISK"] }
+      },
+      promptTemplate: "Extract OFTEC oil boiler service certificate including OFTEC registration, combustion analysis results, and overall status.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "OIL_TANK",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        inspectorName: { type: "string", required: true },
+        tankType: { type: "string", required: true, enum: ["SINGLE_SKIN", "BUNDED", "INTEGRALLY_BUNDED"] },
+        tankCapacity: { type: "number", required: false },
+        condition: { type: "string", required: true, enum: ["GOOD", "FAIR", "POOR", "REPLACE"] },
+        bundCondition: { type: "string", required: false },
+        recommendations: { type: "array", required: false }
+      },
+      promptTemplate: "Extract oil tank inspection details including tank type, capacity, condition, and any recommendations.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "LPG",
+      schemaJson: {
+        certificateNumber: { type: "string", required: true },
+        engineerName: { type: "string", required: true },
+        gasRegisterId: { type: "string", required: true },
+        issueDate: { type: "date", required: true },
+        expiryDate: { type: "date", required: true },
+        appliancesTested: { type: "array", required: true },
+        tankLocation: { type: "string", required: false },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "AT_RISK"] }
+      },
+      promptTemplate: "Extract LPG safety certificate details including appliances tested and tank location.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "SOLID",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        hetasRegistrationId: { type: "string", required: true },
+        applianceType: { type: "string", required: true },
+        flueCondition: { type: "string", required: true },
+        carbonMonoxideDetector: { type: "boolean", required: true },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "AT_RISK"] }
+      },
+      promptTemplate: "Extract solid fuel appliance inspection details including HETAS registration, flue condition, and CO detector status.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "ASHP",
+      schemaJson: {
+        commissioningDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        mcsRegistrationId: { type: "string", required: false },
+        manufacturer: { type: "string", required: true },
+        model: { type: "string", required: true },
+        serialNumber: { type: "string", required: false },
+        cop: { type: "number", required: false },
+        refrigerantType: { type: "string", required: false },
+        refrigerantCharge: { type: "number", required: false }
+      },
+      promptTemplate: "Extract air source heat pump commissioning certificate including MCS registration, COP, and refrigerant details.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "GSHP",
+      schemaJson: {
+        commissioningDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        mcsRegistrationId: { type: "string", required: false },
+        manufacturer: { type: "string", required: true },
+        model: { type: "string", required: true },
+        boreholeDepth: { type: "number", required: false },
+        groundLoopLength: { type: "number", required: false },
+        cop: { type: "number", required: false }
+      },
+      promptTemplate: "Extract ground source heat pump commissioning certificate including ground loop details and COP.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== ELECTRICAL SCHEMAS ==========
     {
       version: "2.0",
       documentType: "EICR",
       schemaJson: {
         certificateNumber: { type: "string", required: true },
         engineerName: { type: "string", required: true },
+        companyName: { type: "string", required: false },
         issueDate: { type: "date", required: true },
         nextInspectionDate: { type: "date", required: true },
         propertyAddress: { type: "string", required: true },
         overallAssessment: { type: "string", required: true, enum: ["SATISFACTORY", "UNSATISFACTORY", "FURTHER_INVESTIGATION"] },
         circuitsTested: { type: "number", required: false },
-        observations: { type: "array", required: false },
+        observations: { type: "array", required: false, items: { code: "string", location: "string", description: "string" } },
         c1Count: { type: "number", required: false },
         c2Count: { type: "number", required: false },
-        c3Count: { type: "number", required: false }
+        c3Count: { type: "number", required: false },
+        fiCount: { type: "number", required: false }
       },
-      promptTemplate: "Extract EICR information including overall assessment, observation codes, and circuit details.",
+      promptTemplate: "Extract EICR details including all observation codes (C1/C2/C3/FI), circuit information, and overall assessment.",
       isActive: true,
       isDeprecated: false
     },
     {
       version: "2.0",
-      documentType: "FIRE_RISK",
+      documentType: "EIC",
       schemaJson: {
-        assessmentDate: { type: "date", required: true },
-        assessorName: { type: "string", required: true },
-        premisesAddress: { type: "string", required: true },
-        riskRating: { type: "string", required: true, enum: ["TRIVIAL", "TOLERABLE", "MODERATE", "SUBSTANTIAL", "INTOLERABLE"] },
-        significantFindings: { type: "array", required: false },
-        nextReviewDate: { type: "date", required: true }
-      },
-      promptTemplate: "Extract fire risk assessment details including overall risk rating and significant findings.",
-      isActive: true,
-      isDeprecated: false
-    },
-    {
-      version: "2.0",
-      documentType: "ASBESTOS",
-      schemaJson: {
-        surveyDate: { type: "date", required: true },
-        surveyorName: { type: "string", required: true },
-        premisesAddress: { type: "string", required: true },
-        surveyType: { type: "string", required: true, enum: ["MANAGEMENT", "REFURBISHMENT", "DEMOLITION"] },
-        acmsIdentified: { type: "array", required: false },
-        totalAcmCount: { type: "number", required: false },
-        managementPlan: { type: "string", required: false }
-      },
-      promptTemplate: "Extract asbestos survey information including ACMs identified and their risk levels.",
-      isActive: true,
-      isDeprecated: false
-    },
-    {
-      version: "2.0",
-      documentType: "LEGIONELLA",
-      schemaJson: {
-        assessmentDate: { type: "date", required: true },
-        assessorName: { type: "string", required: true },
-        premisesAddress: { type: "string", required: true },
-        riskLevel: { type: "string", required: true, enum: ["LOW", "MEDIUM", "HIGH"] },
-        waterSystemsAssessed: { type: "array", required: false },
-        controlMeasures: { type: "array", required: false },
-        nextAssessmentDate: { type: "date", required: false }
-      },
-      promptTemplate: "Extract legionella risk assessment details including water systems and control measures.",
-      isActive: true,
-      isDeprecated: false
-    },
-    {
-      version: "2.0",
-      documentType: "LIFT_LOLER",
-      schemaJson: {
-        examinationDate: { type: "date", required: true },
+        certificateNumber: { type: "string", required: true },
         engineerName: { type: "string", required: true },
-        premisesAddress: { type: "string", required: true },
-        liftId: { type: "string", required: true },
-        safeForUse: { type: "boolean", required: true },
-        defectsFound: { type: "array", required: false },
-        nextExaminationDate: { type: "date", required: true }
+        issueDate: { type: "date", required: true },
+        installationType: { type: "string", required: true },
+        circuitsInstalled: { type: "array", required: false },
+        testResults: { type: "object", required: false }
       },
-      promptTemplate: "Extract LOLER lift examination details including safety status and any defects.",
+      promptTemplate: "Extract Electrical Installation Certificate details for new installations.",
       isActive: true,
       isDeprecated: false
     },
+    {
+      version: "2.0",
+      documentType: "MEIWC",
+      schemaJson: {
+        certificateNumber: { type: "string", required: true },
+        engineerName: { type: "string", required: true },
+        issueDate: { type: "date", required: true },
+        worksDescription: { type: "string", required: true },
+        circuitsAffected: { type: "array", required: false },
+        testResults: { type: "object", required: false }
+      },
+      promptTemplate: "Extract Minor Electrical Works Certificate details including works description and circuits affected.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "PAT",
+      schemaJson: {
+        testDate: { type: "date", required: true },
+        testerName: { type: "string", required: true },
+        itemsTested: { type: "array", required: true, items: { description: "string", location: "string", result: "string", nextTestDate: "date" } },
+        passCount: { type: "number", required: false },
+        failCount: { type: "number", required: false }
+      },
+      promptTemplate: "Extract PAT testing certificate details including all items tested with pass/fail status.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "EMLT",
+      schemaJson: {
+        testDate: { type: "date", required: true },
+        testerName: { type: "string", required: true },
+        luminairesCount: { type: "number", required: true },
+        luminairesPassed: { type: "number", required: false },
+        luminairesFailed: { type: "number", required: false },
+        batteryConditions: { type: "array", required: false },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "PARTIAL"] }
+      },
+      promptTemplate: "Extract emergency lighting test certificate including luminaire counts and battery conditions.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== ENERGY SCHEMAS ==========
     {
       version: "2.0",
       documentType: "EPC",
       schemaJson: {
         certificateNumber: { type: "string", required: true },
         assessorName: { type: "string", required: true },
+        assessorAccreditation: { type: "string", required: false },
         propertyAddress: { type: "string", required: true },
         issueDate: { type: "date", required: true },
         currentRating: { type: "string", required: true, enum: ["A", "B", "C", "D", "E", "F", "G"] },
-        potentialRating: { type: "string", required: false },
         currentScore: { type: "number", required: false },
+        potentialRating: { type: "string", required: false },
+        potentialScore: { type: "number", required: false },
+        floorArea: { type: "number", required: false },
+        recommendations: { type: "array", required: false, items: { measure: "string", typicalCost: "string", typicalSaving: "string" } }
+      },
+      promptTemplate: "Extract EPC details including current/potential ratings, scores, floor area, and improvement recommendations with costs.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "SAP",
+      schemaJson: {
+        assessmentDate: { type: "date", required: true },
+        assessorName: { type: "string", required: true },
+        sapRating: { type: "number", required: true },
+        derRating: { type: "number", required: false },
+        targetEmissionRate: { type: "number", required: false },
+        dwellingEmissionRate: { type: "number", required: false },
+        complianceStatus: { type: "string", required: true, enum: ["COMPLIANT", "NON_COMPLIANT"] }
+      },
+      promptTemplate: "Extract SAP assessment details including SAP rating, DER, TER, and compliance status for building regulations.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== FIRE SAFETY SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "FRA",
+      schemaJson: {
+        assessmentDate: { type: "date", required: true },
+        assessorName: { type: "string", required: true },
+        assessorQualifications: { type: "string", required: false },
+        premisesAddress: { type: "string", required: true },
+        premisesType: { type: "string", required: false },
+        occupancyLevel: { type: "number", required: false },
+        riskRating: { type: "string", required: true, enum: ["TRIVIAL", "TOLERABLE", "MODERATE", "SUBSTANTIAL", "INTOLERABLE"] },
+        significantFindings: { type: "array", required: false, items: { finding: "string", priority: "string", recommendation: "string" } },
+        actionPlan: { type: "array", required: false },
+        nextReviewDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract FRA details under RRO 2005 including all significant findings, risk rating, and action plan items with priorities.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "FRAEW",
+      schemaJson: {
+        appraisalDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        engineerQualifications: { type: "string", required: true },
+        premisesAddress: { type: "string", required: true },
+        buildingHeight: { type: "number", required: false },
+        claddingType: { type: "string", required: false },
+        ews1Rating: { type: "string", required: true, enum: ["A1", "A2", "A3", "B1", "B2"] },
+        remediationRequired: { type: "boolean", required: false },
+        findings: { type: "array", required: false }
+      },
+      promptTemplate: "Extract FRAEW/EWS1 appraisal details including cladding assessment, EWS1 rating, and remediation requirements.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "FD",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        inspectorName: { type: "string", required: true },
+        doorsInspected: { type: "number", required: true },
+        doorsPassed: { type: "number", required: false },
+        doorsFailed: { type: "number", required: false },
+        defects: { type: "array", required: false, items: { doorLocation: "string", defectType: "string", priority: "string" } },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "PARTIAL"] }
+      },
+      promptTemplate: "Extract fire door inspection details including all doors inspected with defects and priorities.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "FA",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        systemType: { type: "string", required: true, enum: ["L1", "L2", "L3", "L4", "L5", "P1", "P2", "M"] },
+        panelLocation: { type: "string", required: false },
+        zonesCount: { type: "number", required: false },
+        devicesCount: { type: "number", required: false },
+        defects: { type: "array", required: false },
+        nextInspectionDate: { type: "date", required: true },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "PARTIAL"] }
+      },
+      promptTemplate: "Extract fire alarm system certificate under BS 5839 including system category, zones, devices, and defects.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "SD",
+      schemaJson: {
+        testDate: { type: "date", required: true },
+        testerName: { type: "string", required: true },
+        detectorsCount: { type: "number", required: true },
+        detectorsPassed: { type: "number", required: false },
+        detectorsFailed: { type: "number", required: false },
+        replacementsRequired: { type: "array", required: false }
+      },
+      promptTemplate: "Extract smoke detector test certificate including detector counts and any replacements needed.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "CO",
+      schemaJson: {
+        testDate: { type: "date", required: true },
+        testerName: { type: "string", required: true },
+        detectorsCount: { type: "number", required: true },
+        detectorLocations: { type: "array", required: false },
+        detectorsPassed: { type: "number", required: false },
+        detectorsFailed: { type: "number", required: false }
+      },
+      promptTemplate: "Extract CO detector test certificate including locations and test results.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "SPRINK",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        systemType: { type: "string", required: true },
+        headsCount: { type: "number", required: false },
+        tankCapacity: { type: "number", required: false },
+        pumpTest: { type: "object", required: false },
+        defects: { type: "array", required: false },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "PARTIAL"] }
+      },
+      promptTemplate: "Extract sprinkler system inspection by LPCB contractor including pump test results and any defects.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "AOV",
+      schemaJson: {
+        testDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        systemType: { type: "string", required: true, enum: ["NATURAL", "MECHANICAL", "COMBINED"] },
+        ventCount: { type: "number", required: false },
+        operationTime: { type: "number", required: false },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL"] }
+      },
+      promptTemplate: "Extract AOV smoke ventilation system test including operation times and test results.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "EXT",
+      schemaJson: {
+        serviceDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        extinguishersCount: { type: "number", required: true },
+        extinguisherDetails: { type: "array", required: false, items: { location: "string", type: "string", rating: "string", nextServiceDate: "date" } },
+        extinguishersPassed: { type: "number", required: false },
+        extinguishersFailed: { type: "number", required: false }
+      },
+      promptTemplate: "Extract fire extinguisher service certificate by BAFE contractor including all extinguisher types and locations.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "COMPART",
+      schemaJson: {
+        surveyDate: { type: "date", required: true },
+        surveyorName: { type: "string", required: true },
+        areasInspected: { type: "array", required: true },
+        breaches: { type: "array", required: false, items: { location: "string", type: "string", severity: "string" } },
+        overallStatus: { type: "string", required: true, enum: ["SATISFACTORY", "UNSATISFACTORY", "REQUIRES_REMEDIATION"] }
+      },
+      promptTemplate: "Extract compartmentation survey details including all breaches found with locations and severity.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== ASBESTOS SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "ASB",
+      schemaJson: {
+        surveyDate: { type: "date", required: true },
+        surveyorName: { type: "string", required: true },
+        surveyorQualifications: { type: "string", required: false },
+        ukasAccreditationNumber: { type: "string", required: false },
+        premisesAddress: { type: "string", required: true },
+        surveyType: { type: "string", required: true, enum: ["MANAGEMENT", "REFURBISHMENT", "DEMOLITION"] },
+        acmsIdentified: { type: "array", required: false, items: { location: "string", material: "string", condition: "string", riskScore: "number", recommendation: "string" } },
+        totalAcmCount: { type: "number", required: false },
+        priorityActions: { type: "array", required: false }
+      },
+      promptTemplate: "Extract asbestos survey under CAR 2012 including all ACMs with locations, conditions, risk scores, and management recommendations.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "ASB_M",
+      schemaJson: {
+        reviewDate: { type: "date", required: true },
+        reviewerName: { type: "string", required: true },
+        acmsCount: { type: "number", required: true },
+        acmsConditionChanges: { type: "array", required: false },
+        actionsCompleted: { type: "array", required: false },
+        actionsOutstanding: { type: "array", required: false },
+        nextReviewDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract asbestos management plan review including ACM status changes and outstanding actions.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "ASB_R",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        inspectorName: { type: "string", required: true },
+        acmsInspected: { type: "number", required: true },
+        conditionChanges: { type: "array", required: false },
+        actionRequired: { type: "boolean", required: true },
+        nextInspectionDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract asbestos reinspection details including any condition changes requiring action.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== WATER SAFETY SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "LEG",
+      schemaJson: {
+        assessmentDate: { type: "date", required: true },
+        assessorName: { type: "string", required: true },
+        premisesAddress: { type: "string", required: true },
+        riskLevel: { type: "string", required: true, enum: ["LOW", "MEDIUM", "HIGH"] },
+        waterSystemsAssessed: { type: "array", required: false, items: { system: "string", riskLevel: "string", controlMeasures: "array" } },
+        deadLegsIdentified: { type: "array", required: false },
+        temperatureFindings: { type: "object", required: false },
+        controlMeasures: { type: "array", required: false },
+        nextAssessmentDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract legionella risk assessment under HSE ACOP L8 including all water systems, temperature findings, and control measures.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "LEG_M",
+      schemaJson: {
+        monitoringDate: { type: "date", required: true },
+        monitorName: { type: "string", required: true },
+        hotWaterTemperatures: { type: "array", required: false, items: { outlet: "string", temperature: "number", compliant: "boolean" } },
+        coldWaterTemperatures: { type: "array", required: false, items: { outlet: "string", temperature: "number", compliant: "boolean" } },
+        showerHeadsFlushed: { type: "number", required: false },
+        issues: { type: "array", required: false }
+      },
+      promptTemplate: "Extract monthly legionella monitoring including all temperature readings and compliance status.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "TMV",
+      schemaJson: {
+        serviceDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        valvesServiced: { type: "number", required: true },
+        valveDetails: { type: "array", required: false, items: { location: "string", mixedTemperature: "number", result: "string" } },
+        failedValves: { type: "number", required: false }
+      },
+      promptTemplate: "Extract TMV service certificate including all valve locations and mixed temperatures.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== LIFTING EQUIPMENT SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "LIFT",
+      schemaJson: {
+        examinationDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        competentPersonOrg: { type: "string", required: false },
+        liftId: { type: "string", required: true },
+        liftType: { type: "string", required: false },
+        safeWorkingLoad: { type: "number", required: false },
+        safeForUse: { type: "boolean", required: true },
+        defectsFound: { type: "array", required: false, items: { defect: "string", severity: "string", action: "string" } },
+        nextExaminationDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract LOLER lift examination including SWL, all defects with severity ratings, and next examination date.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "STAIR",
+      schemaJson: {
+        examinationDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        equipmentId: { type: "string", required: true },
+        manufacturer: { type: "string", required: false },
+        safeWorkingLoad: { type: "number", required: false },
+        safeForUse: { type: "boolean", required: true },
+        defectsFound: { type: "array", required: false },
+        nextExaminationDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract stairlift LOLER examination details including defects and next examination date.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "HOIST",
+      schemaJson: {
+        examinationDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        equipmentId: { type: "string", required: true },
+        hoistType: { type: "string", required: true, enum: ["CEILING", "MOBILE", "BATH", "STANDING"] },
+        safeWorkingLoad: { type: "number", required: true },
+        slingCondition: { type: "string", required: false },
+        safeForUse: { type: "boolean", required: true },
+        defectsFound: { type: "array", required: false },
+        nextExaminationDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract hoist LOLER examination including hoist type, SWL, sling condition, and defects.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== BUILDING SAFETY SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "HHSRS",
+      schemaJson: {
+        assessmentDate: { type: "date", required: true },
+        assessorName: { type: "string", required: true },
+        propertyAddress: { type: "string", required: true },
+        hazardsIdentified: { type: "array", required: false, items: { hazard: "string", band: "string", score: "number", action: "string" } },
+        category1Hazards: { type: "number", required: false },
+        category2Hazards: { type: "number", required: false },
+        enforcementAction: { type: "string", required: false }
+      },
+      promptTemplate: "Extract HHSRS assessment including all hazards with bands, scores, and any enforcement action.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "STRUCT",
+      schemaJson: {
+        surveyDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        engineerQualifications: { type: "string", required: false },
+        structuralElements: { type: "array", required: false, items: { element: "string", condition: "string", urgency: "string" } },
+        overallCondition: { type: "string", required: true, enum: ["GOOD", "FAIR", "POOR", "CRITICAL"] },
         recommendations: { type: "array", required: false }
       },
-      promptTemplate: "Extract EPC details including current and potential ratings, scores, and improvement recommendations.",
+      promptTemplate: "Extract structural survey including all elements assessed with conditions and urgency ratings.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "DAMP",
+      schemaJson: {
+        surveyDate: { type: "date", required: true },
+        surveyorName: { type: "string", required: true },
+        dampType: { type: "string", required: true, enum: ["RISING", "PENETRATING", "CONDENSATION", "MIXED"] },
+        affectedAreas: { type: "array", required: true },
+        moistureReadings: { type: "array", required: false },
+        mouldPresent: { type: "boolean", required: true },
+        mouldType: { type: "string", required: false },
+        recommendations: { type: "array", required: true }
+      },
+      promptTemplate: "Extract damp and mould survey including damp type, affected areas, moisture readings, and remediation recommendations.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== EXTERNAL AREAS SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "PLAY",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        inspectorName: { type: "string", required: true },
+        inspectorQualifications: { type: "string", required: false },
+        equipmentInspected: { type: "array", required: true, items: { equipment: "string", condition: "string", riskLevel: "string" } },
+        surfaceCondition: { type: "string", required: false },
+        defects: { type: "array", required: false },
+        overallRisk: { type: "string", required: true, enum: ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"] }
+      },
+      promptTemplate: "Extract playground inspection under BS EN 1176 including all equipment with conditions and risk levels.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "TREE",
+      schemaJson: {
+        surveyDate: { type: "date", required: true },
+        arboristName: { type: "string", required: true },
+        arboristQualifications: { type: "string", required: false },
+        treesSurveyed: { type: "number", required: true },
+        treesRequiringWork: { type: "number", required: false },
+        treeDetails: { type: "array", required: false, items: { species: "string", location: "string", condition: "string", recommendation: "string", priority: "string" } },
+        urgentWorks: { type: "array", required: false }
+      },
+      promptTemplate: "Extract tree survey including all trees with species, conditions, and work recommendations with priorities.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== SECURITY SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "CCTV",
+      schemaJson: {
+        serviceDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        camerasCount: { type: "number", required: true },
+        camerasOperational: { type: "number", required: false },
+        recorderStatus: { type: "string", required: false },
+        retentionPeriod: { type: "number", required: false },
+        defects: { type: "array", required: false }
+      },
+      promptTemplate: "Extract CCTV service certificate including camera counts, recorder status, and any defects.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "ENTRY",
+      schemaJson: {
+        serviceDate: { type: "date", required: true },
+        engineerName: { type: "string", required: true },
+        systemType: { type: "string", required: true, enum: ["AUDIO", "VIDEO", "ACCESS_CONTROL", "COMBINED"] },
+        doorsControlled: { type: "number", required: false },
+        fobsIssued: { type: "number", required: false },
+        defects: { type: "array", required: false },
+        overallResult: { type: "string", required: true, enum: ["PASS", "FAIL", "PARTIAL"] }
+      },
+      promptTemplate: "Extract door entry system service certificate including system type, doors controlled, and fobs issued.",
+      isActive: true,
+      isDeprecated: false
+    },
+    
+    // ========== HRB SPECIFIC SCHEMAS ==========
+    {
+      version: "2.0",
+      documentType: "SIB",
+      schemaJson: {
+        inspectionDate: { type: "date", required: true },
+        inspectorName: { type: "string", required: true },
+        boxLocation: { type: "string", required: true },
+        contentsVerified: { type: "boolean", required: true },
+        contentsPresent: { type: "array", required: false, items: { item: "string", current: "boolean" } },
+        contentsMissing: { type: "array", required: false },
+        overallResult: { type: "string", required: true, enum: ["COMPLIANT", "NON_COMPLIANT"] }
+      },
+      promptTemplate: "Extract secure information box inspection under Building Safety Act including contents verification.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "SC",
+      schemaJson: {
+        reviewDate: { type: "date", required: true },
+        reviewerName: { type: "string", required: true },
+        buildingId: { type: "string", required: true },
+        principalAccountablePersonId: { type: "string", required: false },
+        safetyRisks: { type: "array", required: false },
+        controlMeasures: { type: "array", required: false },
+        residentEngagementStatus: { type: "string", required: false },
+        caseStatus: { type: "string", required: true, enum: ["CURRENT", "UNDER_REVIEW", "REQUIRES_UPDATE"] }
+      },
+      promptTemplate: "Extract Building Safety Case review under BSA 2022 including safety risks and control measures.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "PEEP",
+      schemaJson: {
+        assessmentDate: { type: "date", required: true },
+        assessorName: { type: "string", required: true },
+        residentName: { type: "string", required: true },
+        propertyAddress: { type: "string", required: true },
+        mobilityNeeds: { type: "array", required: false },
+        evacuationMethod: { type: "string", required: true },
+        equipmentRequired: { type: "array", required: false },
+        refugeLocation: { type: "string", required: false },
+        reviewDate: { type: "date", required: true }
+      },
+      promptTemplate: "Extract PEEP assessment including mobility needs, evacuation method, equipment required, and refuge location.",
+      isActive: true,
+      isDeprecated: false
+    },
+    {
+      version: "2.0",
+      documentType: "BEEP",
+      schemaJson: {
+        reviewDate: { type: "date", required: true },
+        reviewerName: { type: "string", required: true },
+        buildingAddress: { type: "string", required: true },
+        evacuationStrategy: { type: "string", required: true, enum: ["SIMULTANEOUS", "PHASED", "PROGRESSIVE", "DEFEND_IN_PLACE"] },
+        assemblyPoints: { type: "array", required: false },
+        peepCount: { type: "number", required: false },
+        fireMarshalCount: { type: "number", required: false },
+        planStatus: { type: "string", required: true, enum: ["CURRENT", "UNDER_REVIEW", "REQUIRES_UPDATE"] }
+      },
+      promptTemplate: "Extract BEEP review including evacuation strategy, assembly points, and fire marshal arrangements.",
       isActive: true,
       isDeprecated: false
     }
@@ -675,55 +1325,78 @@ async function seedConfiguration() {
   console.log(`✓ Upserted ${componentTypesData.length} component types`);
   
   // ==================== COMPLIANCE RULES ====================
+  // Comprehensive domain validation rules for all certificate types aligned with UK regulations
   const complianceRulesData = [
-    {
-      ruleCode: "GAS_EXPIRY_WARN",
-      ruleName: "Gas Safety Annual Check",
-      documentType: "GAS_SAFETY",
-      description: "Properties with gas must have annual safety check",
-      conditions: [{ field: "hasGas", operator: "equals", value: true }],
-      conditionLogic: "AND",
-      action: "WARN",
-      severity: "HIGH",
-      priority: "P1",
-      isActive: true
-    },
-    {
-      ruleCode: "EICR_EXPIRY_WARN",
-      ruleName: "EICR 5-Year Check",
-      documentType: "EICR",
-      description: "Electrical installations must be inspected every 5 years",
-      conditions: [{ field: "expiryDays", operator: "less_than", value: 90 }],
-      conditionLogic: "AND",
-      action: "WARN",
-      severity: "HIGH",
-      priority: "P2",
-      isActive: true
-    },
-    {
-      ruleCode: "FIRE_RISK_REVIEW",
-      ruleName: "Fire Risk Annual Review",
-      documentType: "FIRE_RISK",
-      description: "Fire risk assessments should be reviewed annually",
-      conditions: [{ field: "expiryDays", operator: "less_than", value: 60 }],
-      conditionLogic: "AND",
-      action: "WARN",
-      severity: "MEDIUM",
-      priority: "P3",
-      isActive: true
-    },
-    {
-      ruleCode: "LIFT_LOLER_WARN",
-      ruleName: "Lift LOLER 6-Monthly",
-      documentType: "LIFT_LOLER",
-      description: "Lifts require thorough examination every 6 months",
-      conditions: [{ field: "hasLift", operator: "equals", value: true }],
-      conditionLogic: "AND",
-      action: "WARN",
-      severity: "HIGH",
-      priority: "P4",
-      isActive: true
-    }
+    // ========== GAS & HEATING RULES ==========
+    { ruleCode: "GAS_ANNUAL_CHECK", ruleName: "Gas Safety Annual Check Required", documentType: "GAS", description: "Properties with gas supply must have annual CP12/LGSR under Gas Safety Regulations 1998", legislation: "Gas Safety (Installation and Use) Regulations 1998", conditions: [{ field: "hasGas", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "GAS_ID_IMMEDIATE", ruleName: "Immediately Dangerous - Disconnect", documentType: "GAS", description: "ID classification requires immediate gas isolation", legislation: "Gas Safety (Installation and Use) Regulations 1998", conditions: [{ field: "defectCode", operator: "equals", value: "ID" }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "GAS_AR_28DAY", ruleName: "At Risk - 28 Day Repair", documentType: "GAS", description: "AR classification requires repair within 28 days", legislation: "Gas Safety (Installation and Use) Regulations 1998", conditions: [{ field: "defectCode", operator: "equals", value: "AR" }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "GAS_NCS_REMEDIATE", ruleName: "Not to Current Standard", documentType: "GAS", description: "NCS defects should be remediated at next service", legislation: "Gas Safety (Installation and Use) Regulations 1998", conditions: [{ field: "defectCode", operator: "equals", value: "NCS" }], conditionLogic: "AND", action: "INFO", priority: "P3", isActive: true },
+    { ruleCode: "OIL_ANNUAL_SERVICE", ruleName: "Oil Boiler Annual Service", documentType: "OIL", description: "Oil boilers require annual servicing by OFTEC engineer", legislation: "Building Regulations Part J", conditions: [{ field: "hasOilHeating", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "LPG_ANNUAL_CHECK", ruleName: "LPG Safety Annual Check", documentType: "LPG", description: "LPG installations require annual safety check", legislation: "Gas Safety (Installation and Use) Regulations 1998", conditions: [{ field: "hasLPG", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "SOLID_FUEL_SWEEP", ruleName: "Solid Fuel Annual Sweep", documentType: "SOLID", description: "Solid fuel appliances require annual chimney sweep and inspection", legislation: "Building Regulations Part J", conditions: [{ field: "hasSolidFuel", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    
+    // ========== ELECTRICAL RULES ==========
+    { ruleCode: "EICR_5YEAR_CHECK", ruleName: "EICR 5-Year Inspection", documentType: "EICR", description: "Electrical installations must be inspected every 5 years in rented properties", legislation: "Electrical Safety Standards in the Private Rented Sector (England) Regulations 2020", conditions: [{ field: "expiryDays", operator: "less_than", value: 90 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "EICR_C1_IMMEDIATE", ruleName: "C1 - Danger Present", documentType: "EICR", description: "C1 classification indicates immediate danger requiring urgent action", legislation: "BS 7671:2018", conditions: [{ field: "c1Count", operator: "greater_than", value: 0 }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "EICR_C2_28DAY", ruleName: "C2 - Potentially Dangerous", documentType: "EICR", description: "C2 classification requires remediation within 28 days", legislation: "BS 7671:2018", conditions: [{ field: "c2Count", operator: "greater_than", value: 0 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "EICR_C3_RECOMMEND", ruleName: "C3 - Improvement Recommended", documentType: "EICR", description: "C3 observations should be considered for improvement", legislation: "BS 7671:2018", conditions: [{ field: "c3Count", operator: "greater_than", value: 0 }], conditionLogic: "AND", action: "INFO", priority: "P3", isActive: true },
+    { ruleCode: "EICR_UNSAT_FAIL", ruleName: "EICR Unsatisfactory - Auto Fail", documentType: "EICR", description: "Unsatisfactory EICR requires immediate remedial action", legislation: "Electrical Safety Standards Regulations 2020", conditions: [{ field: "overallAssessment", operator: "equals", value: "UNSATISFACTORY" }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "PAT_ANNUAL_COMMUNAL", ruleName: "PAT Testing Communal Areas", documentType: "PAT", description: "Portable appliances in communal areas require annual testing", legislation: "Electricity at Work Regulations 1989", conditions: [{ field: "isCommunal", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P3", isActive: true },
+    { ruleCode: "EMLT_ANNUAL_TEST", ruleName: "Emergency Lighting Annual Test", documentType: "EMLT", description: "Emergency lighting requires annual 3-hour duration test", legislation: "BS 5266-1", conditions: [{ field: "hasCommunalAreas", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    
+    // ========== ENERGY RULES ==========
+    { ruleCode: "EPC_E_MINIMUM", ruleName: "EPC E Minimum for Rental", documentType: "EPC", description: "Rental properties must have minimum EPC rating E", legislation: "Energy Efficiency (Private Rented Property) Regulations 2015", conditions: [{ field: "currentRating", operator: "in", value: ["F", "G"] }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "EPC_C_TARGET_2025", ruleName: "EPC C Target by 2025", documentType: "EPC", description: "New tenancies require EPC C from 2025 (proposed)", legislation: "Proposed legislation", conditions: [{ field: "currentRating", operator: "in", value: ["D", "E"] }], conditionLogic: "AND", action: "INFO", priority: "P3", isActive: true },
+    { ruleCode: "EPC_10YEAR_VALIDITY", ruleName: "EPC 10-Year Validity", documentType: "EPC", description: "EPCs are valid for 10 years", legislation: "Energy Performance of Buildings Regulations", conditions: [{ field: "expiryDays", operator: "less_than", value: 180 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P3", isActive: true },
+    
+    // ========== FIRE SAFETY RULES ==========
+    { ruleCode: "FRA_ANNUAL_REVIEW", ruleName: "Fire Risk Assessment Annual Review", documentType: "FRA", description: "Fire risk assessments should be reviewed annually or after significant changes", legislation: "Regulatory Reform (Fire Safety) Order 2005", conditions: [{ field: "expiryDays", operator: "less_than", value: 60 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "FRA_SUBSTANTIAL_FAIL", ruleName: "FRA Substantial/Intolerable Risk", documentType: "FRA", description: "Substantial or intolerable fire risk requires immediate action", legislation: "Regulatory Reform (Fire Safety) Order 2005", conditions: [{ field: "riskRating", operator: "in", value: ["SUBSTANTIAL", "INTOLERABLE"] }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "FD_QUARTERLY_HRB", ruleName: "Fire Door Quarterly Inspection - HRBs", documentType: "FD_Q", description: "High-rise buildings require quarterly fire door inspections", legislation: "Fire Safety (England) Regulations 2022", conditions: [{ field: "buildingHeight", operator: "greater_than", value: 18 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "FD_ANNUAL_ALL", ruleName: "Fire Door Annual Inspection", documentType: "FD", description: "All fire doors require annual inspection", legislation: "Fire Safety (England) Regulations 2022", conditions: [{ field: "hasFireDoors", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "FA_ANNUAL_SERVICE", ruleName: "Fire Alarm Annual Service", documentType: "FA", description: "Fire alarm systems require annual service under BS 5839", legislation: "BS 5839-1", conditions: [{ field: "hasFireAlarm", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "FA_WEEKLY_TEST", ruleName: "Fire Alarm Weekly Test", documentType: "FA_W", description: "Fire alarm call points require weekly testing", legislation: "BS 5839-1", conditions: [{ field: "hasFireAlarm", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "SD_ANNUAL_TEST", ruleName: "Smoke Detector Annual Test", documentType: "SD", description: "Smoke detectors require annual testing and 10-year replacement", legislation: "Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022", conditions: [{ field: "hasSmokeDetectors", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "CO_ANNUAL_TEST", ruleName: "CO Detector Annual Test", documentType: "CO", description: "CO detectors required in all properties with combustion appliances", legislation: "Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022", conditions: [{ field: "hasCombustionAppliance", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "SPRINK_ANNUAL_LPCB", ruleName: "Sprinkler Annual Inspection", documentType: "SPRINK", description: "Sprinkler systems require annual inspection by LPCB contractor", legislation: "BS EN 12845", conditions: [{ field: "hasSprinklers", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "AOV_WEEKLY_TEST", ruleName: "AOV Weekly Function Test", documentType: "AOV", description: "AOV smoke ventilation requires weekly function testing", legislation: "BS EN 12101-2", conditions: [{ field: "hasAOV", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "EXT_ANNUAL_SERVICE", ruleName: "Fire Extinguisher Annual Service", documentType: "EXT", description: "Fire extinguishers require annual service by BAFE contractor", legislation: "BS 5306-3", conditions: [{ field: "hasExtinguishers", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "FRAEW_HRB_REQUIRED", ruleName: "FRAEW/EWS1 Required for HRBs", documentType: "FRAEW", description: "Buildings over 18m require external wall fire risk appraisal", legislation: "Building Safety Act 2022", conditions: [{ field: "buildingHeight", operator: "greater_than", value: 18 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    
+    // ========== ASBESTOS RULES ==========
+    { ruleCode: "ASB_MANAGEMENT_PLAN", ruleName: "Asbestos Management Plan Required", documentType: "ASB", description: "Buildings with ACMs must have management plan under CAR 2012", legislation: "Control of Asbestos Regulations 2012", conditions: [{ field: "hasAsbestos", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "ASB_ANNUAL_REINSPECT", ruleName: "ACM Annual Reinspection", documentType: "ASB_R", description: "ACMs require annual condition reinspection", legislation: "Control of Asbestos Regulations 2012", conditions: [{ field: "acmCount", operator: "greater_than", value: 0 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "ASB_HIGH_RISK_ACTION", ruleName: "High Risk ACM - Immediate Action", documentType: "ASB", description: "High-risk ACMs require immediate management action", legislation: "Control of Asbestos Regulations 2012", conditions: [{ field: "riskScore", operator: "greater_than", value: 10 }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    
+    // ========== WATER SAFETY RULES ==========
+    { ruleCode: "LEG_2YEAR_ASSESSMENT", ruleName: "Legionella Risk Assessment 2-Year", documentType: "LEG", description: "Legionella risk assessment required every 2 years under ACOP L8", legislation: "HSE ACOP L8", conditions: [{ field: "expiryDays", operator: "less_than", value: 90 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "LEG_MONTHLY_MONITOR", ruleName: "Legionella Monthly Monitoring", documentType: "LEG_M", description: "Monthly temperature monitoring required for water systems", legislation: "HSE ACOP L8", conditions: [{ field: "lastMonitoringDays", operator: "greater_than", value: 35 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "LEG_TEMP_COMPLIANCE", ruleName: "Water Temperature Compliance", documentType: "LEG_M", description: "Hot water must be stored at 60°C, delivered at 50°C within 1 minute", legislation: "HSE ACOP L8", conditions: [{ field: "temperatureNonCompliant", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "TMV_ANNUAL_SERVICE", ruleName: "TMV Annual Service", documentType: "TMV", description: "Thermostatic mixing valves require annual servicing", legislation: "HSE ACOP L8", conditions: [{ field: "hasTMVs", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    
+    // ========== LIFTING EQUIPMENT RULES ==========
+    { ruleCode: "LIFT_6MONTH_LOLER", ruleName: "Lift 6-Monthly LOLER Examination", documentType: "LIFT", description: "Passenger lifts require thorough examination every 6 months", legislation: "LOLER 1998", conditions: [{ field: "hasLift", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "LIFT_MONTHLY_MAINT", ruleName: "Lift Monthly Maintenance", documentType: "LIFT_M", description: "Lifts require monthly maintenance visits", legislation: "LOLER 1998", conditions: [{ field: "hasLift", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "LIFT_DEFECT_ISOLATE", ruleName: "Dangerous Lift Defect - Isolate", documentType: "LIFT", description: "Dangerous lift defects require immediate isolation", legislation: "LOLER 1998", conditions: [{ field: "safeForUse", operator: "equals", value: false }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "STAIR_6MONTH_LOLER", ruleName: "Stairlift 6-Monthly LOLER", documentType: "STAIR", description: "Stairlifts require thorough examination every 6 months", legislation: "LOLER 1998", conditions: [{ field: "hasStairlift", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "HOIST_6MONTH_LOLER", ruleName: "Hoist 6-Monthly LOLER", documentType: "HOIST", description: "Ceiling and mobile hoists require 6-monthly examination", legislation: "LOLER 1998", conditions: [{ field: "hasHoist", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    
+    // ========== BUILDING SAFETY RULES ==========
+    { ruleCode: "HHSRS_CAT1_ACTION", ruleName: "HHSRS Category 1 Hazard", documentType: "HHSRS", description: "Category 1 hazards require local authority enforcement action", legislation: "Housing Act 2004", conditions: [{ field: "category1Hazards", operator: "greater_than", value: 0 }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "DAMP_MOULD_ACTION", ruleName: "Damp & Mould - Urgent Response", documentType: "DAMP", description: "Damp and mould issues require urgent investigation and remediation", legislation: "Housing Health and Safety Rating System", conditions: [{ field: "mouldPresent", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "STRUCT_5YEAR_SURVEY", ruleName: "Structural Survey 5-Year Cycle", documentType: "STRUCT", description: "Structural surveys recommended on 5-year cycle", legislation: "Building Safety Act 2022", conditions: [{ field: "expiryDays", operator: "less_than", value: 180 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    
+    // ========== EXTERNAL AREAS RULES ==========
+    { ruleCode: "PLAY_ANNUAL_BSEN1176", ruleName: "Playground Annual Inspection", documentType: "PLAY", description: "Playgrounds require annual main inspection under BS EN 1176", legislation: "BS EN 1176", conditions: [{ field: "hasPlayground", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "PLAY_HIGH_RISK_CLOSE", ruleName: "High Risk Equipment - Close Immediately", documentType: "PLAY", description: "High/very high risk playground equipment must be closed", legislation: "BS EN 1176", conditions: [{ field: "overallRisk", operator: "in", value: ["HIGH", "VERY_HIGH"] }], conditionLogic: "AND", action: "AUTO_FAIL", priority: "P1", isActive: true },
+    { ruleCode: "TREE_URGENT_WORKS", ruleName: "Tree Urgent Works Required", documentType: "TREE", description: "Trees requiring urgent works must be addressed within 7 days", legislation: "Occupiers Liability Act", conditions: [{ field: "urgentWorksCount", operator: "greater_than", value: 0 }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    
+    // ========== HRB SPECIFIC RULES ==========
+    { ruleCode: "SIB_ANNUAL_HRB", ruleName: "Secure Info Box Annual Inspection", documentType: "SIB", description: "HRBs require annual secure information box inspection", legislation: "Building Safety Act 2022", conditions: [{ field: "isHRB", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "SC_2YEAR_REVIEW", ruleName: "Building Safety Case 2-Year Review", documentType: "SC", description: "Building Safety Cases require review every 2 years", legislation: "Building Safety Act 2022", conditions: [{ field: "isHRB", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P1", isActive: true },
+    { ruleCode: "PEEP_ANNUAL_REVIEW", ruleName: "PEEP Annual Review", documentType: "PEEP", description: "Personal Emergency Evacuation Plans require annual review", legislation: "Building Safety Act 2022", conditions: [{ field: "hasVulnerableOccupants", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true },
+    { ruleCode: "BEEP_ANNUAL_REVIEW", ruleName: "BEEP Annual Review", documentType: "BEEP", description: "Building Emergency Evacuation Plans require annual review", legislation: "Regulatory Reform (Fire Safety) Order 2005", conditions: [{ field: "hasCommunalAreas", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true }
   ];
   
   for (const rule of complianceRulesData) {
@@ -734,10 +1407,10 @@ async function seedConfiguration() {
           ruleName: rule.ruleName,
           documentType: rule.documentType,
           description: rule.description,
+          legislation: rule.legislation,
           conditions: rule.conditions,
           conditionLogic: rule.conditionLogic,
           action: rule.action,
-          severity: rule.severity,
           priority: rule.priority,
           isActive: rule.isActive,
           updatedAt: new Date()
@@ -747,54 +1420,75 @@ async function seedConfiguration() {
   console.log(`✓ Upserted ${complianceRulesData.length} compliance rules`);
   
   // ==================== NORMALISATION RULES ====================
+  // Comprehensive data transformation rules for extracted certificate data
   const normalisationRulesData = [
-    {
-      ruleName: "Title Case Engineer Name",
-      fieldPath: "engineerName",
-      ruleType: "TRANSFORM",
-      inputPatterns: ["*"],
-      transformFn: "titleCase",
-      priority: 1,
-      isActive: true
-    },
-    {
-      ruleName: "Uppercase Postcode",
-      fieldPath: "postcode",
-      ruleType: "TRANSFORM",
-      inputPatterns: ["*"],
-      transformFn: "uppercase",
-      priority: 2,
-      isActive: true
-    },
-    {
-      ruleName: "Format Issue Date",
-      fieldPath: "issueDate",
-      ruleType: "TRANSFORM",
-      inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"],
-      outputValue: "YYYY-MM-DD",
-      transformFn: "dateFormat",
-      priority: 3,
-      isActive: true
-    },
-    {
-      ruleName: "Format Expiry Date",
-      fieldPath: "expiryDate",
-      ruleType: "TRANSFORM",
-      inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"],
-      outputValue: "YYYY-MM-DD",
-      transformFn: "dateFormat",
-      priority: 4,
-      isActive: true
-    },
-    {
-      ruleName: "Clean Gas Register ID",
-      fieldPath: "gasRegisterId",
-      ruleType: "REGEX",
-      inputPatterns: ["[^0-9]"],
-      outputValue: "",
-      priority: 5,
-      isActive: true
-    }
+    // ========== NAME FORMATTING ==========
+    { ruleName: "Title Case Engineer Name", fieldPath: "engineerName", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 1, isActive: true },
+    { ruleName: "Title Case Assessor Name", fieldPath: "assessorName", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 2, isActive: true },
+    { ruleName: "Title Case Surveyor Name", fieldPath: "surveyorName", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 3, isActive: true },
+    { ruleName: "Title Case Inspector Name", fieldPath: "inspectorName", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 4, isActive: true },
+    { ruleName: "Title Case Tester Name", fieldPath: "testerName", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 5, isActive: true },
+    
+    // ========== ADDRESS FORMATTING ==========
+    { ruleName: "Uppercase Postcode", fieldPath: "postcode", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "uppercase", priority: 10, isActive: true },
+    { ruleName: "Format UK Postcode", fieldPath: "postcode", ruleType: "REGEX", inputPatterns: ["([A-Za-z]{1,2}[0-9]{1,2}[A-Za-z]?)\\s*([0-9][A-Za-z]{2})"], outputValue: "$1 $2", priority: 11, isActive: true },
+    { ruleName: "Title Case Address", fieldPath: "propertyAddress", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 12, isActive: true },
+    { ruleName: "Title Case Premises Address", fieldPath: "premisesAddress", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 13, isActive: true },
+    
+    // ========== DATE FORMATTING ==========
+    { ruleName: "Format Issue Date DD/MM/YYYY", fieldPath: "issueDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 20, isActive: true },
+    { ruleName: "Format Expiry Date DD/MM/YYYY", fieldPath: "expiryDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 21, isActive: true },
+    { ruleName: "Format Assessment Date", fieldPath: "assessmentDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 22, isActive: true },
+    { ruleName: "Format Survey Date", fieldPath: "surveyDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 23, isActive: true },
+    { ruleName: "Format Inspection Date", fieldPath: "inspectionDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 24, isActive: true },
+    { ruleName: "Format Test Date", fieldPath: "testDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 25, isActive: true },
+    { ruleName: "Format Service Date", fieldPath: "serviceDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 26, isActive: true },
+    { ruleName: "Format Next Inspection Date", fieldPath: "nextInspectionDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 27, isActive: true },
+    { ruleName: "Format Next Review Date", fieldPath: "nextReviewDate", ruleType: "TRANSFORM", inputPatterns: ["DD/MM/YYYY", "D/M/YYYY"], outputValue: "YYYY-MM-DD", transformFn: "dateFormat", priority: 28, isActive: true },
+    
+    // ========== REGISTRATION ID CLEANING ==========
+    { ruleName: "Clean Gas Safe Register ID", fieldPath: "gasRegisterId", ruleType: "REGEX", inputPatterns: ["[^0-9]"], outputValue: "", priority: 30, isActive: true },
+    { ruleName: "Clean OFTEC Registration ID", fieldPath: "oftecRegistrationId", ruleType: "REGEX", inputPatterns: ["[^A-Za-z0-9]"], outputValue: "", priority: 31, isActive: true },
+    { ruleName: "Clean HETAS Registration ID", fieldPath: "hetasRegistrationId", ruleType: "REGEX", inputPatterns: ["[^A-Za-z0-9]"], outputValue: "", priority: 32, isActive: true },
+    { ruleName: "Clean MCS Registration ID", fieldPath: "mcsRegistrationId", ruleType: "REGEX", inputPatterns: ["[^A-Za-z0-9/]"], outputValue: "", priority: 33, isActive: true },
+    { ruleName: "Clean UKAS Accreditation", fieldPath: "ukasAccreditationNumber", ruleType: "REGEX", inputPatterns: ["[^0-9]"], outputValue: "", priority: 34, isActive: true },
+    
+    // ========== CERTIFICATE NUMBER FORMATTING ==========
+    { ruleName: "Uppercase Certificate Number", fieldPath: "certificateNumber", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "uppercase", priority: 40, isActive: true },
+    { ruleName: "Clean Certificate Number", fieldPath: "certificateNumber", ruleType: "REGEX", inputPatterns: ["[^A-Za-z0-9-/]"], outputValue: "", priority: 41, isActive: true },
+    
+    // ========== RESULT MAPPING ==========
+    { ruleName: "Map Pass Variations", fieldPath: "overallResult", ruleType: "MAPPING", inputPatterns: ["PASSED", "Pass", "pass", "P", "OK", "SATISFACTORY", "Satisfactory"], outputValue: "PASS", priority: 50, isActive: true },
+    { ruleName: "Map Fail Variations", fieldPath: "overallResult", ruleType: "MAPPING", inputPatterns: ["FAILED", "Fail", "fail", "F", "UNSATISFACTORY", "Unsatisfactory"], outputValue: "FAIL", priority: 51, isActive: true },
+    { ruleName: "Map At Risk Variations", fieldPath: "overallResult", ruleType: "MAPPING", inputPatterns: ["AT RISK", "At Risk", "at risk", "AR", "POTENTIALLY DANGEROUS"], outputValue: "AT_RISK", priority: 52, isActive: true },
+    
+    // ========== EPC RATING MAPPING ==========
+    { ruleName: "Uppercase EPC Rating", fieldPath: "currentRating", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "uppercase", priority: 60, isActive: true },
+    { ruleName: "Uppercase Potential EPC Rating", fieldPath: "potentialRating", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "uppercase", priority: 61, isActive: true },
+    
+    // ========== DEFECT CODE MAPPING ==========
+    { ruleName: "Map EICR C1 Variations", fieldPath: "observationCode", ruleType: "MAPPING", inputPatterns: ["C1", "c1", "Code 1", "CODE 1"], outputValue: "C1", priority: 70, isActive: true },
+    { ruleName: "Map EICR C2 Variations", fieldPath: "observationCode", ruleType: "MAPPING", inputPatterns: ["C2", "c2", "Code 2", "CODE 2"], outputValue: "C2", priority: 71, isActive: true },
+    { ruleName: "Map EICR C3 Variations", fieldPath: "observationCode", ruleType: "MAPPING", inputPatterns: ["C3", "c3", "Code 3", "CODE 3"], outputValue: "C3", priority: 72, isActive: true },
+    { ruleName: "Map EICR FI Variations", fieldPath: "observationCode", ruleType: "MAPPING", inputPatterns: ["FI", "fi", "Further Investigation", "FURTHER INVESTIGATION"], outputValue: "FI", priority: 73, isActive: true },
+    { ruleName: "Map Gas ID Variations", fieldPath: "defectCode", ruleType: "MAPPING", inputPatterns: ["ID", "id", "Immediately Dangerous", "IMMEDIATELY DANGEROUS"], outputValue: "ID", priority: 74, isActive: true },
+    { ruleName: "Map Gas AR Variations", fieldPath: "defectCode", ruleType: "MAPPING", inputPatterns: ["AR", "ar", "At Risk", "AT RISK"], outputValue: "AR", priority: 75, isActive: true },
+    { ruleName: "Map Gas NCS Variations", fieldPath: "defectCode", ruleType: "MAPPING", inputPatterns: ["NCS", "ncs", "Not to Current Standard", "NOT TO CURRENT STANDARD"], outputValue: "NCS", priority: 76, isActive: true },
+    
+    // ========== FIRE RISK RATING MAPPING ==========
+    { ruleName: "Map Fire Risk Trivial", fieldPath: "riskRating", ruleType: "MAPPING", inputPatterns: ["Trivial", "trivial", "TRIVIAL", "Very Low", "very low"], outputValue: "TRIVIAL", priority: 80, isActive: true },
+    { ruleName: "Map Fire Risk Tolerable", fieldPath: "riskRating", ruleType: "MAPPING", inputPatterns: ["Tolerable", "tolerable", "TOLERABLE", "Low", "low", "LOW"], outputValue: "TOLERABLE", priority: 81, isActive: true },
+    { ruleName: "Map Fire Risk Moderate", fieldPath: "riskRating", ruleType: "MAPPING", inputPatterns: ["Moderate", "moderate", "MODERATE", "Medium", "medium", "MEDIUM"], outputValue: "MODERATE", priority: 82, isActive: true },
+    { ruleName: "Map Fire Risk Substantial", fieldPath: "riskRating", ruleType: "MAPPING", inputPatterns: ["Substantial", "substantial", "SUBSTANTIAL", "High", "high", "HIGH"], outputValue: "SUBSTANTIAL", priority: 83, isActive: true },
+    { ruleName: "Map Fire Risk Intolerable", fieldPath: "riskRating", ruleType: "MAPPING", inputPatterns: ["Intolerable", "intolerable", "INTOLERABLE", "Very High", "very high", "Critical"], outputValue: "INTOLERABLE", priority: 84, isActive: true },
+    
+    // ========== BOOLEAN NORMALISATION ==========
+    { ruleName: "Map Boolean Yes to True", fieldPath: "*", ruleType: "MAPPING", inputPatterns: ["Yes", "yes", "YES", "Y", "y", "TRUE", "True", "1"], outputValue: "true", priority: 90, isActive: true },
+    { ruleName: "Map Boolean No to False", fieldPath: "*", ruleType: "MAPPING", inputPatterns: ["No", "no", "NO", "N", "n", "FALSE", "False", "0"], outputValue: "false", priority: 91, isActive: true },
+    
+    // ========== COMPANY NAME FORMATTING ==========
+    { ruleName: "Title Case Company Name", fieldPath: "companyName", ruleType: "TRANSFORM", inputPatterns: ["*"], transformFn: "titleCase", priority: 100, isActive: true },
+    { ruleName: "Clean Company Name", fieldPath: "companyName", ruleType: "REGEX", inputPatterns: ["\\s+"], outputValue: " ", priority: 101, isActive: true }
   ];
   
   // Delete existing and re-insert normalisation rules

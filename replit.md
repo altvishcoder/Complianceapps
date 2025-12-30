@@ -1,246 +1,68 @@
 # ComplianceAI
 
 ## Overview
-
-ComplianceAI is a compliance management platform designed for UK social housing organizations. It enables property managers to track compliance certificates (gas safety, electrical, fire risk, etc.), manage properties organized by schemes and blocks, and handle remedial actions. The application uses AI-powered document extraction to process uploaded compliance certificates.
+ComplianceAI is a compliance management platform for UK social housing organizations. It enables property managers to track compliance certificates (gas safety, electrical, fire risk, etc.), manage properties organized by schemes and blocks, and handle remedial actions. The platform uses AI-powered document extraction to process uploaded compliance certificates, aiming to streamline compliance workflows and improve safety in social housing.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
-- **Framework**: React 18 with TypeScript, using Vite as the build tool
-- **Routing**: Wouter for client-side routing (lightweight alternative to React Router)
-- **State Management**: TanStack React Query for server state and caching
-- **UI Components**: shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS v4 with CSS variables for theming
-- **Fonts**: Inter (body), Outfit (display headings), JetBrains Mono (code)
+### Frontend
+-   **Framework**: React 18 with TypeScript, using Vite.
+-   **Routing**: Wouter.
+-   **State Management**: TanStack React Query.
+-   **UI Components**: shadcn/ui built on Radix UI.
+-   **Styling**: Tailwind CSS v4 with CSS variables.
 
-### Backend Architecture
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript with ES modules
-- **API Design**: RESTful JSON API endpoints under `/api/*`
-- **Build Process**: esbuild for server bundling, Vite for client bundling
+### Backend
+-   **Runtime**: Node.js with Express.js.
+-   **Language**: TypeScript with ES modules.
+-   **API Design**: RESTful JSON API endpoints under `/api/*`.
+-   **Build Process**: esbuild for server, Vite for client.
 
 ### Data Layer
-- **ORM**: Drizzle ORM with PostgreSQL dialect
-- **Schema Location**: `shared/schema.ts` contains all table definitions and Zod validation schemas
-- **Database**: PostgreSQL (connection via `DATABASE_URL` environment variable)
-- **Migrations**: Drizzle Kit with `drizzle-kit push` command
+-   **ORM**: Drizzle ORM with PostgreSQL dialect.
+-   **Database**: PostgreSQL.
+-   **Migrations**: Drizzle Kit.
+-   **Data Model**: Follows UKHDS 5-level asset hierarchy (Organisation, Scheme, Block, Property, Unit, Component).
+-   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 categories aligned with UK social housing regulations.
+-   **Configuration Data**: Extensive certificate types, extraction schemas, compliance rules, normalization rules, component types, and classification codes.
 
-### Data Model (HACT/UKHDS Aligned)
-The application follows the UKHDS 5-level asset hierarchy with housing terminology:
+### Key Features
+-   **AI-powered Document Extraction**: Processes uploaded compliance certificates using AI, covering 45 extraction schemas.
+-   **Configuration-Driven Remedial Actions**: Generates remedial actions based on configurable classification codes and UK legislation references.
+-   **CSV Import**: Supports importing properties, units, and components via CSV templates.
+-   **Seeding & Demo Data**: Option to seed demo data for testing and development.
+-   **External Ingestion API**: Machine-to-machine API for external systems to submit compliance certificates with Bearer token authentication and async processing via pg-boss job queue.
 
-| Level | Housing Term | HACT/UKHDS Term | Description |
-|-------|-------------|-----------------|-------------|
-| 1 | **Organisation** | Housing Association | Top-level entity owning properties |
-| 2 | **Scheme** | Site | Estate or housing development |
-| 3 | **Block** | Property/Building | Physical building within a scheme |
-| 4 | **Property** | Unit/Dwelling | Individual residential unit |
-| 5 | **Unit** | Space/Room | Room or area within a property |
-| 6 | **Component** | Component | Fixture/equipment (boiler, alarm, etc.) |
-
-Hierarchy relationships:
-- **Organisation** → owns multiple **Schemes** (Sites)
-- **Scheme** → contains multiple **Blocks** (Properties/Buildings)
-- **Block** → contains multiple **Properties** (Units/Dwellings)
-- **Property** → contains multiple **Units** (Spaces/Rooms) and has **Certificates** and **Remedial Actions**
-- **Unit** → contains **Components** (fixtures/equipment)
-- **Certificate** → has **Extractions** (AI-processed data)
-
-Key enums define compliance statuses, property types, certificate types, and action severities aligned with UK housing regulations.
-
-### Compliance Type Taxonomy (v3.0)
-The system supports 60+ compliance types organized into 12 categories aligned with UK social housing regulations:
-
-| Category | Code Range | Examples |
-|----------|------------|----------|
-| **Gas & Heating** | 1-11 | GAS, GAS_SVC, OIL, OIL_TANK, LPG, SOLID, BIO, HVAC, MECH, ASHP, GSHP |
-| **Electrical** | 21-27 | EICR, EIC, MEIWC, PAT, EMLT, EMLT_M, ELEC_HEAT |
-| **Energy** | 31-33 | EPC, SAP, DEC |
-| **Fire Safety** | 41-56 | FRA, FRAEW, FD, FD_Q, FA, FA_W, FA_Q, SD, CO, SPRINK, DRY, WET, AOV, SMOKE_V, EXT, COMPART |
-| **Asbestos** | 61-65 | ASB, ASB_M, ASB_R, ASB_D, ASB_REF |
-| **Water Safety** | 71-75 | LEG, LEG_M, WATER, TANK, TMV |
-| **Lifting Equipment** | 81-85 | LIFT, LIFT_M, STAIR, HOIST, PLAT |
-| **Building Safety** | 91-97 | HHSRS, STRUCT, DAMP, ROOF, CHIMNEY, DRAIN, LIGHT |
-| **External Areas** | 101-103 | PLAY, PLAY_Q, TREE |
-| **Access Equipment** | 106-107 | FALL, ACCESS |
-| **Security** | 111-113 | CCTV, ENTRY, ALARM |
-| **HRB Specific** | 116-121 | SIB, WAYFIND, SC, RES, PEEP, BEEP |
-
-Each type includes: code, name, shortName, complianceStream, description, validityMonths, warningDays, requiredFields, displayOrder, isActive.
-
-### Compliance Fields
-Extended schema fields for UK social housing compliance:
-
-**Properties**: `vulnerableOccupant`, `epcRating` (A-G), `constructionYear`, `numberOfFloors`, `hasElectricity`, `hasAsbestos`, `hasSprinklers`, `localAuthority`
-
-**Units**: `areaSqMeters`, `isAccessible`, `fireCompartment`, `asbestosPresent`
-
-**Components**: `complianceStatus`, `certificateRequired`, `riskLevel` (HIGH/MEDIUM/LOW), `lastServiceDate`, `nextServiceDue`
-
-### CSV Import Templates
-The Data Import feature supports importing properties, units, and components from CSV files:
-- **Templates**: `/api/imports/templates/:type/download` - blank CSV with headers
-- **Samples**: `/api/imports/samples/:type/download` - CSV with realistic UK housing example data
-- Sample files located in `public/samples/` directory
-- All templates include compliance fields for comprehensive data import
-
-### Seeding & Demo Data
-- **SEED_DEMO_DATA** environment variable controls demo data seeding (default: `false`)
-- Configuration data (certificate types, classification codes, etc.) always seeds automatically
-- Minimal bootstrap creates admin user even without demo data
-- Set `SEED_DEMO_DATA=true` to seed demo organisations, schemes, blocks, properties, and users
-
-### Configuration-Driven Remedial Actions
-The system uses a configuration-driven approach for generating remedial actions:
-- **Classification Codes** table stores severity settings and action generation rules
-- Fields include: `autoCreateAction`, `actionSeverity`, `costEstimateLow`, `costEstimateHigh`
-- `generateRemedialActionsFromConfig` loads codes from database and applies configured rules
-- Falls back to hardcoded logic if no configuration exists
-- Supports EICR (C1/C2/C3), Gas Safety (ID/AR/NCS), and Fire Risk (HIGH/MEDIUM/LOW)
-
-### Test Suite
-Comprehensive test suite using Vitest:
-- `tests/extraction.test.ts` - Unit tests for extraction functions
-- `tests/api.test.ts` - API endpoint integration tests
-- `tests/storage.test.ts` - Storage CRUD operation tests
-- `tests/config-driven.test.ts` - Configuration-driven remedial action tests
-- Run with: `npx vitest run`
-
-### Development vs Production
-- Development: Vite dev server with HMR, served through Express middleware
-- Production: Static files served from `dist/public`, server bundled to `dist/index.cjs`
-
-### Security Architecture
-
-#### User Role Hierarchy
-The system implements a hierarchical role-based access control (RBAC) system:
-
-| Role | Description | Permissions |
-|------|-------------|-------------|
-| **LASHAN_SUPER_USER** | System owner (1 per system) | Full access, password only changeable by self |
-| **SUPER_ADMIN** | Demo super admin (1 per system) | Full access except Lashan password |
-| **SYSTEM_ADMIN** | System administrators (multiple) | System configuration, user management |
-| **COMPLIANCE_MANAGER** | Compliance power users (multiple) | All compliance features, reports |
-| **ADMIN** | Organisation administrators | Organisation-level admin |
-| **MANAGER** | Property managers | Property and certificate management |
-| **OFFICER** | Compliance officers | Certificate uploads, action tracking |
-| **VIEWER** | Read-only users | View dashboards and reports |
-
-#### Default User Accounts
-Seeded on first run with bcrypt-hashed passwords:
-- `lashan` / `Lashan2025!Secure` (LASHAN_SUPER_USER)
-- `superadmin` / `SuperAdmin2025!` (SUPER_ADMIN)
-- `sysadmin` / `SysAdmin2025!` (SYSTEM_ADMIN)
-- `compmanager` / `Manager2025!` (COMPLIANCE_MANAGER)
-
-#### Authentication Endpoints
-- **POST /api/auth/login** - Authenticate with username/password (bcrypt verification)
-- **GET /api/auth/me** - Get current user from X-User-Id header
-- **POST /api/auth/change-password** - Change password with role restrictions
-
-#### Admin Factory Settings Authorization
-- Factory Settings page restricted to LASHAN_SUPER_USER and SUPER_ADMIN roles
-- Server-side authorization via `requireAdminRole` middleware validates:
-  1. Optional `ADMIN_API_TOKEN` environment variable (defense-in-depth)
-  2. User ID from `X-User-Id` header
-  3. User role from database lookup
-- Type validation for settings: number fields reject NaN, boolean fields require 'true'/'false'
-- All changes logged in `factory_settings_audit` table
-
-#### Production Security Recommendations
-- Configure `ADMIN_API_TOKEN` environment variable for additional security layer
-- Implement proper session-based authentication (express-session + passport)
-- Replace localStorage-based auth with server session validation
-- Add rate limiting middleware for all API endpoints
-
-### External Ingestion API
-Machine-to-machine API for external systems to submit compliance certificates:
-
-#### Authentication
-- Bearer token authentication with API keys (prefix: `cai_`)
-- API keys stored as SHA-256 hashes, prefix stored for lookup
-- Rate limiting configurable via Factory Settings (default: 60 requests/min)
-- X-RateLimit-* headers included in all responses
-
-#### Endpoints
-- **GET /api/v1/certificate-types** - List valid certificate types for ingestion
-  - Returns: { certificateTypes: [{ code, name, shortName, complianceStream, description, validityMonths, requiredFields }] }
-- **POST /api/v1/ingestions** - Submit certificate for processing
-  - Fields: propertyId, certificateType, fileName, objectPath, webhookUrl, idempotencyKey
-  - Validates certificateType against certificate_types database table
-  - Returns: { id, status, message } or 400 with validTypes if invalid
-- **GET /api/v1/ingestions/:id** - Check job status
-  - Returns: { id, status, propertyId, certificateType, certificateId, statusMessage, errorDetails, createdAt, completedAt }
-- **GET /api/v1/ingestions** - List jobs with pagination
-  - Query params: limit, offset, status
-- **POST /api/v1/uploads** - Create upload session for large files
-
-#### Async Processing
-- pg-boss job queue (`server/job-queue.ts`) handles async ingestion and webhook delivery
-- 3 concurrent ingestion workers, 5 webhook workers
-- Automatic retries with exponential backoff (3 retries max)
-- Downloads files from Replit Object Storage (GCS)
-- Integrates with existing Anthropic extraction pipeline
-- Sends webhook callbacks on completion/failure
-
-#### Admin UI
-- **/admin/api-integration** - API Integration Guide page
-  - Overview, Authentication, Endpoints, Webhooks, API Keys tabs
-  - Code examples (curl, Node.js, Python)
-  - API key generation and enable/disable management
+### Security
+-   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
+-   **Authentication**: Username/password authentication with bcrypt, `X-User-Id` header for user identification.
+-   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
+-   **Rate Limiting**: PostgreSQL-backed rate limiting.
 
 ### Production Infrastructure
-
-#### Logging (Pino)
-- Structured JSON logging via Pino (`server/logger.ts`)
-- Component-scoped loggers: job-queue, api, extraction, webhook
-- HTTP request logging middleware with pino-http
-- Pretty-printed in development, JSON in production
-
-#### Error Tracking (Sentry)
-- Sentry v8 integration (`server/sentry.ts`)
-- Express request instrumentation for full context
-- Activate by setting `SENTRY_DSN` environment variable
-- Sensitive headers (authorization, api-key, cookie) automatically stripped
-
-#### Rate Limiting
-- PostgreSQL-backed rate limiting via `rate_limit_entries` table
-- Configurable window and limit via Factory Settings
-- Automatic cleanup of expired entries every 5 minutes
-
-#### System Health Monitoring
-- **/admin/system-health** - Admin page showing:
-  - Database connection status
-  - API server status
-  - Background job queue status
-  - Real-time ingestion and webhook queue statistics
-  - Accessible to Lashan Super User and Super Admin roles
+-   **Logging**: Structured JSON logging using Pino.
+-   **Error Tracking**: Sentry integration for error monitoring.
+-   **System Health Monitoring**: Admin page to monitor database, API server, and job queue status.
 
 ## External Dependencies
 
 ### Database
-- PostgreSQL database required via `DATABASE_URL` environment variable
-- Uses `connect-pg-simple` for session storage
+-   **PostgreSQL**: Primary database.
 
 ### AI/ML Services
-- **Anthropic Claude Vision** (`@anthropic-ai/sdk`) for certificate document extraction
-  - Uses Claude 3.5 Sonnet model with vision capabilities
-  - Extracts data from certificate images (JPG, PNG, WebP)
-  - Automatically detects issues and generates remedial actions
-  - Requires `ANTHROPIC_API_KEY` environment variable
+-   **Anthropic Claude Vision**: Used for AI-powered certificate document extraction (Claude 3.5 Sonnet).
 
 ### Third-Party Libraries
-- **Charts**: Recharts for data visualization
-- **File Processing**: Multer for file uploads, xlsx for spreadsheet handling
-- **Email**: Nodemailer for email notifications
-- **Payments**: Stripe integration available
-- **Date Handling**: date-fns for date manipulation
+-   **Charts**: Recharts.
+-   **File Processing**: Multer (file uploads), xlsx (spreadsheet handling).
+-   **Email**: Nodemailer.
+-   **Date Handling**: date-fns.
 
 ### Replit-Specific
-- `@replit/vite-plugin-runtime-error-modal` for development error display
-- `@replit/vite-plugin-cartographer` and `@replit/vite-plugin-dev-banner` for Replit integration
-- Custom `vite-plugin-meta-images` for OpenGraph image handling with Replit domains
+-   `@replit/vite-plugin-runtime-error-modal`
+-   `@replit/vite-plugin-cartographer`
+-   `@replit/vite-plugin-dev-banner`
+-   `vite-plugin-meta-images`
