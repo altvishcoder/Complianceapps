@@ -12,6 +12,7 @@ import {
   componentTypes, components, units, componentCertificates, users,
   type ApiClient
 } from "@shared/schema";
+import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
@@ -2458,10 +2459,13 @@ export async function registerRoutes(
         }
       }
       
-      // Group certificates by compliance stream
+      // Group certificates by compliance stream (normalize certificate types to canonical codes)
       const complianceByStream = allStreams.filter(s => s.isActive).map(stream => {
-        const streamCertTypes = allCertTypes.filter(ct => ct.complianceStream === stream.code).map(ct => ct.code);
-        const streamCerts = allCertificates.filter(c => streamCertTypes.includes(c.certificateType || ''));
+        const streamCertTypeCodes = allCertTypes.filter(ct => ct.complianceStream === stream.code).map(ct => ct.code);
+        const streamCerts = allCertificates.filter(c => {
+          const normalizedCode = normalizeCertificateTypeCode(c.certificateType);
+          return streamCertTypeCodes.includes(normalizedCode);
+        });
         
         const satisfactory = streamCerts.filter(c => c.outcome === 'SATISFACTORY' || c.status === 'APPROVED').length;
         const unsatisfactory = streamCerts.filter(c => c.outcome === 'UNSATISFACTORY').length;
