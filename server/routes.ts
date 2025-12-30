@@ -277,6 +277,82 @@ export async function registerRoutes(
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   
+  // ===== GLOBAL SEARCH (PostgreSQL Full-Text Search) =====
+  app.get("/api/search", async (req, res) => {
+    try {
+      const query = (req.query.q as string || "").trim();
+      if (!query || query.length < 2) {
+        return res.json({ properties: [], certificates: [], actions: [] });
+      }
+      
+      // Create search query for PostgreSQL (convert to tsquery format)
+      const searchTerms = query.split(/\s+/).filter(t => t.length > 0).map(t => `${t}:*`).join(' & ');
+      
+      // Search properties
+      const propertiesResult = await db.execute(sql`
+        SELECT id, uprn, address_line1, city, postcode, compliance_status
+        FROM properties
+        WHERE 
+          to_tsvector('english', COALESCE(address_line1, '') || ' ' || COALESCE(city, '') || ' ' || COALESCE(postcode, '') || ' ' || COALESCE(uprn, '')) 
+          @@ to_tsquery('english', ${searchTerms})
+        ORDER BY ts_rank(
+          to_tsvector('english', COALESCE(address_line1, '') || ' ' || COALESCE(city, '') || ' ' || COALESCE(postcode, '') || ' ' || COALESCE(uprn, '')),
+          to_tsquery('english', ${searchTerms})
+        ) DESC
+        LIMIT 10
+      `);
+      
+      // Search certificates
+      const certificatesResult = await db.execute(sql`
+        SELECT c.id, c.certificate_type, c.status, c.file_name, p.address_line1
+        FROM certificates c
+        LEFT JOIN properties p ON c.property_id = p.id
+        WHERE 
+          to_tsvector('english', COALESCE(c.certificate_type::text, '') || ' ' || COALESCE(c.file_name, '') || ' ' || COALESCE(c.certificate_number, '')) 
+          @@ to_tsquery('english', ${searchTerms})
+        ORDER BY c.created_at DESC
+        LIMIT 10
+      `);
+      
+      // Search remedial actions
+      const actionsResult = await db.execute(sql`
+        SELECT a.id, a.description, a.severity, a.status, p.address_line1
+        FROM remedial_actions a
+        LEFT JOIN properties p ON a.property_id = p.id
+        WHERE 
+          to_tsvector('english', COALESCE(a.description, '') || ' ' || COALESCE(a.category, '') || ' ' || COALESCE(a.code, '')) 
+          @@ to_tsquery('english', ${searchTerms})
+        ORDER BY a.created_at DESC
+        LIMIT 10
+      `);
+      
+      res.json({
+        properties: propertiesResult.rows || [],
+        certificates: certificatesResult.rows || [],
+        actions: actionsResult.rows || []
+      });
+    } catch (error) {
+      console.error("Search error:", error);
+      // Fallback to ILIKE search if full-text search fails
+      try {
+        const query = `%${(req.query.q as string || "").trim()}%`;
+        const propertiesResult = await db.execute(sql`
+          SELECT id, uprn, address_line1, city, postcode, compliance_status
+          FROM properties
+          WHERE address_line1 ILIKE ${query} OR postcode ILIKE ${query} OR uprn ILIKE ${query}
+          LIMIT 10
+        `);
+        res.json({
+          properties: propertiesResult.rows || [],
+          certificates: [],
+          actions: []
+        });
+      } catch (fallbackError) {
+        res.status(500).json({ error: "Search failed" });
+      }
+    }
+  });
+  
   // ===== SSE EVENTS FOR REAL-TIME UPDATES =====
   app.get("/api/events", (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');

@@ -37,7 +37,7 @@ const VIDEO_CATEGORIES = [
   { value: "certificate_upload", label: "Certificate Upload" },
   { value: "extraction", label: "AI Extraction" },
   { value: "remedial_actions", label: "Remedial Actions" },
-  { value: "compliance", label: "Compliance Overview" },
+  { value: "compliance", label: "Analytics Hub" },
   { value: "admin", label: "Admin Features" },
   { value: "other", label: "Other" }
 ];

@@ -1,10 +1,10 @@
-import { Bell, Search, Settings, Command, HelpCircle, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Bell, Settings, HelpCircle } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useLocation } from "wouter";
 import { useState } from "react";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 
 const mockNotifications = [
   { id: 1, title: "Gas Safety Certificate Expiring", message: "Property 45 High Street certificate expires in 7 days", time: "2 hours ago", read: false },
@@ -37,23 +37,7 @@ export function Header({ title }: { title: string }) {
       </div>
       
       <div className="flex items-center gap-3 flex-1 justify-end max-w-2xl">
-        <div className="relative w-full max-w-sm hidden md:block group" role="search">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-green-500/20 rounded-xl blur-lg opacity-0 group-focus-within:opacity-100 transition-opacity" aria-hidden="true"></div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <label htmlFor="global-search" className="sr-only">Search the application</label>
-            <Input 
-              id="global-search"
-              type="search" 
-              placeholder="Search..." 
-              aria-label="Search the application"
-              className="pl-10 pr-12 bg-muted/50 border-transparent hover:bg-muted focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all rounded-xl h-10"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground" aria-hidden="true">
-              <Command className="h-3 w-3" />K
-            </kbd>
-          </div>
-        </div>
+        <GlobalSearch />
         
         <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>
           <SheetTrigger asChild>

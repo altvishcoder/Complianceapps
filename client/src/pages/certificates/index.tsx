@@ -39,6 +39,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ContextBackButton } from "@/components/navigation/ContextBackButton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);
@@ -62,7 +69,7 @@ export default function CertificatesPage() {
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   
   // Fetch certificate types to map streams to certificate types
-  const { data: certificateTypes = [] } = useQuery<Array<{ code: string; complianceStream: string }>>({
+  const { data: certificateTypes = [] } = useQuery<Array<{ code: string; complianceStream: string; shortName?: string }>>({
     queryKey: ["certificate-types"],
     queryFn: async () => {
       const res = await fetch('/api/config/certificate-types');
@@ -70,6 +77,32 @@ export default function CertificatesPage() {
       return res.json();
     },
   });
+  
+  // Fetch compliance streams for the dropdown
+  const { data: complianceStreams = [] } = useQuery<Array<{ code: string; name: string; colorCode: string }>>({
+    queryKey: ["compliance-streams"],
+    queryFn: async () => {
+      const res = await fetch('/api/config/compliance-streams');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  
+  // Create a mapping from certificate type code to stream info
+  const certTypeToStream = useMemo(() => {
+    const map = new Map<string, { streamCode: string; streamName: string; colorCode: string }>();
+    for (const ct of certificateTypes) {
+      const stream = complianceStreams.find(s => s.code === ct.complianceStream);
+      if (stream) {
+        map.set(ct.code, {
+          streamCode: stream.code,
+          streamName: stream.name,
+          colorCode: stream.colorCode
+        });
+      }
+    }
+    return map;
+  }, [certificateTypes, complianceStreams]);
   
   // Create a Set of certificate type codes that belong to the selected stream
   const streamCertTypes = useMemo(() => {
@@ -220,13 +253,30 @@ export default function CertificatesPage() {
                   onClick={() => setStreamFilter(null)}
                   aria-label={`Remove stream filter: ${streamFilter.replace(/_/g, ' ')}`}
                 >
-                  Stream: {streamFilter.replace(/_/g, ' ')}
+                  Stream: {complianceStreams.find(s => s.code === streamFilter)?.name || streamFilter.replace(/_/g, ' ')}
                   <X className="h-3 w-3" aria-hidden="true" />
                 </Button>
               )}
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <Select value={streamFilter || ""} onValueChange={(val) => setStreamFilter(val || null)}>
+                <SelectTrigger className="w-[180px]" data-testid="filter-stream">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="All Streams" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Streams</SelectItem>
+                  {complianceStreams.map((stream) => (
+                    <SelectItem key={stream.code} value={stream.code}>
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: stream.colorCode }}
+                        />
+                        {stream.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Link href="/certificates/upload">
               <Button className="bg-primary hover:bg-primary/90 gap-2">
@@ -246,6 +296,7 @@ export default function CertificatesPage() {
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
                       <th className="p-4">Certificate Type</th>
+                      <th className="p-4">Stream</th>
                       <th className="p-4">Property</th>
                       <th className="p-4">Status</th>
                       <th className="p-4">Expiry Date</th>
@@ -267,6 +318,32 @@ export default function CertificatesPage() {
                               <div className="text-xs text-muted-foreground">{cert.fileName}</div>
                             </div>
                           </div>
+                        </td>
+                        <td className="p-4">
+                          {(() => {
+                            const streamInfo = certTypeToStream.get(cert.certificateType);
+                            if (streamInfo) {
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setStreamFilter(streamInfo.streamCode);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
+                                  style={{ 
+                                    backgroundColor: `${streamInfo.colorCode}15`, 
+                                    color: streamInfo.colorCode,
+                                    borderColor: `${streamInfo.colorCode}40`
+                                  }}
+                                  data-testid={`stream-badge-${cert.id}`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: streamInfo.colorCode }} />
+                                  {streamInfo.streamName}
+                                </button>
+                              );
+                            }
+                            return <span className="text-muted-foreground text-xs">-</span>;
+                          })()}
                         </td>
                         <td className="p-4 font-medium">{cert.property?.addressLine1}</td>
                         <td className="p-4">
@@ -328,8 +405,27 @@ export default function CertificatesPage() {
                            <FileText className="h-5 w-5 text-blue-600" />
                            {selectedCert.certificateType}
                         </SheetTitle>
-                        <SheetDescription>
-                           Certificate ID: {selectedCert.id}
+                        <SheetDescription className="flex items-center gap-2">
+                           <span>Certificate ID: {selectedCert.id}</span>
+                           {(() => {
+                             const streamInfo = certTypeToStream.get(selectedCert.certificateType);
+                             if (streamInfo) {
+                               return (
+                                 <span
+                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
+                                   style={{ 
+                                     backgroundColor: `${streamInfo.colorCode}15`, 
+                                     color: streamInfo.colorCode,
+                                     borderColor: `${streamInfo.colorCode}40`
+                                   }}
+                                 >
+                                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: streamInfo.colorCode }} />
+                                   {streamInfo.streamName}
+                                 </span>
+                               );
+                             }
+                             return null;
+                           })()}
                         </SheetDescription>
                       </SheetHeader>
                    </div>

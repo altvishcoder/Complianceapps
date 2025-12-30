@@ -38,7 +38,7 @@ import { actionsApi, certificatesApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
-  { name: "Command Centre", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Compliance Cockpit", href: "/dashboard", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Components", href: "/components", icon: Package },
   { name: "Certificates", href: "/certificates", icon: Files },

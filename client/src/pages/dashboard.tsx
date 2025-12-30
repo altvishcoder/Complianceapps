@@ -136,7 +136,7 @@ export default function Dashboard() {
   const [isConfiguring, setIsConfiguring] = useState(false);
   
   useEffect(() => {
-    document.title = "Command Centre - ComplianceAI";
+    document.title = "Compliance Cockpit - ComplianceAI";
   }, []);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
@@ -207,7 +207,7 @@ export default function Dashboard() {
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Compliance Command Centre" />
+          <Header title="Compliance Cockpit" />
           <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Dashboard content">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
             <span className="sr-only">Loading dashboard data</span>
@@ -274,7 +274,7 @@ export default function Dashboard() {
               <Card className="col-span-4">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>Compliance Overview by Stream</CardTitle>
+                    <CardTitle>Compliance by Stream</CardTitle>
                     <CardDescription>Click any bar to view certificates</CardDescription>
                   </div>
                   <Link href="/certificates?from=/dashboard">
@@ -723,7 +723,7 @@ export default function Dashboard() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Compliance Command Centre" />
+        <Header title="Compliance Cockpit" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Dashboard content">
           
           <div className="flex items-center justify-between mb-2">

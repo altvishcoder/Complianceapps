@@ -77,7 +77,7 @@ export function BoardMode({
     <div className="p-8 space-y-8" data-testid="board-mode">
       <div className="text-center">
         <h2 className="text-3xl font-bold">{organisationName}</h2>
-        <p className="text-xl text-muted-foreground mt-2">Compliance Overview</p>
+        <p className="text-xl text-muted-foreground mt-2">Analytics Hub</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
