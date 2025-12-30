@@ -100,14 +100,15 @@ function useAuthState() {
 export function AIAssistant() {
   const [location, setLocation] = useLocation();
   const userId = useAuthState();
-  
-  const handleNavigate = (url: string) => {
-    setLocation(url);
-  };
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  const handleNavigate = (url: string) => {
+    setIsOpen(false);
+    setLocation(url);
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
