@@ -48,11 +48,17 @@ function formatMessage(text: string, onNavigate?: (url: string) => void): React.
   const lines = text.split('\n');
   
   return lines.map((line, lineIndex) => {
-    const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('• ');
-    const isNumbered = /^\d+[\.\)]\s/.test(line.trim());
+    const trimmed = line.trim();
+    const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('• ');
+    const isNumbered = /^\d+[\.\)]\s/.test(trimmed);
+    const isSeparator = trimmed === '---' || trimmed === '---\n';
+    
+    if (isSeparator) {
+      return <hr key={lineIndex} className="my-3 border-border" />;
+    }
     
     if (isBullet) {
-      const content = line.trim().replace(/^[-•]\s*/, '');
+      const content = trimmed.replace(/^[-•]\s*/, '');
       return (
         <div key={lineIndex} className="flex gap-2 ml-2">
           <span>•</span>
@@ -70,7 +76,7 @@ function formatMessage(text: string, onNavigate?: (url: string) => void): React.
     }
     
     return (
-      <div key={lineIndex} className={line.trim() === '' ? 'h-2' : ''}>
+      <div key={lineIndex} className={trimmed === '' ? 'h-2' : ''}>
         {formatInlineContent(line, onNavigate)}
       </div>
     );
