@@ -257,13 +257,13 @@ export default function CertificatesPage() {
                   <X className="h-3 w-3" aria-hidden="true" />
                 </Button>
               )}
-              <Select value={streamFilter || ""} onValueChange={(val) => setStreamFilter(val || null)}>
+              <Select value={streamFilter || "all"} onValueChange={(val) => setStreamFilter(val === "all" ? null : val)}>
                 <SelectTrigger className="w-[180px]" data-testid="filter-stream">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="All Streams" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Streams</SelectItem>
+                  <SelectItem value="all">All Streams</SelectItem>
                   {complianceStreams.map((stream) => (
                     <SelectItem key={stream.code} value={stream.code}>
                       <div className="flex items-center gap-2">
