@@ -343,18 +343,117 @@ const SAP_PATTERNS: ExtractorPattern[] = [
 ];
 
 const FRA_PATTERNS: ExtractorPattern[] = [
-  { field: 'certificateNumber', patterns: [/(?:assessment|report)\s*(?:ref|reference|number)?[:\s]*([A-Z0-9\-\/]+)/i, ...COMMON_PATTERNS.certificateNumber] },
-  { field: 'engineerName', patterns: [/(?:fire\s*)?(?:risk\s*)?assessor[:\s]*([A-Za-z\s\-']+)/i, ...COMMON_PATTERNS.engineerName] },
-  { field: 'inspectionDate', patterns: [/(?:date\s*of\s*)?(?:assessment|survey)[:\s]*([\d\/\-\s\w]+)/i, ...COMMON_PATTERNS.inspectionDate], transform: normalizeDate as any, required: true },
-  { field: 'expiryDate', patterns: [/(?:next\s*)?review\s*(?:date|due)?[:\s]*([\d\/\-\s\w]+)/i, ...COMMON_PATTERNS.expiryDate], transform: normalizeDate as any },
+  { 
+    field: 'certificateNumber', 
+    patterns: [
+      /(?:assessment|report|case)\s*(?:ref|reference|number|id)?[:\s]*([A-Z0-9\-\/]+)/i,
+      /(?:building\s*safety\s*)?case\s*(?:ref|reference|id)?[:\s]*([A-Z0-9\-\/]+)/i,
+      /(?:bsc|fra)\s*(?:ref|reference)?[:\s]*([A-Z0-9\-\/]+)/i,
+      ...COMMON_PATTERNS.certificateNumber
+    ] 
+  },
+  { 
+    field: 'engineerName', 
+    patterns: [
+      /(?:fire\s*)?(?:risk\s*)?assessor[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:building\s*safety\s*)?(?:case\s*)?manager[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:responsible\s*)?person[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:competent\s*)?person[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:principal\s*)?accountable\s*person[:\s]*([A-Za-z\s\-']+)/i,
+      ...COMMON_PATTERNS.engineerName
+    ] 
+  },
+  { 
+    field: 'inspectionDate', 
+    patterns: [
+      /(?:date\s*of\s*)?(?:assessment|survey|review)[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:assessment|case)\s*date[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:last\s*)?(?:updated|revised)[:\s]*([\d\/\-\s\w]+)/i,
+      ...COMMON_PATTERNS.inspectionDate
+    ], 
+    transform: normalizeDate as any, 
+    required: true 
+  },
+  { 
+    field: 'expiryDate', 
+    patterns: [
+      /(?:next\s*)?review\s*(?:date|due)?[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:next\s*)?assessment\s*(?:date|due)?[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:valid|expires?)\s*(?:until|by)?[:\s]*([\d\/\-\s\w]+)/i,
+      ...COMMON_PATTERNS.expiryDate
+    ], 
+    transform: normalizeDate as any 
+  },
   { field: 'propertyAddress', patterns: COMMON_PATTERNS.propertyAddress },
   {
     field: 'outcome',
     patterns: [
-      /overall\s*(?:risk\s*)?(?:rating|level)?[:\s]*(trivial|tolerable|moderate|substantial|intolerable)/i,
-      /(?:fire\s*)?risk\s*(?:rating|level)?[:\s]*(low|medium|high|very\s*high)/i,
+      /overall\s*(?:risk\s*)?(?:rating|level|category)?[:\s]*(trivial|tolerable|moderate|substantial|intolerable)/i,
+      /(?:fire\s*)?risk\s*(?:rating|level|category)?[:\s]*(low|medium|high|very\s*high|critical)/i,
+      /(?:building\s*)?safety\s*(?:rating|status|level)?[:\s]*(compliant|non-?compliant|satisfactory|unsatisfactory)/i,
+      /(?:case\s*)?status[:\s]*(open|closed|in\s*progress|complete|pending)/i,
+      /(?:risk\s*)?category[:\s]*(A|B|C|D|1|2|3|4)/i,
     ],
     transform: (m: string) => m.toUpperCase(),
+  },
+];
+
+// Building Safety Case (BSA 2022) - for higher-risk buildings
+const BUILDING_SAFETY_PATTERNS: ExtractorPattern[] = [
+  { 
+    field: 'certificateNumber', 
+    patterns: [
+      /(?:building\s*safety\s*)?case\s*(?:ref|reference|number|id)?[:\s]*([A-Z0-9\-\/]+)/i,
+      /bsc\s*(?:ref|reference)?[:\s]*([A-Z0-9\-\/]+)/i,
+      /(?:hrb|higher\s*risk)\s*(?:ref|reference)?[:\s]*([A-Z0-9\-\/]+)/i,
+      /(?:safety\s*)?case\s*(?:report\s*)?(?:ref|reference)?[:\s]*([A-Z0-9\-\/]+)/i,
+      ...COMMON_PATTERNS.certificateNumber
+    ],
+    required: true
+  },
+  { 
+    field: 'engineerName', 
+    patterns: [
+      /(?:principal\s*)?accountable\s*person[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:building\s*safety\s*)?(?:case\s*)?manager[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:responsible\s*)?person[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:duty\s*)?holder[:\s]*([A-Za-z\s\-']+)/i,
+      /(?:building\s*)?owner[:\s]*([A-Za-z\s\-']+)/i,
+      ...COMMON_PATTERNS.engineerName
+    ] 
+  },
+  { 
+    field: 'inspectionDate', 
+    patterns: [
+      /(?:case\s*)?(?:creation|submitted|prepared)\s*(?:date)?[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:last\s*)?(?:updated|revised|reviewed)[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:date\s*of\s*)?(?:assessment|submission)[:\s]*([\d\/\-\s\w]+)/i,
+      ...COMMON_PATTERNS.inspectionDate
+    ], 
+    transform: normalizeDate as any, 
+    required: true 
+  },
+  { 
+    field: 'expiryDate', 
+    patterns: [
+      /(?:next\s*)?review\s*(?:date|due)?[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:mandatory\s*)?occurrence\s*(?:date|due)?[:\s]*([\d\/\-\s\w]+)/i,
+      /(?:registration\s*)?(?:renewal|expires?)[:\s]*([\d\/\-\s\w]+)/i,
+      ...COMMON_PATTERNS.expiryDate
+    ], 
+    transform: normalizeDate as any 
+  },
+  { field: 'propertyAddress', patterns: COMMON_PATTERNS.propertyAddress },
+  {
+    field: 'outcome',
+    patterns: [
+      /(?:case\s*)?status[:\s]*(registered|pending|in\s*review|complete|rejected)/i,
+      /(?:building\s*)?safety\s*(?:status|rating)?[:\s]*(compliant|non-?compliant|adequate|inadequate)/i,
+      /(?:risk\s*)?(?:rating|level|category)?[:\s]*(low|medium|high|critical|unacceptable)/i,
+      /(?:hrb\s*)?registration\s*(?:status)?[:\s]*(active|inactive|pending|suspended)/i,
+      /(?:overall\s*)?assessment[:\s]*(satisfactory|unsatisfactory|adequate|inadequate)/i,
+    ],
+    transform: normalizeOutcome,
   },
 ];
 
@@ -696,6 +795,8 @@ const CERTIFICATE_PATTERNS: Partial<Record<CertificateTypeCode, ExtractorPattern
   DEC: DEC_PATTERNS,
   SAP: SAP_PATTERNS,
   FRA: FRA_PATTERNS,
+  BSC: BUILDING_SAFETY_PATTERNS,
+  BUILDING_SAFETY: BUILDING_SAFETY_PATTERNS,
   FRAEW: FRAEW_PATTERNS,
   FA: FA_PATTERNS,
   FA_Q: FA_Q_PATTERNS,
@@ -753,6 +854,11 @@ const CODE_ALIASES: Record<string, CertificateTypeCode> = {
   'GAS_SAFETY': 'GAS',
   'FIRE_RISK': 'FRA',
   'FIRE_RISK_ASSESSMENT': 'FRA',
+  'BUILDING_SAFETY_CASE': 'BSC',
+  'BUILDING_SAFETY': 'BSC',
+  'BLDG_SAFETY': 'BSC',
+  'HRB_CASE': 'BSC',
+  'HIGHER_RISK_BUILDING': 'BSC',
   'FIRE_ALARM': 'FA',
   'LEGIONELLA': 'LEG',
   'LEGIONELLA_ASSESSMENT': 'LEG',
@@ -856,12 +962,17 @@ export function extractAppliances(text: string, certType: CertificateTypeCode): 
   return appliances;
 }
 
+export interface CustomPatternConfig {
+  [field: string]: string[]; // field name -> array of regex pattern strings
+}
+
 export function extractWithTemplate(
   text: string,
-  certType: CertificateTypeCode
+  certType: CertificateTypeCode,
+  customPatterns?: Record<string, CustomPatternConfig>
 ): TemplateExtractionResult {
   const resolvedType = CODE_ALIASES[certType] || certType;
-  const patterns = CERTIFICATE_PATTERNS[resolvedType];
+  let patterns = CERTIFICATE_PATTERNS[resolvedType];
 
   if (!patterns) {
     return {
@@ -871,6 +982,31 @@ export function extractWithTemplate(
       matchedFields: 0,
       totalExpectedFields: 0,
     };
+  }
+  
+  // Merge custom patterns if provided for this document type
+  if (customPatterns && customPatterns[resolvedType]) {
+    const customConfig = customPatterns[resolvedType];
+    patterns = patterns.map(extractor => {
+      const customFieldPatterns = customConfig[extractor.field];
+      if (customFieldPatterns && Array.isArray(customFieldPatterns)) {
+        // Prepend custom patterns (higher priority) to existing patterns
+        const newPatterns = customFieldPatterns
+          .map(p => {
+            try {
+              return new RegExp(p, 'i');
+            } catch {
+              return null;
+            }
+          })
+          .filter((p): p is RegExp => p !== null);
+        return {
+          ...extractor,
+          patterns: [...newPatterns, ...extractor.patterns],
+        };
+      }
+      return extractor;
+    });
   }
 
   const data: Partial<ExtractedCertificateData> = {

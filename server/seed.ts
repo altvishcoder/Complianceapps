@@ -1927,6 +1927,37 @@ async function seedFactorySettings() {
       isEditable: true,
       validationRules: { min: 0.5, max: 0.99 }
     },
+    {
+      key: "TIER1_CONFIDENCE_THRESHOLD",
+      value: "0.85",
+      category: "AI",
+      description: "Default confidence threshold for tier-1 template matching",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 0.5, max: 0.99 }
+    },
+    {
+      key: "DOCUMENT_TYPE_THRESHOLDS",
+      value: JSON.stringify({
+        "FRA": 0.70,
+        "BSC": 0.70,
+        "BUILDING_SAFETY": 0.70,
+        "FRAEW": 0.70,
+        "ASB": 0.75
+      }),
+      category: "AI",
+      description: "Document-type-specific confidence thresholds (JSON). Lower for complex documents like FRA, Building Safety Case.",
+      valueType: "json",
+      isEditable: true
+    },
+    {
+      key: "CUSTOM_EXTRACTION_PATTERNS",
+      value: JSON.stringify({}),
+      category: "AI",
+      description: "Custom extraction patterns by document type (JSON). Add business-specific terminology patterns here.",
+      valueType: "json",
+      isEditable: true
+    },
     // Job Queue Settings
     {
       key: "JOB_RETRY_LIMIT",

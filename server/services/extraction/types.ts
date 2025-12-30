@@ -37,7 +37,7 @@ export type CertificateTypeCode =
   | 'GAS' | 'GAS_SAFETY' | 'GAS_SVC' | 'OIL' | 'OIL_TANK' | 'LPG' | 'SOLID' | 'BIO' | 'HVAC' | 'MECH' | 'RENEW' | 'ASHP' | 'GSHP'
   | 'ELEC' | 'EIC' | 'EICR' | 'MEIWC' | 'PAT' | 'EMLT' | 'EMLT_M' | 'ELEC_HEAT'
   | 'EPC' | 'SAP' | 'DEC'
-  | 'FIRE' | 'FRA' | 'FIRE_RISK' | 'FIRE_RISK_ASSESSMENT' | 'FRAEW' | 'FA' | 'FA_Q' | 'FA_W' | 'FIRE_ALARM' | 'FIRE_ALARM_M' 
+  | 'FIRE' | 'FRA' | 'FIRE_RISK' | 'FIRE_RISK_ASSESSMENT' | 'BSC' | 'BUILDING_SAFETY' | 'FRAEW' | 'FA' | 'FA_Q' | 'FA_W' | 'FIRE_ALARM' | 'FIRE_ALARM_M' 
   | 'FD' | 'FD_Q' | 'FIRE_EXT' | 'EXT' | 'FIRE_DOOR' | 'FIRE_DOOR_Q' | 'DRY' | 'DRY_RISER' | 'WET' | 'WET_RISER' 
   | 'SPRINK' | 'SPRINKLER' | 'CO' | 'SD' | 'SMOKE_CO' | 'SMOKE_V' | 'AOV' | 'COMPART' | 'FIRE_STOP' | 'FIRE_EVP' | 'EVAC_CHAIR' | 'ESCAPE_LTNG'
   | 'ASB' | 'ASBESTOS' | 'ASBESTOS_SURVEY' | 'ASB_M' | 'ASB_D' | 'ASB_R' | 'ASB_REF' | 'ASB_SURVEY' | 'ASB_MGMT' | 'ASB_REINSP'

@@ -51,13 +51,29 @@ const TIER_COST_ESTIMATES: Record<ExtractionTier, number> = {
   'tier-4': 0,
 };
 
+// Custom patterns type: { "FRA": { "certificateNumber": ["pattern1", "pattern2"], "engineerName": ["pattern3"] } }
+type CustomPatternsByDocType = Record<string, Record<string, string[]>>;
+
 interface ExtractionSettings {
   aiEnabled: boolean;
   tier1Threshold: number;
   tier2Threshold: number;
   tier3Threshold: number;
   maxCostPerDocument: number;
+  documentTypeThresholds: Record<string, number>;
+  customPatterns: CustomPatternsByDocType;
 }
+
+// Default lower thresholds for complex document types
+const DEFAULT_DOCUMENT_THRESHOLDS: Record<string, number> = {
+  'FRA': 0.70,
+  'FIRE_RISK_ASSESSMENT': 0.70,
+  'BSC': 0.70,
+  'BUILDING_SAFETY': 0.70,
+  'FRAEW': 0.70,
+  'ASB': 0.75,
+  'ASBESTOS': 0.75,
+};
 
 async function getExtractionSettings(): Promise<ExtractionSettings> {
   try {
@@ -73,6 +89,29 @@ async function getExtractionSettings(): Promise<ExtractionSettings> {
       settingsMap.get('AI_EXTRACTION_ENABLED') === 'true' ||
       settingsMap.get('extraction.enableAIProcessing') === 'true';
     
+    // Parse document-type-specific thresholds from factory settings
+    let documentTypeThresholds: Record<string, number> = { ...DEFAULT_DOCUMENT_THRESHOLDS };
+    const docThresholdsJson = settingsMap.get('DOCUMENT_TYPE_THRESHOLDS');
+    if (docThresholdsJson) {
+      try {
+        documentTypeThresholds = { ...documentTypeThresholds, ...JSON.parse(docThresholdsJson) };
+      } catch (e) {
+        logger.warn({ error: e }, 'Failed to parse DOCUMENT_TYPE_THRESHOLDS');
+      }
+    }
+    
+    // Parse custom patterns from factory settings
+    // Format: { "FRA": { "certificateNumber": ["pattern1", "pattern2"] } }
+    let customPatterns: CustomPatternsByDocType = {};
+    const customPatternsJson = settingsMap.get('CUSTOM_EXTRACTION_PATTERNS');
+    if (customPatternsJson) {
+      try {
+        customPatterns = JSON.parse(customPatternsJson) as CustomPatternsByDocType;
+      } catch (e) {
+        logger.warn({ error: e }, 'Failed to parse CUSTOM_EXTRACTION_PATTERNS');
+      }
+    }
+    
     return {
       aiEnabled,
       // Read tier-specific thresholds from Factory Settings UI
@@ -80,6 +119,8 @@ async function getExtractionSettings(): Promise<ExtractionSettings> {
       tier2Threshold: parseFloat(settingsMap.get('TIER2_CONFIDENCE_THRESHOLD') || settingsMap.get('extraction.tier2ConfidenceThreshold') || '0.80'),
       tier3Threshold: parseFloat(settingsMap.get('TIER3_CONFIDENCE_THRESHOLD') || settingsMap.get('extraction.tier3ConfidenceThreshold') || '0.70'),
       maxCostPerDocument: parseFloat(settingsMap.get('MAX_COST_PER_DOCUMENT') || settingsMap.get('extraction.maxCostPerDocument') || '0.05'),
+      documentTypeThresholds,
+      customPatterns,
     };
   } catch (error) {
     logger.warn({ error }, 'Failed to load extraction settings, using defaults');
@@ -89,8 +130,21 @@ async function getExtractionSettings(): Promise<ExtractionSettings> {
       tier2Threshold: 0.80,
       tier3Threshold: 0.70,
       maxCostPerDocument: 0.05,
+      documentTypeThresholds: { ...DEFAULT_DOCUMENT_THRESHOLDS },
+      customPatterns: {},
     };
   }
+}
+
+// Get the tier-1 threshold for a specific document type
+function getTier1ThresholdForDocType(
+  docType: string | undefined, 
+  settings: ExtractionSettings
+): number {
+  if (docType && settings.documentTypeThresholds[docType.toUpperCase()]) {
+    return settings.documentTypeThresholds[docType.toUpperCase()];
+  }
+  return settings.tier1Threshold;
 }
 
 export async function isAIProcessingEnabled(): Promise<boolean> {
@@ -156,10 +210,10 @@ export async function extractCertificate(
     aiEnabled = true;
   }
 
-  const tier1Threshold = extractionSettings.tier1Threshold;
+  const baseTier1Threshold = extractionSettings.tier1Threshold;
   const maxCost = extractionSettings.maxCostPerDocument;
 
-  logger.info({ certificateId, mimeType, filename, aiEnabled, tier1Threshold, maxCost }, 'Starting tiered extraction');
+  logger.info({ certificateId, mimeType, filename, aiEnabled, baseTier1Threshold, maxCost }, 'Starting tiered extraction');
 
   const tier0Start = Date.now();
   const formatAnalysis = await analyseDocument(buffer, mimeType, filename);
@@ -289,9 +343,16 @@ export async function extractCertificate(
     const tier1Start = Date.now();
     const templateResult = extractWithTemplate(
       formatAnalysis.textContent,
-      formatAnalysis.detectedCertificateType
+      formatAnalysis.detectedCertificateType,
+      extractionSettings.customPatterns
     );
     const tier1Time = Date.now() - tier1Start;
+
+    // Use document-type-specific threshold (lower for complex documents like FRA, BSC)
+    const tier1Threshold = getTier1ThresholdForDocType(
+      formatAnalysis.detectedCertificateType, 
+      extractionSettings
+    );
 
     if (templateResult.confidence >= tier1Threshold) {
       tierAudit.push({
