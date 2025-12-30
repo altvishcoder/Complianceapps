@@ -13,19 +13,41 @@ interface ChatMessage {
   content: string;
 }
 
+function formatInlineContent(text: string): React.ReactNode[] {
+  // Handle bold (**text**) and links ([text](url))
+  const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/);
+  
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    const linkMatch = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
+    if (linkMatch) {
+      const [, linkText, linkUrl] = linkMatch;
+      return (
+        <a 
+          key={i} 
+          href={linkUrl} 
+          className="text-primary underline hover:text-primary/80"
+          onClick={(e) => {
+            if (linkUrl.startsWith('/')) {
+              e.preventDefault();
+              window.location.href = linkUrl;
+            }
+          }}
+        >
+          {linkText}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 function formatMessage(text: string): React.ReactNode {
   const lines = text.split('\n');
   
   return lines.map((line, lineIndex) => {
-    let formatted: React.ReactNode = line;
-    
-    formatted = line.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i}>{part.slice(2, -2)}</strong>;
-      }
-      return part;
-    });
-    
     const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('• ');
     const isNumbered = /^\d+[\.\)]\s/.test(line.trim());
     
@@ -34,11 +56,7 @@ function formatMessage(text: string): React.ReactNode {
       return (
         <div key={lineIndex} className="flex gap-2 ml-2">
           <span>•</span>
-          <span>{content.split(/(\*\*[^*]+\*\*)/).map((part, i) => 
-            part.startsWith('**') && part.endsWith('**') 
-              ? <strong key={i}>{part.slice(2, -2)}</strong> 
-              : part
-          )}</span>
+          <span>{formatInlineContent(content)}</span>
         </div>
       );
     }
@@ -46,22 +64,14 @@ function formatMessage(text: string): React.ReactNode {
     if (isNumbered) {
       return (
         <div key={lineIndex} className="ml-2">
-          {line.split(/(\*\*[^*]+\*\*)/).map((part, i) => 
-            part.startsWith('**') && part.endsWith('**') 
-              ? <strong key={i}>{part.slice(2, -2)}</strong> 
-              : part
-          )}
+          {formatInlineContent(line)}
         </div>
       );
     }
     
     return (
       <div key={lineIndex} className={line.trim() === '' ? 'h-2' : ''}>
-        {line.split(/(\*\*[^*]+\*\*)/).map((part, i) => 
-          part.startsWith('**') && part.endsWith('**') 
-            ? <strong key={i}>{part.slice(2, -2)}</strong> 
-            : part
-        )}
+        {formatInlineContent(line)}
       </div>
     );
   });

@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from '../logger';
 import { db } from '../db';
-import { properties, certificates, remedialActions } from '@shared/schema';
-import { count } from 'drizzle-orm';
+import { properties, certificates, remedialActions, blocks, schemes } from '@shared/schema';
+import { count, ilike, or, eq, and } from 'drizzle-orm';
 
 const anthropic = new Anthropic();
 
@@ -155,6 +155,127 @@ function findCachedResponse(query: string): string | null {
   return null;
 }
 
+// Search for properties by name/address
+async function searchProperties(query: string): Promise<string | null> {
+  const searchTerms = query.toLowerCase();
+  
+  // Check if this looks like a property search
+  const propertyIndicators = ['find', 'show', 'details', 'property', 'about', 'where is', 'look up', 'search'];
+  const isPropertySearch = propertyIndicators.some(term => searchTerms.includes(term));
+  
+  if (!isPropertySearch) return null;
+  
+  try {
+    // Extract potential property name/address from query
+    const cleanQuery = query
+      .replace(/find|show|details|about|property|where is|look up|search|tell me|give me|all the|for/gi, '')
+      .trim();
+    
+    if (cleanQuery.length < 3) return null;
+    
+    // Search properties
+    const results = await db
+      .select({
+        id: properties.id,
+        addressLine1: properties.addressLine1,
+        addressLine2: properties.addressLine2,
+        city: properties.city,
+        postcode: properties.postcode,
+        complianceStatus: properties.complianceStatus,
+        propertyType: properties.propertyType,
+        bedrooms: properties.bedrooms,
+        hasGas: properties.hasGas,
+        epcRating: properties.epcRating,
+        blockName: blocks.name,
+        schemeName: schemes.name,
+      })
+      .from(properties)
+      .leftJoin(blocks, eq(properties.blockId, blocks.id))
+      .leftJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(
+        or(
+          ilike(properties.addressLine1, `%${cleanQuery}%`),
+          ilike(properties.addressLine2, `%${cleanQuery}%`),
+          ilike(properties.city, `%${cleanQuery}%`),
+          ilike(properties.postcode, `%${cleanQuery}%`),
+          ilike(blocks.name, `%${cleanQuery}%`)
+        )
+      )
+      .limit(5);
+    
+    if (results.length === 0) {
+      return `🔍 I searched but couldn't find any properties matching "${cleanQuery}". Try searching by address, postcode, or block name!`;
+    }
+    
+    // Get certificate counts for found properties
+    const propertyIds = results.map(r => r.id);
+    const certCounts = await db
+      .select({
+        propertyId: certificates.propertyId,
+        count: count(),
+      })
+      .from(certificates)
+      .where(or(...propertyIds.map(id => eq(certificates.propertyId, id))))
+      .groupBy(certificates.propertyId);
+    
+    const certCountMap = new Map(certCounts.map(c => [c.propertyId, c.count]));
+    
+    // Get action counts
+    const actionCounts = await db
+      .select({
+        propertyId: remedialActions.propertyId,
+        count: count(),
+      })
+      .from(remedialActions)
+      .where(or(...propertyIds.map(id => eq(remedialActions.propertyId, id))))
+      .groupBy(remedialActions.propertyId);
+    
+    const actionCountMap = new Map(actionCounts.map(a => [a.propertyId, a.count]));
+    
+    if (results.length === 1) {
+      const p = results[0];
+      const certCount = certCountMap.get(p.id) || 0;
+      const actionCount = actionCountMap.get(p.id) || 0;
+      const statusEmoji = p.complianceStatus === 'COMPLIANT' ? '✅' : p.complianceStatus === 'NON_COMPLIANT' ? '🔴' : '⚠️';
+      
+      return `🏠 **Found it!** Here's what I know about this property:
+
+**${p.addressLine1}${p.addressLine2 ? ', ' + p.addressLine2 : ''}**
+📍 ${p.city}, ${p.postcode}
+
+**Quick Facts:**
+- ${statusEmoji} Status: **${p.complianceStatus?.replace('_', ' ')}**
+- 🏘️ Block: ${p.blockName || 'Not assigned'}
+- 📋 Scheme: ${p.schemeName || 'Not assigned'}
+- 🛏️ ${p.bedrooms} bedroom ${p.propertyType?.toLowerCase() || 'property'}
+- ${p.hasGas ? '🔥 Gas supply' : '⚡ Electric only'}
+${p.epcRating ? `- 📊 EPC Rating: ${p.epcRating}` : ''}
+
+**Compliance Summary:**
+- 📄 ${certCount} certificate${certCount !== 1 ? 's' : ''} on file
+- 🔧 ${actionCount} remedial action${actionCount !== 1 ? 's' : ''}
+
+👉 [View full property details](/properties/${p.id})`;
+    }
+    
+    // Multiple results
+    let response = `🔍 I found **${results.length} properties** matching your search:\n\n`;
+    
+    for (const p of results) {
+      const statusEmoji = p.complianceStatus === 'COMPLIANT' ? '✅' : p.complianceStatus === 'NON_COMPLIANT' ? '🔴' : '⚠️';
+      const certCount = certCountMap.get(p.id) || 0;
+      
+      response += `${statusEmoji} **${p.addressLine1}**, ${p.postcode}\n`;
+      response += `   ${p.blockName || 'No block'} • ${certCount} cert${certCount !== 1 ? 's' : ''} • [View details](/properties/${p.id})\n\n`;
+    }
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Property search failed');
+    return null;
+  }
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -172,60 +293,79 @@ export interface AssistantResponse {
 
 async function getComplianceContext(): Promise<string> {
   try {
-    const [propertiesCount, certsCount, actionsCount] = await Promise.all([
+    const [propertiesCount, certsCount, actionsCount, pendingReview] = await Promise.all([
       db.select({ count: count() }).from(properties),
       db.select({ count: count() }).from(certificates),
       db.select({ count: count() }).from(remedialActions),
+      db.select({ count: count() }).from(certificates).where(eq(certificates.status, 'NEEDS_REVIEW')),
     ]);
 
-    return `SYSTEM: ${propertiesCount[0]?.count || 0} properties, ${certsCount[0]?.count || 0} certificates, ${actionsCount[0]?.count || 0} actions.`;
+    const propCount = propertiesCount[0]?.count || 0;
+    const certCount = certsCount[0]?.count || 0;
+    const actionCount = actionsCount[0]?.count || 0;
+    const pendingCount = pendingReview[0]?.count || 0;
+
+    return `PORTFOLIO SNAPSHOT: You're managing ${propCount} properties with ${certCount} certificates on file. ${pendingCount > 0 ? `⚠️ ${pendingCount} certificates need your review!` : '✅ All certificates reviewed!'} ${actionCount > 0 ? `There are ${actionCount} remedial actions being tracked.` : ''}`;
   } catch (error) {
     logger.warn({ error }, 'Failed to load compliance context');
     return '';
   }
 }
 
-const SYSTEM_PROMPT = `You are the ComplianceAI Assistant, an expert on UK social housing compliance management. You help property managers and compliance officers understand:
+const SYSTEM_PROMPT = `You are ComplianceAI's friendly assistant! 👋 Think of yourself as a knowledgeable colleague who genuinely cares about keeping residents safe.
 
-1. Certificate types and their requirements (Gas Safety, EICR, Fire Risk Assessments, Asbestos Surveys, Legionella, LOLER, EPC, etc.)
-2. UK legislation and regulations (Gas Safety Regs 1998, BS 7671, Regulatory Reform Order 2005, Control of Asbestos Regs 2012, Building Safety Act 2022, etc.)
-3. Compliance deadlines and renewal schedules
-4. Defect classifications (C1, C2, C3 for gas; Code 1, 2, 3, 4 for electrical; etc.)
-5. Remedial action management and prioritization
-6. Platform features and how to use them
+**Your expertise:**
+- UK social housing compliance (Gas Safety, EICR, FRA, Asbestos, Legionella, LOLER, EPC)
+- Regulations you know inside-out: Gas Safety Regs 1998, BS 7671, RRO 2005, CAR 2012, Building Safety Act 2022
+- Defect codes: C1/C2/C3 for gas, Code 1-4 for electrical
 
-Guidelines:
-- Be concise but thorough
-- Reference specific UK regulations when relevant
-- Provide practical, actionable advice
-- If asked about specific data, reference the context provided
-- For platform usage questions, give step-by-step guidance
-- Always prioritize safety - recommend professional inspection when in doubt
+**Your personality:**
+- Warm and approachable - use emojis naturally 🏠 📋 ✅
+- Cut to the chase - busy property managers don't have time for waffle
+- Proactive - if you spot something important in the portfolio data, mention it!
+- Safety-first - when in doubt, recommend professional inspection
 
-Platform Features:
-- Dashboard: Overview of compliance status and expiring certificates
-- Certificates: Upload, view, and manage compliance certificates
-- Properties: Manage property portfolio organized by schemes and blocks
-- Actions: Track and manage remedial actions from inspections
-- Reports: Generate compliance reports and analytics
-- Model Insights: View AI extraction accuracy and tier analytics
-- Human Review: Review certificates that need manual verification
-- Factory Settings: Configure extraction thresholds and custom patterns (admin only)`;
+**When discussing the portfolio:**
+- Reference actual numbers from the context provided
+- Be specific: "You've got 3 certificates expiring next month!" not generic statements
+- Suggest actions: "Shall I help you prioritize those?"
+
+**Platform navigation tips:**
+- Dashboard → Quick overview & expiring certs
+- Certificates → Upload, view, AI-extracted data
+- Properties → Your portfolio by scheme/block
+- Actions → Track remedial work
+- Human Review → Certificates needing your attention
+- Factory Settings → Admin config (if you have access)
+
+Remember: You're here to make compliance less stressful, not more! Keep it helpful, keep it human.`;
 
 export async function chatWithAssistant(
   messages: ChatMessage[],
   organisationId?: string
 ): Promise<AssistantResponse> {
   try {
-    // Check FAQ cache first for instant responses
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    
     if (lastUserMessage) {
+      // Check FAQ cache first for instant responses
       const cachedResponse = findCachedResponse(lastUserMessage.content);
       if (cachedResponse) {
         logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving cached FAQ response');
         return {
           success: true,
           message: cachedResponse,
+          tokensUsed: { input: 0, output: 0 },
+        };
+      }
+      
+      // Check for property search queries
+      const propertyResponse = await searchProperties(lastUserMessage.content);
+      if (propertyResponse) {
+        logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving property search response');
+        return {
+          success: true,
+          message: propertyResponse,
           tokensUsed: { input: 0, output: 0 },
         };
       }
