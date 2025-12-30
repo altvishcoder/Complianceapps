@@ -144,6 +144,58 @@ function findCachedResponse(query: string): string | null {
   return null;
 }
 
+// Get certificates pending review with links
+async function getCertificatesPendingReview(): Promise<string> {
+  try {
+    const pendingCerts = await db
+      .select({
+        id: certificates.id,
+        certificateType: certificates.certificateType,
+        status: certificates.status,
+      })
+      .from(certificates)
+      .where(eq(certificates.status, 'NEEDS_REVIEW'));
+    
+    if (pendingCerts.length === 0) {
+      return `✅ **No certificates pending review!**\nAll certificates have been reviewed. [View all certificates](/certificates)`;
+    }
+    
+    // Group by type
+    const byType: Record<string, number> = {};
+    for (const cert of pendingCerts) {
+      const type = cert.certificateType || 'Unknown';
+      byType[type] = (byType[type] || 0) + 1;
+    }
+    
+    // Map common types to friendly names and URL params
+    const typeLabels: Record<string, string> = {
+      'GAS_SAFETY': 'Gas Safety (CP12)',
+      'CP12': 'Gas Safety (CP12)',
+      'EICR': 'Electrical (EICR)',
+      'FRA': 'Fire Risk Assessment',
+      'FIRE_RISK_ASSESSMENT': 'Fire Risk Assessment',
+      'EPC': 'Energy Performance',
+      'ASBESTOS': 'Asbestos Survey',
+      'LEGIONELLA': 'Legionella',
+    };
+    
+    let response = `🕵️ **Certificates Pending Review: ${pendingCerts.length}**\n\n`;
+    
+    const sortedTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+    for (const [type, count] of sortedTypes.slice(0, 5)) {
+      const label = typeLabels[type] || type.replace(/_/g, ' ');
+      response += `• ${label}: **${count}** → [View](/certificates?status=NEEDS_REVIEW&type=${encodeURIComponent(type)})\n`;
+    }
+    
+    response += `\n[View all pending →](/certificates?status=NEEDS_REVIEW)`;
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Failed to get pending certificates');
+    return `😅 Couldn't fetch pending certificates. [Check certificates page](/certificates?status=NEEDS_REVIEW)`;
+  }
+}
+
 // Get components needing attention
 async function getComponentsNeedingAttention(): Promise<string> {
   try {
@@ -316,6 +368,15 @@ async function searchProperties(query: string): Promise<string | null> {
   
   if (wantsComponentAttention || (searchTerms.includes('find') && hasComponentContext)) {
     return await getComponentsNeedingAttention();
+  }
+  
+  // Check for pending certificates queries
+  const wantsPendingCerts = (searchTerms.includes('pending') || searchTerms.includes('review') || 
+    searchTerms.includes('needs review') || searchTerms.includes('ai review')) && 
+    (searchTerms.includes('certificate') || searchTerms.includes('cert'));
+  
+  if (wantsPendingCerts) {
+    return await getCertificatesPendingReview();
   }
   
   // Check for compliance-based queries first - must include property-related terms
