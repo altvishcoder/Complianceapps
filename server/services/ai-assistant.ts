@@ -1575,7 +1575,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
     const expiringCerts = (results.rows as any[]) || [];
     
     if (expiringCerts.length === 0) {
-      return `**Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`;
+      return `**Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates](/certificates) | [Remedial Actions](/remedial-actions)`;
     }
     
     // Group by type
