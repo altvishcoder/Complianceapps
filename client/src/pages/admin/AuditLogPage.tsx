@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Search, Download, Clock, User, FileText, Settings, CheckCircle, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -165,11 +167,15 @@ export default function AuditLogPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="page-title">Audit Log</h1>
-          <p className="text-muted-foreground">Track all changes and activities across the platform</p>
+    <div className="flex h-screen bg-muted/30">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Audit Log" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold" data-testid="page-title">Audit Log</h1>
+              <p className="text-muted-foreground">Track all changes and activities across the platform</p>
         </div>
         <Button variant="outline" onClick={exportToCSV} disabled={!filteredEvents.length} data-testid="button-export-csv">
           <Download className="h-4 w-4 mr-2" />
@@ -337,6 +343,8 @@ export default function AuditLogPage() {
           )}
         </CardContent>
       </Card>
+        </main>
+      </div>
     </div>
   );
 }
