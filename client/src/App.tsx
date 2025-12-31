@@ -60,6 +60,7 @@ import AdminApiIntegration from "@/pages/admin/api-integration";
 import AdminSystemHealth from "@/pages/admin/system-health";
 import AdminAuditLog from "@/pages/admin/AuditLogPage";
 import AdminApiDocs from "@/pages/admin/api-docs";
+import AdminChatbotAnalytics from "@/pages/admin/chatbot-analytics";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
@@ -105,6 +106,7 @@ function Router() {
       <Route path="/admin/system-health">{() => <ProtectedRoute component={AdminSystemHealth} />}</Route>
       <Route path="/admin/audit-log">{() => <ProtectedRoute component={AdminAuditLog} />}</Route>
       <Route path="/admin/api-docs">{() => <ProtectedRoute component={AdminApiDocs} />}</Route>
+      <Route path="/admin/chatbot-analytics">{() => <ProtectedRoute component={AdminChatbotAnalytics} />}</Route>
       <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
       <Route path="/human-review">{() => <ProtectedRoute component={HumanReviewPage} />}</Route>
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>

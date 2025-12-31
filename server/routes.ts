@@ -494,6 +494,37 @@ export async function registerRoutes(
     }
   });
   
+  // ===== AI ASSISTANT ANALYTICS ENDPOINT =====
+  app.get("/api/assistant/analytics", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      // Only admins can view analytics
+      const adminRoles = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'ADMIN'];
+      if (!adminRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 7;
+      
+      const { getChatbotAnalytics } = await import('./services/ai-assistant');
+      const analytics = await getChatbotAnalytics(days);
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Analytics error:", error);
+      res.status(500).json({ error: "Failed to get analytics" });
+    }
+  });
+  
   // ===== GLOBAL SEARCH (PostgreSQL Full-Text Search) =====
   app.get("/api/search", async (req, res) => {
     try {

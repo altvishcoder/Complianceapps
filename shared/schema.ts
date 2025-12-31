@@ -22,6 +22,14 @@ export const extractionStatusEnum = pgEnum('extraction_status', [
   'AWAITING_REVIEW', 'APPROVED', 'REJECTED'
 ]);
 
+// Chatbot Enums
+export const chatIntentEnum = pgEnum('chat_intent', [
+  'greeting', 'navigation', 'database', 'faq', 'rag', 'off_topic', 'complex'
+]);
+export const chatResponseSourceEnum = pgEnum('chat_response_source', [
+  'static', 'faq_cache', 'faq_tfidf', 'database', 'rag', 'llm'
+]);
+
 // Tables
 export const organisations = pgTable("organisations", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -695,6 +703,93 @@ export const videos = pgTable("videos", {
   
   viewCount: integer("view_count").notNull().default(0),
   downloadCount: integer("download_count").notNull().default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// CHATBOT TABLES
+// ==========================================
+
+// Chatbot Conversations (for multi-turn context)
+export const chatbotConversations = pgTable("chatbot_conversations", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: text("session_id").notNull(),
+  
+  title: text("title"),
+  messageCount: integer("message_count").notNull().default(0),
+  tokensUsed: integer("tokens_used").notNull().default(0),
+  
+  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Chatbot Messages (individual messages in conversations)
+export const chatbotMessages = pgTable("chatbot_messages", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: varchar("conversation_id").references(() => chatbotConversations.id, { onDelete: 'cascade' }).notNull(),
+  
+  role: text("role").notNull(),
+  content: text("content").notNull(),
+  
+  intent: chatIntentEnum("intent"),
+  responseSource: chatResponseSourceEnum("response_source"),
+  confidence: real("confidence"),
+  
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  responseTimeMs: integer("response_time_ms"),
+  
+  ragDocumentsUsed: json("rag_documents_used"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Chatbot Analytics (aggregated usage metrics)
+export const chatbotAnalytics = pgTable("chatbot_analytics", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  date: text("date").notNull(),
+  hour: integer("hour"),
+  
+  totalQueries: integer("total_queries").notNull().default(0),
+  staticResponses: integer("static_responses").notNull().default(0),
+  faqHits: integer("faq_hits").notNull().default(0),
+  databaseQueries: integer("database_queries").notNull().default(0),
+  ragQueries: integer("rag_queries").notNull().default(0),
+  llmQueries: integer("llm_queries").notNull().default(0),
+  
+  totalInputTokens: integer("total_input_tokens").notNull().default(0),
+  totalOutputTokens: integer("total_output_tokens").notNull().default(0),
+  estimatedCostCents: integer("estimated_cost_cents").notNull().default(0),
+  
+  avgResponseTimeMs: integer("avg_response_time_ms"),
+  
+  topIntents: json("top_intents"),
+  topTopics: json("top_topics"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Knowledge Embeddings (for RAG vector search)
+export const knowledgeEmbeddings = pgTable("knowledge_embeddings", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  sourceType: text("source_type").notNull(),
+  sourceId: text("source_id"),
+  
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category"),
+  
+  metadata: json("metadata"),
+  
+  embeddingModel: text("embedding_model").notNull(),
+  embedding: text("embedding"),
+  
+  riskScore: real("risk_score"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

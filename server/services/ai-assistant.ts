@@ -1,8 +1,162 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from '../logger';
 import { db } from '../db';
-import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes } from '@shared/schema';
-import { count, ilike, or, eq, and, isNull, lt, desc } from 'drizzle-orm';
+import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes, chatbotConversations, chatbotMessages, chatbotAnalytics } from '@shared/schema';
+import { count, ilike, or, eq, and, isNull, lt, desc, sql } from 'drizzle-orm';
+
+// =============================================================================
+// ANALYTICS TRACKING
+// Tracks usage metrics for cost optimization and insights
+// =============================================================================
+
+interface AnalyticsData {
+  intent: string;
+  responseSource: 'static' | 'faq_cache' | 'faq_tfidf' | 'database' | 'rag' | 'llm';
+  inputTokens: number;
+  outputTokens: number;
+  responseTimeMs: number;
+  confidence?: number;
+}
+
+async function trackAnalytics(data: AnalyticsData): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const hour = new Date().getHours();
+    
+    // Try to update existing record for this date/hour
+    const existing = await db.select()
+      .from(chatbotAnalytics)
+      .where(and(
+        eq(chatbotAnalytics.date, today),
+        eq(chatbotAnalytics.hour, hour)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      // Update existing record
+      const record = existing[0];
+      await db.update(chatbotAnalytics)
+        .set({
+          totalQueries: sql`${chatbotAnalytics.totalQueries} + 1`,
+          staticResponses: data.responseSource === 'static' 
+            ? sql`${chatbotAnalytics.staticResponses} + 1` 
+            : record.staticResponses,
+          faqHits: (data.responseSource === 'faq_cache' || data.responseSource === 'faq_tfidf')
+            ? sql`${chatbotAnalytics.faqHits} + 1`
+            : record.faqHits,
+          databaseQueries: data.responseSource === 'database'
+            ? sql`${chatbotAnalytics.databaseQueries} + 1`
+            : record.databaseQueries,
+          ragQueries: data.responseSource === 'rag'
+            ? sql`${chatbotAnalytics.ragQueries} + 1`
+            : record.ragQueries,
+          llmQueries: data.responseSource === 'llm'
+            ? sql`${chatbotAnalytics.llmQueries} + 1`
+            : record.llmQueries,
+          totalInputTokens: sql`${chatbotAnalytics.totalInputTokens} + ${data.inputTokens}`,
+          totalOutputTokens: sql`${chatbotAnalytics.totalOutputTokens} + ${data.outputTokens}`,
+        })
+        .where(eq(chatbotAnalytics.id, record.id));
+    } else {
+      // Insert new record
+      await db.insert(chatbotAnalytics).values({
+        date: today,
+        hour,
+        totalQueries: 1,
+        staticResponses: data.responseSource === 'static' ? 1 : 0,
+        faqHits: (data.responseSource === 'faq_cache' || data.responseSource === 'faq_tfidf') ? 1 : 0,
+        databaseQueries: data.responseSource === 'database' ? 1 : 0,
+        ragQueries: data.responseSource === 'rag' ? 1 : 0,
+        llmQueries: data.responseSource === 'llm' ? 1 : 0,
+        totalInputTokens: data.inputTokens,
+        totalOutputTokens: data.outputTokens,
+        avgResponseTimeMs: data.responseTimeMs,
+      });
+    }
+  } catch (error) {
+    logger.warn({ error }, 'Failed to track chatbot analytics');
+  }
+}
+
+// Get analytics summary for dashboard
+export async function getChatbotAnalytics(days: number = 7): Promise<{
+  totalQueries: number;
+  tokensSaved: number;
+  estimatedCostSaved: number;
+  responseSourceBreakdown: Record<string, number>;
+  dailyStats: Array<{ date: string; queries: number; llmQueries: number }>;
+}> {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    const stats = await db.select()
+      .from(chatbotAnalytics)
+      .where(sql`${chatbotAnalytics.date} >= ${startDateStr}`)
+      .orderBy(chatbotAnalytics.date);
+    
+    let totalQueries = 0;
+    let staticResponses = 0;
+    let faqHits = 0;
+    let databaseQueries = 0;
+    let ragQueries = 0;
+    let llmQueries = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    
+    const dailyStats: Record<string, { queries: number; llmQueries: number }> = {};
+    
+    for (const stat of stats) {
+      totalQueries += stat.totalQueries;
+      staticResponses += stat.staticResponses;
+      faqHits += stat.faqHits;
+      databaseQueries += stat.databaseQueries;
+      ragQueries += stat.ragQueries;
+      llmQueries += stat.llmQueries;
+      totalInputTokens += stat.totalInputTokens;
+      totalOutputTokens += stat.totalOutputTokens;
+      
+      if (!dailyStats[stat.date]) {
+        dailyStats[stat.date] = { queries: 0, llmQueries: 0 };
+      }
+      dailyStats[stat.date].queries += stat.totalQueries;
+      dailyStats[stat.date].llmQueries += stat.llmQueries;
+    }
+    
+    // Estimate tokens saved (assuming ~500 tokens per query if all went to LLM)
+    const queriesNotUsingLLM = totalQueries - llmQueries;
+    const tokensSaved = queriesNotUsingLLM * 500;
+    // Claude 3.5 Haiku pricing: ~$0.25/million input, ~$1.25/million output
+    const estimatedCostSaved = (tokensSaved * 0.00000125);
+    
+    return {
+      totalQueries,
+      tokensSaved,
+      estimatedCostSaved,
+      responseSourceBreakdown: {
+        static: staticResponses,
+        faq: faqHits,
+        database: databaseQueries,
+        rag: ragQueries,
+        llm: llmQueries,
+      },
+      dailyStats: Object.entries(dailyStats).map(([date, data]) => ({
+        date,
+        ...data,
+      })),
+    };
+  } catch (error) {
+    logger.error({ error }, 'Failed to get chatbot analytics');
+    return {
+      totalQueries: 0,
+      tokensSaved: 0,
+      estimatedCostSaved: 0,
+      responseSourceBreakdown: {},
+      dailyStats: [],
+    };
+  }
+}
 
 const anthropic = new Anthropic();
 
@@ -125,13 +279,14 @@ interface FAQEntry {
   tfidfVector?: Map<string, number>; // Computed TF-IDF weights
 }
 
-// Enhanced FAQ database - loaded from attached JSON
+// Enhanced FAQ database - 45+ comprehensive compliance questions
 const FAQ_DATABASE: FAQEntry[] = [
+  // ===== GAS SAFETY (8 FAQs) =====
   {
     id: "gas-001",
     category: "gas_safety",
     question: "How often do gas safety certificates need to be renewed?",
-    variations: ["When does a gas certificate expire?", "LGSR renewal frequency", "CP12 validity period", "Gas cert expiry"],
+    variations: ["When does a gas certificate expire?", "LGSR renewal frequency", "CP12 validity period", "Gas cert expiry", "How long is a gas safety record valid?", "When to renew gas certificate"],
     answer: `**Gas Safety Certificates** (LGSR/CP12) must be renewed **annually** - within 12 months.
 
 • Applies to all rental properties with gas appliances
@@ -148,7 +303,7 @@ const FAQ_DATABASE: FAQEntry[] = [
     id: "gas-002",
     category: "gas_safety",
     question: "What appliances need to be checked on a gas safety inspection?",
-    variations: ["What does a gas check cover?", "Gas safety inspection scope", "What's included in LGSR?"],
+    variations: ["What does a gas check cover?", "Gas safety inspection scope", "What's included in LGSR?", "Gas appliances covered by CP12"],
     answer: `**Gas Safety Inspection Scope:**
 
 All gas appliances, fittings, and flues must be checked:
@@ -161,21 +316,26 @@ All gas appliances, fittings, and flues must be checked:
 • Appliance safety and operation
 • Flue flow and spillage tests
 • Ventilation adequacy
-• Gas tightness (pipework)`,
-    sources: ["Gas Safety Regulations 1998"],
+• Gas tightness (pipework)
+• Carbon monoxide alarm check
+
+👉 [View Gas Certificates](/certificates?type=CP12) | [Components](/components)`,
+    sources: ["Gas Safety Regulations 1998", "Gas Safe Technical Bulletin"],
   },
   {
     id: "gas-003",
     category: "gas_safety", 
     question: "What happens if a gas appliance is condemned?",
-    variations: ["Immediately dangerous gas appliance", "ID classification gas", "At risk gas appliance", "AR classification meaning"],
+    variations: ["Immediately dangerous gas appliance", "ID classification gas", "At risk gas appliance", "AR classification meaning", "Gas appliance warning notice"],
     answer: `**Gas Appliance Classifications:**
 
 🔴 **Immediately Dangerous (ID)**
-• Disconnect immediately
-• Cannot use until repaired
+• Poses immediate risk to life
+• Must be disconnected immediately
+• Cannot use until repaired by Gas Safe engineer
 
 🟠 **At Risk (AR)**
+• Not immediately dangerous but poses risk
 • Should be repaired ASAP
 • User warned in writing
 
@@ -183,20 +343,47 @@ All gas appliances, fittings, and flues must be checked:
 • Safe to use
 • Recommend upgrade when convenient
 
-**Landlord must fix all ID and AR issues before re-letting.**`,
-    sources: ["Gas Safe Register Unsafe Situations Procedure"],
+**Landlord must fix all ID and AR issues before re-letting.**
+
+👉 [View Remedial Actions](/actions?severity=IMMEDIATE) | [Urgent Actions](/actions)`,
+    sources: ["Gas Safe Register Unsafe Situations Procedure", "GIUSP"],
   },
+  {
+    id: "gas-004",
+    category: "gas_safety",
+    question: "Can a tenant refuse access for a gas safety check?",
+    variations: ["Tenant won't allow gas inspection", "Access denied for gas check", "What if tenant refuses gas safety", "Legal rights gas inspection access"],
+    answer: `**Tenants cannot legally refuse** access for mandatory gas safety checks.
+
+**Landlord steps:**
+1. Give reasonable notice (24-48 hours recommended)
+2. Offer alternative appointment times
+3. Document all attempts in writing
+4. Send formal written warning
+5. If persistent refusal, seek legal advice
+
+**Important:**
+• Keep records of all access attempts
+• You must demonstrate 'reasonable steps'
+• May need court injunction as last resort
+• Never enter without proper notice/consent
+
+**HSE position:** Landlords must take 'all reasonable steps' - documented attempts protect you legally.`,
+    sources: ["Gas Safety Regulations 1998 Reg.36", "HSE Guidance for Landlords"],
+  },
+  // ===== ELECTRICAL (5 FAQs) =====
   {
     id: "electrical-001",
     category: "electrical",
     question: "How often is an EICR required for rental properties?",
-    variations: ["EICR inspection frequency", "When do electrical certificates expire?", "Electrical safety check frequency"],
+    variations: ["EICR inspection frequency", "When do electrical certificates expire?", "Electrical safety check frequency", "EICR renewal period", "How long is an electrical report valid?"],
     answer: `**EICRs required at least every 5 years**
 
 • Mandatory for all private rented sector (since April 2021)
 • Must be by qualified electrician (NICEIC, NAPIT, ELECSA)
 • C1/C2 defects: fix within **28 days**
 • Copy to tenant within **28 days**
+• New tenants must receive copy before moving in
 
 **Regulation:** Electrical Safety Standards Regulations 2020
 
@@ -207,42 +394,78 @@ All gas appliances, fittings, and flues must be checked:
     id: "electrical-002",
     category: "electrical",
     question: "What do EICR codes C1, C2, C3 mean?",
-    variations: ["EICR observation codes explained", "What is a C1 defect?", "C2 electrical code meaning", "Electrical report classification codes"],
+    variations: ["EICR observation codes explained", "What is a C1 defect?", "C2 electrical code meaning", "Electrical report classification codes", "C3 code meaning"],
     answer: `**EICR Observation Codes:**
 
 🔴 **C1 - Danger Present**
-• Immediate risk → Fix within **24-48 hours**
+• Immediate risk of injury
+• Requires immediate remedial action
+• **Action: Within 24-48 hours**
 
 🟠 **C2 - Potentially Dangerous**
-• Could become dangerous → Fix within **28 days** (legal)
+• Could become dangerous
+• **Action: Within 28 days** (legal requirement)
 
 🟡 **C3 - Improvement Recommended**
-• Not a safety issue → Recommended but not mandatory
+• Does not meet current standards
+• Not a safety issue
+• **Action: Recommended but not mandatory**
 
 **FI** - Further Investigation needed
 
 **Any C1 or C2 = UNSATISFACTORY overall**
 
-👉 [View Defect Codes](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/actions)`,
+👉 [View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/actions)`,
     sources: ["BS 7671:2018", "Electrical Safety Standards Regulations 2020"],
   },
+  {
+    id: "electrical-003",
+    category: "electrical",
+    question: "What's the difference between an EICR and an electrical certificate?",
+    variations: ["EICR vs EIC", "Electrical installation certificate vs condition report", "Do I need EICR or EIC?", "Types of electrical certificates"],
+    answer: `**Different electrical certificates for different purposes:**
+
+**EICR (Electrical Installation Condition Report)**
+• For EXISTING installations
+• Assesses current condition and safety
+• Required every 5 years for rentals
+• Reports on deterioration and defects
+
+**EIC (Electrical Installation Certificate)**
+• For NEW installations or major alterations
+• Confirms work meets BS 7671 standards
+• Issued when new electrical work completed
+• Accompanies new builds or rewires
+
+**Minor Works Certificate**
+• For small additions/alterations
+• Adding sockets, lights, etc.
+• Not for new circuits
+
+**For landlords:** You need a valid EICR - not just the original EIC from when the property was built.
+
+👉 [View All Electrical Certificates](/certificates?type=EICR)`,
+    sources: ["BS 7671:2018", "IET Guidance Note 3"],
+  },
+  // ===== FIRE SAFETY (5 FAQs) =====
   {
     id: "fire-001",
     category: "fire_safety",
     question: "How often should a Fire Risk Assessment be reviewed?",
-    variations: ["FRA review frequency", "When to update fire risk assessment", "Fire risk assessment renewal"],
-    answer: `**Fire Risk Assessment: Review annually** or sooner if:
+    variations: ["FRA review frequency", "When to update fire risk assessment", "Fire risk assessment renewal", "How often FRA inspection"],
+    answer: `**Fire Risk Assessment: Review at least annually** or sooner if:
 
-• Significant building changes
+• Significant changes to the building layout
 • Changes to use or occupancy
-• After a fire or near-miss
-• New legislation introduced
+• After a fire or near-miss incident
+• New fire safety legislation introduced
+• Following enforcement action
 
 **High-rise (18m+):**
-• More frequent reviews (quarterly)
-• Building Safety Case required
+• More frequent reviews required (quarterly)
+• Must have Building Safety Case
 
-**Regulation:** Fire Safety Order 2005, Building Safety Act 2022
+**Best practice:** Review annually even if no changes - document the review date.
 
 👉 [View FRA Documents](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Safety Actions](/actions)`,
     sources: ["Fire Safety Order 2005", "PAS 79-2:2020", "Building Safety Act 2022"],
@@ -251,72 +474,192 @@ All gas appliances, fittings, and flues must be checked:
     id: "fire-002",
     category: "fire_safety",
     question: "Do I need fire alarms in rental properties?",
-    variations: ["Smoke alarm requirements rental", "Carbon monoxide alarm regulations", "Fire alarm requirements landlords"],
+    variations: ["Smoke alarm requirements rental", "Carbon monoxide alarm regulations", "Fire alarm requirements landlords", "Smoke detector rules rental property"],
     answer: `**Yes - smoke and CO alarms mandatory** (from Oct 2022)
 
 **Smoke alarms:**
-• At least one on each storey
-• Must work at start of each tenancy
+• At least one on each storey with living accommodation
+• Must be working at start of each tenancy
+• Recommended: test regularly, replace every 10 years
 
 **Carbon monoxide alarms:**
-• In any room with combustion appliance
-• Includes gas boilers, fires, wood burners
+• In any room with a fixed combustion appliance (except gas cookers)
+• Includes gas boilers, fires, wood burners, oil heaters
+• Must be working at start of each tenancy
 
-**Penalties:** Up to £5,000 fine
+**Heat alarms:**
+• Recommended in kitchens (instead of smoke alarms)
 
-**Regulation:** Smoke and CO Alarm Regulations 2022
+**Penalties:** Up to £5,000 fine for non-compliance.
 
 👉 [View Fire Safety Certificates](/certificates?type=FIRE_RISK_ASSESSMENT) | [Track Actions](/actions)`,
-    sources: ["Smoke and CO Alarm Regulations 2022"],
+    sources: ["Smoke and CO Alarm Regulations 2022", "Fire Safety Order 2005"],
   },
+  {
+    id: "fire-003",
+    category: "fire_safety",
+    question: "What are fire door inspection requirements?",
+    variations: ["Fire door checks frequency", "How often inspect fire doors", "Fire door regulations flats", "FD30 door requirements"],
+    answer: `**Fire Door Inspection Requirements:**
+
+**Frequency:**
+• Quarterly checks recommended for communal areas
+• Annual detailed inspection by competent person
+• Immediately after any damage reported
+
+**What to check:**
+• Door closes fully into frame
+• Gaps around door (max 3-4mm when closed)
+• Intumescent strips and smoke seals intact
+• Self-closing device working properly
+• No damage, holes, or modifications
+• Hinges secure (minimum 3 hinges)
+• Signage in place
+
+**High-rise (over 11m):**
+• Flat entrance doors must be FD30S (30 min + smoke seals)
+• More rigorous inspection regime required
+
+👉 [View Fire Safety Records](/certificates?type=FIRE_RISK_ASSESSMENT) | [Actions](/actions)`,
+    sources: ["Fire Safety Order 2005", "Building Safety Act 2022", "BS 8214"],
+  },
+  // ===== LEGIONELLA (3 FAQs) =====
   {
     id: "legionella-001",
     category: "legionella",
     question: "Do landlords need a Legionella risk assessment?",
-    variations: ["Legionella requirements rental property", "LRA mandatory for landlords?", "Water safety assessment rental"],
+    variations: ["Legionella requirements rental property", "LRA mandatory for landlords?", "Water safety assessment rental", "Legionella check rental"],
     answer: `**Yes - all landlords must assess Legionella risk**
 
+**Requirements:**
+• Identify and assess risk from Legionella bacteria
 • Document the assessment
-• Review every **2 years**
 • Implement control measures if needed
+• Review periodically (typically every 2 years)
 
-**Temperature controls:**
-• Hot water: **60°C** stored, **50°C** delivered
-• Cold water: below **20°C**
+**For simple domestic properties:**
+• Basic assessment often sufficient
+• Check water temperatures
+• Ensure no stagnation points
+• Remove/clean showerheads and taps
 
-**Regulation:** HSE ACOP L8, HSG274
+**Higher risk situations:**
+• Complex water systems
+• Stored hot water
+• Care homes or HMOs
+• May need professional assessment
+
+**Key control:** Keep hot water above 50°C stored, 60°C at cylinder
 
 👉 [View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
-    sources: ["ACOP L8", "HSG274 Parts 1-3"],
+    sources: ["ACOP L8", "HSG274 Parts 1-3", "HSE Guidance for Landlords"],
   },
+  {
+    id: "legionella-002",
+    category: "legionella",
+    question: "What temperature should hot water be to prevent Legionella?",
+    variations: ["Legionella temperature requirements", "Hot water temperature regulations", "Safe water temperature Legionella", "TMV temperature settings"],
+    answer: `**Water Temperature Requirements for Legionella Control:**
+
+**Hot water:**
+• Stored at **60°C** minimum in cylinders/calorifiers
+• Distributed at **50°C** minimum (within 1 minute of running)
+• Outlet temperature should reach 50°C within 1 minute
+
+**Cold water:**
+• Should be below **20°C** (ideally below 20°C)
+• Check at sentinel outlets (furthest from tank)
+
+**TMVs (Thermostatic Mixing Valves):**
+• Blend hot/cold to prevent scalding
+• Typically set to 41-44°C at outlet
+• Required where vulnerable users present
+• Must be serviced annually
+
+**Important:** Legionella thrives between 20-45°C - avoid temperatures in this range.
+
+**Monthly checks recommended:** Temperature monitoring at key outlets.`,
+    sources: ["HSG274 Part 2", "ACOP L8", "BS 8558"],
+  },
+  // ===== ASBESTOS (3 FAQs) =====
   {
     id: "asbestos-001",
     category: "asbestos",
     question: "When is an asbestos survey required?",
-    variations: ["Asbestos survey requirements", "Do I need asbestos survey?", "Asbestos check rental property"],
+    variations: ["Asbestos survey requirements", "Do I need asbestos survey?", "Asbestos check rental property", "When to survey for asbestos"],
     answer: `**Asbestos Surveys Required For:**
 
-**Management surveys:**
-• Non-domestic premises/common areas
-• Before routine maintenance
-• Pre-1999 buildings recommended
+**Management surveys (non-intrusive):**
+• Any non-domestic premises or common areas
+• Before routine maintenance work
+• As part of property management
+• Recommended for pre-1999 buildings
 
 **Refurbishment/Demolition surveys:**
 • Before ANY refurbishment work
 • Before demolition
+• Fully intrusive - destructive inspection
+• Required before contractors start work
 
-**Note:** Asbestos used until 1999 (banned 2000)
+**Domestic properties:**
+• No legal requirement for private dwellings
+• BUT duty of care to contractors doing work
+• Recommended for pre-2000 properties before works
 
-**Regulation:** Control of Asbestos Regulations 2012
+**Common areas in flats:**
+• Management survey required
+• Asbestos register must be maintained
+• Re-inspection recommended annually
+
+**Note:** Asbestos was used in buildings until 1999 (banned 2000).
 
 👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
-    sources: ["Control of Asbestos Regulations 2012", "HSG264"],
+    sources: ["Control of Asbestos Regulations 2012", "HSG264", "HSG227"],
   },
+  {
+    id: "asbestos-002",
+    category: "asbestos",
+    question: "What do I do if asbestos is found?",
+    variations: ["Asbestos found in property", "How to manage asbestos", "Asbestos removal requirements", "ACM found during works"],
+    answer: `**If Asbestos is Found, Follow These Steps:**
+
+**1. Don't panic - assess the risk:**
+• Asbestos is only dangerous when disturbed
+• Intact materials in good condition can be managed in place
+
+**2. Determine condition:**
+• Good condition, undamaged → Usually manage in place
+• Damaged or likely to be disturbed → Consider removal
+
+**3. Options:**
+
+**Manage in place:**
+• Label clearly
+• Add to asbestos register
+• Monitor condition (annual re-inspection)
+• Brief contractors before any work
+
+**Encapsulate:**
+• Seal with protective coating
+• Prevents fibre release
+• Cheaper than removal
+
+**Remove:**
+• Must use licensed contractor (for most ACM types)
+• Notify HSE if licensable work
+• Requires air testing before re-occupation
+
+**Important:** Never attempt DIY removal of asbestos.
+
+👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Remedial Actions](/actions)`,
+    sources: ["Control of Asbestos Regulations 2012", "HSG264", "HSG247"],
+  },
+  // ===== GENERAL COMPLIANCE (8 FAQs) =====
   {
     id: "general-001",
     category: "general",
     question: "What compliance certificates do landlords need?",
-    variations: ["Required certificates for rental property", "Landlord legal requirements certificates", "Rental property compliance checklist"],
+    variations: ["Required certificates for rental property", "Landlord legal requirements certificates", "Rental property compliance checklist", "What inspections needed for BTL"],
     answer: `**Mandatory Certificates:**
 
 ✅ [Gas Safety (CP12)](/certificates?type=CP12) - Annual (if gas)
@@ -324,50 +667,299 @@ All gas appliances, fittings, and flues must be checked:
 ✅ [EPC](/certificates?type=EPC) - Every 10 years (Rating E+)
 ✅ Smoke & CO Alarms - Each tenancy start
 
-**Recommended:**
-📋 [Fire Risk Assessment](/certificates?type=FIRE_RISK_ASSESSMENT) - HMOs/common areas
+**Recommended/Situational:**
+📋 [Fire Risk Assessment](/certificates?type=FIRE_RISK_ASSESSMENT) - HMOs/common areas (annually)
 📋 [Legionella Risk Assessment](/certificates?type=LEGIONELLA) - Every 2 years
-📋 [Asbestos Survey](/certificates?type=ASBESTOS) - Pre-1999 buildings
+📋 [Asbestos Survey](/certificates?type=ASBESTOS) - Pre-1999 buildings before works
 
 👉 [View All Certificates](/certificates) | [Dashboard](/dashboard)`,
-    sources: ["Various UK regulations"],
+    sources: ["Various regulations - see specific certificate types"],
   },
   {
     id: "general-002",
     category: "general",
     question: "What are the penalties for non-compliance?",
-    variations: ["Fines for missing gas certificate", "Landlord compliance penalties", "What happens if no EICR"],
-    answer: `**Compliance Penalties:**
+    variations: ["Fines for missing gas certificate", "Landlord compliance penalties", "What happens if no EICR", "Non-compliance consequences rental"],
+    answer: `**Penalties for Compliance Failures:**
 
-**Gas Safety:** Up to **£6,000** fine, 6 months prison
-**Electrical:** Up to **£30,000** fine
+**Gas Safety:** Up to **£6,000** fine per breach, 6 months prison
+• Unlimited fine if tenant harmed
+• Manslaughter charges possible
+
+**Electrical Safety:** Up to **£30,000** fine
+• Local authority can do works and recover costs
+• Rent Repayment Orders possible
+
 **Smoke/CO Alarms:** Up to **£5,000** fine
-**Fire Safety:** **Unlimited** fines, 2 years prison
 
-**Also:**
+**Fire Safety (HMOs/common areas):**
+• **Unlimited** fines
+• Up to 2 years imprisonment
+• Prohibition notices (can't let property)
+
+**EPC:** £200 fine per breach, can't legally let without valid EPC
+
+**Also consider:**
 • Invalid Section 21 notices
 • Insurance may be void
-• Rent Repayment Orders possible`,
-    sources: ["Gas Safety Regs 1998", "Electrical Safety Standards 2020", "Housing Act 2004"],
+• Mortgage breach
+• Criminal record
+• Rent Repayment Orders`,
+    sources: ["Gas Safety Regulations 1998", "Electrical Safety Standards 2020", "Housing Act 2004"],
+  },
+  {
+    id: "general-003",
+    category: "general",
+    question: "How long must I keep compliance records?",
+    variations: ["Certificate retention period", "How long keep gas certificates", "Record keeping requirements landlords", "Compliance document storage"],
+    answer: `**Record Retention Requirements:**
+
+**Gas Safety Records:**
+• Minimum 2 years (legal requirement)
+• Recommended: Keep indefinitely
+
+**Electrical (EICR):**
+• Keep until next inspection (5 years)
+• Recommended: Keep indefinitely
+
+**Fire Risk Assessment:**
+• Keep current version plus previous
+• Retain superseded versions for 3+ years
+
+**Asbestos Records:**
+• **40 years minimum** for exposure records
+• Keep surveys indefinitely while ACMs present
+
+**EPC:**
+• 10 years (valid period)
+• Keep expired ones for reference
+
+**General recommendation:**
+• Keep ALL compliance records for life of ownership
+• Digital backups recommended
+• Provide copies to new owner on sale
+• Essential for due diligence and insurance claims
+
+👉 [View All Certificates](/certificates)`,
+    sources: ["Gas Safety Regulations 1998", "Control of Asbestos Regulations 2012"],
   },
   {
     id: "epc-001",
     category: "general",
     question: "What EPC rating is required for rental properties?",
-    variations: ["Minimum EPC rating to rent", "EPC requirements landlords", "Can I rent with EPC rating F", "MEES regulations"],
-    answer: `**Minimum EPC: E or above**
+    variations: ["Minimum EPC rating to rent", "EPC requirements landlords", "Can I rent with EPC rating F", "MEES regulations EPC"],
+    answer: `**Minimum EPC Rating: E or above**
 
-• Cannot grant new tenancies if below E
+**Current rules (MEES):**
+• Cannot grant new tenancies if EPC below E
+• Cannot continue existing tenancies if below E
 • Fine up to **£5,000** for breaches
 
 **Exemptions:**
 • All improvements up to £3,500 cap made
+• Property will be devalued by 5%+ by works
+• Third party consent refused
+• Wall insulation would damage property
 • Valid exemption lasts 5 years
 
-**Future:** Potential C rating by 2028/2030
+**Future changes (proposed):**
+• Potential requirement for C rating by 2028/2030
+• Consult latest government guidance
 
-**Regulation:** MEES Regulations`,
+**To improve rating:**
+• Loft/cavity insulation
+• Double glazing
+• Efficient boiler
+• LED lighting
+• Smart heating controls
+
+**Note:** Must provide EPC to tenants before letting.
+
+👉 [View EPCs](/certificates?type=EPC)`,
     sources: ["Energy Efficiency Regulations 2015", "MEES Regulations"],
+  },
+  {
+    id: "hmo-001",
+    category: "general",
+    question: "What extra requirements apply to HMOs?",
+    variations: ["HMO compliance requirements", "House in multiple occupation rules", "HMO fire safety requirements", "Licensing requirements HMO"],
+    answer: `**HMO (House in Multiple Occupation) Additional Requirements:**
+
+**Licensing:**
+• Mandatory license: 5+ people, 2+ households
+• Additional licensing may apply locally
+• Selective licensing in some areas
+• Fees typically £500-1,500
+
+**Fire Safety (enhanced):**
+• Fire Risk Assessment mandatory
+• Fire doors to all rooms
+• Emergency lighting
+• Fire alarm system (often Grade A LD2)
+• Fire blankets in kitchens
+• Clear escape routes
+
+**Facilities:**
+• Adequate kitchen facilities for occupants
+• Bathroom ratios (typically 1:5)
+• Minimum room sizes enforced
+
+**Management:**
+• Written statement of terms
+• Manager contact details displayed
+• Refuse/recycling facilities
+• Common areas maintained
+
+**Penalties:** Up to £30,000 fine + Rent Repayment Orders
+
+👉 [View Properties](/properties) | [Fire Safety Certs](/certificates?type=FIRE_RISK_ASSESSMENT)`,
+    sources: ["Housing Act 2004", "Licensing of HMOs Regulations 2018", "LACORS Fire Safety Guide"],
+  },
+  // ===== LIFT / LOLER (2 FAQs) =====
+  {
+    id: "loler-001",
+    category: "lift_safety",
+    question: "How often do lifts need to be inspected?",
+    variations: ["Lift inspection frequency", "LOLER inspection requirements", "Elevator maintenance regulations", "Lift safety certificate frequency"],
+    answer: `**Lift Inspection Requirements (LOLER 1998):**
+
+**Thorough Examination:**
+• Every **6 months** for passenger lifts
+• Every **12 months** for goods-only lifts
+• Must be by competent person (insurance engineer)
+
+**Report Requirements:**
+• Written report within 28 days
+• Kept for 2 years minimum
+• Defects must be addressed
+
+**Regular Maintenance:**
+• Ongoing maintenance contract recommended
+• Frequency depends on usage and type
+• Typically monthly for busy lifts
+
+**Insurance inspections:**
+• Often required by building insurance
+• May be combined with LOLER inspection
+
+👉 [View Lift Certificates](/certificates?type=LIFT_LOLER) | [Components](/components)`,
+    sources: ["LOLER 1998", "PUWER 1998", "BS EN 13015"],
+  },
+  // ===== BUILDING SAFETY ACT (2 FAQs) =====
+  {
+    id: "bsa-001",
+    category: "building_safety",
+    question: "What is the Building Safety Act and who does it affect?",
+    variations: ["Building Safety Act 2022 requirements", "BSA high rise regulations", "Who needs to comply with BSA", "HRB building safety"],
+    answer: `**Building Safety Act 2022:**
+
+**Applies to Higher-Risk Buildings (HRBs):**
+• Residential buildings 18m+ or 7+ storeys
+• At least 2 residential units
+• Care homes and hospitals over 18m
+
+**Key Requirements:**
+• Accountable Person must be appointed
+• Building Safety Case required
+• Regular fire risk assessments
+• Resident engagement strategy
+• Golden Thread of building information
+
+**Duties:**
+• Prevent building safety risks
+• Assess and mitigate risks
+• Report to Building Safety Regulator
+
+**Penalties:**
+• Criminal offences for non-compliance
+• Unlimited fines possible
+
+👉 [View Building Safety Records](/certificates) | [Actions](/actions)`,
+    sources: ["Building Safety Act 2022", "Building Safety Regulator Guidance"],
+  },
+  // ===== NAVIGATION HELP (3 FAQs) =====
+  {
+    id: "nav-001",
+    category: "navigation",
+    question: "How do I upload a certificate?",
+    variations: ["Upload certificate", "Add new certificate", "Submit gas certificate", "How to upload EICR"],
+    answer: `**To Upload a Certificate:**
+
+1. Go to [Certificates](/certificates)
+2. Click the **Upload Certificate** button
+3. Select your PDF or image file
+4. AI will extract data automatically
+5. Review the extracted fields
+6. Link to property if needed
+7. Save the certificate
+
+**Supported formats:**
+• PDF (recommended)
+• PNG, JPG images
+• Multi-page documents
+
+**Tips:**
+• Clear, high-quality scans work best
+• Ensure all pages are included
+• Check extracted data before saving
+
+👉 [Go to Certificates →](/certificates)`,
+    sources: [],
+  },
+  {
+    id: "nav-002",
+    category: "navigation",
+    question: "How do I add a new property?",
+    variations: ["Add property", "Create new property", "Import properties", "Add units to portfolio"],
+    answer: `**To Add a Property:**
+
+**Manual entry:**
+1. Go to [Properties](/properties)
+2. Click **Add Property** button
+3. Enter address details
+4. Select property type and tenure
+5. Assign to a scheme/block
+6. Save
+
+**Bulk import:**
+1. Go to [Admin → Import Data](/admin/import)
+2. Download CSV template
+3. Fill in property details
+4. Upload completed CSV
+5. Review and confirm import
+
+**From certificate upload:**
+• Properties can be auto-created when uploading certificates
+• System extracts address from certificate
+
+👉 [Go to Properties →](/properties) | [Import Data →](/admin/import)`,
+    sources: [],
+  },
+  {
+    id: "nav-003",
+    category: "navigation",
+    question: "Where can I see overdue certificates?",
+    variations: ["Find expired certificates", "See expiring soon", "Overdue compliance", "Which certificates need renewing"],
+    answer: `**To Find Overdue/Expiring Certificates:**
+
+**Dashboard Overview:**
+• [Dashboard](/dashboard) shows compliance summary
+• Quick links to expiring certificates
+
+**Certificates Page:**
+• [Certificates](/certificates?status=EXPIRING) - Expiring soon
+• [Certificates](/certificates) - Filter by status
+
+**Reports:**
+• Compliance status by property type
+• Scheme-level compliance overview
+
+**Actions Page:**
+• [Remedial Actions](/actions) - Open work items
+• Filter by severity/status
+
+👉 [Go to Dashboard →](/dashboard) | [Certificates →](/certificates)`,
+    sources: [],
   },
 ];
 
@@ -1166,6 +1758,8 @@ export async function chatWithAssistant(
   messages: ChatMessage[],
   organisationId?: string
 ): Promise<AssistantResponse> {
+  const startTime = Date.now();
+  
   try {
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
     const isFollowUp = messages.length > 1;
@@ -1191,6 +1785,17 @@ export async function chatWithAssistant(
     if (intent.category === 'greeting') {
       const isThankYou = /thank|cheers/i.test(query);
       const response = isThankYou ? STATIC_RESPONSES.greeting_thanks : STATIC_RESPONSES.greeting_hello;
+      
+      // Track analytics - static response
+      trackAnalytics({
+        intent: intent.category,
+        responseSource: 'static',
+        inputTokens: 0,
+        outputTokens: 0,
+        responseTimeMs: Date.now() - startTime,
+        confidence: intent.confidence,
+      });
+      
       return {
         success: true,
         message: response,
@@ -1201,6 +1806,16 @@ export async function chatWithAssistant(
     
     // Handle off-topic politely
     if (intent.category === 'off_topic') {
+      // Track analytics - static response
+      trackAnalytics({
+        intent: intent.category,
+        responseSource: 'static',
+        inputTokens: 0,
+        outputTokens: 0,
+        responseTimeMs: Date.now() - startTime,
+        confidence: intent.confidence,
+      });
+      
       return {
         success: true,
         message: STATIC_RESPONSES.off_topic,
@@ -1214,6 +1829,17 @@ export async function chatWithAssistant(
       const cachedNav = findCachedResponse(query);
       if (cachedNav) {
         const enhanced = enhanceResponse(cachedNav, intent, askedQuestions, 'static');
+        
+        // Track analytics - FAQ cache hit
+        trackAnalytics({
+          intent: intent.category,
+          responseSource: 'faq_cache',
+          inputTokens: 0,
+          outputTokens: 0,
+          responseTimeMs: Date.now() - startTime,
+          confidence: intent.confidence,
+        });
+        
         return {
           success: true,
           message: enhanced.message,
@@ -1243,6 +1869,17 @@ export async function chatWithAssistant(
           }, 'Serving TF-IDF FAQ match');
           
           const enhanced = enhanceResponse(faqMatch.entry.answer, intent, askedQuestions, 'faq');
+          
+          // Track analytics - TF-IDF FAQ match
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'faq_tfidf',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: faqMatch.score,
+          });
+          
           return {
             success: true,
             message: enhanced.message,
@@ -1256,6 +1893,17 @@ export async function chatWithAssistant(
         if (cachedResponse) {
           logger.info({ query: query.substring(0, 50) }, 'Serving legacy FAQ cache');
           const enhanced = enhanceResponse(cachedResponse, intent, askedQuestions, 'faq');
+          
+          // Track analytics - FAQ cache hit
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'faq_cache',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: intent.confidence,
+          });
+          
           return {
             success: true,
             message: enhanced.message,
@@ -1273,6 +1921,17 @@ export async function chatWithAssistant(
         if (propertyResponse) {
           logger.info({ query: query.substring(0, 50) }, 'Serving database query response');
           const enhanced = enhanceResponse(propertyResponse, intent, askedQuestions, 'database');
+          
+          // Track analytics - Database query
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'database',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: intent.confidence,
+          });
+          
           return {
             success: true,
             message: enhanced.message,
@@ -1310,6 +1969,16 @@ export async function chatWithAssistant(
     // LAYER 4: RESPONSE ENHANCEMENT
     // ==========================================================================
     const enhanced = enhanceResponse(message, intent, askedQuestions, 'llm');
+    
+    // Track analytics - LLM response
+    trackAnalytics({
+      intent: intent.category,
+      responseSource: 'llm',
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      responseTimeMs: Date.now() - startTime,
+      confidence: intent.confidence,
+    });
 
     return {
       success: true,
