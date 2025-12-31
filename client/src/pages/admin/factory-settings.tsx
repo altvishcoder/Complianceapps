@@ -5,16 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, Globe } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { adminApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 interface FactorySetting {
   id: string;
@@ -41,11 +42,11 @@ const categoryIcons: Record<string, React.ElementType> = {
   WEBHOOKS: Webhook,
   AI: Cpu,
   DEMO_DATA: Database,
-  REGIONAL: Settings,
+  REGIONAL: Globe,
   EXTRACTION: Cpu,
   JOB_QUEUE: Zap,
   CACHING: Database,
-  GEOCODING: Settings,
+  GEOCODING: Globe,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -63,6 +64,21 @@ const categoryLabels: Record<string, string> = {
   GEOCODING: "Geocoding",
 };
 
+const categoryDescriptions: Record<string, string> = {
+  RATE_LIMITING: "Control API request limits and throttling behavior",
+  UPLOADS: "Configure file upload limits and allowed file types",
+  INGESTION: "Settings for document ingestion and processing pipeline",
+  SECURITY: "API security and authentication settings",
+  WEBHOOKS: "Webhook endpoints and notification settings",
+  AI: "AI extraction model configuration and thresholds",
+  DEMO_DATA: "Manage demonstration data for testing",
+  REGIONAL: "Regional and locale settings (dates, currency, etc.)",
+  EXTRACTION: "Document extraction rules and patterns",
+  JOB_QUEUE: "Background job processing configuration",
+  CACHING: "Cache settings and expiration policies",
+  GEOCODING: "Address lookup and geocoding settings",
+};
+
 export default function FactorySettings() {
   useEffect(() => {
     document.title = "Factory Settings - ComplianceAI";
@@ -70,7 +86,7 @@ export default function FactorySettings() {
 
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
   const [confirmDialog, setConfirmDialog] = useState<{ key: string; value: string } | null>(null);
-  const [activeTab, setActiveTab] = useState("RATE_LIMITING");
+  const [activeCategory, setActiveCategory] = useState("RATE_LIMITING");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
@@ -231,14 +247,25 @@ export default function FactorySettings() {
             {value === "true" ? "Enabled" : "Disabled"}
           </span>
           {changed && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleReset(setting.key)}
-              data-testid={`reset-${setting.key}`}
-            >
-              <RotateCcw className="h-3 w-3" />
-            </Button>
+            <div className="flex gap-1">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleSave(setting)}
+                disabled={updateMutation.isPending}
+                data-testid={`save-${setting.key}`}
+              >
+                {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => handleReset(setting.key)}
+                data-testid={`reset-${setting.key}`}
+              >
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+            </div>
           )}
         </div>
       );
@@ -286,6 +313,201 @@ export default function FactorySettings() {
     );
   };
 
+  const availableCategories = data?.grouped ? Object.keys(data.grouped) : [];
+  const allCategories = Array.from(new Set([...Object.keys(categoryLabels), ...availableCategories]));
+
+  const renderCategoryContent = () => {
+    if (activeCategory === "DEMO_DATA") {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Demo Data Management
+            </CardTitle>
+            <CardDescription>
+              Manage demonstration data for testing and training purposes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+              <div className="flex gap-2 items-start">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-800">Important</p>
+                  <p className="text-sm text-amber-700">
+                    These actions modify your database. Wipe operations cannot be undone.
+                    Make sure you have a backup before proceeding.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Play className="h-4 w-4 text-emerald-600" />
+                    Load Demo Data
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Add sample schemes, blocks, and properties for demonstration purposes.
+                  </p>
+                  <Button 
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => seedDemoMutation.mutate()}
+                    disabled={isDemoLoading}
+                    data-testid="button-seed-demo"
+                  >
+                    {seedDemoMutation.isPending ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="mr-2 h-4 w-4" />
+                        Load Demo Data
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-orange-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Trash2 className="h-4 w-4 text-orange-600" />
+                    Wipe All Data
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Remove all data including properties, schemes, blocks, certificates, and AI model data.
+                  </p>
+                  <Button 
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => wipeDataMutation.mutate(true)}
+                    disabled={isDemoLoading}
+                    data-testid="button-wipe-data"
+                  >
+                    {wipeDataMutation.isPending ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Wiping...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Wipe All Data
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-red-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-red-600" />
+                    Reset Demo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Wipe everything and start fresh with new demo data.
+                  </p>
+                  <Button 
+                    className="w-full"
+                    variant="destructive"
+                    onClick={() => resetDemoMutation.mutate()}
+                    disabled={isDemoLoading}
+                    data-testid="button-reset-demo"
+                  >
+                    {resetDemoMutation.isPending ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Reset Demo
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    const settings = data?.grouped?.[activeCategory] || [];
+    const Icon = categoryIcons[activeCategory] || Settings;
+
+    if (settings.length === 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon className="h-5 w-5" />
+              {categoryLabels[activeCategory] || activeCategory}
+            </CardTitle>
+            <CardDescription>
+              {categoryDescriptions[activeCategory] || `Configure ${categoryLabels[activeCategory]?.toLowerCase() || activeCategory.toLowerCase()} settings.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-center py-8">
+              No settings available in this category.
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5" />
+            {categoryLabels[activeCategory] || activeCategory}
+          </CardTitle>
+          <CardDescription>
+            {categoryDescriptions[activeCategory] || `Configure ${categoryLabels[activeCategory]?.toLowerCase() || activeCategory.toLowerCase()} settings.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {settings.map((setting) => (
+            <div key={setting.key} className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 border-b last:border-0">
+              <div>
+                <Label className="font-medium">{setting.key.replace(/_/g, " ")}</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {setting.description}
+                </p>
+                {!setting.isEditable && (
+                  <Badge variant="secondary" className="mt-2">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Read-only
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center">
+                {renderSettingInput(setting)}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (!isAuthorized) {
     return (
       <div className="flex h-screen overflow-hidden" data-testid="page-factory-settings">
@@ -310,222 +532,90 @@ export default function FactorySettings() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Factory Settings" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Factory settings content">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Factory Settings</h1>
-              <p className="text-sm text-muted-foreground">
-                System-wide configuration for rate limiting, uploads, and API behavior. Changes are logged for audit purposes.
-              </p>
+        <main id="main-content" className="flex-1 overflow-hidden" role="main" aria-label="Factory settings content">
+          <div className="h-full flex">
+            <aside className="w-64 border-r bg-muted/30 flex flex-col">
+              <div className="p-4 border-b">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-primary" />
+                  <span className="font-semibold">Settings Categories</span>
+                </div>
+              </div>
+              <ScrollArea className="flex-1">
+                <nav className="p-2 space-y-1">
+                  {allCategories.map((cat) => {
+                    const Icon = categoryIcons[cat] || Settings;
+                    const isActive = activeCategory === cat;
+                    const settingsCount = data?.grouped?.[cat]?.length || 0;
+                    
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setActiveCategory(cat)}
+                        data-testid={`nav-${cat.toLowerCase()}`}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors text-left",
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="flex-1 truncate">{categoryLabels[cat] || cat}</span>
+                        {settingsCount > 0 && !isActive && (
+                          <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                            {settingsCount}
+                          </Badge>
+                        )}
+                        {isActive && <ChevronRight className="h-4 w-4 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </ScrollArea>
+              <div className="p-4 border-t">
+                <Badge variant="outline" className="w-full justify-center border-emerald-500 text-emerald-600 py-1">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Lashan Super User
+                </Badge>
+              </div>
+            </aside>
+
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">
+                    {categoryLabels[activeCategory] || activeCategory}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {categoryDescriptions[activeCategory] || "System configuration settings."}
+                  </p>
+                </div>
+
+                {Object.keys(pendingChanges).length > 0 && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800">
+                      You have {Object.keys(pendingChanges).length} unsaved change(s). Click save on each setting to apply.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {isLoading ? (
+                  <div className="flex items-center justify-center p-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : error ? (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>Failed to load factory settings. Please try again.</AlertDescription>
+                  </Alert>
+                ) : (
+                  renderCategoryContent()
+                )}
+              </div>
             </div>
-            <Badge variant="outline" className="border-emerald-500 text-emerald-600">
-              <Lock className="h-3 w-3 mr-1" />
-              Lashan Super User Only
-            </Badge>
           </div>
-
-          {Object.keys(pendingChanges).length > 0 && (
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
-                You have {Object.keys(pendingChanges).length} unsaved change(s). Click save on each setting to apply.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isLoading ? (
-            <div className="flex items-center justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Failed to load factory settings. Please try again.</AlertDescription>
-            </Alert>
-          ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-7">
-                {Object.keys(categoryLabels).map((cat) => {
-                  const Icon = categoryIcons[cat] || Settings;
-                  return (
-                    <TabsTrigger key={cat} value={cat} className="flex items-center gap-2" data-testid={`tab-${cat.toLowerCase()}`}>
-                      <Icon className="h-4 w-4" />
-                      <span className="hidden sm:inline">{categoryLabels[cat]}</span>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-
-              {Object.entries(data?.grouped || {}).map(([category, settings]) => (
-                <TabsContent key={category} value={category}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        {(() => {
-                          const Icon = categoryIcons[category] || Settings;
-                          return <Icon className="h-5 w-5" />;
-                        })()}
-                        {categoryLabels[category] || category}
-                      </CardTitle>
-                      <CardDescription>
-                        Configure {categoryLabels[category]?.toLowerCase() || category.toLowerCase()} settings for the API.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {settings.map((setting) => (
-                        <div key={setting.key} className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b last:border-0">
-                          <div>
-                            <Label className="font-medium">{setting.key.replace(/_/g, " ")}</Label>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {setting.description}
-                            </p>
-                            {!setting.isEditable && (
-                              <Badge variant="secondary" className="mt-2">
-                                <Lock className="h-3 w-3 mr-1" />
-                                Read-only
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center">
-                            {renderSettingInput(setting)}
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              ))}
-
-              <TabsContent value="DEMO_DATA">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Database className="h-5 w-5" />
-                      Demo Data Management
-                    </CardTitle>
-                    <CardDescription>
-                      Manage demonstration data for testing and training purposes.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-                      <div className="flex gap-2 items-start">
-                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-medium text-amber-800">Important</p>
-                          <p className="text-sm text-amber-700">
-                            These actions modify your database. Wipe operations cannot be undone.
-                            Make sure you have a backup before proceeding.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <Card className="border-2">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Play className="h-4 w-4 text-emerald-600" />
-                            Load Demo Data
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            Add sample schemes, blocks, and properties for demonstration purposes.
-                          </p>
-                          <Button 
-                            className="w-full"
-                            variant="outline"
-                            onClick={() => seedDemoMutation.mutate()}
-                            disabled={isDemoLoading}
-                            data-testid="button-seed-demo"
-                          >
-                            {seedDemoMutation.isPending ? (
-                              <>
-                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                Loading...
-                              </>
-                            ) : (
-                              <>
-                                <Play className="mr-2 h-4 w-4" />
-                                Load Demo Data
-                              </>
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="border-2 border-orange-200">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Trash2 className="h-4 w-4 text-orange-600" />
-                            Wipe All Data
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            Remove all data including properties, schemes, blocks, certificates, and AI model data.
-                          </p>
-                          <Button 
-                            className="w-full"
-                            variant="outline"
-                            onClick={() => wipeDataMutation.mutate(true)}
-                            disabled={isDemoLoading}
-                            data-testid="button-wipe-data"
-                          >
-                            {wipeDataMutation.isPending ? (
-                              <>
-                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                Wiping...
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Wipe All Data
-                              </>
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="border-2 border-red-200">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <RefreshCw className="h-4 w-4 text-red-600" />
-                            Reset Demo
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            Wipe everything and start fresh with new demo data.
-                          </p>
-                          <Button 
-                            className="w-full"
-                            variant="destructive"
-                            onClick={() => resetDemoMutation.mutate()}
-                            disabled={isDemoLoading}
-                            data-testid="button-reset-demo"
-                          >
-                            {resetDemoMutation.isPending ? (
-                              <>
-                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                Resetting...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Reset Demo
-                              </>
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
         </main>
       </div>
 

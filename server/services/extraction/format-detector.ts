@@ -132,33 +132,107 @@ export async function analysePdf(buffer: Buffer): Promise<FormatAnalysis> {
 
 export function detectCertificateTypeFromFilename(filename: string): CertificateTypeCode | null {
   const upperFilename = filename.toUpperCase();
+  const normalizedFilename = upperFilename.replace(/[_\-\s\.]+/g, ' ');
   
+  // Gas Safety - extensive pattern matching for UK variants
   if (upperFilename.includes('LGSR') || upperFilename.includes('CP12') || 
       upperFilename.includes('GAS_SAFETY') || upperFilename.includes('GAS-SAFETY') ||
-      upperFilename.includes('GASSAFETY')) {
+      upperFilename.includes('GASSAFETY') || upperFilename.includes('GAS SAFETY') ||
+      normalizedFilename.includes('LANDLORD GAS') || normalizedFilename.includes('GAS CERT') ||
+      normalizedFilename.includes('GAS RECORD') || normalizedFilename.includes('GSR') ||
+      normalizedFilename.includes('GAS SAFE') || normalizedFilename.includes('GASCERT') ||
+      upperFilename.includes('BOILER_CERT') || upperFilename.includes('BOILER-CERT') ||
+      normalizedFilename.includes('ANNUAL GAS') || normalizedFilename.includes('GAS CHECK')) {
     return 'GAS_SAFETY';
   }
-  if (upperFilename.includes('EICR') || upperFilename.includes('ELECTRICAL')) {
+  
+  // EICR / Electrical - comprehensive pattern matching
+  if (upperFilename.includes('EICR') || normalizedFilename.includes('ELECTRICAL INSTALLATION') ||
+      normalizedFilename.includes('ELECTRICAL CONDITION') || normalizedFilename.includes('PERIODIC INSPECTION') ||
+      normalizedFilename.includes('PERIODIC TEST') || normalizedFilename.includes('PIR CERT') ||
+      normalizedFilename.includes('ELEC CERT') || normalizedFilename.includes('ELECTRICAL CERT') ||
+      normalizedFilename.includes('WIRING CERT') || normalizedFilename.includes('BS7671') ||
+      normalizedFilename.includes('BS 7671') || normalizedFilename.includes('18TH EDITION') ||
+      normalizedFilename.includes('ECIR') || normalizedFilename.includes('EIC REPORT')) {
     return 'EICR';
   }
-  if (upperFilename.includes('EPC') || upperFilename.includes('ENERGY')) {
+  
+  // EPC - Energy Performance
+  if (upperFilename.includes('EPC') || normalizedFilename.includes('ENERGY PERFORMANCE') ||
+      normalizedFilename.includes('ENERGY CERT') || normalizedFilename.includes('ENERGY RATING') ||
+      normalizedFilename.includes('SAP CERT') || normalizedFilename.includes('SAP RATING')) {
     return 'EPC';
   }
+  
+  // Fire Risk Assessment - comprehensive variants
   if (upperFilename.includes('FRA') || upperFilename.includes('FIRE_RISK') || 
-      upperFilename.includes('FIRE-RISK') || upperFilename.includes('FIRERISK')) {
+      upperFilename.includes('FIRE-RISK') || upperFilename.includes('FIRERISK') ||
+      normalizedFilename.includes('FIRE RISK') || normalizedFilename.includes('FIRE SAFETY') ||
+      normalizedFilename.includes('PAS79') || normalizedFilename.includes('PAS 79') ||
+      normalizedFilename.includes('RRO') || normalizedFilename.includes('FIRE ASSESSMENT')) {
     return 'FRA';
   }
-  if (upperFilename.includes('PAT')) {
+  
+  // PAT Testing
+  if (upperFilename.includes('PAT') || normalizedFilename.includes('PORTABLE APPLIANCE') ||
+      normalizedFilename.includes('PAT TEST') || normalizedFilename.includes('PAT CERT')) {
     return 'PAT';
   }
-  if (upperFilename.includes('LEGIONELLA') || upperFilename.includes('WATER')) {
+  
+  // Legionella / Water Safety - comprehensive
+  if (upperFilename.includes('LEGIONELLA') || normalizedFilename.includes('LEGIONELLA') ||
+      normalizedFilename.includes('WATER RISK') || normalizedFilename.includes('WATER HYGIENE') ||
+      normalizedFilename.includes('L8 ASSESSMENT') || normalizedFilename.includes('L8 RISK') ||
+      normalizedFilename.includes('WATER SAFETY') || normalizedFilename.includes('TMV CERT') ||
+      normalizedFilename.includes('WATER TANK') || normalizedFilename.includes('COLD WATER')) {
     return 'LEGIONELLA';
   }
-  if (upperFilename.includes('ASBESTOS')) {
+  
+  // Asbestos
+  if (upperFilename.includes('ASBESTOS') || normalizedFilename.includes('ASBESTOS') ||
+      normalizedFilename.includes('ACM SURVEY') || normalizedFilename.includes('HSG264') ||
+      normalizedFilename.includes('HSG 264') || normalizedFilename.includes('R&D SURVEY') ||
+      normalizedFilename.includes('MANAGEMENT SURVEY')) {
     return 'ASBESTOS';
   }
-  if (upperFilename.includes('LOLER') || upperFilename.includes('LIFT')) {
+  
+  // Lift / LOLER
+  if (upperFilename.includes('LOLER') || normalizedFilename.includes('LIFT CERT') ||
+      normalizedFilename.includes('LIFT INSPECTION') || normalizedFilename.includes('LIFTING EQUIPMENT') ||
+      normalizedFilename.includes('PASSENGER LIFT') || normalizedFilename.includes('STAIRLIFT') ||
+      normalizedFilename.includes('THOROUGH EXAMINATION') || normalizedFilename.includes('LIFT EXAM')) {
     return 'LIFT';
+  }
+  
+  // Emergency Lighting
+  if (normalizedFilename.includes('EMERGENCY LIGHT') || normalizedFilename.includes('EMLT') ||
+      normalizedFilename.includes('BS5266') || normalizedFilename.includes('BS 5266')) {
+    return 'EMLT';
+  }
+  
+  // Fire Alarm
+  if (normalizedFilename.includes('FIRE ALARM') || normalizedFilename.includes('FIRE DETECTION') ||
+      normalizedFilename.includes('BS5839') || normalizedFilename.includes('BS 5839') ||
+      normalizedFilename.includes('SMOKE DETECTOR') || normalizedFilename.includes('SMOKE ALARM')) {
+    return 'FIRE_ALARM';
+  }
+  
+  // Fire Extinguisher
+  if (normalizedFilename.includes('FIRE EXTINGUISHER') || normalizedFilename.includes('EXTINGUISHER CERT') ||
+      normalizedFilename.includes('FIRE EXT') || normalizedFilename.includes('BAFE')) {
+    return 'FIRE_EXT';
+  }
+  
+  // Smoke and CO Detectors
+  if (normalizedFilename.includes('SMOKE CO') || normalizedFilename.includes('CARBON MONOXIDE') ||
+      normalizedFilename.includes('CO DETECTOR') || normalizedFilename.includes('CO ALARM')) {
+    return 'SMOKE_CO';
+  }
+  
+  // Structural
+  if (normalizedFilename.includes('STRUCTURAL') || normalizedFilename.includes('STRUCT SURVEY') ||
+      normalizedFilename.includes('BUILDING SURVEY')) {
+    return 'STRUCT';
   }
   
   return null;
@@ -167,110 +241,167 @@ export function detectCertificateTypeFromFilename(filename: string): Certificate
 export function detectCertificateType(text: string): CertificateTypeCode {
   const upperText = text.toUpperCase();
 
+  // Gas Safety - comprehensive UK patterns including Gas Safe Register references
   if (
     upperText.includes('LANDLORD GAS SAFETY') ||
     upperText.includes('GAS SAFETY RECORD') ||
     upperText.includes('CP12') ||
     upperText.includes('LGSR') ||
-    (upperText.includes('GAS SAFE') && upperText.includes('APPLIANCE'))
+    upperText.includes('GAS SAFE REGISTER') ||
+    upperText.includes('GAS INSTALLATION SAFETY') ||
+    (upperText.includes('GAS SAFE') && upperText.includes('APPLIANCE')) ||
+    (upperText.includes('GAS SAFE') && upperText.includes('CERTIFICATE')) ||
+    (upperText.includes('BOILER') && upperText.includes('SERVICE') && upperText.includes('GAS')) ||
+    upperText.includes('LANDLORDS GAS SAFETY')
   ) {
     return 'GAS_SAFETY';
   }
 
+  // EICR / Electrical - comprehensive UK patterns
   if (
     upperText.includes('ELECTRICAL INSTALLATION CONDITION REPORT') ||
     upperText.includes('EICR') ||
     upperText.includes('PERIODIC INSPECTION') ||
-    (upperText.includes('BS 7671') && upperText.includes('ELECTRICAL'))
+    upperText.includes('PERIODIC TEST') ||
+    upperText.includes('ELECTRICAL CONDITION REPORT') ||
+    upperText.includes('18TH EDITION') ||
+    upperText.includes('BS 7671') ||
+    upperText.includes('BS7671') ||
+    (upperText.includes('ELECTRICAL') && upperText.includes('INSTALLATION') && upperText.includes('REPORT')) ||
+    (upperText.includes('ELECTRICAL') && upperText.includes('CONDITION') && upperText.includes('INSPECTION'))
   ) {
     return 'EICR';
   }
 
+  // EPC - Energy Performance
   if (
     upperText.includes('ENERGY PERFORMANCE CERTIFICATE') ||
     upperText.includes('EPC') ||
-    upperText.includes('ENERGY EFFICIENCY RATING')
+    upperText.includes('ENERGY EFFICIENCY RATING') ||
+    upperText.includes('SAP CALCULATION') ||
+    (upperText.includes('ENERGY') && upperText.includes('RATING') && upperText.includes('PROPERTY'))
   ) {
     return 'EPC';
   }
 
+  // Fire Risk Assessment - comprehensive including RRO references
   if (
     upperText.includes('FIRE RISK ASSESSMENT') ||
-    upperText.includes('FRA') ||
     upperText.includes('PAS 79') ||
-    upperText.includes('REGULATORY REFORM')
+    upperText.includes('PAS79') ||
+    upperText.includes('REGULATORY REFORM') ||
+    upperText.includes('RRO 2005') ||
+    upperText.includes('FIRE SAFETY ORDER') ||
+    (upperText.includes('FIRE') && upperText.includes('RISK') && upperText.includes('ASSESSMENT')) ||
+    (upperText.includes('FIRE SAFETY') && upperText.includes('INSPECTION'))
   ) {
     return 'FRA';
   }
 
+  // PAT Testing
   if (
     upperText.includes('PORTABLE APPLIANCE') ||
     upperText.includes('PAT TEST') ||
-    upperText.includes('ELECTRICAL EQUIPMENT TEST')
+    upperText.includes('ELECTRICAL EQUIPMENT TEST') ||
+    (upperText.includes('PAT') && upperText.includes('INSPECTION'))
   ) {
     return 'PAT';
   }
 
+  // Legionella / Water Safety - comprehensive including L8 references
   if (
     upperText.includes('LEGIONELLA') ||
     upperText.includes('WATER HYGIENE') ||
-    upperText.includes('L8')
+    upperText.includes('L8 RISK') ||
+    upperText.includes('L8 ASSESSMENT') ||
+    upperText.includes('ACOP L8') ||
+    upperText.includes('WATER RISK ASSESSMENT') ||
+    upperText.includes('HSG274') ||
+    (upperText.includes('WATER') && upperText.includes('SAFETY') && upperText.includes('ASSESSMENT')) ||
+    (upperText.includes('WATER') && upperText.includes('RISK') && upperText.includes('CONTROL'))
   ) {
     return 'LEGIONELLA';
   }
 
+  // Asbestos - comprehensive including survey types
   if (
     upperText.includes('ASBESTOS') ||
     upperText.includes('HSG264') ||
-    upperText.includes('MANAGEMENT SURVEY')
+    upperText.includes('HSG 264') ||
+    upperText.includes('MANAGEMENT SURVEY') ||
+    upperText.includes('REFURBISHMENT SURVEY') ||
+    upperText.includes('DEMOLITION SURVEY') ||
+    upperText.includes('ACM SURVEY') ||
+    upperText.includes('ASBESTOS CONTAINING MATERIAL')
   ) {
     return 'ASBESTOS';
   }
 
+  // Lift / LOLER - thorough examination reports
   if (
-    upperText.includes('LIFT') ||
     upperText.includes('LOLER') ||
-    upperText.includes('LIFTING EQUIPMENT')
+    upperText.includes('THOROUGH EXAMINATION') ||
+    upperText.includes('LIFTING EQUIPMENT') ||
+    upperText.includes('PASSENGER LIFT') ||
+    upperText.includes('STAIRLIFT') ||
+    (upperText.includes('LIFT') && upperText.includes('INSPECTION')) ||
+    (upperText.includes('LIFT') && upperText.includes('EXAMINATION'))
   ) {
     return 'LIFT';
   }
 
+  // Emergency Lighting
   if (
     upperText.includes('EMERGENCY LIGHTING') ||
-    upperText.includes('BS 5266')
+    upperText.includes('BS 5266') ||
+    upperText.includes('BS5266') ||
+    (upperText.includes('EMERGENCY') && upperText.includes('LIGHTING') && upperText.includes('TEST'))
   ) {
     return 'EMLT';
   }
 
+  // Fire Alarm
   if (
     upperText.includes('FIRE ALARM') ||
-    upperText.includes('BS 5839')
+    upperText.includes('FIRE DETECTION') ||
+    upperText.includes('BS 5839') ||
+    upperText.includes('BS5839') ||
+    (upperText.includes('FIRE') && upperText.includes('ALARM') && upperText.includes('SYSTEM'))
   ) {
     return 'FIRE_ALARM';
   }
 
+  // Smoke and CO Alarms
   if (
     upperText.includes('SMOKE ALARM') ||
+    upperText.includes('SMOKE DETECTOR') ||
     upperText.includes('CO ALARM') ||
-    upperText.includes('CARBON MONOXIDE')
+    upperText.includes('CO DETECTOR') ||
+    upperText.includes('CARBON MONOXIDE') ||
+    upperText.includes('SMOKE AND CARBON MONOXIDE')
   ) {
     return 'SMOKE_CO';
   }
 
+  // Fire Door
   if (
     upperText.includes('FIRE DOOR') ||
-    upperText.includes('DOOR INSPECTION')
+    upperText.includes('DOOR INSPECTION') ||
+    (upperText.includes('FIRE') && upperText.includes('DOOR') && upperText.includes('INSPECTION'))
   ) {
     return 'FIRE_DOOR';
   }
 
+  // Oil Tank
   if (
     upperText.includes('OIL TANK') ||
-    upperText.includes('OFTEC')
+    upperText.includes('OFTEC') ||
+    (upperText.includes('OIL') && upperText.includes('STORAGE'))
   ) {
     return 'OIL_TANK';
   }
 
+  // Oil Heating
   if (
     upperText.includes('OIL') &&
     (upperText.includes('HEATING') || upperText.includes('BOILER'))
@@ -278,10 +409,12 @@ export function detectCertificateType(text: string): CertificateTypeCode {
     return 'OIL';
   }
 
-  if (upperText.includes('LPG')) {
+  // LPG
+  if (upperText.includes('LPG') || upperText.includes('LIQUEFIED PETROLEUM')) {
     return 'LPG';
   }
 
+  // Solid Fuel
   if (
     upperText.includes('SOLID FUEL') ||
     upperText.includes('HETAS')
@@ -289,15 +422,30 @@ export function detectCertificateType(text: string): CertificateTypeCode {
     return 'SOLID';
   }
 
+  // Heat Pumps
   if (
     upperText.includes('HEAT PUMP') ||
-    upperText.includes('ASHP')
+    upperText.includes('ASHP') ||
+    upperText.includes('AIR SOURCE')
   ) {
     return 'ASHP';
   }
 
-  if (upperText.includes('GROUND SOURCE')) {
+  if (upperText.includes('GROUND SOURCE') || upperText.includes('GSHP')) {
     return 'GSHP';
+  }
+
+  // TMV - Thermostatic Mixing Valves
+  if (upperText.includes('TMV') || upperText.includes('THERMOSTATIC MIXING')) {
+    return 'TMV';
+  }
+
+  // Structural
+  if (
+    upperText.includes('STRUCTURAL') ||
+    (upperText.includes('BUILDING') && upperText.includes('SURVEY'))
+  ) {
+    return 'STRUCT';
   }
 
   return 'UNKNOWN';

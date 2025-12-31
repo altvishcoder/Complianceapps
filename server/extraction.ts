@@ -845,37 +845,181 @@ export async function extractCertificateWithClaude(
 }
 
 export function determineOutcome(data: Record<string, any>, certificateType: string): ExtractionResult["outcome"] {
+  // 1. Check explicit overall outcome/assessment fields first
   if (data.overallOutcome) {
-    return data.overallOutcome.toUpperCase().includes("UNSATISFACTORY") ? "UNSATISFACTORY" : "SATISFACTORY";
+    const outcome = data.overallOutcome.toUpperCase();
+    if (outcome.includes("UNSATISFACTORY") || outcome.includes("FAIL") || outcome.includes("NOT SAFE")) {
+      return "UNSATISFACTORY";
+    }
+    if (outcome.includes("SATISFACTORY") || outcome.includes("PASS") || outcome.includes("SAFE")) {
+      return "SATISFACTORY";
+    }
   }
   if (data.overallAssessment) {
-    return data.overallAssessment.toUpperCase().includes("UNSATISFACTORY") ? "UNSATISFACTORY" : "SATISFACTORY";
+    const assessment = data.overallAssessment.toUpperCase();
+    if (assessment.includes("UNSATISFACTORY") || assessment.includes("FAIL") || assessment.includes("NOT SAFE")) {
+      return "UNSATISFACTORY";
+    }
   }
-  if (data.safeToOperate === false) {
-    return "UNSATISFACTORY";
+  
+  // 2. Gas Safety specific checks (LGSR/CP12)
+  if (certificateType === "GAS_SAFETY" || certificateType === "GAS") {
+    // Check for unsafe appliances
+    if (data.appliances && Array.isArray(data.appliances)) {
+      const hasUnsafe = data.appliances.some((a: any) => {
+        // Boolean safety fields
+        if (a.applianceSafe === false || a.safe === false || a.safeToUse === false) return true;
+        
+        // Outcome field - use substring matching for composite values like "ID – Immediately Dangerous"
+        const outcome = (a.outcome || '').toUpperCase();
+        if (outcome.includes('FAIL') || outcome.includes('UNSAFE') ||
+            outcome.includes('ID') || outcome.includes('IMMEDIATELY DANGEROUS') ||
+            outcome.includes('AR') || outcome.includes('AT RISK') ||
+            outcome.includes('NCS') || outcome.includes('NOT TO CURRENT STANDARD') ||
+            outcome.includes('CONDEMNED')) return true;
+        
+        // Status field - use substring matching
+        const status = (a.status || '').toUpperCase();
+        if (status.includes('ID') || status.includes('IMMEDIATELY DANGEROUS') ||
+            status.includes('AR') || status.includes('AT RISK') ||
+            status.includes('NCS') || status.includes('NOT TO CURRENT STANDARD') ||
+            status.includes('UNSAFE') || status.includes('CONDEMNED')) return true;
+        
+        // SafetyStatus field
+        const safetyStatus = (a.safetyStatus || '').toUpperCase();
+        if (safetyStatus.includes('FAIL') || safetyStatus.includes('AT RISK') ||
+            safetyStatus.includes('ID') || safetyStatus.includes('UNSAFE')) return true;
+        
+        return false;
+      });
+      if (hasUnsafe) return "UNSATISFACTORY";
+    }
+    // Check for defects with dangerous classifications
+    if (data.defects && Array.isArray(data.defects)) {
+      const hasDangerous = data.defects.some((d: any) => {
+        const classification = (d.classification || d.category || '').toUpperCase();
+        return classification.includes("ID") || 
+               classification.includes("IMMEDIATELY DANGEROUS") ||
+               classification.includes("AR") ||
+               classification.includes("AT RISK") ||
+               classification.includes("NCS") ||
+               classification.includes("CONDEMNED");
+      });
+      if (hasDangerous) return "UNSATISFACTORY";
+    }
+    if (data.safeToOperate === false) return "UNSATISFACTORY";
   }
-  if (data.c1Count > 0 || data.categorA_Count > 0) {
-    return "UNSATISFACTORY";
+  
+  // 3. EICR specific checks (C1/C2/C3 codes)
+  if (certificateType === "EICR" || certificateType === "ELECTRICAL") {
+    // C1 = Danger present - immediate action required
+    // C2 = Potentially dangerous - urgent attention required
+    // FI = Further Investigation required
+    if (data.c1Count > 0 || data.C1Count > 0) return "UNSATISFACTORY";
+    if (data.c2Count > 0 || data.C2Count > 0) return "UNSATISFACTORY";
+    if (data.fiCount > 0 || data.FICount > 0) return "UNSATISFACTORY";
+    
+    // Check observations array
+    if (data.observations && Array.isArray(data.observations)) {
+      const hasCritical = data.observations.some((o: any) => {
+        const code = (o.code || o.classification || '').toUpperCase();
+        return code === 'C1' || code === 'C2' || code === 'FI';
+      });
+      if (hasCritical) return "UNSATISFACTORY";
+    }
+    
+    // Check defects array
+    if (data.defects && Array.isArray(data.defects)) {
+      const hasCritical = data.defects.some((d: any) => {
+        const code = (d.code || d.severity || d.category || '').toUpperCase();
+        return code === 'C1' || code === 'C2' || code === 'FI';
+      });
+      if (hasCritical) return "UNSATISFACTORY";
+    }
   }
-  if (data.c2Count > 0 || data.categoryB_Count > 0) {
-    return "UNSATISFACTORY";
+  
+  // 4. Fire Risk Assessment specific checks
+  if (certificateType === "FIRE_RISK_ASSESSMENT" || certificateType === "FRA") {
+    const riskLevel = (data.riskLevel || data.overallRisk || '').toUpperCase();
+    if (["HIGH", "INTOLERABLE", "SUBSTANTIAL", "CRITICAL"].includes(riskLevel)) {
+      return "UNSATISFACTORY";
+    }
+    // Check for high priority findings
+    if (data.findings && Array.isArray(data.findings)) {
+      const hasHighPriority = data.findings.some((f: any) => {
+        const priority = (f.priority || f.risk || '').toUpperCase();
+        return priority === 'HIGH' || priority === 'IMMEDIATE' || priority === 'INTOLERABLE';
+      });
+      if (hasHighPriority) return "UNSATISFACTORY";
+    }
   }
+  
+  // 5. Asbestos Survey specific checks
+  if (certificateType === "ASBESTOS_SURVEY" || certificateType === "ASBESTOS") {
+    if (data.asbestosPresent === true && data.condition === "POOR") return "UNSATISFACTORY";
+    if (data.materials && Array.isArray(data.materials)) {
+      const hasHighRisk = data.materials.some((m: any) => {
+        const condition = (m.condition || '').toUpperCase();
+        const risk = (m.risk || m.riskLevel || '').toUpperCase();
+        return condition === 'POOR' || condition === 'DAMAGED' || risk === 'HIGH';
+      });
+      if (hasHighRisk) return "UNSATISFACTORY";
+    }
+  }
+  
+  // 6. Legionella Assessment specific checks
+  if (certificateType === "LEGIONELLA_ASSESSMENT" || certificateType === "LEGIONELLA") {
+    const riskLevel = (data.riskLevel || data.overallRisk || '').toUpperCase();
+    if (["HIGH", "IMMEDIATE"].includes(riskLevel)) return "UNSATISFACTORY";
+    if (data.recommendations && Array.isArray(data.recommendations)) {
+      const hasImmediate = data.recommendations.some((r: any) => {
+        const priority = (r.priority || '').toUpperCase();
+        return priority === 'IMMEDIATE' || priority === 'HIGH';
+      });
+      if (hasImmediate) return "UNSATISFACTORY";
+    }
+  }
+  
+  // 7. Lift/LOLER specific checks
+  if (certificateType === "LIFT_LOLER" || certificateType === "LIFT" || certificateType === "LOLER") {
+    if (data.safeToOperate === false || data.safeForUse === false) return "UNSATISFACTORY";
+    if (data.categoryA_Count > 0 || data.categorA_Count > 0) return "UNSATISFACTORY";
+    if (data.defects && Array.isArray(data.defects)) {
+      const hasCatA = data.defects.some((d: any) => {
+        const category = (d.category || '').toUpperCase();
+        return category === 'A' || category === 'CATEGORY A' || category === 'CAT A';
+      });
+      if (hasCatA) return "UNSATISFACTORY";
+    }
+  }
+  
+  // 8. Generic fallback checks for any certificate type
+  if (data.c1Count > 0 || data.categorA_Count > 0) return "UNSATISFACTORY";
+  if (data.c2Count > 0 || data.categoryB_Count > 0) return "UNSATISFACTORY";
   if (data.riskLevel && ["HIGH", "INTOLERABLE", "SUBSTANTIAL"].includes(data.riskLevel.toUpperCase())) {
     return "UNSATISFACTORY";
   }
-  if (data.overallRisk === "HIGH") {
-    return "UNSATISFACTORY";
-  }
+  if (data.overallRisk === "HIGH") return "UNSATISFACTORY";
+  
+  // Check generic defects array
   if (data.defects && Array.isArray(data.defects)) {
-    const hasCritical = data.defects.some((d: any) => 
-      d.classification?.includes("Immediately Dangerous") || 
-      d.classification?.includes("ID") ||
-      d.category === "A"
-    );
+    const hasCritical = data.defects.some((d: any) => {
+      const classification = (d.classification || d.category || d.severity || '').toUpperCase();
+      return classification.includes("IMMEDIATELY DANGEROUS") || 
+             classification.includes("ID") ||
+             classification === "A" ||
+             classification === "C1" ||
+             classification === "CRITICAL" ||
+             classification === "DANGER";
+    });
     if (hasCritical) return "UNSATISFACTORY";
   }
+  
+  // Check generic appliances array
   if (data.appliances && Array.isArray(data.appliances)) {
-    const hasUnsafe = data.appliances.some((a: any) => a.applianceSafe === false);
+    const hasUnsafe = data.appliances.some((a: any) => 
+      a.applianceSafe === false || a.safe === false || a.safeToUse === false
+    );
     if (hasUnsafe) return "UNSATISFACTORY";
   }
   
