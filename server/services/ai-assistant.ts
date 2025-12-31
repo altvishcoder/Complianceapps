@@ -1412,7 +1412,7 @@ const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
   "asbestos": [
     "Show my properties with asbestos actions",
     "Find asbestos surveys expiring soon",
-    "Which blocks need asbestos re-inspection?",
+    "Which blocks have asbestos management plans?",
   ],
   "legionella": [
     "Show properties with water safety actions",
@@ -2179,7 +2179,18 @@ const SYSTEM_PROMPT = `You are ComplianceAI Assistant - UK social housing compli
 - Include key numbers/deadlines only
 - Skip introductions, get to the point
 
-**Platform pages:** Dashboard, Certificates, Properties, Actions, Human Review
+**Platform pages:** Dashboard, Certificates, Properties, Remedial Actions, Human Review
+
+**DO NOT suggest these actions (they don't exist in the platform):**
+- "Renew certificates" or "renew certs"
+- "Schedule inspection" or "book inspection"
+- "Book contractors"
+- Any action buttons that aren't viewing data or uploading certificates
+
+**Valid actions to suggest:**
+- View certificates, properties, or remedial actions
+- Upload new certificates
+- Review certificates needing attention
 
 Stay brief and helpful!`;
 
