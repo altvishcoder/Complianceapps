@@ -13,6 +13,7 @@ import {
   insertDetectionPatternSchema, insertOutcomeRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
   componentTypes, components, units, componentCertificates, users, extractionTierAudits,
+  propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes,
   type ApiClient
 } from "@shared/schema";
 import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
@@ -5869,6 +5870,351 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching certificate audit:", error);
       res.status(500).json({ error: "Failed to fetch audit history" });
+    }
+  });
+
+  // =====================================================
+  // PREDICTIVE COMPLIANCE RADAR - RISK SCORING API
+  // =====================================================
+  
+  const riskScoringModule = await import('./services/risk-scoring');
+
+  app.get("/api/risk/portfolio-summary", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const summary = await riskScoringModule.getPortfolioRiskSummary(user.organisationId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching portfolio risk summary:", error);
+      res.status(500).json({ error: "Failed to fetch risk summary" });
+    }
+  });
+
+  app.get("/api/risk/properties", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const tier = req.query.tier as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const snapshots = await db.select({
+        id: propertyRiskSnapshots.id,
+        propertyId: propertyRiskSnapshots.propertyId,
+        overallScore: propertyRiskSnapshots.overallScore,
+        riskTier: propertyRiskSnapshots.riskTier,
+        expiryRiskScore: propertyRiskSnapshots.expiryRiskScore,
+        defectRiskScore: propertyRiskSnapshots.defectRiskScore,
+        assetProfileRiskScore: propertyRiskSnapshots.assetProfileRiskScore,
+        coverageGapRiskScore: propertyRiskSnapshots.coverageGapRiskScore,
+        externalFactorRiskScore: propertyRiskSnapshots.externalFactorRiskScore,
+        factorBreakdown: propertyRiskSnapshots.factorBreakdown,
+        triggeringFactors: propertyRiskSnapshots.triggeringFactors,
+        recommendedActions: propertyRiskSnapshots.recommendedActions,
+        scoreChange: propertyRiskSnapshots.scoreChange,
+        trendDirection: propertyRiskSnapshots.trendDirection,
+        calculatedAt: propertyRiskSnapshots.calculatedAt,
+        propertyAddressLine1: properties.addressLine1,
+        propertyCity: properties.city,
+        propertyPostcode: properties.postcode,
+        propertyUprn: properties.uprn,
+      })
+      .from(propertyRiskSnapshots)
+      .innerJoin(properties, eq(propertyRiskSnapshots.propertyId, properties.id))
+      .where(and(
+        eq(propertyRiskSnapshots.organisationId, user.organisationId),
+        eq(propertyRiskSnapshots.isLatest, true),
+        tier ? eq(propertyRiskSnapshots.riskTier, tier as any) : undefined
+      ))
+      .orderBy(desc(propertyRiskSnapshots.overallScore))
+      .limit(limit)
+      .offset(offset);
+
+      res.json(snapshots);
+    } catch (error) {
+      console.error("Error fetching property risks:", error);
+      res.status(500).json({ error: "Failed to fetch property risks" });
+    }
+  });
+
+  app.get("/api/risk/properties/:propertyId", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { propertyId } = req.params;
+
+      const [propertyWithOrg] = await db.select({
+        property: properties,
+        organisationId: schemes.organisationId,
+      })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(properties.id, propertyId))
+      .limit(1);
+
+      if (!propertyWithOrg) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+      
+      if (propertyWithOrg.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied to this property" });
+      }
+
+      const latestSnapshot = await db.select()
+        .from(propertyRiskSnapshots)
+        .where(and(
+          eq(propertyRiskSnapshots.propertyId, propertyId),
+          eq(propertyRiskSnapshots.organisationId, user.organisationId),
+          eq(propertyRiskSnapshots.isLatest, true)
+        ))
+        .limit(1);
+
+      const history = await db.select({
+        id: propertyRiskSnapshots.id,
+        overallScore: propertyRiskSnapshots.overallScore,
+        riskTier: propertyRiskSnapshots.riskTier,
+        scoreChange: propertyRiskSnapshots.scoreChange,
+        calculatedAt: propertyRiskSnapshots.calculatedAt,
+      })
+      .from(propertyRiskSnapshots)
+      .where(and(
+        eq(propertyRiskSnapshots.propertyId, propertyId),
+        eq(propertyRiskSnapshots.organisationId, user.organisationId)
+      ))
+      .orderBy(desc(propertyRiskSnapshots.calculatedAt))
+      .limit(30);
+
+      res.json({
+        property: propertyWithOrg.property,
+        currentRisk: latestSnapshot[0] || null,
+        history,
+      });
+    } catch (error) {
+      console.error("Error fetching property risk details:", error);
+      res.status(500).json({ error: "Failed to fetch property risk details" });
+    }
+  });
+
+  app.post("/api/risk/properties/:propertyId/calculate", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { propertyId } = req.params;
+
+      const [propertyWithOrg] = await db.select({
+        propertyId: properties.id,
+        organisationId: schemes.organisationId,
+      })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(properties.id, propertyId))
+      .limit(1);
+
+      if (!propertyWithOrg) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+      
+      if (propertyWithOrg.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied to this property" });
+      }
+
+      const riskData = await riskScoringModule.calculatePropertyRiskScore(propertyId, user.organisationId);
+      const snapshotId = await riskScoringModule.saveRiskSnapshot(riskData);
+      const alertId = await riskScoringModule.createRiskAlert(riskData, snapshotId);
+
+      res.json({
+        ...riskData,
+        snapshotId,
+        alertId,
+      });
+    } catch (error) {
+      console.error("Error calculating property risk:", error);
+      res.status(500).json({ error: "Failed to calculate property risk" });
+    }
+  });
+
+  app.post("/api/risk/calculate-all", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const stats = await riskScoringModule.calculateAllPropertyRisks(user.organisationId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error calculating all property risks:", error);
+      res.status(500).json({ error: "Failed to calculate risks" });
+    }
+  });
+
+  app.get("/api/risk/alerts", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const tier = req.query.tier as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      const alerts = await db.select({
+        id: riskAlerts.id,
+        propertyId: riskAlerts.propertyId,
+        alertType: riskAlerts.alertType,
+        riskTier: riskAlerts.riskTier,
+        status: riskAlerts.status,
+        title: riskAlerts.title,
+        description: riskAlerts.description,
+        triggeringFactors: riskAlerts.triggeringFactors,
+        riskScore: riskAlerts.riskScore,
+        dueDate: riskAlerts.dueDate,
+        slaHours: riskAlerts.slaHours,
+        escalationLevel: riskAlerts.escalationLevel,
+        createdAt: riskAlerts.createdAt,
+        propertyAddressLine1: properties.addressLine1,
+        propertyCity: properties.city,
+        propertyPostcode: properties.postcode,
+      })
+      .from(riskAlerts)
+      .innerJoin(properties, eq(riskAlerts.propertyId, properties.id))
+      .where(and(
+        eq(riskAlerts.organisationId, user.organisationId),
+        status ? eq(riskAlerts.status, status as any) : undefined,
+        tier ? eq(riskAlerts.riskTier, tier as any) : undefined
+      ))
+      .orderBy(desc(riskAlerts.createdAt))
+      .limit(limit);
+
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching risk alerts:", error);
+      res.status(500).json({ error: "Failed to fetch risk alerts" });
+    }
+  });
+
+  app.patch("/api/risk/alerts/:alertId", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { alertId } = req.params;
+      const { status, resolutionNotes } = req.body;
+
+      const updates: any = { updatedAt: new Date() };
+
+      if (status === 'ACKNOWLEDGED') {
+        updates.status = 'ACKNOWLEDGED';
+        updates.acknowledgedById = userId;
+        updates.acknowledgedAt = new Date();
+      } else if (status === 'RESOLVED') {
+        updates.status = 'RESOLVED';
+        updates.resolvedById = userId;
+        updates.resolvedAt = new Date();
+        updates.resolutionNotes = resolutionNotes;
+      } else if (status === 'DISMISSED') {
+        updates.status = 'DISMISSED';
+        updates.resolvedById = userId;
+        updates.resolvedAt = new Date();
+        updates.resolutionNotes = resolutionNotes || 'Dismissed by user';
+      } else if (status === 'ESCALATED') {
+        updates.status = 'ESCALATED';
+        updates.escalationLevel = sql`${riskAlerts.escalationLevel} + 1`;
+      }
+
+      const [updated] = await db.update(riskAlerts)
+        .set(updates)
+        .where(and(
+          eq(riskAlerts.id, alertId),
+          eq(riskAlerts.organisationId, user.organisationId)
+        ))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating risk alert:", error);
+      res.status(500).json({ error: "Failed to update alert" });
+    }
+  });
+
+  app.get("/api/risk/factor-definitions", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const definitions = await db.select()
+        .from(riskFactorDefinitions)
+        .where(eq(riskFactorDefinitions.isActive, true))
+        .orderBy(desc(riskFactorDefinitions.priority));
+
+      res.json(definitions);
+    } catch (error) {
+      console.error("Error fetching risk factor definitions:", error);
+      res.status(500).json({ error: "Failed to fetch factor definitions" });
     }
   });
   

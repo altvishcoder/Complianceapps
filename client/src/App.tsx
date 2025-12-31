@@ -71,6 +71,7 @@ import RiskHeatmap from "@/pages/maps/risk-heatmap";
 import ScenariosPage from "@/pages/maps/scenarios";
 import EvidencePage from "@/pages/maps/evidence";
 import ComplianceCalendar from "@/pages/compliance-calendar";
+import RiskRadarPage from "@/pages/risk-radar";
 
 import LandingPage from "@/pages/landing";
 import HelpPage from "@/pages/help";
@@ -95,6 +96,7 @@ function Router() {
       <Route path="/compliance">{() => <ProtectedRoute component={CompliancePage} />}</Route>
       <Route path="/actions">{() => <ProtectedRoute component={ActionsPage} />}</Route>
       <Route path="/contractors">{() => <ProtectedRoute component={ContractorsPage} />}</Route>
+      <Route path="/risk-radar">{() => <ProtectedRoute component={RiskRadarPage} />}</Route>
       <Route path="/reports">{() => <ProtectedRoute component={Reports} />}</Route>
       <Route path="/calendar">{() => <ProtectedRoute component={ComplianceCalendar} />}</Route>
       <Route path="/admin/setup">{() => <ProtectedRoute component={AdminSetup} />}</Route>

@@ -33,7 +33,8 @@ import {
   ClipboardList,
   BookOpen,
   MessageSquare,
-  Calendar
+  Calendar,
+  Radar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -48,6 +49,7 @@ const navigation = [
   { name: "Certificates", href: "/certificates", icon: Files },
   { name: "Ingestion Hub", href: "/ingestion", icon: UploadCloud },
   { name: "Analytics Hub", href: "/compliance", icon: ClipboardCheck },
+  { name: "Risk Radar", href: "/risk-radar", icon: Radar },
   { name: "Actions", href: "/actions", icon: Wrench },
   { name: "Contractors", href: "/contractors", icon: Users },
   { name: "Reports", href: "/reports", icon: FileText },
