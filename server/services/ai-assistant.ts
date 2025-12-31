@@ -1852,6 +1852,87 @@ function shortenAddress(addr: string | null): string {
   return shortened.length > 35 ? shortened.slice(0, 32) + '...' : shortened;
 }
 
+// Get overdue remedial actions with links to properties
+async function getOverdueActionsForChat(): Promise<string> {
+  try {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    // Query for overdue actions (due date in the past, status OPEN)
+    const results = await db.execute(sql`
+      SELECT 
+        ra.id,
+        ra.description,
+        ra.severity,
+        ra.due_date as "dueDate",
+        ra.property_id as "propertyId",
+        ra.certificate_id as "certificateId",
+        p.address_line1 as "propertyAddress",
+        p.postcode as "propertyPostcode",
+        c.certificate_type as "certificateType"
+      FROM remedial_actions ra
+      LEFT JOIN properties p ON ra.property_id = p.id
+      LEFT JOIN certificates c ON ra.certificate_id = c.id
+      WHERE ra.status = 'OPEN'
+        AND ra.due_date IS NOT NULL
+        AND ra.due_date::date < ${todayStr}::date
+      ORDER BY ra.due_date::date ASC
+      LIMIT 20
+    `);
+    
+    const overdueActions = (results.rows as any[]) || [];
+    
+    if (overdueActions.length === 0) {
+      return `**Great news!** No overdue remedial actions.\n\n[View all actions](/actions) | [View certificates](/certificates)`;
+    }
+    
+    // Map certificate types to friendly names
+    const typeLabels: Record<string, string> = {
+      'GAS_SAFETY': 'Gas Safety',
+      'EICR': 'Electrical',
+      'FIRE_RISK_ASSESSMENT': 'Fire Risk',
+      'EPC': 'Energy',
+      'ASBESTOS_SURVEY': 'Asbestos',
+      'LEGIONELLA_ASSESSMENT': 'Legionella',
+      'LIFT_LOLER': 'Lift Safety',
+    };
+    
+    let response = `**Overdue Remedial Actions: ${overdueActions.length}**\n\n`;
+    
+    for (const action of overdueActions.slice(0, 8)) {
+      const shortAddr = action.propertyAddress ? shortenAddress(action.propertyAddress) : 'Unknown';
+      const typeLabel = action.certificateType ? (typeLabels[action.certificateType] || action.certificateType.replace(/_/g, ' ')) : 'General';
+      
+      // Calculate days overdue
+      let daysOverdue = '';
+      if (action.dueDate) {
+        try {
+          const dueDate = new Date(action.dueDate);
+          const diffDays = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          daysOverdue = ` - ${diffDays} day${diffDays !== 1 ? 's' : ''} overdue`;
+        } catch { /* ignore */ }
+      }
+      
+      // Link to property page
+      const propLink = action.propertyId ? `[${shortAddr}](/properties/${action.propertyId})` : shortAddr;
+      const severity = action.severity ? ` [${action.severity}]` : '';
+      
+      response += `• ${typeLabel} at ${propLink}${daysOverdue}${severity}\n`;
+    }
+    
+    if (overdueActions.length > 8) {
+      response += `\n+${overdueActions.length - 8} more overdue\n`;
+    }
+    
+    response += `\n[View all actions →](/actions) | [View certificates](/certificates)`;
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Failed to get overdue actions');
+    return `Unable to fetch overdue actions. [Check actions page](/actions)`;
+  }
+}
+
 // Get properties with compliance issues
 async function getPropertiesWithIssues(): Promise<string> {
   try {
@@ -1955,6 +2036,16 @@ async function searchProperties(query: string): Promise<string | null> {
   
   if (wantsComponentAttention) {
     return await getComponentsNeedingAttention(detectedType);
+  }
+  
+  // Check for overdue remedial actions queries
+  const hasActionContext = searchTerms.includes('action') || searchTerms.includes('remedial') || 
+    searchTerms.includes('work') || searchTerms.includes('task');
+  const wantsOverdueActions = (searchTerms.includes('overdue') || searchTerms.includes('past due') || 
+    searchTerms.includes('late') || searchTerms.includes('missed')) && hasActionContext;
+  
+  if (wantsOverdueActions) {
+    return await getOverdueActionsForChat();
   }
   
   // Check for pending certificates queries
