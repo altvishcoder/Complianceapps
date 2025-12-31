@@ -2119,48 +2119,23 @@ export async function chatWithAssistant(
     
     if (!looksLikeFollowUp) {
       // ==========================================================================
-      // LAYER 1 + 2.5: FAQ vs RAG SEARCH (Best Match Wins)
-      // Check both FAQ and RAG, use whichever has better score
-      // This allows knowledge base to override built-in FAQs when more relevant
+      // LAYER 2: DATABASE QUERIES (Property/Certificate Lookups) - CHECK FIRST
+      // Database intent should be handled by database layer, not RAG
       // ==========================================================================
-      
-      // Always check RAG first for knowledge base matches
-      const ragResults = await searchKnowledgeBase(query);
-      const ragScore = ragResults.length > 0 ? ragResults[0].score : 0;
-      
-      // Check FAQ if intent suggests it
-      let faqMatch: { entry: any; score: number } = { entry: null, score: 0 };
-      if (intent.category === 'faq' || intent.confidence < 0.8) {
-        faqMatch = findBestFAQMatch(query);
-      }
-      
-      logger.debug({ 
-        faqScore: faqMatch.score?.toFixed(3) || '0',
-        ragScore: ragScore.toFixed(3),
-        faqId: faqMatch.entry?.id
-      }, 'Layer 1/2.5 score comparison');
-      
-      // RAG wins if it has a good match (score > 0.2) AND beats or matches FAQ
-      // This prioritizes organization-specific knowledge over generic FAQs
-      if (ragResults.length > 0 && ragScore > 0.2 && ragScore >= faqMatch.score) {
-        logger.info({ 
-          query: query.substring(0, 50), 
-          topScore: ragScore.toFixed(3),
-          matches: ragResults.length 
-        }, 'Serving RAG knowledge match');
-        
-        const ragResponse = formatRAGResponse(query, ragResults);
-        if (ragResponse) {
-          const enhanced = enhanceResponse(ragResponse, intent, askedQuestions, 'rag');
+      if (intent.category === 'database') {
+        const propertyResponse = await searchProperties(query);
+        if (propertyResponse) {
+          logger.info({ query: query.substring(0, 50) }, 'Serving database query response');
+          const enhanced = enhanceResponse(propertyResponse, intent, askedQuestions, 'database');
           
-          // Track analytics - RAG response
+          // Track analytics - Database query
           trackAnalytics({
             intent: intent.category,
-            responseSource: 'rag',
+            responseSource: 'database',
             inputTokens: 0,
             outputTokens: 0,
             responseTimeMs: Date.now() - startTime,
-            confidence: ragScore,
+            confidence: intent.confidence,
           });
           
           return {
@@ -2170,38 +2145,89 @@ export async function chatWithAssistant(
             tokensUsed: { input: 0, output: 0 },
           };
         }
+        // If database intent but no results found, fall through to LLM
       }
       
-      // FAQ wins if it has a good match and RAG didn't win
-      if ((intent.category === 'faq' || intent.confidence < 0.8) && faqMatch.entry && faqMatch.score > 0.15) {
-        logger.info({ 
-          query: query.substring(0, 50), 
-          faqId: faqMatch.entry.id,
-          score: faqMatch.score.toFixed(3)
-        }, 'Serving TF-IDF FAQ match');
-        
-        const enhanced = enhanceResponse(faqMatch.entry.answer, intent, askedQuestions, 'faq');
-        
-        // Track analytics - TF-IDF FAQ match
-        trackAnalytics({
-          intent: intent.category,
-          responseSource: 'faq_tfidf',
-          inputTokens: 0,
-          outputTokens: 0,
-          responseTimeMs: Date.now() - startTime,
-          confidence: faqMatch.score,
-        });
-        
-        return {
-          success: true,
-          message: enhanced.message,
-          suggestions: enhanced.suggestions,
-          tokensUsed: { input: 0, output: 0 },
-        };
-      }
-      
-      // Also check legacy keyword cache
+      // ==========================================================================
+      // LAYER 1 + 2.5: FAQ vs RAG SEARCH (Best Match Wins) - FOR FAQ INTENTS ONLY
+      // Check both FAQ and RAG, use whichever has better score
+      // This allows knowledge base to override built-in FAQs when more relevant
+      // ==========================================================================
       if (intent.category === 'faq' || intent.confidence < 0.8) {
+        // Check RAG for knowledge base matches
+        const ragResults = await searchKnowledgeBase(query);
+        const ragScore = ragResults.length > 0 ? ragResults[0].score : 0;
+        
+        // Check FAQ 
+        const faqMatch = findBestFAQMatch(query);
+        
+        logger.debug({ 
+          faqScore: faqMatch.score?.toFixed(3) || '0',
+          ragScore: ragScore.toFixed(3),
+          faqId: faqMatch.entry?.id
+        }, 'Layer 1/2.5 score comparison');
+        
+        // RAG wins if it has a good match (score > 0.2) AND beats or matches FAQ
+        // This prioritizes organization-specific knowledge over generic FAQs
+        if (ragResults.length > 0 && ragScore > 0.2 && ragScore >= faqMatch.score) {
+          logger.info({ 
+            query: query.substring(0, 50), 
+            topScore: ragScore.toFixed(3),
+            matches: ragResults.length 
+          }, 'Serving RAG knowledge match');
+          
+          const ragResponse = formatRAGResponse(query, ragResults);
+          if (ragResponse) {
+            const enhanced = enhanceResponse(ragResponse, intent, askedQuestions, 'rag');
+            
+            // Track analytics - RAG response
+            trackAnalytics({
+              intent: intent.category,
+              responseSource: 'rag',
+              inputTokens: 0,
+              outputTokens: 0,
+              responseTimeMs: Date.now() - startTime,
+              confidence: ragScore,
+            });
+            
+            return {
+              success: true,
+              message: enhanced.message,
+              suggestions: enhanced.suggestions,
+              tokensUsed: { input: 0, output: 0 },
+            };
+          }
+        }
+        
+        // FAQ wins if it has a good match and RAG didn't win
+        if (faqMatch.entry && faqMatch.score > 0.15) {
+          logger.info({ 
+            query: query.substring(0, 50), 
+            faqId: faqMatch.entry.id,
+            score: faqMatch.score.toFixed(3)
+          }, 'Serving TF-IDF FAQ match');
+          
+          const enhanced = enhanceResponse(faqMatch.entry.answer, intent, askedQuestions, 'faq');
+          
+          // Track analytics - TF-IDF FAQ match
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'faq_tfidf',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: faqMatch.score,
+          });
+          
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
+        
+        // Also check legacy keyword cache
         const cachedResponse = findCachedResponse(query);
         if (cachedResponse) {
           logger.info({ query: query.substring(0, 50) }, 'Serving legacy FAQ cache');
@@ -2227,64 +2253,40 @@ export async function chatWithAssistant(
       }
       
       // ==========================================================================
-      // LAYER 2: DATABASE QUERIES (Property/Certificate Lookups)
+      // LAYER 2.5 FALLBACK: RAG for other intents (navigation, complex, etc.)
+      // Skip for database intent (already handled above) but allow for others
       // ==========================================================================
-      if (intent.category === 'database') {
-        const propertyResponse = await searchProperties(query);
-        if (propertyResponse) {
-          logger.info({ query: query.substring(0, 50) }, 'Serving database query response');
-          const enhanced = enhanceResponse(propertyResponse, intent, askedQuestions, 'database');
+      if (intent.category !== 'database') {
+        const ragResults = await searchKnowledgeBase(query);
+        if (ragResults.length > 0 && ragResults[0].score > 0.25) {
+          logger.info({ 
+            query: query.substring(0, 50), 
+            topScore: ragResults[0].score.toFixed(3),
+            matches: ragResults.length,
+            intent: intent.category
+          }, 'Serving RAG fallback for non-FAQ intent');
           
-          // Track analytics - Database query
-          trackAnalytics({
-            intent: intent.category,
-            responseSource: 'database',
-            inputTokens: 0,
-            outputTokens: 0,
-            responseTimeMs: Date.now() - startTime,
-            confidence: intent.confidence,
-          });
-          
-          return {
-            success: true,
-            message: enhanced.message,
-            suggestions: enhanced.suggestions,
-            tokensUsed: { input: 0, output: 0 },
-          };
-        }
-      }
-      
-      // ==========================================================================
-      // LAYER 2.5 FALLBACK: RAG for non-FAQ intents (already checked above for FAQ)
-      // ==========================================================================
-      // If we get here with RAG results but didn't match above, try RAG anyway
-      if (ragResults.length > 0 && ragResults[0].score > 0.2) {
-        logger.info({ 
-          query: query.substring(0, 50), 
-          topScore: ragResults[0].score.toFixed(3),
-          matches: ragResults.length 
-        }, 'Serving RAG knowledge match');
-        
-        const ragResponse = formatRAGResponse(query, ragResults);
-        if (ragResponse) {
-          const enhanced = enhanceResponse(ragResponse, intent, askedQuestions, 'rag');
-          
-          // Track analytics - RAG response
-          trackAnalytics({
-            intent: intent.category,
-            responseSource: 'rag',
-            inputTokens: 0,
-            outputTokens: 0,
-            responseTimeMs: Date.now() - startTime,
-            confidence: ragResults[0].score,
-          });
-          
-          return {
-            success: true,
-            message: enhanced.message,
-            suggestions: enhanced.suggestions,
-            tokensUsed: { input: 0, output: 0 },
-          };
+          const ragResponse = formatRAGResponse(query, ragResults);
+          if (ragResponse) {
+            const enhanced = enhanceResponse(ragResponse, intent, askedQuestions, 'rag');
+            
+            // Track analytics - RAG response
+            trackAnalytics({
+              intent: intent.category,
+              responseSource: 'rag',
+              inputTokens: 0,
+              outputTokens: 0,
+              responseTimeMs: Date.now() - startTime,
+              confidence: ragResults[0].score,
+            });
+            
+            return {
+              success: true,
+              message: enhanced.message,
+              suggestions: enhanced.suggestions,
+              tokensUsed: { input: 0, output: 0 },
+            };
+          }
         }
       }
     }

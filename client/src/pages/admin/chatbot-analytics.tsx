@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { MessageSquare, Zap, DollarSign, Brain, Database, BookOpen, HelpCircle } from "lucide-react";
+import { MessageSquare, Zap, DollarSign, Brain, Database, BookOpen, HelpCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 interface ChatbotAnalytics {
@@ -36,8 +38,9 @@ const SOURCE_ICONS: Record<string, any> = {
 
 export default function ChatbotAnalyticsPage() {
   const [days, setDays] = useState("7");
+  const queryClient = useQueryClient();
   
-  const { data: analytics, isLoading } = useQuery<ChatbotAnalytics>({
+  const { data: analytics, isLoading, isFetching } = useQuery<ChatbotAnalytics>({
     queryKey: ['/api/assistant/analytics', days],
     queryFn: async () => {
       const res = await fetch(`/api/assistant/analytics?days=${days}`, {
@@ -97,17 +100,29 @@ export default function ChatbotAnalyticsPage() {
                 Monitor chatbot usage and cost optimization performance
               </p>
             </div>
-            <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-36" data-testid="select-days">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Last 24 hours</SelectItem>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/assistant/analytics'] })}
+                disabled={isFetching}
+                data-testid="button-refresh-analytics"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Select value={days} onValueChange={setDays}>
+                <SelectTrigger className="w-36" data-testid="select-days">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Last 24 hours</SelectItem>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="90">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

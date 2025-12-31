@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, BookOpen, FileText, Scale, HelpCircle, ClipboardList, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, FileText, Scale, HelpCircle, ClipboardList, Search, RefreshCw } from "lucide-react";
 
 interface KnowledgeDocument {
   id?: string;
@@ -58,7 +58,7 @@ export default function KnowledgeTrainingPage() {
     sourceType: 'manual',
   });
 
-  const { data: documents = [], isLoading } = useQuery<KnowledgeDocument[]>({
+  const { data: documents = [], isLoading, isFetching } = useQuery<KnowledgeDocument[]>({
     queryKey: ['/api/knowledge', categoryFilter],
     queryFn: async () => {
       const url = categoryFilter && categoryFilter !== 'all' 
@@ -211,10 +211,22 @@ export default function KnowledgeTrainingPage() {
             Add and manage knowledge documents to train the AI Assistant
           </p>
         </div>
-        <Button onClick={openCreateDialog} data-testid="button-add-knowledge">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Knowledge
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/knowledge'] })}
+            disabled={isFetching}
+            data-testid="button-refresh-knowledge"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={openCreateDialog} data-testid="button-add-knowledge">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Knowledge
+          </Button>
+        </div>
       </div>
 
       <Card>
