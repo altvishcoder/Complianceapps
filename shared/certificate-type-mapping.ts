@@ -16,6 +16,60 @@ export type CertificateTypeCode =
   | 'COMMUNAL' | 'SIGNAGE' | 'ESC_ROUTE' | 'BALCONY' | 'ROOF_ACCESS'
   | 'OTHER' | 'UNKNOWN' | 'FIRE_RISK';
 
+// Map certificate type code to compliance stream code
+export function getStreamCodeForCertType(certType: CertificateTypeCode): string {
+  const mapping: Record<string, string> = {
+    'GAS': 'GAS_HEATING', 'GAS_SVC': 'GAS_HEATING', 'OIL': 'GAS_HEATING', 
+    'LPG': 'GAS_HEATING', 'SOLID': 'GAS_HEATING', 'ASHP': 'GAS_HEATING', 
+    'GSHP': 'GAS_HEATING', 'BIO': 'GAS_HEATING', 'HVAC': 'GAS_HEATING', 'MECH': 'GAS_HEATING',
+    'EICR': 'ELECTRICAL', 'ELEC': 'ELECTRICAL', 'EIC': 'ELECTRICAL', 
+    'PAT': 'ELECTRICAL', 'EMLT': 'ELECTRICAL', 'EMLT_M': 'ELECTRICAL', 'MEIWC': 'ELECTRICAL',
+    'EPC': 'ENERGY', 'SAP': 'ENERGY', 'DEC': 'ENERGY', 'MEES': 'ENERGY', 'RET': 'ENERGY',
+    'FRA': 'FIRE_SAFETY', 'FRAEW': 'FIRE_SAFETY', 'FIRE_ALARM': 'FIRE_SAFETY', 
+    'FIRE_EXT': 'FIRE_SAFETY', 'FIRE_DOOR': 'FIRE_SAFETY', 'FD_Q': 'FIRE_SAFETY',
+    'SMOKE_CO': 'FIRE_SAFETY', 'AOV': 'FIRE_SAFETY', 'SPRINKLER': 'FIRE_SAFETY',
+    'DRY_RISER': 'FIRE_SAFETY', 'WET_RISER': 'FIRE_SAFETY', 'FIRE_RISK': 'FIRE_SAFETY',
+    'LEG_RA': 'WATER_SAFETY', 'LEG_MONITOR': 'WATER_SAFETY', 
+    'WATER_TANK': 'WATER_SAFETY', 'TMV': 'WATER_SAFETY', 'SHOWER': 'WATER_SAFETY',
+    'ASB_SURVEY': 'ASBESTOS', 'ASB_MGMT': 'ASBESTOS', 'ASB_REFURB': 'ASBESTOS', 'ASBESTOS': 'ASBESTOS',
+    'LOLER': 'LIFTING', 'LIFT': 'LIFTING', 'STAIR_LIFT': 'LIFTING', 
+    'HOIST': 'LIFTING', 'PLATFORM': 'LIFTING', 'SFE': 'LIFTING', 'SCAFFOLD': 'LIFTING',
+    'PLAY': 'EXTERNAL', 'GYM': 'EXTERNAL', 'TREE': 'EXTERNAL', 'FENCE': 'EXTERNAL', 'PAVING': 'EXTERNAL',
+    'CCTV': 'SECURITY', 'ACCESS_CTRL': 'SECURITY', 'INTRUDER': 'SECURITY', 'WARDEN': 'SECURITY',
+    'FORM_A': 'HRB_SPECIFIC', 'FORM_B': 'HRB_SPECIFIC', 'EWS1': 'HRB_SPECIFIC', 
+    'BSR_REG': 'BUILDING_SAFETY', 'HHSRS': 'BUILDING_SAFETY', 'DS': 'BUILDING_SAFETY', 'HS': 'BUILDING_SAFETY',
+  };
+  return mapping[certType] || 'OTHER';
+}
+
+// Detect certificate type from filename - returns DB-compatible enum values
+export function detectCertTypeFromFilename(filename: string): string | null {
+  const upper = filename.toUpperCase();
+  if (upper.includes('LGSR') || upper.includes('CP12') || upper.includes('GAS_SAFETY') || 
+      upper.includes('GAS-SAFETY') || upper.includes('GASSAFETY')) return 'GAS_SAFETY';
+  if (upper.includes('EICR') || upper.includes('ELECTRICAL')) return 'EICR';
+  if (upper.includes('EPC') || upper.includes('ENERGY')) return 'EPC';
+  if (upper.includes('FRA') || upper.includes('FIRE_RISK') || upper.includes('FIRE-RISK')) return 'FIRE_RISK_ASSESSMENT';
+  if (upper.includes('PAT')) return 'EICR'; // PAT falls under electrical
+  if (upper.includes('LEGIONELLA') || upper.includes('WATER')) return 'LEGIONELLA_ASSESSMENT';
+  if (upper.includes('ASBESTOS')) return 'ASBESTOS_SURVEY';
+  if (upper.includes('LOLER') || upper.includes('LIFT')) return 'LIFT_LOLER';
+  return null;
+}
+
+// Map internal type code to DB-compatible enum value
+export function toDbCertificateType(certType: CertificateTypeCode): string {
+  const mapping: Record<string, string> = {
+    'GAS': 'GAS_SAFETY', 'GAS_SVC': 'GAS_SAFETY', 
+    'FRA': 'FIRE_RISK_ASSESSMENT', 'FRAEW': 'FIRE_RISK_ASSESSMENT', 'FIRE_RISK': 'FIRE_RISK_ASSESSMENT',
+    'LEG_RA': 'LEGIONELLA_ASSESSMENT', 'LEG_MONITOR': 'LEGIONELLA_ASSESSMENT',
+    'ASB_SURVEY': 'ASBESTOS_SURVEY', 'ASB_MGMT': 'ASBESTOS_SURVEY', 'ASBESTOS': 'ASBESTOS_SURVEY',
+    'LOLER': 'LIFT_LOLER', 'LIFT': 'LIFT_LOLER',
+    'EICR': 'EICR', 'EPC': 'EPC',
+  };
+  return mapping[certType] || 'OTHER';
+}
+
 export function normalizeCertificateTypeCode(certType: string | undefined | null): CertificateTypeCode {
   if (!certType) {
     return 'UNKNOWN';

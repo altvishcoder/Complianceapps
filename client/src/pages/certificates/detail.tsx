@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { formatDate } from "@/lib/utils";
 import { 
   FileText, 
   ArrowLeft, 
@@ -168,7 +169,7 @@ export default function CertificateDetailPage() {
                   <Calendar className="h-8 w-8 text-blue-500" />
                   <div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider">Issue Date</div>
-                    <div className="font-bold text-lg">{certificate.issueDate || "N/A"}</div>
+                    <div className="font-bold text-lg">{formatDate(certificate.issueDate) || "N/A"}</div>
                   </div>
                 </div>
               </CardContent>
@@ -180,7 +181,7 @@ export default function CertificateDetailPage() {
                   <Calendar className="h-8 w-8 text-amber-500" />
                   <div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider">Expiry Date</div>
-                    <div className="font-bold text-lg">{certificate.expiryDate || "N/A"}</div>
+                    <div className="font-bold text-lg">{formatDate(certificate.expiryDate) || "N/A"}</div>
                   </div>
                 </div>
               </CardContent>

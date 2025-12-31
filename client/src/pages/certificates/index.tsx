@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -354,7 +355,7 @@ export default function CertificatesPage() {
                             {cert.status.replace('_', ' ')}
                           </button>
                         </td>
-                        <td className="p-4 text-muted-foreground">{cert.expiryDate}</td>
+                        <td className="p-4 text-muted-foreground">{formatDate(cert.expiryDate)}</td>
                         <td className="p-4">
                           <Badge variant="outline">{cert.outcome}</Badge>
                         </td>
@@ -446,11 +447,11 @@ export default function CertificatesPage() {
                             </div>
                             <div>
                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Issue Date</div>
-                               <div className="text-sm">{selectedCert.issueDate}</div>
+                               <div className="text-sm">{formatDate(selectedCert.issueDate)}</div>
                             </div>
                              <div>
                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Expiry Date</div>
-                               <div className="text-sm font-semibold">{selectedCert.expiryDate}</div>
+                               <div className="text-sm font-semibold">{formatDate(selectedCert.expiryDate)}</div>
                             </div>
                          </div>
 

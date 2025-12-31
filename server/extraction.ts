@@ -124,7 +124,7 @@ function mapCertificateTypeToCode(certType: string | undefined | null): Certific
     return 'UNKNOWN';
   }
   const upper = certType.toUpperCase().trim();
-  if (upper === 'GAS_SAFETY' || upper === 'GAS' || upper === 'LGSR' || upper === 'CP12' || upper.includes('GAS SAFETY')) return 'GAS';
+  if (upper === 'GAS_SAFETY' || upper === 'GAS' || upper === 'LGSR' || upper === 'CP12' || upper.includes('GAS SAFETY')) return 'GAS_SAFETY';
   if (upper === 'GAS_SVC' || upper.includes('GAS SERVICE')) return 'GAS_SVC';
   if (upper === 'OIL' || upper.includes('OIL BOILER')) return 'OIL';
   if (upper === 'LPG') return 'LPG';

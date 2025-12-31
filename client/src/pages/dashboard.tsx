@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -548,7 +549,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 ml-4">
                           <Badge variant="outline" className="text-orange-600 border-orange-300">
                             <Calendar className="h-3 w-3 mr-1" />
-                            {new Date(cert.expiryDate).toLocaleDateString()}
+                            {formatDate(cert.expiryDate)}
                           </Badge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>

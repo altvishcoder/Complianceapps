@@ -130,6 +130,40 @@ export async function analysePdf(buffer: Buffer): Promise<FormatAnalysis> {
   };
 }
 
+export function detectCertificateTypeFromFilename(filename: string): CertificateTypeCode | null {
+  const upperFilename = filename.toUpperCase();
+  
+  if (upperFilename.includes('LGSR') || upperFilename.includes('CP12') || 
+      upperFilename.includes('GAS_SAFETY') || upperFilename.includes('GAS-SAFETY') ||
+      upperFilename.includes('GASSAFETY')) {
+    return 'GAS_SAFETY';
+  }
+  if (upperFilename.includes('EICR') || upperFilename.includes('ELECTRICAL')) {
+    return 'EICR';
+  }
+  if (upperFilename.includes('EPC') || upperFilename.includes('ENERGY')) {
+    return 'EPC';
+  }
+  if (upperFilename.includes('FRA') || upperFilename.includes('FIRE_RISK') || 
+      upperFilename.includes('FIRE-RISK') || upperFilename.includes('FIRERISK')) {
+    return 'FRA';
+  }
+  if (upperFilename.includes('PAT')) {
+    return 'PAT';
+  }
+  if (upperFilename.includes('LEGIONELLA') || upperFilename.includes('WATER')) {
+    return 'LEGIONELLA';
+  }
+  if (upperFilename.includes('ASBESTOS')) {
+    return 'ASBESTOS';
+  }
+  if (upperFilename.includes('LOLER') || upperFilename.includes('LIFT')) {
+    return 'LIFT';
+  }
+  
+  return null;
+}
+
 export function detectCertificateType(text: string): CertificateTypeCode {
   const upperText = text.toUpperCase();
 
@@ -140,7 +174,7 @@ export function detectCertificateType(text: string): CertificateTypeCode {
     upperText.includes('LGSR') ||
     (upperText.includes('GAS SAFE') && upperText.includes('APPLIANCE'))
   ) {
-    return 'GAS';
+    return 'GAS_SAFETY';
   }
 
   if (
