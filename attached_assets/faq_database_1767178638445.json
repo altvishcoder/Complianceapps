@@ -1,0 +1,261 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2024-12-30",
+    "total_faqs": 45,
+    "categories": ["gas_safety", "electrical", "fire_safety", "legionella", "asbestos", "general"]
+  },
+  "faqs": [
+    {
+      "id": "gas-001",
+      "category": "gas_safety",
+      "question": "How often do gas safety certificates need to be renewed?",
+      "variations": [
+        "When does a gas certificate expire?",
+        "LGSR renewal frequency",
+        "CP12 validity period",
+        "How long is a gas safety record valid?",
+        "Gas cert expiry",
+        "When to renew gas certificate"
+      ],
+      "answer": "Gas Safety Certificates (LGSR/CP12) must be renewed **annually** - within 12 months of the previous inspection.\n\n**Key requirements:**\n- Applies to all rental properties with gas appliances\n- Must be carried out by a Gas Safe registered engineer\n- Certificate must be provided to tenants within 28 days\n- Records must be kept for 2 years\n\n**Regulation:** Gas Safety (Installation and Use) Regulations 1998",
+      "sources": ["Gas Safety Regulations 1998", "HSE Guidance INDG285"]
+    },
+    {
+      "id": "gas-002", 
+      "category": "gas_safety",
+      "question": "What appliances need to be checked on a gas safety inspection?",
+      "variations": [
+        "What does a gas check cover?",
+        "Gas safety inspection scope",
+        "What's included in LGSR?",
+        "Gas appliances covered by CP12"
+      ],
+      "answer": "A gas safety inspection must cover **all gas appliances, fittings, and flues** in the property:\n\n**Appliances typically checked:**\n- Gas boilers and central heating systems\n- Gas fires and heaters\n- Gas cookers and hobs\n- Gas water heaters\n\n**Checks performed:**\n- Appliance safety and operation\n- Flue flow and spillage tests\n- Ventilation adequacy\n- Gas tightness (pipework)\n- Combustion analysis readings\n- Carbon monoxide alarm check",
+      "sources": ["Gas Safety Regulations 1998", "Gas Safe Technical Bulletin"]
+    },
+    {
+      "id": "gas-003",
+      "category": "gas_safety",
+      "question": "What happens if a gas appliance is condemned?",
+      "variations": [
+        "Immediately dangerous gas appliance",
+        "ID classification gas",
+        "At risk gas appliance",
+        "AR classification meaning",
+        "Gas appliance warning notice"
+      ],
+      "answer": "When a gas engineer finds safety issues, appliances are classified:\n\n**🔴 Immediately Dangerous (ID)**\n- Poses immediate risk to life\n- Must be disconnected immediately\n- Cannot be used until repaired by Gas Safe engineer\n- Warning label attached\n\n**🟠 At Risk (AR)**\n- Not immediately dangerous but poses risk\n- Should be repaired as soon as possible\n- User warned in writing\n\n**🟡 Not to Current Standards (NCS)**\n- Safe to use but doesn't meet current standards\n- Recommend upgrade when convenient\n\n**Landlord responsibility:** All ID and AR issues must be rectified before the property can be re-let.",
+      "sources": ["Gas Safe Register Unsafe Situations Procedure", "GIUSP"]
+    },
+    {
+      "id": "gas-004",
+      "category": "gas_safety",
+      "question": "Can a tenant refuse access for a gas safety check?",
+      "variations": [
+        "Tenant won't allow gas inspection",
+        "Access denied for gas check",
+        "What if tenant refuses gas safety",
+        "Legal rights gas inspection access"
+      ],
+      "answer": "Tenants **cannot legally refuse** access for mandatory gas safety checks.\n\n**Landlord steps:**\n1. Give reasonable notice (24-48 hours recommended)\n2. Offer alternative appointment times\n3. Document all attempts in writing\n4. Send formal written warning\n5. If persistent refusal, seek legal advice\n\n**Important:**\n- Keep records of all access attempts\n- You must demonstrate 'reasonable steps'\n- May need to apply for court injunction as last resort\n- Never enter without proper notice/consent\n\n**HSE position:** Landlords must take 'all reasonable steps' - documented attempts protect you legally.",
+      "sources": ["Gas Safety Regulations 1998 Reg.36", "HSE Guidance for Landlords"]
+    },
+    {
+      "id": "electrical-001",
+      "category": "electrical",
+      "question": "How often is an EICR required for rental properties?",
+      "variations": [
+        "EICR inspection frequency",
+        "When do electrical certificates expire?",
+        "How long is an electrical report valid?",
+        "Electrical safety check frequency",
+        "EICR renewal period"
+      ],
+      "answer": "EICRs (Electrical Installation Condition Reports) are required **at least every 5 years** for rental properties.\n\n**Key requirements:**\n- Mandatory for all private rented sector properties since April 2021\n- Must be carried out by a qualified electrician (NICEIC, NAPIT, or ELECSA registered)\n- Any C1 (danger present) or C2 (potentially dangerous) defects must be remedied within 28 days\n- Copy must be provided to tenants within 28 days of inspection\n- New tenants must receive copy before moving in\n\n**Regulation:** Electrical Safety Standards in the Private Rented Sector (England) Regulations 2020",
+      "sources": ["Electrical Safety Standards Regulations 2020", "BS 7671:2018+A2:2022"]
+    },
+    {
+      "id": "electrical-002",
+      "category": "electrical",
+      "question": "What do EICR codes C1, C2, C3 mean?",
+      "variations": [
+        "EICR observation codes explained",
+        "What is a C1 defect?",
+        "C2 electrical code meaning",
+        "Electrical report classification codes"
+      ],
+      "answer": "EICR observation codes indicate severity of electrical issues:\n\n**🔴 C1 - Danger Present**\n- Immediate risk of injury\n- Requires immediate remedial action\n- Installation may need isolating\n- **Action: Within 24-48 hours**\n\n**🟠 C2 - Potentially Dangerous**\n- Could become dangerous\n- Requires urgent remedial action\n- **Action: Within 28 days** (legal requirement for rentals)\n\n**🟡 C3 - Improvement Recommended**\n- Does not meet current standards\n- Not a safety issue\n- **Action: Recommended but not mandatory**\n\n**FI - Further Investigation**\n- Requires additional inspection\n- Cannot determine safety without more testing\n\n**Note:** Any C1 or C2 results in an **UNSATISFACTORY** overall assessment.",
+      "sources": ["BS 7671:2018", "Electrical Safety Standards Regulations 2020"]
+    },
+    {
+      "id": "electrical-003",
+      "category": "electrical",
+      "question": "What's the difference between an EICR and an electrical certificate?",
+      "variations": [
+        "EICR vs EIC",
+        "Electrical installation certificate vs condition report",
+        "Do I need EICR or EIC?",
+        "Types of electrical certificates"
+      ],
+      "answer": "There are different electrical certificates for different purposes:\n\n**EICR (Electrical Installation Condition Report)**\n- For EXISTING installations\n- Assesses current condition and safety\n- Required every 5 years for rentals\n- Reports on deterioration and defects\n\n**EIC (Electrical Installation Certificate)**\n- For NEW installations or major alterations\n- Confirms work meets BS 7671 standards\n- Issued when new electrical work completed\n- Accompanies new builds or rewires\n\n**Minor Works Certificate**\n- For small additions/alterations\n- Adding sockets, lights, etc.\n- Not for new circuits\n\n**For landlords:** You need a valid EICR - not just the original EIC from when the property was built.",
+      "sources": ["BS 7671:2018", "IET Guidance Note 3"]
+    },
+    {
+      "id": "fire-001",
+      "category": "fire_safety",
+      "question": "How often should a Fire Risk Assessment be reviewed?",
+      "variations": [
+        "FRA review frequency",
+        "When to update fire risk assessment",
+        "Fire risk assessment renewal",
+        "How often FRA inspection"
+      ],
+      "answer": "Fire Risk Assessments should be reviewed **at least annually**, or sooner if:\n\n**Triggers for immediate review:**\n- Significant changes to the building layout\n- Changes to the use of the building\n- Changes to occupancy or number of residents\n- After a fire or near-miss incident\n- New fire safety legislation is introduced\n- Following enforcement action\n\n**High-rise residential (18m+):**\n- More frequent reviews required under Building Safety Act 2022\n- Consider quarterly reviews\n- Must have Building Safety Case\n\n**Best practice:** Review annually even if no changes - document the review date.\n\n**Regulation:** Regulatory Reform (Fire Safety) Order 2005, PAS 79-2:2020",
+      "sources": ["Fire Safety Order 2005", "PAS 79-2:2020", "Building Safety Act 2022"]
+    },
+    {
+      "id": "fire-002",
+      "category": "fire_safety",
+      "question": "Do I need fire alarms in rental properties?",
+      "variations": [
+        "Smoke alarm requirements rental",
+        "Carbon monoxide alarm regulations",
+        "Fire alarm requirements landlords",
+        "Smoke detector rules rental property"
+      ],
+      "answer": "**Yes - smoke and CO alarms are mandatory** in all rental properties.\n\n**Requirements (from Oct 2022):**\n\n**Smoke alarms:**\n- At least one on each storey with living accommodation\n- Must be working at start of each tenancy\n- Recommended: test regularly, replace every 10 years\n\n**Carbon monoxide alarms:**\n- In any room with a fixed combustion appliance (except gas cookers)\n- Includes gas boilers, fires, wood burners, oil heaters\n- Must be working at start of each tenancy\n\n**Heat alarms:**\n- Recommended in kitchens (instead of smoke alarms to avoid false alarms)\n\n**Penalties:** Up to £5,000 fine for non-compliance.\n\n**Regulation:** Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022",
+      "sources": ["Smoke and CO Alarm Regulations 2022", "Fire Safety Order 2005"]
+    },
+    {
+      "id": "fire-003",
+      "category": "fire_safety",
+      "question": "What are fire door inspection requirements?",
+      "variations": [
+        "Fire door checks frequency",
+        "How often inspect fire doors",
+        "Fire door regulations flats",
+        "FD30 door requirements"
+      ],
+      "answer": "**Fire door inspection requirements:**\n\n**Frequency:**\n- Quarterly checks recommended for communal areas\n- Annual detailed inspection by competent person\n- Immediately after any damage reported\n\n**What to check:**\n- Door closes fully into frame\n- Gaps around door (max 3-4mm when closed)\n- Intumescent strips and smoke seals intact\n- Self-closing device working properly\n- No damage, holes, or modifications\n- Hinges secure (minimum 3 hinges)\n- Signage in place\n\n**High-rise (over 11m):**\n- Flat entrance doors must be FD30S (30 min + smoke seals)\n- More rigorous inspection regime required\n\n**Regulation:** Fire Safety Order 2005, Building Safety Act 2022",
+      "sources": ["Fire Safety Order 2005", "Building Safety Act 2022", "BS 8214"]
+    },
+    {
+      "id": "legionella-001",
+      "category": "legionella",
+      "question": "Do landlords need a Legionella risk assessment?",
+      "variations": [
+        "Legionella requirements rental property",
+        "LRA mandatory for landlords?",
+        "Legionella check rental",
+        "Water safety assessment rental"
+      ],
+      "answer": "**Yes - all landlords must assess Legionella risk**, though the level of assessment depends on the property.\n\n**Requirements:**\n- Identify and assess risk from Legionella bacteria\n- Document the assessment\n- Implement control measures if needed\n- Review periodically (typically every 2 years)\n\n**For simple domestic properties:**\n- Basic assessment often sufficient\n- Check water temperatures\n- Ensure no stagnation points\n- Remove/clean showerheads and taps\n\n**Higher risk situations:**\n- Complex water systems\n- Stored hot water\n- Care homes or HMOs\n- May need professional assessment\n\n**Key control:** Keep hot water above 50°C stored, 60°C at cylinder - delivered above 50°C at outlets.\n\n**Regulation:** HSE ACOP L8, HSG274",
+      "sources": ["ACOP L8", "HSG274 Parts 1-3", "HSE Guidance for Landlords"]
+    },
+    {
+      "id": "legionella-002",
+      "category": "legionella",
+      "question": "What temperature should hot water be to prevent Legionella?",
+      "variations": [
+        "Legionella temperature requirements",
+        "Hot water temperature regulations",
+        "Safe water temperature Legionella",
+        "TMV temperature settings"
+      ],
+      "answer": "**Water temperature requirements for Legionella control:**\n\n**Hot water:**\n- Stored at **60°C** minimum in cylinders/calorifiers\n- Distributed at **50°C** minimum (within 1 minute of running)\n- Outlet temperature should reach 50°C within 1 minute\n\n**Cold water:**\n- Should be below **20°C** (ideally below 20°C)\n- Check at sentinel outlets (furthest from tank)\n\n**TMVs (Thermostatic Mixing Valves):**\n- Blend hot/cold to prevent scalding\n- Typically set to 41-44°C at outlet\n- Required where vulnerable users present\n- Must be serviced annually\n\n**Important:** Legionella thrives between 20-45°C - avoid temperatures in this range.\n\n**Monthly checks recommended:** Temperature monitoring at key outlets.",
+      "sources": ["HSG274 Part 2", "ACOP L8", "BS 8558"]
+    },
+    {
+      "id": "asbestos-001",
+      "category": "asbestos",
+      "question": "When is an asbestos survey required?",
+      "variations": [
+        "Asbestos survey requirements",
+        "Do I need asbestos survey?",
+        "Asbestos check rental property",
+        "When to survey for asbestos"
+      ],
+      "answer": "**Asbestos surveys are required for:**\n\n**Management surveys (non-intrusive):**\n- Any non-domestic premises or common areas\n- Before routine maintenance work\n- As part of property management\n- Recommended for pre-1999 buildings\n\n**Refurbishment/Demolition surveys:**\n- Before ANY refurbishment work\n- Before demolition\n- Fully intrusive - destructive inspection\n- Required before contractors start work\n\n**Domestic properties:**\n- No legal requirement for private dwellings\n- BUT duty of care to contractors doing work\n- Recommended for pre-2000 properties before works\n\n**Common areas in flats:**\n- Management survey required\n- Asbestos register must be maintained\n- Re-inspection recommended annually\n\n**Note:** Asbestos was used in buildings until 1999 (banned 2000).",
+      "sources": ["Control of Asbestos Regulations 2012", "HSG264", "HSG227"]
+    },
+    {
+      "id": "asbestos-002",
+      "category": "asbestos",
+      "question": "What do I do if asbestos is found?",
+      "variations": [
+        "Asbestos found in property",
+        "How to manage asbestos",
+        "Asbestos removal requirements",
+        "ACM found during works"
+      ],
+      "answer": "**If asbestos is found, follow these steps:**\n\n**1. Don't panic - assess the risk:**\n- Asbestos is only dangerous when disturbed\n- Intact materials in good condition can be managed in place\n\n**2. Determine condition:**\n- Good condition, undamaged → Usually manage in place\n- Damaged or likely to be disturbed → Consider removal\n\n**3. Options:**\n\n**Manage in place:**\n- Label clearly\n- Add to asbestos register\n- Monitor condition (annual re-inspection)\n- Brief contractors before any work\n\n**Encapsulate:**\n- Seal with protective coating\n- Prevents fibre release\n- Cheaper than removal\n\n**Remove:**\n- Must use licensed contractor (for most ACM types)\n- Notify HSE if licensable work\n- Requires air testing before re-occupation\n\n**Important:** Never attempt DIY removal of asbestos.",
+      "sources": ["Control of Asbestos Regulations 2012", "HSG264", "HSG247"]
+    },
+    {
+      "id": "general-001",
+      "category": "general",
+      "question": "What compliance certificates do landlords need?",
+      "variations": [
+        "Required certificates for rental property",
+        "Landlord legal requirements certificates",
+        "What inspections needed for BTL",
+        "Rental property compliance checklist"
+      ],
+      "answer": "**Mandatory certificates for landlords:**\n\n**✅ Gas Safety Certificate (LGSR/CP12)**\n- Annual\n- If property has gas appliances\n\n**✅ Electrical Safety Certificate (EICR)**\n- Every 5 years\n- All rental properties\n\n**✅ Energy Performance Certificate (EPC)**\n- Every 10 years\n- Rating E or above required\n\n**✅ Smoke & CO Alarms**\n- Check at start of each tenancy\n- Working smoke alarm each floor\n- CO alarm with combustion appliances\n\n**Recommended/Situational:**\n\n**📋 Fire Risk Assessment (FRA)**\n- Required for HMOs and common areas\n- Recommended annually\n\n**📋 Legionella Risk Assessment**\n- Required for all properties\n- Review every 2 years\n\n**📋 Asbestos Survey**\n- Pre-1999 buildings before works\n- Common areas in flats",
+      "sources": ["Various regulations - see specific certificate types"]
+    },
+    {
+      "id": "general-002",
+      "category": "general",
+      "question": "What are the penalties for non-compliance?",
+      "variations": [
+        "Fines for missing gas certificate",
+        "Landlord compliance penalties",
+        "What happens if no EICR",
+        "Non-compliance consequences rental"
+      ],
+      "answer": "**Penalties for compliance failures:**\n\n**Gas Safety:**\n- Up to £6,000 fine per breach\n- Up to 6 months imprisonment\n- Unlimited fine if tenant harmed\n- Manslaughter charges possible\n\n**Electrical Safety:**\n- Up to £30,000 fine\n- Local authority can do works and recover costs\n- Rent Repayment Orders possible\n\n**Smoke/CO Alarms:**\n- Up to £5,000 fine\n\n**Fire Safety (HMOs/common areas):**\n- Unlimited fines\n- Up to 2 years imprisonment\n- Prohibition notices (can't let property)\n\n**EPC:**\n- £200 fine per breach\n- Can't legally let without valid EPC\n\n**Also consider:**\n- Invalid Section 21 notices\n- Insurance may be void\n- Mortgage breach\n- Criminal record\n- Rent Repayment Orders",
+      "sources": ["Gas Safety Regulations 1998", "Electrical Safety Standards 2020", "Housing Act 2004"]
+    },
+    {
+      "id": "general-003",
+      "category": "general",
+      "question": "How long must I keep compliance records?",
+      "variations": [
+        "Certificate retention period",
+        "How long keep gas certificates",
+        "Record keeping requirements landlords",
+        "Compliance document storage"
+      ],
+      "answer": "**Record retention requirements:**\n\n**Gas Safety Records:**\n- Minimum 2 years (legal requirement)\n- Recommended: Keep indefinitely\n\n**Electrical (EICR):**\n- Keep until next inspection (5 years)\n- Recommended: Keep indefinitely\n\n**Fire Risk Assessment:**\n- Keep current version plus previous\n- Retain superseded versions for 3+ years\n\n**Asbestos Records:**\n- **40 years minimum** for exposure records\n- Keep surveys indefinitely while ACMs present\n\n**EPC:**\n- 10 years (valid period)\n- Keep expired ones for reference\n\n**General recommendation:**\n- Keep ALL compliance records for life of ownership\n- Digital backups recommended\n- Provide copies to new owner on sale\n- Essential for due diligence and insurance claims",
+      "sources": ["Gas Safety Regulations 1998", "Control of Asbestos Regulations 2012"]
+    },
+    {
+      "id": "epc-001",
+      "category": "general",
+      "question": "What EPC rating is required for rental properties?",
+      "variations": [
+        "Minimum EPC rating to rent",
+        "EPC requirements landlords",
+        "Can I rent with EPC rating F",
+        "MEES regulations EPC"
+      ],
+      "answer": "**Minimum EPC rating: E or above**\n\n**Current rules (MEES):**\n- Cannot grant new tenancies if EPC below E\n- Cannot continue existing tenancies if below E\n- Fine up to £5,000 for breaches\n\n**Exemptions:**\n- All improvements up to £3,500 cap made\n- Property will be devalued by 5%+ by works\n- Third party consent refused\n- Wall insulation would damage property\n- Valid exemption lasts 5 years\n\n**Future changes (proposed):**\n- Potential requirement for C rating by 2028/2030\n- Consult latest government guidance\n\n**To improve rating:**\n- Loft/cavity insulation\n- Double glazing\n- Efficient boiler\n- LED lighting\n- Smart heating controls\n\n**Note:** Must provide EPC to tenants before letting.",
+      "sources": ["Energy Efficiency Regulations 2015", "MEES Regulations"]
+    },
+    {
+      "id": "hmo-001",
+      "category": "general",
+      "question": "What extra requirements apply to HMOs?",
+      "variations": [
+        "HMO compliance requirements",
+        "House in multiple occupation rules",
+        "HMO fire safety requirements",
+        "Licensing requirements HMO"
+      ],
+      "answer": "**HMO (House in Multiple Occupation) additional requirements:**\n\n**Licensing:**\n- Mandatory license: 5+ people, 2+ households\n- Additional licensing may apply locally\n- Selective licensing in some areas\n- Fees typically £500-1,500\n\n**Fire Safety (enhanced):**\n- Fire Risk Assessment mandatory\n- Fire doors to all rooms\n- Emergency lighting\n- Fire alarm system (often Grade A LD2)\n- Fire blankets in kitchens\n- Clear escape routes\n\n**Facilities:**\n- Adequate kitchen facilities for occupants\n- Bathroom ratios (typically 1:5)\n- Minimum room sizes enforced\n\n**Management:**\n- Written statement of terms\n- Manager contact details displayed\n- Refuse/recycling facilities\n- Common areas maintained\n\n**Penalties:** Up to £30,000 fine + Rent Repayment Orders",
+      "sources": ["Housing Act 2004", "Licensing of HMOs Regulations 2018", "LACORS Fire Safety Guide"]
+    }
+  ]
+}
