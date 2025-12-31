@@ -558,7 +558,7 @@ const FAQ_DATABASE: FAQEntry[] = [
 
 **Regulation:** Gas Safety Regulations 1998
 
-[View Gas Safety Certificates](/certificates?type=CP12) | [Track Renewals](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`,
+[View Gas Safety Certificates](/certificates?type=CP12) | [View Expiring](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`,
     sources: ["Gas Safety Regulations 1998", "HSE Guidance INDG285"],
   },
   {
@@ -1342,7 +1342,7 @@ const FAQ_CACHE: Record<string, string> = {
 • CP12 certificate every **12 months**
 • Records kept **2 years**, tenant copy within **28 days**
 
-[View Gas Certificates](/certificates?type=CP12) | [Track Renewals](/certificates) | [Remedial Actions](/remedial-actions)`,
+[View Gas Certificates](/certificates?type=CP12) | [View Expiring](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`,
 
   "eicr renew": `**EICR** (Electrical Safety Standards 2020)
 • Required every **5 years**
@@ -1725,11 +1725,10 @@ async function getExpiredCertificatesForChat(): Promise<string> {
       response += `\n`;
     }
     
-    response += `**Urgent Actions Required:**\n`;
-    response += `• Schedule immediate re-inspections\n`;
-    response += `• Book qualified contractors\n`;
+    response += `**Next Steps:**\n`;
     response += `• [View all expired certificates →](/certificates?filter=expired)\n`;
     response += `• [Manage remedial actions →](/remedial-actions)\n`;
+    response += `• [Upload new certificates →](/certificates)\n`;
     
     return response;
   } catch (error) {
