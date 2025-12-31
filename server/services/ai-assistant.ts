@@ -139,7 +139,9 @@ const FAQ_DATABASE: FAQEntry[] = [
 • Certificate to tenant within **28 days**
 • Records kept for **2 years**
 
-**Regulation:** Gas Safety Regulations 1998`,
+**Regulation:** Gas Safety Regulations 1998
+
+👉 [View Gas Safety Certificates](/certificates?type=CP12) | [Track Renewals](/certificates?status=EXPIRING)`,
     sources: ["Gas Safety Regulations 1998", "HSE Guidance INDG285"],
   },
   {
@@ -196,7 +198,9 @@ All gas appliances, fittings, and flues must be checked:
 • C1/C2 defects: fix within **28 days**
 • Copy to tenant within **28 days**
 
-**Regulation:** Electrical Safety Standards Regulations 2020`,
+**Regulation:** Electrical Safety Standards Regulations 2020
+
+👉 [View EICRs](/certificates?type=EICR) | [Schedule Remedial Work](/actions)`,
     sources: ["Electrical Safety Standards Regulations 2020", "BS 7671:2018+A2:2022"],
   },
   {
@@ -217,7 +221,9 @@ All gas appliances, fittings, and flues must be checked:
 
 **FI** - Further Investigation needed
 
-**Any C1 or C2 = UNSATISFACTORY overall**`,
+**Any C1 or C2 = UNSATISFACTORY overall**
+
+👉 [View Defect Codes](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/actions)`,
     sources: ["BS 7671:2018", "Electrical Safety Standards Regulations 2020"],
   },
   {
@@ -236,7 +242,9 @@ All gas appliances, fittings, and flues must be checked:
 • More frequent reviews (quarterly)
 • Building Safety Case required
 
-**Regulation:** Fire Safety Order 2005, Building Safety Act 2022`,
+**Regulation:** Fire Safety Order 2005, Building Safety Act 2022
+
+👉 [View FRA Documents](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Safety Actions](/actions)`,
     sources: ["Fire Safety Order 2005", "PAS 79-2:2020", "Building Safety Act 2022"],
   },
   {
@@ -256,7 +264,9 @@ All gas appliances, fittings, and flues must be checked:
 
 **Penalties:** Up to £5,000 fine
 
-**Regulation:** Smoke and CO Alarm Regulations 2022`,
+**Regulation:** Smoke and CO Alarm Regulations 2022
+
+👉 [View Fire Safety Certificates](/certificates?type=FIRE_RISK_ASSESSMENT) | [Track Actions](/actions)`,
     sources: ["Smoke and CO Alarm Regulations 2022"],
   },
   {
@@ -274,7 +284,9 @@ All gas appliances, fittings, and flues must be checked:
 • Hot water: **60°C** stored, **50°C** delivered
 • Cold water: below **20°C**
 
-**Regulation:** HSE ACOP L8, HSG274`,
+**Regulation:** HSE ACOP L8, HSG274
+
+👉 [View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
     sources: ["ACOP L8", "HSG274 Parts 1-3"],
   },
   {
@@ -295,7 +307,9 @@ All gas appliances, fittings, and flues must be checked:
 
 **Note:** Asbestos used until 1999 (banned 2000)
 
-**Regulation:** Control of Asbestos Regulations 2012`,
+**Regulation:** Control of Asbestos Regulations 2012
+
+👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
     sources: ["Control of Asbestos Regulations 2012", "HSG264"],
   },
   {
@@ -305,15 +319,17 @@ All gas appliances, fittings, and flues must be checked:
     variations: ["Required certificates for rental property", "Landlord legal requirements certificates", "Rental property compliance checklist"],
     answer: `**Mandatory Certificates:**
 
-✅ **Gas Safety (CP12)** - Annual (if gas)
-✅ **EICR** - Every 5 years
-✅ **EPC** - Every 10 years (Rating E+)
-✅ **Smoke & CO Alarms** - Each tenancy start
+✅ [Gas Safety (CP12)](/certificates?type=CP12) - Annual (if gas)
+✅ [EICR](/certificates?type=EICR) - Every 5 years
+✅ [EPC](/certificates?type=EPC) - Every 10 years (Rating E+)
+✅ Smoke & CO Alarms - Each tenancy start
 
 **Recommended:**
-📋 **Fire Risk Assessment** - HMOs/common areas
-📋 **Legionella Risk Assessment** - Every 2 years
-📋 **Asbestos Survey** - Pre-1999 buildings`,
+📋 [Fire Risk Assessment](/certificates?type=FIRE_RISK_ASSESSMENT) - HMOs/common areas
+📋 [Legionella Risk Assessment](/certificates?type=LEGIONELLA) - Every 2 years
+📋 [Asbestos Survey](/certificates?type=ASBESTOS) - Pre-1999 buildings
+
+👉 [View All Certificates](/certificates) | [Dashboard](/dashboard)`,
     sources: ["Various UK regulations"],
   },
   {
@@ -470,18 +486,24 @@ const FAQ_CACHE: Record<string, string> = {
   "gas safety": `**Gas Safety** (Gas Safety Regs 1998)
 • Annual check by Gas Safe engineer
 • CP12 certificate every **12 months**
-• Records kept **2 years**, tenant copy within **28 days**`,
+• Records kept **2 years**, tenant copy within **28 days**
+
+👉 [View Gas Certificates](/certificates?type=CP12) | [Track Renewals](/certificates)`,
 
   "eicr renew": `**EICR** (Electrical Safety Standards 2020)
 • Required every **5 years**
 • Qualified electrician (BS 7671)
-• Fix issues within **28 days** if unsatisfactory`,
+• Fix issues within **28 days** if unsatisfactory
 
-  "c1 c2 c3": `**Gas Defect Codes**
+👉 [View EICRs](/certificates?type=EICR) | [Remedial Actions](/actions)`,
+
+  "c1 c2 c3": `**Defect Codes**
 • **C1** - Immediately Dangerous → Disconnect now
 • **C2** - At Risk → Fix within 24-48 hours  
 • **C3** - Not to standard → Fix at next service
-• **FI** - Further investigation needed`,
+• **FI** - Further investigation needed
+
+👉 [View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Actions](/actions)`,
 
   "upload certificate": `**Upload a Certificate**
 1. Go to [Certificates](/certificates)
@@ -493,17 +515,23 @@ const FAQ_CACHE: Record<string, string> = {
   "fire risk": `**Fire Risk Assessment** (RRO 2005)
 • Required for all communal areas
 • Review annually or after changes
-• 18m+ buildings: more frequent (BSA 2022)`,
+• 18m+ buildings: more frequent (BSA 2022)
+
+👉 [View FRAs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Actions](/actions)`,
 
   "asbestos": `**Asbestos** (CAR 2012)
 • Management survey for pre-2000 buildings
 • Re-inspect every 6-12 months
-• R&D survey before intrusive work`,
+• R&D survey before intrusive work
+
+👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
 
   "legionella": `**Legionella** (L8 ACOP)
 • Risk assessment every **2 years**
 • Hot water: 60°C+ stored, 50°C+ delivered
-• Cold water: below 20°C`,
+• Cold water: below 20°C
+
+👉 [View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
 };
 
 const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
