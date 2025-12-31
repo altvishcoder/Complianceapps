@@ -6,6 +6,7 @@ import { seedDatabase } from "./seed";
 import { initJobQueue, stopJobQueue } from "./job-queue";
 import { httpLogger, logger } from "./logger";
 import { initSentry, setupSentryErrorHandler } from "./sentry";
+import { setupSession } from "./session";
 
 const app = express();
 const httpServer = createServer(app);
@@ -26,6 +27,9 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Setup session middleware (must be before routes)
+setupSession(app);
 
 export function log(message: string, source = "express") {
   logger.info({ source }, message);

@@ -61,6 +61,7 @@ import LandingPage from "@/pages/landing";
 import HelpPage from "@/pages/help";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { AIAssistant } from "@/components/AIAssistant";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
 
 function Router() {
   return (
@@ -109,6 +110,9 @@ function Router() {
 
 function AppContent() {
   useExtractionEvents();
+  const [location] = useLocation();
+  const isAuthenticated = localStorage.getItem("user_id");
+  const isProtectedRoute = !["/", "/login", "/register", "/mfa"].includes(location);
   
   return (
     <>
@@ -116,6 +120,7 @@ function AppContent() {
       <KeyboardShortcutsDialog />
       <Router />
       <AIAssistant />
+      {isAuthenticated && isProtectedRoute && <OnboardingWizard />}
     </>
   );
 }

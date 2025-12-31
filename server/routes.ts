@@ -30,6 +30,13 @@ import {
 import { enqueueWebhookEvent } from "./webhook-worker";
 import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 import { recordAudit, extractAuditContext, getChanges } from "./services/audit";
+import { 
+  validatePassword, 
+  checkLoginLockout, 
+  recordFailedLogin, 
+  clearLoginAttempts,
+  getPasswordPolicyDescription 
+} from "./services/password-policy";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -151,7 +158,7 @@ export async function registerRoutes(
 
   // ===== AUTHENTICATION ENDPOINTS =====
   
-  // Login endpoint
+  // Login endpoint with session creation and lockout protection
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -160,18 +167,45 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Username and password are required" });
       }
       
+      // Check for account lockout
+      const lockoutCheck = await checkLoginLockout(username);
+      if (lockoutCheck.isLocked) {
+        return res.status(429).json({ 
+          error: `Account temporarily locked due to too many failed attempts. Try again in ${lockoutCheck.remainingMinutes} minute(s).`,
+          lockedUntil: lockoutCheck.remainingMinutes
+        });
+      }
+      
       // Find user by username
       const [user] = await db.select().from(users).where(eq(users.username, username));
       
       if (!user) {
+        // Record failed attempt for non-existent users too (prevent user enumeration)
+        await recordFailedLogin(username);
         return res.status(401).json({ error: "Invalid username or password" });
       }
       
       // Compare password using bcrypt
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
+        const lockoutResult = await recordFailedLogin(username);
+        if (lockoutResult.isLocked) {
+          return res.status(429).json({ 
+            error: `Account locked due to too many failed attempts. Try again in ${lockoutResult.remainingMinutes} minute(s).`,
+            lockedUntil: lockoutResult.remainingMinutes
+          });
+        }
         return res.status(401).json({ error: "Invalid username or password" });
       }
+      
+      // Successful login - clear any failed attempts
+      await clearLoginAttempts(username);
+      
+      // Create session
+      req.session.userId = user.id;
+      req.session.username = user.username;
+      req.session.role = user.role;
+      req.session.organisationId = user.organisationId;
       
       // Record login audit event
       await recordAudit({
@@ -207,10 +241,51 @@ export async function registerRoutes(
     }
   });
   
-  // Get current user endpoint
+  // Logout endpoint
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const username = req.session?.username;
+      const organisationId = req.session?.organisationId;
+      
+      if (userId && username) {
+        // Record logout audit event
+        await recordAudit({
+          organisationId: organisationId || null,
+          eventType: 'USER_LOGOUT',
+          entityType: 'USER',
+          entityId: userId,
+          entityName: username,
+          message: `User ${username} logged out`,
+          context: {
+            actorId: userId,
+            actorName: username,
+            actorType: 'USER',
+            ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+            userAgent: req.headers['user-agent'] as string,
+          },
+        });
+      }
+      
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destruction error:", err);
+          return res.status(500).json({ error: "Logout failed" });
+        }
+        res.clearCookie('compliance.sid');
+        res.json({ message: "Logged out successfully" });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Logout failed" });
+    }
+  });
+  
+  // Get current user endpoint - session only (no header fallback for security)
   app.get("/api/auth/me", async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Session-based authentication only - X-User-Id header bypass removed for security
+      const userId = req.session?.userId;
       
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -277,6 +352,15 @@ export async function registerRoutes(
         }
       }
       
+      // Validate new password against policy
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ 
+          error: "Password does not meet security requirements",
+          requirements: passwordValidation.errors
+        });
+      }
+      
       // Hash and update password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
@@ -288,12 +372,70 @@ export async function registerRoutes(
     }
   });
   
+  // Password policy endpoint
+  app.get("/api/auth/password-policy", (req, res) => {
+    res.json({
+      requirements: getPasswordPolicyDescription(),
+    });
+  });
+  
   // Hard-coded organisation ID for demo (in production this would come from auth)
   const ORG_ID = "default-org";
   
-  // Health check
+  // Comprehensive health check endpoint
   app.get("/api/health", async (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    const checks: Record<string, { status: string; latency?: number; details?: any }> = {};
+    const startTime = Date.now();
+    
+    // Database check
+    try {
+      const dbStart = Date.now();
+      await db.execute(sql`SELECT 1`);
+      checks.database = { status: 'healthy', latency: Date.now() - dbStart };
+    } catch (error) {
+      checks.database = { status: 'unhealthy', details: 'Database connection failed' };
+    }
+    
+    // Job queue check
+    try {
+      const queueStats = await getQueueStats();
+      checks.jobQueue = { 
+        status: 'healthy', 
+        details: { 
+          ingestion: queueStats.ingestion,
+          webhook: queueStats.webhook
+        }
+      };
+    } catch (error) {
+      checks.jobQueue = { status: 'unknown', details: 'Could not retrieve queue stats' };
+    }
+    
+    // Memory usage
+    const memUsage = process.memoryUsage();
+    checks.memory = {
+      status: memUsage.heapUsed < memUsage.heapTotal * 0.9 ? 'healthy' : 'warning',
+      details: {
+        heapUsedMB: Math.round(memUsage.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
+        rssMB: Math.round(memUsage.rss / 1024 / 1024),
+      }
+    };
+    
+    // Uptime
+    checks.uptime = {
+      status: 'healthy',
+      details: { seconds: Math.floor(process.uptime()) }
+    };
+    
+    const allHealthy = Object.values(checks).every(c => c.status === 'healthy');
+    const hasWarnings = Object.values(checks).some(c => c.status === 'warning');
+    
+    res.status(allHealthy || hasWarnings ? 200 : 503).json({ 
+      status: allHealthy ? 'healthy' : (hasWarnings ? 'degraded' : 'unhealthy'),
+      timestamp: new Date().toISOString(),
+      totalLatency: Date.now() - startTime,
+      checks
+    });
   });
   
   // ===== AI ASSISTANT CHAT ENDPOINT (Streaming) =====
@@ -308,7 +450,8 @@ export async function registerRoutes(
   
   app.post("/api/assistant/chat", async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Session-based authentication only - X-User-Id header bypass removed for security
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -1170,6 +1313,41 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error bulk rejecting contractors:", error);
       res.status(500).json({ error: "Failed to reject contractors" });
+    }
+  });
+  
+  // ===== CERTIFICATE EXPIRY ALERTS - requires authentication =====
+  app.get("/api/certificates/expiring", async (req, res) => {
+    try {
+      // Session-based authentication required - no fallback for security
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      const organisationId = user.organisationId;
+      
+      if (!organisationId) {
+        return res.status(400).json({ error: "User has no organization" });
+      }
+      
+      const { getCertificatesExpiringSoon, getExpiryStats } = await import('./services/expiry-alerts');
+      
+      const [alerts, stats] = await Promise.all([
+        getCertificatesExpiringSoon(days, organisationId),
+        getExpiryStats(organisationId),
+      ]);
+      
+      res.json({ alerts, stats });
+    } catch (error) {
+      console.error("Error fetching expiring certificates:", error);
+      res.status(500).json({ error: "Failed to fetch expiring certificates" });
     }
   });
   
@@ -4510,10 +4688,10 @@ export async function registerRoutes(
       return false;
     }
     
-    // Also validate user ID and role
-    const userId = req.headers['x-user-id'] as string || req.query.userId as string;
+    // Session-based authentication only - X-User-Id header bypass removed for security
+    const userId = req.session?.userId;
     if (!userId) {
-      res.status(401).json({ error: "User ID required for admin operations" });
+      res.status(401).json({ error: "Session authentication required for admin operations" });
       return false;
     }
     
@@ -5169,10 +5347,11 @@ export async function registerRoutes(
     res.json(openApiSpec);
   });
   
-  // Audit Trail API Routes
+  // Audit Trail API Routes - session-based auth only
   app.get("/api/audit-events", async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Session-based authentication only - X-User-Id header bypass removed for security
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -5209,7 +5388,8 @@ export async function registerRoutes(
   
   app.get("/api/audit-events/:entityType/:entityId", async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Session-based authentication only - X-User-Id header bypass removed for security
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -5255,7 +5435,8 @@ export async function registerRoutes(
   
   app.get("/api/certificates/:id/audit", async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Session-based authentication only - X-User-Id header bypass removed for security
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }

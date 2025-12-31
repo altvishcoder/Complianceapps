@@ -25,6 +25,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Include cookies for session
         body: JSON.stringify({ username, password })
       });
       
@@ -36,12 +37,15 @@ export default function LoginPage() {
         return;
       }
       
-      // Store user info in localStorage
+      // Store user info in localStorage for backward compatibility
       localStorage.setItem("user_id", data.user.id);
-      localStorage.setItem("user_name", data.user.name);
-      localStorage.setItem("user_email", data.user.email);
+      localStorage.setItem("user_name", data.user.name || "");
+      localStorage.setItem("user_email", data.user.email || "");
       localStorage.setItem("user_role", data.user.role);
       localStorage.setItem("user_username", data.user.username);
+      
+      // Dispatch storage event for other components to detect login
+      window.dispatchEvent(new Event('storage'));
       
       setIsLoading(false);
       setLocation("/dashboard");

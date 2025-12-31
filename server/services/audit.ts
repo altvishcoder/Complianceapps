@@ -79,9 +79,10 @@ export function getChanges(before: any, after: any): Record<string, { from: any;
 }
 
 export function extractAuditContext(req: any): AuditContext {
+  // Session-based authentication - use session data instead of headers
   return {
-    actorId: req.headers['x-user-id'] as string,
-    actorName: req.headers['x-user-name'] as string,
+    actorId: req.session?.userId || undefined,
+    actorName: req.session?.username || undefined,
     actorType: 'USER',
     ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
     userAgent: req.headers['user-agent'] as string,
