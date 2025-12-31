@@ -41,6 +41,11 @@ const categoryIcons: Record<string, React.ElementType> = {
   WEBHOOKS: Webhook,
   AI: Cpu,
   DEMO_DATA: Database,
+  REGIONAL: Settings,
+  EXTRACTION: Cpu,
+  JOB_QUEUE: Zap,
+  CACHING: Database,
+  GEOCODING: Settings,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -51,6 +56,11 @@ const categoryLabels: Record<string, string> = {
   WEBHOOKS: "Webhooks",
   AI: "AI Extraction",
   DEMO_DATA: "Demo Data",
+  REGIONAL: "Regional Settings",
+  EXTRACTION: "Extraction",
+  JOB_QUEUE: "Job Queue",
+  CACHING: "Caching",
+  GEOCODING: "Geocoding",
 };
 
 export default function FactorySettings() {

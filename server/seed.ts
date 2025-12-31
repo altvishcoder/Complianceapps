@@ -2079,6 +2079,52 @@ async function seedFactorySettings() {
       valueType: "number",
       isEditable: true,
       validationRules: { min: 0.01, max: 1.0 }
+    },
+    // Regional Settings
+    {
+      key: "regional.dateFormat",
+      value: "DD-MM-YYYY",
+      category: "REGIONAL",
+      description: "Date display format across the application (UK default: DD-MM-YYYY)",
+      valueType: "string",
+      isEditable: true,
+      validationRules: null
+    },
+    {
+      key: "regional.dateTimeFormat",
+      value: "DD-MM-YYYY HH:mm",
+      category: "REGIONAL",
+      description: "Date and time display format across the application",
+      valueType: "string",
+      isEditable: true,
+      validationRules: null
+    },
+    {
+      key: "regional.timezone",
+      value: "Europe/London",
+      category: "REGIONAL",
+      description: "Default timezone for date/time display",
+      valueType: "string",
+      isEditable: true,
+      validationRules: null
+    },
+    {
+      key: "regional.locale",
+      value: "en-GB",
+      category: "REGIONAL",
+      description: "Locale for number and currency formatting (e.g., en-GB, en-US)",
+      valueType: "string",
+      isEditable: true,
+      validationRules: null
+    },
+    {
+      key: "regional.currencySymbol",
+      value: "GBP",
+      category: "REGIONAL",
+      description: "Currency symbol for cost displays (GBP, EUR, USD)",
+      valueType: "string",
+      isEditable: true,
+      validationRules: null
     }
   ];
   

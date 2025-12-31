@@ -137,6 +137,7 @@ export const certificates = pgTable("certificates", {
   fileSize: integer("file_size").notNull(),
   storageKey: text("storage_key"),
   certificateType: certificateTypeEnum("certificate_type").notNull(),
+  complianceStreamId: varchar("compliance_stream_id"), // Link to compliance stream
   status: certificateStatusEnum("status").notNull().default('UPLOADED'),
   certificateNumber: text("certificate_number"),
   issueDate: text("issue_date"),
