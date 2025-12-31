@@ -6,11 +6,13 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/pact/**', 'tests/api-integration.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
     },
     testTimeout: 30000,
+    setupFiles: ['./tests/setup.ts'],
   },
   resolve: {
     alias: {

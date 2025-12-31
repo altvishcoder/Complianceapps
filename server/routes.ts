@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcrypt";
+import swaggerUi from "swagger-ui-express";
+import { generateOpenAPIDocument } from "./openapi";
 import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
@@ -155,6 +157,16 @@ export async function registerRoutes(
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
+
+  // OpenAPI/Swagger documentation
+  const openApiSpec = generateOpenAPIDocument();
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'ComplianceAI API Documentation',
+  }));
+  app.get('/api/openapi.json', (_req, res) => {
+    res.json(openApiSpec);
+  });
 
   // ===== AUTHENTICATION ENDPOINTS =====
   

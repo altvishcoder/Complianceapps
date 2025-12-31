@@ -45,9 +45,21 @@ Preferred communication style: Simple, everyday language.
 
 ### Security
 -   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
--   **Authentication**: Username/password authentication with bcrypt, `X-User-Id` header for user identification.
+-   **Authentication**: Session-based authentication with bcrypt password hashing and secure cookies.
 -   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
 -   **Rate Limiting**: PostgreSQL-backed rate limiting.
+
+### Testing Infrastructure
+-   **API Documentation**: OpenAPI 3.0 spec with Swagger UI at `/api/docs`, auto-generated from Zod schemas via zod-to-openapi.
+-   **Unit/Integration Tests**: Vitest with test coverage reports, testing storage and extraction logic.
+-   **E2E Testing**: Playwright for cross-browser testing (Chrome, Firefox, Safari, Mobile), including visual regression and WCAG 2.1 AA accessibility tests.
+-   **API Testing**: Supertest for HTTP endpoint testing with session handling.
+-   **Contract Testing**: Pact for consumer-driven contract testing between frontend and API.
+-   **Test Commands**:
+    - `npx vitest run` - Run unit/integration tests
+    - `npx playwright test` - Run E2E tests (requires server running)
+    - `npx playwright test e2e/visual-regression.spec.ts --update-snapshots` - Update visual baselines
+    - `npx playwright test e2e/accessibility.spec.ts` - Run accessibility tests
 
 ### Production Infrastructure
 -   **Logging**: Structured JSON logging using Pino.
