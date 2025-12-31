@@ -558,7 +558,7 @@ const FAQ_DATABASE: FAQEntry[] = [
 
 **Regulation:** Gas Safety Regulations 1998
 
-[View Gas Safety Certificates](/certificates?type=CP12) | [View Expiring](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`,
+[View Gas Safety Certificates](/certificates?type=CP12) | [View Expiring](/certificates?status=EXPIRING) | [Remedial Actions](/actions)`,
     sources: ["Gas Safety Regulations 1998", "HSE Guidance INDG285"],
   },
   {
@@ -581,7 +581,7 @@ All gas appliances, fittings, and flues must be checked:
 • Gas tightness (pipework)
 • Carbon monoxide alarm check
 
-[View Gas Certificates](/certificates?type=CP12) | [Components](/components) | [Remedial Actions](/remedial-actions)`,
+[View Gas Certificates](/certificates?type=CP12) | [Components](/components) | [Remedial Actions](/actions)`,
     sources: ["Gas Safety Regulations 1998", "Gas Safe Technical Bulletin"],
   },
   {
@@ -607,7 +607,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Landlord must fix all ID and AR issues before re-letting.**
 
-[View Remedial Actions](/remedial-actions?severity=IMMEDIATE) | [Urgent Actions](/remedial-actions)`,
+[View Remedial Actions](/actions?severity=IMMEDIATE) | [Urgent Actions](/actions)`,
     sources: ["Gas Safe Register Unsafe Situations Procedure", "GIUSP"],
   },
   {
@@ -649,7 +649,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Regulation:** Electrical Safety Standards Regulations 2020
 
-[View EICRs](/certificates?type=EICR) | [Schedule Remedial Work](/remedial-actions)`,
+[View EICRs](/certificates?type=EICR) | [Schedule Remedial Work](/actions)`,
     sources: ["Electrical Safety Standards Regulations 2020", "BS 7671:2018+A2:2022"],
   },
   {
@@ -677,7 +677,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Any C1 or C2 = UNSATISFACTORY overall**
 
-[View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/remedial-actions)`,
+[View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/actions)`,
     sources: ["BS 7671:2018", "Electrical Safety Standards Regulations 2020"],
   },
   {
@@ -706,7 +706,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **For landlords:** You need a valid EICR - not just the original EIC from when the property was built.
 
-[View All Electrical Certificates](/certificates?type=EICR) | [Remedial Actions](/remedial-actions)`,
+[View All Electrical Certificates](/certificates?type=EICR) | [Remedial Actions](/actions)`,
     sources: ["BS 7671:2018", "IET Guidance Note 3"],
   },
   // ===== FIRE SAFETY (5 FAQs) =====
@@ -729,7 +729,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Best practice:** Review annually even if no changes - document the review date.
 
-[View FRA Documents](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Safety Actions](/remedial-actions)`,
+[View FRA Documents](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Safety Actions](/actions)`,
     sources: ["Fire Safety Order 2005", "PAS 79-2:2020", "Building Safety Act 2022"],
   },
   {
@@ -754,7 +754,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Penalties:** Up to £5,000 fine for non-compliance.
 
-[View Fire Safety Certificates](/certificates?type=FIRE_RISK_ASSESSMENT) | [Track Actions](/remedial-actions)`,
+[View Fire Safety Certificates](/certificates?type=FIRE_RISK_ASSESSMENT) | [Track Actions](/actions)`,
     sources: ["Smoke and CO Alarm Regulations 2022", "Fire Safety Order 2005"],
   },
   {
@@ -782,7 +782,7 @@ All gas appliances, fittings, and flues must be checked:
 • Flat entrance doors must be FD30S (30 min + smoke seals)
 • More rigorous inspection regime required
 
-[View Fire Safety Records](/certificates?type=FIRE_RISK_ASSESSMENT) | [Remedial Actions](/remedial-actions)`,
+[View Fire Safety Records](/certificates?type=FIRE_RISK_ASSESSMENT) | [Remedial Actions](/actions)`,
     sources: ["Fire Safety Order 2005", "Building Safety Act 2022", "BS 8214"],
   },
   // ===== LEGIONELLA (3 FAQs) =====
@@ -813,7 +813,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Key control:** Keep hot water above 50°C stored, 60°C at cylinder
 
-[View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/remedial-actions)`,
+[View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
     sources: ["ACOP L8", "HSG274 Parts 1-3", "HSE Guidance for Landlords"],
   },
   {
@@ -875,7 +875,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Note:** Asbestos was used in buildings until 1999 (banned 2000).
 
-[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/remedial-actions)`,
+[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
     sources: ["Control of Asbestos Regulations 2012", "HSG264", "HSG227"],
   },
   {
@@ -913,7 +913,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Important:** Never attempt DIY removal of asbestos.
 
-[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Remedial Actions](/remedial-actions)`,
+[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Remedial Actions](/actions)`,
     sources: ["Control of Asbestos Regulations 2012", "HSG264", "HSG247"],
   },
   // ===== GENERAL COMPLIANCE (8 FAQs) =====
@@ -934,7 +934,7 @@ All gas appliances, fittings, and flues must be checked:
 - [Legionella Risk Assessment](/certificates?type=LEGIONELLA) - Every 2 years
 - [Asbestos Survey](/certificates?type=ASBESTOS) - Pre-1999 buildings before works
 
-[View All Certificates](/certificates) | [Dashboard](/dashboard) | [Remedial Actions](/remedial-actions)`,
+[View All Certificates](/certificates) | [Dashboard](/dashboard) | [Remedial Actions](/actions)`,
     sources: ["Various regulations - see specific certificate types"],
   },
   {
@@ -1002,7 +1002,7 @@ All gas appliances, fittings, and flues must be checked:
 • Provide copies to new owner on sale
 • Essential for due diligence and insurance claims
 
-[View All Certificates](/certificates) | [Remedial Actions](/remedial-actions)`,
+[View All Certificates](/certificates) | [Remedial Actions](/actions)`,
     sources: ["Gas Safety Regulations 1998", "Control of Asbestos Regulations 2012"],
   },
   {
@@ -1037,7 +1037,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Note:** Must provide EPC to tenants before letting.
 
-[View EPCs](/certificates?type=EPC) | [Remedial Actions](/remedial-actions)`,
+[View EPCs](/certificates?type=EPC) | [Remedial Actions](/actions)`,
     sources: ["Energy Efficiency Regulations 2015", "MEES Regulations"],
   },
   {
@@ -1074,7 +1074,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Penalties:** Up to £30,000 fine + Rent Repayment Orders
 
-[View Properties](/properties) | [Fire Safety Certs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Remedial Actions](/remedial-actions)`,
+[View Properties](/properties) | [Fire Safety Certs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Remedial Actions](/actions)`,
     sources: ["Housing Act 2004", "Licensing of HMOs Regulations 2018", "LACORS Fire Safety Guide"],
   },
   // ===== LIFT / LOLER (2 FAQs) =====
@@ -1104,7 +1104,7 @@ All gas appliances, fittings, and flues must be checked:
 • Often required by building insurance
 • May be combined with LOLER inspection
 
-[View Lift Certificates](/certificates?type=LIFT_LOLER) | [Components](/components) | [Remedial Actions](/remedial-actions)`,
+[View Lift Certificates](/certificates?type=LIFT_LOLER) | [Components](/components) | [Remedial Actions](/actions)`,
     sources: ["LOLER 1998", "PUWER 1998", "BS EN 13015"],
   },
   // ===== BUILDING SAFETY ACT (2 FAQs) =====
@@ -1136,7 +1136,7 @@ All gas appliances, fittings, and flues must be checked:
 • Criminal offences for non-compliance
 • Unlimited fines possible
 
-[View Building Safety Records](/certificates) | [Remedial Actions](/remedial-actions)`,
+[View Building Safety Records](/certificates) | [Remedial Actions](/actions)`,
     sources: ["Building Safety Act 2022", "Building Safety Regulator Guidance"],
   },
   // ===== NAVIGATION HELP (3 FAQs) =====
@@ -1165,7 +1165,7 @@ All gas appliances, fittings, and flues must be checked:
 • Ensure all pages are included
 • Check extracted data before saving
 
-[Go to Certificates](/certificates) | [Remedial Actions](/remedial-actions)`,
+[Go to Certificates](/certificates) | [Remedial Actions](/actions)`,
     sources: [],
   },
   {
@@ -1194,7 +1194,7 @@ All gas appliances, fittings, and flues must be checked:
 • Properties can be auto-created when uploading certificates
 • System extracts address from certificate
 
-[Go to Properties](/properties) | [Import Data](/admin/import) | [Remedial Actions](/remedial-actions)`,
+[Go to Properties](/properties) | [Import Data](/admin/import) | [Remedial Actions](/actions)`,
     sources: [],
   },
   {
@@ -1220,7 +1220,7 @@ All gas appliances, fittings, and flues must be checked:
 • [Remedial Actions](/actions) - Open work items
 • Filter by severity/status
 
-[Go to Dashboard](/dashboard) | [Certificates](/certificates) | [Remedial Actions](/remedial-actions)`,
+[Go to Dashboard](/dashboard) | [Certificates](/certificates) | [Remedial Actions](/actions)`,
     sources: [],
   },
 ];
@@ -1342,14 +1342,14 @@ const FAQ_CACHE: Record<string, string> = {
 • CP12 certificate every **12 months**
 • Records kept **2 years**, tenant copy within **28 days**
 
-[View Gas Certificates](/certificates?type=CP12) | [View Expiring](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`,
+[View Gas Certificates](/certificates?type=CP12) | [View Expiring](/certificates?status=EXPIRING) | [Remedial Actions](/actions)`,
 
   "eicr renew": `**EICR** (Electrical Safety Standards 2020)
 • Required every **5 years**
 • Qualified electrician (BS 7671)
 • Fix issues within **28 days** if unsatisfactory
 
-[View EICRs](/certificates?type=EICR) | [Remedial Actions](/remedial-actions)`,
+[View EICRs](/certificates?type=EICR) | [Remedial Actions](/actions)`,
 
   "c1 c2 c3": `**Defect Codes**
 • **C1** - Immediately Dangerous → Disconnect now
@@ -1357,7 +1357,7 @@ const FAQ_CACHE: Record<string, string> = {
 • **C3** - Not to standard → Fix at next service
 • **FI** - Further investigation needed
 
-[View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/remedial-actions)`,
+[View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/actions)`,
 
   "upload certificate": `**Upload a Certificate**
 1. Go to [Certificates](/certificates)
@@ -1371,21 +1371,21 @@ const FAQ_CACHE: Record<string, string> = {
 • Review annually or after changes
 • 18m+ buildings: more frequent (BSA 2022)
 
-[View FRAs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Actions](/remedial-actions)`,
+[View FRAs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Actions](/actions)`,
 
   "asbestos": `**Asbestos** (CAR 2012)
 • Management survey for pre-2000 buildings
 • Re-inspect every 6-12 months
 • R&D survey before intrusive work
 
-[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/remedial-actions)`,
+[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
 
   "legionella": `**Legionella** (L8 ACOP)
 • Risk assessment every **2 years**
 • Hot water: 60°C+ stored, 50°C+ delivered
 • Cold water: below 20°C
 
-[View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/remedial-actions)`,
+[View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
 };
 
 const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
@@ -1506,7 +1506,7 @@ async function getCertificatesPendingReview(): Promise<string> {
       .where(eq(certificates.status, 'NEEDS_REVIEW'));
     
     if (pendingCerts.length === 0) {
-      return `**No certificates pending review!**\nAll certificates have been reviewed. [View all certificates](/certificates) | [Remedial Actions](/remedial-actions)`;
+      return `**No certificates pending review!**\nAll certificates have been reviewed. [View all certificates](/certificates) | [Remedial Actions](/actions)`;
     }
     
     // Group by type
@@ -1541,7 +1541,7 @@ async function getCertificatesPendingReview(): Promise<string> {
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get pending certificates');
-    return `Unable to fetch pending certificates. [Check certificates page](/certificates?status=NEEDS_REVIEW) | [Remedial Actions](/remedial-actions)`;
+    return `Unable to fetch pending certificates. [Check certificates page](/certificates?status=NEEDS_REVIEW) | [Remedial Actions](/actions)`;
   }
 }
 
@@ -1575,7 +1575,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
     const expiringCerts = (results.rows as any[]) || [];
     
     if (expiringCerts.length === 0) {
-      return `**Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates](/certificates) | [Remedial Actions](/remedial-actions)`;
+      return `**Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates](/certificates) | [Remedial Actions](/actions)`;
     }
     
     // Group by type
@@ -1627,12 +1627,12 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
     
     response += `**Quick Actions:**\n`;
     response += `• [View all expiring certificates →](/certificates?status=EXPIRING)\n`;
-    response += `• [Manage remedial actions →](/remedial-actions)\n`;
+    response += `• [Manage remedial actions →](/actions)\n`;
     
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get expiring certificates');
-    return `Unable to fetch expiring certificates. [Check certificates page](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`;
+    return `Unable to fetch expiring certificates. [Check certificates page](/certificates?status=EXPIRING) | [Remedial Actions](/actions)`;
   }
 }
 
@@ -1663,7 +1663,7 @@ async function getExpiredCertificatesForChat(): Promise<string> {
     const expiredCerts = (results.rows as any[]) || [];
     
     if (expiredCerts.length === 0) {
-      return `**Great news!** No expired certificates found in your portfolio.\n\n[View all certificates](/certificates) | [Remedial Actions](/remedial-actions)`;
+      return `**Great news!** No expired certificates found in your portfolio.\n\n[View all certificates](/certificates) | [Remedial Actions](/actions)`;
     }
     
     // Group by type
@@ -1727,13 +1727,13 @@ async function getExpiredCertificatesForChat(): Promise<string> {
     
     response += `**Next Steps:**\n`;
     response += `• [View all expired certificates →](/certificates?filter=expired)\n`;
-    response += `• [Manage remedial actions →](/remedial-actions)\n`;
+    response += `• [Manage remedial actions →](/actions)\n`;
     response += `• [Upload new certificates →](/certificates)\n`;
     
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get expired certificates');
-    return `Unable to fetch expired certificates. [Check certificates page](/certificates) | [Remedial Actions](/remedial-actions)`;
+    return `Unable to fetch expired certificates. [Check certificates page](/certificates) | [Remedial Actions](/actions)`;
   }
 }
 
@@ -1780,7 +1780,7 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
       ).length;
       
       if (matchingCount === 0) {
-        return `**No ${typeLabel.toLowerCase()} found** in your portfolio. [View all components](/components) | [Remedial Actions](/remedial-actions)`;
+        return `**No ${typeLabel.toLowerCase()} found** in your portfolio. [View all components](/components) | [Remedial Actions](/actions)`;
       }
     }
     
@@ -1820,7 +1820,7 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
     }
     
     if (criticalComponents.length === 0) {
-      return `**All ${typeLabel.toLowerCase()} up to date!** [View all](/components) | [Remedial Actions](/remedial-actions)`;
+      return `**All ${typeLabel.toLowerCase()} up to date!** [View all](/components) | [Remedial Actions](/actions)`;
     }
     
     let response = `**${typeLabel} Needing Attention: ${criticalComponents.length}**\n\n`;
@@ -1834,13 +1834,13 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
     }
     
     if (criticalComponents.length > 5) {
-      response += `\n+${criticalComponents.length - 5} more [View all](/components) | [Remedial Actions](/remedial-actions)`;
+      response += `\n+${criticalComponents.length - 5} more [View all](/components) | [Remedial Actions](/actions)`;
     }
     
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get components needing attention');
-    return `Unable to fetch component data. Check the [Components page](/components) | [Remedial Actions](/remedial-actions)`;
+    return `Unable to fetch component data. Check the [Components page](/components) | [Remedial Actions](/actions)`;
   }
 }
 
@@ -1883,7 +1883,7 @@ async function getPropertiesWithIssues(): Promise<string> {
       .limit(5);
     
     if (nonCompliantProps.length === 0 && propsWithActions.length === 0) {
-      return `**All clear!** No major compliance issues found. [View all properties](/properties) | [Remedial Actions](/remedial-actions)`;
+      return `**All clear!** No major compliance issues found. [View all properties](/properties) | [Remedial Actions](/actions)`;
     }
     
     let response = `**Properties Needing Attention**\n\n`;
@@ -1926,7 +1926,7 @@ async function getPropertiesWithIssues(): Promise<string> {
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get properties with issues');
-    return `Unable to fetch data. [Check Properties page](/properties) | [Remedial Actions](/remedial-actions)`;
+    return `Unable to fetch data. [Check Properties page](/properties) | [Remedial Actions](/actions)`;
   }
 }
 
@@ -2056,7 +2056,7 @@ async function searchProperties(query: string): Promise<string | null> {
       .limit(5);
     
     if (results.length === 0) {
-      return `I searched but couldn't find any properties matching "${cleanQuery}". Try searching by address, postcode, or block name. [View All Properties](/properties) | [Remedial Actions](/remedial-actions)`;
+      return `I searched but couldn't find any properties matching "${cleanQuery}". Try searching by address, postcode, or block name. [View All Properties](/properties) | [Remedial Actions](/actions)`;
     }
     
     // Get certificate counts for found properties
@@ -2107,7 +2107,7 @@ ${p.epcRating ? `- EPC Rating: ${p.epcRating}` : ''}
 - ${certCount} certificate${certCount !== 1 ? 's' : ''} on file
 - ${actionCount} remedial action${actionCount !== 1 ? 's' : ''}
 
-[View full property details](/properties/${p.id}) | [Remedial Actions](/remedial-actions)`;
+[View full property details](/properties/${p.id}) | [Remedial Actions](/actions)`;
     }
     
     // Multiple results
@@ -2121,7 +2121,7 @@ ${p.epcRating ? `- EPC Rating: ${p.epcRating}` : ''}
       response += `   ${p.blockName || 'No block'} - ${certCount} cert${certCount !== 1 ? 's' : ''} - [View details](/properties/${p.id})\n\n`;
     }
     
-    response += `[Remedial Actions](/remedial-actions)`;
+    response += `[Remedial Actions](/actions)`;
     
     return response;
   } catch (error) {
