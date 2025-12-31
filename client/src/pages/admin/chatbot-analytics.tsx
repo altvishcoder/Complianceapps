@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -83,26 +85,30 @@ export default function ChatbotAnalyticsPage() {
     ((totalNonLLM / analytics.totalQueries) * 100).toFixed(1) : '0';
 
   return (
-    <div className="p-6 space-y-6" data-testid="chatbot-analytics-page">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">AI Assistant Analytics</h1>
-          <p className="text-muted-foreground">
-            Monitor chatbot usage and cost optimization performance
-          </p>
-        </div>
-        <Select value={days} onValueChange={setDays}>
-          <SelectTrigger className="w-36" data-testid="select-days">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">Last 24 hours</SelectItem>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex h-screen bg-muted/30" data-testid="chatbot-analytics-page">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="AI Assistant Analytics" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">AI Assistant Analytics</h1>
+              <p className="text-muted-foreground">
+                Monitor chatbot usage and cost optimization performance
+              </p>
+            </div>
+            <Select value={days} onValueChange={setDays}>
+              <SelectTrigger className="w-36" data-testid="select-days">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Last 24 hours</SelectItem>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card data-testid="card-total-queries">
@@ -353,6 +359,8 @@ export default function ChatbotAnalyticsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+        </main>
+      </div>
     </div>
   );
 }
