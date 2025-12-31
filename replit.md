@@ -35,6 +35,8 @@ Preferred communication style: Simple, everyday language.
     - 46 normalisation rules for data standardisation
     - 70 classification codes with remedial action automation settings (autoCreateAction, actionSeverity, costEstimateLow/High)
     - 36 component types aligned with HACT standards
+    - 84 detection patterns for certificate type identification (FILENAME and TEXT_CONTENT patterns with priority-based matching)
+    - 27 outcome rules for compliance result interpretation (supports field checks, array matching for appliances/defects, and UK legislation references)
 
 ### Key Features
 -   **AI-powered Document Extraction**: Processes uploaded compliance certificates using AI, covering 45 extraction schemas.

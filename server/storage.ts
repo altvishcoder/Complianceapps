@@ -9,6 +9,7 @@ import {
   videos, aiSuggestions,
   factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, rateLimitEntries,
   systemLogs, auditEvents,
+  certificateDetectionPatterns, certificateOutcomeRules,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -45,7 +46,9 @@ import {
   type UploadSession, type InsertUploadSession,
   type IngestionJob, type InsertIngestionJob,
   type SystemLog,
-  type AuditEvent, type InsertAuditEvent
+  type AuditEvent, type InsertAuditEvent,
+  type DetectionPattern, type InsertDetectionPattern,
+  type OutcomeRule, type InsertOutcomeRule
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
@@ -330,6 +333,20 @@ export interface IStorage {
   }): Promise<{ events: AuditEvent[]; total: number }>;
   getEntityAuditHistory(entityType: string, entityId: string): Promise<AuditEvent[]>;
   getEntityAuditHistoryForOrg(entityType: string, entityId: string, organisationId: string): Promise<AuditEvent[]>;
+  
+  // Detection Patterns (certificate type detection from filename/content)
+  listDetectionPatterns(filters?: { certificateTypeCode?: string; patternType?: string; isActive?: boolean }): Promise<DetectionPattern[]>;
+  getDetectionPattern(id: string): Promise<DetectionPattern | undefined>;
+  createDetectionPattern(pattern: InsertDetectionPattern): Promise<DetectionPattern>;
+  updateDetectionPattern(id: string, updates: Partial<InsertDetectionPattern>): Promise<DetectionPattern | undefined>;
+  deleteDetectionPattern(id: string): Promise<boolean>;
+  
+  // Outcome Rules (certificate outcome interpretation rules)
+  listOutcomeRules(filters?: { certificateTypeCode?: string; ruleGroup?: string; isActive?: boolean }): Promise<OutcomeRule[]>;
+  getOutcomeRule(id: string): Promise<OutcomeRule | undefined>;
+  createOutcomeRule(rule: InsertOutcomeRule): Promise<OutcomeRule>;
+  updateOutcomeRule(id: string, updates: Partial<InsertOutcomeRule>): Promise<OutcomeRule | undefined>;
+  deleteOutcomeRule(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2036,6 +2053,112 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(auditEvents.createdAt))
       .limit(100);
+  }
+  
+  // Detection Patterns Implementation
+  async listDetectionPatterns(filters?: { certificateTypeCode?: string; patternType?: string; isActive?: boolean }): Promise<DetectionPattern[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.certificateTypeCode) {
+      conditions.push(eq(certificateDetectionPatterns.certificateTypeCode, filters.certificateTypeCode));
+    }
+    if (filters?.patternType) {
+      conditions.push(eq(certificateDetectionPatterns.patternType, filters.patternType as any));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(certificateDetectionPatterns.isActive, filters.isActive));
+    }
+    
+    if (conditions.length > 0) {
+      return db.select()
+        .from(certificateDetectionPatterns)
+        .where(and(...conditions))
+        .orderBy(desc(certificateDetectionPatterns.priority));
+    }
+    
+    return db.select()
+      .from(certificateDetectionPatterns)
+      .orderBy(desc(certificateDetectionPatterns.priority));
+  }
+  
+  async getDetectionPattern(id: string): Promise<DetectionPattern | undefined> {
+    const [pattern] = await db.select()
+      .from(certificateDetectionPatterns)
+      .where(eq(certificateDetectionPatterns.id, id));
+    return pattern || undefined;
+  }
+  
+  async createDetectionPattern(pattern: InsertDetectionPattern): Promise<DetectionPattern> {
+    const [created] = await db.insert(certificateDetectionPatterns).values(pattern).returning();
+    return created;
+  }
+  
+  async updateDetectionPattern(id: string, updates: Partial<InsertDetectionPattern>): Promise<DetectionPattern | undefined> {
+    const [updated] = await db.update(certificateDetectionPatterns)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(certificateDetectionPatterns.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteDetectionPattern(id: string): Promise<boolean> {
+    const result = await db.delete(certificateDetectionPatterns)
+      .where(and(eq(certificateDetectionPatterns.id, id), eq(certificateDetectionPatterns.isSystem, false)))
+      .returning();
+    return result.length > 0;
+  }
+  
+  // Outcome Rules Implementation
+  async listOutcomeRules(filters?: { certificateTypeCode?: string; ruleGroup?: string; isActive?: boolean }): Promise<OutcomeRule[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.certificateTypeCode) {
+      conditions.push(eq(certificateOutcomeRules.certificateTypeCode, filters.certificateTypeCode));
+    }
+    if (filters?.ruleGroup) {
+      conditions.push(eq(certificateOutcomeRules.ruleGroup, filters.ruleGroup));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(certificateOutcomeRules.isActive, filters.isActive));
+    }
+    
+    if (conditions.length > 0) {
+      return db.select()
+        .from(certificateOutcomeRules)
+        .where(and(...conditions))
+        .orderBy(desc(certificateOutcomeRules.priority));
+    }
+    
+    return db.select()
+      .from(certificateOutcomeRules)
+      .orderBy(desc(certificateOutcomeRules.priority));
+  }
+  
+  async getOutcomeRule(id: string): Promise<OutcomeRule | undefined> {
+    const [rule] = await db.select()
+      .from(certificateOutcomeRules)
+      .where(eq(certificateOutcomeRules.id, id));
+    return rule || undefined;
+  }
+  
+  async createOutcomeRule(rule: InsertOutcomeRule): Promise<OutcomeRule> {
+    const [created] = await db.insert(certificateOutcomeRules).values(rule).returning();
+    return created;
+  }
+  
+  async updateOutcomeRule(id: string, updates: Partial<InsertOutcomeRule>): Promise<OutcomeRule | undefined> {
+    const [updated] = await db.update(certificateOutcomeRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(certificateOutcomeRules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteOutcomeRule(id: string): Promise<boolean> {
+    const result = await db.delete(certificateOutcomeRules)
+      .where(and(eq(certificateOutcomeRules.id, id), eq(certificateOutcomeRules.isSystem, false)))
+      .returning();
+    return result.length > 0;
   }
 }
 

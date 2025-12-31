@@ -519,6 +519,78 @@ export const classificationCodes = pgTable("classification_codes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Certificate Detection Patterns Configuration
+// Configurable patterns for detecting certificate types from filenames and text content
+export const detectionPatternTypeEnum = pgEnum('detection_pattern_type', ['FILENAME', 'TEXT_CONTENT']);
+export const detectionMatcherTypeEnum = pgEnum('detection_matcher_type', ['CONTAINS', 'REGEX', 'STARTS_WITH', 'ENDS_WITH']);
+
+export const certificateDetectionPatterns = pgTable("certificate_detection_patterns", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  certificateTypeId: varchar("certificate_type_id").references(() => certificateTypes.id),
+  certificateTypeCode: text("certificate_type_code").notNull(), // Target certificate type code (GAS_SAFETY, EICR, etc.)
+  
+  patternType: detectionPatternTypeEnum("pattern_type").notNull(), // FILENAME or TEXT_CONTENT
+  matcherType: detectionMatcherTypeEnum("matcher_type").notNull().default('CONTAINS'), // How to match
+  pattern: text("pattern").notNull(), // The pattern to match (e.g., "LGSR", "CP12", "Gas Safe Register")
+  caseSensitive: boolean("case_sensitive").notNull().default(false),
+  
+  // Multi-pattern support - all patterns must match if specified
+  additionalPatterns: text("additional_patterns").array(), // AND conditions (all must match)
+  
+  priority: integer("priority").notNull().default(0), // Higher = evaluated first
+  description: text("description"), // Human-readable description
+  
+  isActive: boolean("is_active").notNull().default(true),
+  isSystem: boolean("is_system").notNull().default(false), // System patterns cannot be deleted
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Certificate Outcome Rules Configuration
+// Configurable rules for determining SATISFACTORY/UNSATISFACTORY outcomes
+export const outcomeRuleOperatorEnum = pgEnum('outcome_rule_operator', [
+  'EQUALS', 'NOT_EQUALS', 'CONTAINS', 'NOT_CONTAINS', 
+  'GREATER_THAN', 'LESS_THAN', 'GREATER_OR_EQUAL', 'LESS_OR_EQUAL',
+  'IS_TRUE', 'IS_FALSE', 'IS_NULL', 'IS_NOT_NULL',
+  'IN_LIST', 'NOT_IN_LIST', 'REGEX_MATCH',
+  'ARRAY_ANY_MATCH', 'ARRAY_ALL_MATCH' // For checking arrays of appliances/defects
+]);
+
+export const certificateOutcomeRules = pgTable("certificate_outcome_rules", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  certificateTypeId: varchar("certificate_type_id").references(() => certificateTypes.id),
+  certificateTypeCode: text("certificate_type_code").notNull(), // Target certificate type code
+  
+  ruleName: text("rule_name").notNull(), // Human-readable name
+  ruleGroup: text("rule_group"), // Group related rules (e.g., "appliance_safety", "defect_checks")
+  
+  // Condition definition
+  fieldPath: text("field_path").notNull(), // JSON path to the field (e.g., "appliances", "defects", "overallOutcome")
+  operator: outcomeRuleOperatorEnum("operator").notNull(),
+  value: text("value"), // Value to compare against (for simple operators)
+  valueList: text("value_list").array(), // List of values (for IN_LIST operators)
+  
+  // For array field matching (ARRAY_ANY_MATCH, ARRAY_ALL_MATCH)
+  arrayFieldPath: text("array_field_path"), // Field within array item (e.g., "status", "outcome")
+  arrayMatchPatterns: text("array_match_patterns").array(), // Patterns to match within array items
+  
+  // Outcome when rule triggers
+  outcome: text("outcome").notNull().default('UNSATISFACTORY'), // SATISFACTORY or UNSATISFACTORY
+  
+  priority: integer("priority").notNull().default(0), // Higher = evaluated first
+  stopOnMatch: boolean("stop_on_match").notNull().default(true), // Stop evaluating if this rule matches
+  
+  description: text("description"), // Human-readable description
+  legislation: text("legislation"), // UK legislation reference
+  
+  isActive: boolean("is_active").notNull().default(true),
+  isSystem: boolean("is_system").notNull().default(false), // System rules cannot be deleted
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ==========================================
 // HACT-ALIGNED EXTENDED ARCHITECTURE
 // ==========================================
@@ -1317,6 +1389,8 @@ export const insertNormalisationRuleSchema = createInsertSchema(normalisationRul
 export const insertComplianceStreamSchema = createInsertSchema(complianceStreams).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCertificateTypeSchema = createInsertSchema(certificateTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClassificationCodeSchema = createInsertSchema(classificationCodes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDetectionPatternSchema = createInsertSchema(certificateDetectionPatterns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertOutcomeRuleSchema = createInsertSchema(certificateOutcomeRules).omit({ id: true, createdAt: true, updatedAt: true });
 
 // HACT Architecture Insert Schemas
 export const insertComponentTypeSchema = createInsertSchema(componentTypes).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1391,6 +1465,12 @@ export type InsertCertificateType = z.infer<typeof insertCertificateTypeSchema>;
 
 export type ClassificationCode = typeof classificationCodes.$inferSelect;
 export type InsertClassificationCode = z.infer<typeof insertClassificationCodeSchema>;
+
+export type DetectionPattern = typeof certificateDetectionPatterns.$inferSelect;
+export type InsertDetectionPattern = z.infer<typeof insertDetectionPatternSchema>;
+
+export type OutcomeRule = typeof certificateOutcomeRules.$inferSelect;
+export type InsertOutcomeRule = z.infer<typeof insertOutcomeRuleSchema>;
 
 // HACT Architecture Types
 export type ComponentType = typeof componentTypes.$inferSelect;

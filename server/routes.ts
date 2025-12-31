@@ -10,6 +10,7 @@ import {
   insertComplianceStreamSchema, insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
   insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
+  insertDetectionPatternSchema, insertOutcomeRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
   componentTypes, components, units, componentCertificates, users, extractionTierAudits,
   type ApiClient
@@ -3505,6 +3506,160 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting classification code:", error);
       res.status(500).json({ error: "Failed to delete classification code" });
+    }
+  });
+  
+  // ===== CONFIGURATION - DETECTION PATTERNS =====
+  app.get("/api/config/detection-patterns", async (req, res) => {
+    try {
+      const certificateTypeCode = req.query.certificateTypeCode as string | undefined;
+      const patternType = req.query.patternType as string | undefined;
+      const isActive = req.query.isActive === undefined ? undefined : req.query.isActive === 'true';
+      const patterns = await storage.listDetectionPatterns({ certificateTypeCode, patternType, isActive });
+      res.json(patterns);
+    } catch (error) {
+      console.error("Error fetching detection patterns:", error);
+      res.status(500).json({ error: "Failed to fetch detection patterns" });
+    }
+  });
+  
+  app.get("/api/config/detection-patterns/:id", async (req, res) => {
+    try {
+      const pattern = await storage.getDetectionPattern(req.params.id);
+      if (!pattern) {
+        return res.status(404).json({ error: "Detection pattern not found" });
+      }
+      res.json(pattern);
+    } catch (error) {
+      console.error("Error fetching detection pattern:", error);
+      res.status(500).json({ error: "Failed to fetch detection pattern" });
+    }
+  });
+  
+  app.post("/api/config/detection-patterns", async (req, res) => {
+    try {
+      const data = insertDetectionPatternSchema.parse(req.body);
+      const pattern = await storage.createDetectionPattern(data);
+      res.status(201).json(pattern);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating detection pattern:", error);
+        res.status(500).json({ error: "Failed to create detection pattern" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/detection-patterns/:id", async (req, res) => {
+    try {
+      const updateData = insertDetectionPatternSchema.partial().parse(req.body);
+      const updated = await storage.updateDetectionPattern(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Detection pattern not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating detection pattern:", error);
+        res.status(500).json({ error: "Failed to update detection pattern" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/detection-patterns/:id", async (req, res) => {
+    try {
+      const pattern = await storage.getDetectionPattern(req.params.id);
+      if (!pattern) {
+        return res.status(404).json({ error: "Detection pattern not found" });
+      }
+      if (pattern.isSystem) {
+        return res.status(400).json({ error: "Cannot delete system pattern" });
+      }
+      await storage.deleteDetectionPattern(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting detection pattern:", error);
+      res.status(500).json({ error: "Failed to delete detection pattern" });
+    }
+  });
+  
+  // ===== CONFIGURATION - OUTCOME RULES =====
+  app.get("/api/config/outcome-rules", async (req, res) => {
+    try {
+      const certificateTypeCode = req.query.certificateTypeCode as string | undefined;
+      const ruleGroup = req.query.ruleGroup as string | undefined;
+      const isActive = req.query.isActive === undefined ? undefined : req.query.isActive === 'true';
+      const rules = await storage.listOutcomeRules({ certificateTypeCode, ruleGroup, isActive });
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching outcome rules:", error);
+      res.status(500).json({ error: "Failed to fetch outcome rules" });
+    }
+  });
+  
+  app.get("/api/config/outcome-rules/:id", async (req, res) => {
+    try {
+      const rule = await storage.getOutcomeRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Outcome rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error fetching outcome rule:", error);
+      res.status(500).json({ error: "Failed to fetch outcome rule" });
+    }
+  });
+  
+  app.post("/api/config/outcome-rules", async (req, res) => {
+    try {
+      const data = insertOutcomeRuleSchema.parse(req.body);
+      const rule = await storage.createOutcomeRule(data);
+      res.status(201).json(rule);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating outcome rule:", error);
+        res.status(500).json({ error: "Failed to create outcome rule" });
+      }
+    }
+  });
+  
+  app.patch("/api/config/outcome-rules/:id", async (req, res) => {
+    try {
+      const updateData = insertOutcomeRuleSchema.partial().parse(req.body);
+      const updated = await storage.updateOutcomeRule(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Outcome rule not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating outcome rule:", error);
+        res.status(500).json({ error: "Failed to update outcome rule" });
+      }
+    }
+  });
+  
+  app.delete("/api/config/outcome-rules/:id", async (req, res) => {
+    try {
+      const rule = await storage.getOutcomeRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Outcome rule not found" });
+      }
+      if (rule.isSystem) {
+        return res.status(400).json({ error: "Cannot delete system rule" });
+      }
+      await storage.deleteOutcomeRule(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting outcome rule:", error);
+      res.status(500).json({ error: "Failed to delete outcome rule" });
     }
   });
   
