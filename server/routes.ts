@@ -5268,6 +5268,33 @@ export async function registerRoutes(
     }
   });
   
+  // Log rotation endpoint
+  app.get("/api/admin/log-rotation/stats", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { getLogRotationStats } = await import('./services/log-rotation');
+      const result = getLogRotationStats();
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting log rotation stats:", error);
+      res.status(500).json({ error: "Failed to get log rotation stats" });
+    }
+  });
+  
+  app.post("/api/admin/log-rotation/rotate", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { rotateOldLogs } = await import('./services/log-rotation');
+      const result = await rotateOldLogs();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error rotating logs:", error);
+      res.status(500).json({ error: "Failed to rotate logs" });
+    }
+  });
+  
   // ===== API DOCUMENTATION ENDPOINT =====
   app.get("/api/admin/openapi", (req, res) => {
     const openApiSpec = {

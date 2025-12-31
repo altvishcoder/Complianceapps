@@ -7,6 +7,7 @@ import { initJobQueue, stopJobQueue } from "./job-queue";
 import { httpLogger, logger } from "./logger";
 import { initSentry, setupSentryErrorHandler } from "./sentry";
 import { setupSession } from "./session";
+import { startLogRotationScheduler } from "./services/log-rotation";
 
 const app = express();
 const httpServer = createServer(app);
@@ -51,6 +52,9 @@ app.use(httpLogger);
   } catch (error) {
     log(`Failed to initialize pg-boss: ${error}`, "pg-boss");
   }
+  
+  // Start log rotation scheduler
+  startLogRotationScheduler();
   
   await registerRoutes(httpServer, app);
 
