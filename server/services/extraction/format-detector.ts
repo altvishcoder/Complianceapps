@@ -1,4 +1,6 @@
 import type { DocumentFormat, DocumentClassification, CertificateTypeCode } from './types';
+import { detectCertificateTypeFromPatterns, detectCertificateTypeDB } from './pattern-detector';
+import { logger } from '../../logger';
 
 let pdfjs: any = null;
 async function getPdfjs() {
@@ -114,6 +116,90 @@ export async function analysePdf(buffer: Buffer): Promise<FormatAnalysis> {
   else if (isHybrid) format = 'pdf-hybrid';
 
   const detectedCertificateType = detectCertificateType(textContent);
+  const classification = classifyDocument(textContent, detectedCertificateType);
+
+  return {
+    format,
+    classification,
+    detectedCertificateType,
+    hasTextLayer,
+    isScanned,
+    isHybrid,
+    textContent: textContent.trim() || null,
+    pageCount,
+    textQuality,
+    avgCharsPerPage,
+  };
+}
+
+export async function analysePdfWithDatabasePatterns(
+  buffer: Buffer,
+  filename: string
+): Promise<FormatAnalysis> {
+  let textContent = '';
+  let pageCount = 1;
+
+  try {
+    const pdfjsLib = await getPdfjs();
+    const data = new Uint8Array(buffer);
+    const pdf = await pdfjsLib.getDocument({ data }).promise;
+    pageCount = pdf.numPages;
+
+    for (let i = 1; i <= pageCount; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item: any) => item.str)
+        .join(' ');
+      textContent += pageText + '\n';
+    }
+  } catch (error) {
+    return {
+      format: 'pdf-scanned',
+      classification: 'unknown',
+      detectedCertificateType: 'UNKNOWN',
+      hasTextLayer: false,
+      isScanned: true,
+      isHybrid: false,
+      textContent: null,
+      pageCount: 1,
+      textQuality: 0,
+      avgCharsPerPage: 0,
+    };
+  }
+
+  const avgCharsPerPage = textContent.length / pageCount;
+  const wordCount = textContent.split(/\s+/).filter(w => w.length > 2).length;
+  const textQuality = Math.min(1, (avgCharsPerPage / 500) * (wordCount / (pageCount * 50)));
+
+  const isScanned = avgCharsPerPage < 50 || textQuality < 0.1;
+  const hasTextLayer = textContent.length > 100;
+  const isHybrid = avgCharsPerPage >= 50 && avgCharsPerPage <= 100;
+
+  let format: DocumentFormat = 'pdf-native';
+  if (isScanned) format = 'pdf-scanned';
+  else if (isHybrid) format = 'pdf-hybrid';
+
+  const dbResult = await detectCertificateTypeDB(filename, textContent);
+  let detectedCertificateType: CertificateTypeCode;
+  
+  if (dbResult.source === 'database' && dbResult.certificateType !== 'UNKNOWN') {
+    detectedCertificateType = dbResult.certificateType;
+    logger.info({
+      filename,
+      certificateType: detectedCertificateType,
+      confidence: dbResult.confidence,
+      source: 'database_patterns',
+    }, 'Certificate type detected from database patterns');
+  } else {
+    detectedCertificateType = detectCertificateType(textContent);
+    logger.debug({
+      filename,
+      certificateType: detectedCertificateType,
+      source: 'hardcoded_fallback',
+    }, 'Certificate type detected from hardcoded patterns');
+  }
+  
   const classification = classifyDocument(textContent, detectedCertificateType);
 
   return {
@@ -495,14 +581,26 @@ export async function analyseDocument(
   }
 
   if (format === 'pdf-native' || format === 'pdf-scanned' || format === 'pdf-hybrid') {
-    return analysePdf(buffer);
+    return analysePdfWithDatabasePatterns(buffer, filename);
   }
 
   if (format === 'image') {
+    const dbResult = await detectCertificateTypeDB(filename, null);
+    let detectedType: CertificateTypeCode = 'UNKNOWN';
+    
+    if (dbResult.source === 'database' && dbResult.certificateType !== 'UNKNOWN') {
+      detectedType = dbResult.certificateType;
+    } else {
+      const filenameType = detectCertificateTypeFromFilename(filename);
+      if (filenameType) {
+        detectedType = filenameType;
+      }
+    }
+    
     return {
       format: 'image',
       classification: 'structured_certificate',
-      detectedCertificateType: 'UNKNOWN',
+      detectedCertificateType: detectedType,
       hasTextLayer: false,
       isScanned: true,
       isHybrid: false,
@@ -513,10 +611,22 @@ export async function analyseDocument(
     };
   }
 
+  const dbResult = await detectCertificateTypeDB(filename, null);
+  let detectedType: CertificateTypeCode = 'UNKNOWN';
+  
+  if (dbResult.source === 'database' && dbResult.certificateType !== 'UNKNOWN') {
+    detectedType = dbResult.certificateType;
+  } else {
+    const filenameType = detectCertificateTypeFromFilename(filename);
+    if (filenameType) {
+      detectedType = filenameType;
+    }
+  }
+
   return {
     format,
     classification: 'structured_certificate',
-    detectedCertificateType: 'UNKNOWN',
+    detectedCertificateType: detectedType,
     hasTextLayer: true,
     isScanned: false,
     isHybrid: false,

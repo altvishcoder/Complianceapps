@@ -3,6 +3,7 @@ import { classificationCodes, remedialActions, certificates, certificateTypes } 
 import { eq, and } from 'drizzle-orm';
 import type { ExtractedCertificateData, DefectRecord, ApplianceRecord } from './types';
 import { logger } from '../../logger';
+import { determineComplianceOutcome, type ComplianceOutcome, type OutcomeRuleMatch } from './outcome-evaluator';
 
 export interface ClassificationMatch {
   classificationCodeId: string;
@@ -375,3 +376,71 @@ export async function getClassificationCodesForCertificateType(
       eq(classificationCodes.isActive, true)
     ));
 }
+
+export interface ComplianceEvaluationResult {
+  outcome: ComplianceOutcome;
+  confidence: number;
+  legislation: string[];
+  ruleMatches: OutcomeRuleMatch[];
+  classificationMatches: ClassificationMatch[];
+  actionsCreated: number;
+  source: 'database_rules' | 'extracted_data' | 'classification_codes' | 'undetermined';
+}
+
+export async function evaluateComplianceAndLink(
+  certificateId: string,
+  extractionData: ExtractedCertificateData,
+  certificateType: string
+): Promise<ComplianceEvaluationResult> {
+  const outcomeResult = await determineComplianceOutcome(certificateType, extractionData);
+  
+  const linkageResult = await linkExtractionToClassifications(
+    certificateId,
+    extractionData,
+    certificateType
+  );
+
+  let finalOutcome = outcomeResult.outcome;
+  let source: ComplianceEvaluationResult['source'] = outcomeResult.source;
+
+  if (finalOutcome === 'UNDETERMINED' && linkageResult.matches.length > 0) {
+    const hasUnsatisfactory = linkageResult.matches.some(
+      m => m.severity === 'IMMEDIATE' || m.severity === 'URGENT'
+    );
+    const hasObservations = linkageResult.matches.some(
+      m => m.severity === 'PRIORITY' || m.severity === 'ROUTINE'
+    );
+
+    if (hasUnsatisfactory) {
+      finalOutcome = 'UNSATISFACTORY';
+      source = 'classification_codes';
+    } else if (hasObservations) {
+      finalOutcome = 'SATISFACTORY_WITH_OBSERVATIONS';
+      source = 'classification_codes';
+    }
+  }
+
+  logger.info({
+    certificateId,
+    certificateType,
+    outcome: finalOutcome,
+    confidence: outcomeResult.confidence,
+    ruleMatches: outcomeResult.ruleMatches.length,
+    classificationMatches: linkageResult.matches.length,
+    actionsCreated: linkageResult.actionsCreated,
+    legislation: outcomeResult.legislation,
+    source,
+  }, 'Compliance evaluation complete');
+
+  return {
+    outcome: finalOutcome,
+    confidence: outcomeResult.confidence,
+    legislation: outcomeResult.legislation,
+    ruleMatches: outcomeResult.ruleMatches,
+    classificationMatches: linkageResult.matches,
+    actionsCreated: linkageResult.actionsCreated,
+    source,
+  };
+}
+
+export { determineComplianceOutcome, type ComplianceOutcome, type OutcomeRuleMatch };

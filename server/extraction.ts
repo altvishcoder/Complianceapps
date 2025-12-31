@@ -2112,14 +2112,18 @@ export async function processExtractionAndSave(
       additionalFields: {},
     };
 
-    const { linkExtractionToClassifications } = await import("./services/extraction/classification-linker");
-    const linkageResult = await linkExtractionToClassifications(
+    const { evaluateComplianceAndLink } = await import("./services/extraction/classification-linker");
+    const complianceResult = await evaluateComplianceAndLink(
       certificateId,
       extractedDataForClassification,
       mappedCertTypeCode
     );
     
-    console.log(`[DEBUG] Classification linking complete: ${linkageResult.actionsCreated} actions created, ${linkageResult.matches.length} matches found`);
+    console.log(`[DEBUG] Compliance evaluation complete: outcome=${complianceResult.outcome}, confidence=${complianceResult.confidence.toFixed(2)}, rules=${complianceResult.ruleMatches.length}, classifications=${complianceResult.classificationMatches.length}, actions=${complianceResult.actionsCreated}`);
+    
+    if (complianceResult.legislation.length > 0) {
+      console.log(`[DEBUG] Applicable UK legislation: ${complianceResult.legislation.join(', ')}`);
+    }
 
     // Auto-create component with pending verification based on certificate type
     // Use the DETECTED certificate type, not the initial type (which may be "OTHER")
