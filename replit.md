@@ -42,6 +42,12 @@ Preferred communication style: Simple, everyday language.
 -   **CSV Import**: Supports importing properties, units, and components via CSV templates.
 -   **Seeding & Demo Data**: Option to seed demo data for testing and development.
 -   **External Ingestion API**: Machine-to-machine API for external systems to submit compliance certificates with Bearer token authentication and async processing via pg-boss job queue.
+-   **AI Assistant Chatbot**: 5-layer cost-optimized architecture for compliance guidance:
+    - **Layer 0**: Intent Classification - keyword-based routing (greeting, navigation, database, faq, off_topic, complex)
+    - **Layer 1**: FAQ Cache with TF-IDF - 12+ compliance FAQs with semantic matching (gas, electrical, fire, legionella, asbestos)
+    - **Layer 2**: Database Queries - property/certificate lookups, compliance status searches
+    - **Layer 3**: LLM Handler - Claude 3.5 Haiku for complex queries (256 max tokens)
+    - **Layer 4**: Response Enhancement - context-aware follow-up suggestions
 
 ### Security
 -   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
