@@ -1636,6 +1636,108 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
   }
 }
 
+// Get certificates that are already expired (past their expiry date)
+async function getExpiredCertificatesForChat(): Promise<string> {
+  try {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    // Query for certificates with expiry date in the past
+    const results = await db.execute(sql`
+      SELECT 
+        c.id,
+        c.certificate_type as "certificateType",
+        c.expiry_date as "expiryDate",
+        c.property_id as "propertyId",
+        p.address_line1 as "propertyAddress",
+        p.postcode as "propertyPostcode"
+      FROM certificates c
+      LEFT JOIN properties p ON c.property_id = p.id
+      WHERE c.expiry_date IS NOT NULL
+        AND c.expiry_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+        AND c.expiry_date::date < ${todayStr}::date
+      ORDER BY c.expiry_date::date DESC
+      LIMIT 50
+    `);
+    
+    const expiredCerts = (results.rows as any[]) || [];
+    
+    if (expiredCerts.length === 0) {
+      return `**Great news!** No expired certificates found in your portfolio.\n\n[View all certificates](/certificates) | [Remedial Actions](/remedial-actions)`;
+    }
+    
+    // Group by type
+    const byType: Record<string, any[]> = {};
+    for (const cert of expiredCerts) {
+      const type = cert.certificateType || 'Unknown';
+      if (!byType[type]) byType[type] = [];
+      byType[type].push(cert);
+    }
+    
+    // Map common types to friendly names
+    const typeLabels: Record<string, string> = {
+      'GAS_SAFETY': 'Gas Safety (CP12)',
+      'CP12': 'Gas Safety (CP12)',
+      'EICR': 'Electrical (EICR)',
+      'FRA': 'Fire Risk Assessment',
+      'FIRE_RISK_ASSESSMENT': 'Fire Risk Assessment',
+      'EPC': 'Energy Performance',
+      'ASBESTOS': 'Asbestos Survey',
+      'ASBESTOS_SURVEY': 'Asbestos Survey',
+      'LEGIONELLA': 'Legionella',
+      'LEGIONELLA_ASSESSMENT': 'Legionella',
+      'LOLER': 'Lift Safety (LOLER)',
+      'LIFT_LOLER': 'Lift Safety (LOLER)',
+    };
+    
+    let response = `**Expired Certificates: ${expiredCerts.length}** (require immediate attention)\n\n`;
+    
+    // Show breakdown by type with links
+    const sortedTypes = Object.entries(byType).sort((a, b) => b[1].length - a[1].length);
+    for (const [type, certs] of sortedTypes.slice(0, 5)) {
+      const label = typeLabels[type] || type.replace(/_/g, ' ');
+      response += `**${label}:** ${certs.length} expired\n`;
+      
+      // Show up to 3 specific certificates with links
+      for (const cert of certs.slice(0, 3)) {
+        let expiryStr = 'Unknown date';
+        let daysAgo = '';
+        if (cert.expiryDate) {
+          try {
+            const expiryDate = new Date(cert.expiryDate);
+            expiryStr = expiryDate.toLocaleDateString('en-GB');
+            const diffDays = Math.floor((now.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays > 365) {
+              daysAgo = ` (${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? 's' : ''} overdue)`;
+            } else if (diffDays > 30) {
+              daysAgo = ` (${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) > 1 ? 's' : ''} overdue)`;
+            } else {
+              daysAgo = ` (${diffDays} day${diffDays !== 1 ? 's' : ''} overdue)`;
+            }
+          } catch { expiryStr = cert.expiryDate; }
+        }
+        const shortAddr = cert.propertyAddress ? shortenAddress(cert.propertyAddress) : 'Unknown';
+        response += `  • [${shortAddr}](/certificates/${cert.id}) - expired ${expiryStr}${daysAgo}\n`;
+      }
+      if (certs.length > 3) {
+        response += `  • +${certs.length - 3} more\n`;
+      }
+      response += `\n`;
+    }
+    
+    response += `**Urgent Actions Required:**\n`;
+    response += `• Schedule immediate re-inspections\n`;
+    response += `• Book qualified contractors\n`;
+    response += `• [View all certificates →](/certificates)\n`;
+    response += `• [Manage remedial actions →](/remedial-actions)\n`;
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Failed to get expired certificates');
+    return `Unable to fetch expired certificates. [Check certificates page](/certificates) | [Remedial Actions](/remedial-actions)`;
+  }
+}
+
 // Component type keywords mapping
 const COMPONENT_TYPE_KEYWORDS: Record<string, string[]> = {
   'boiler': ['boiler', 'boilers', 'heating'],
@@ -1870,9 +1972,19 @@ async function searchProperties(query: string): Promise<string | null> {
     searchTerms.includes('eicr') || searchTerms.includes('cp12') || searchTerms.includes('gas') ||
     searchTerms.includes('electrical') || searchTerms.includes('fire') || searchTerms.includes('fra') ||
     searchTerms.includes('epc') || searchTerms.includes('asbestos') || searchTerms.includes('legionella');
+  
+  // Check if asking about already expired vs expiring soon
+  const wantsAlreadyExpired = (searchTerms.includes('expired') || searchTerms.includes('overdue') || 
+    searchTerms.includes('past due') || searchTerms.includes('out of date') || 
+    searchTerms.includes('lapsed')) && hasCertContext;
+  
+  if (wantsAlreadyExpired) {
+    return await getExpiredCertificatesForChat();
+  }
+  
   const wantsExpiringCerts = (searchTerms.includes('expir') || searchTerms.includes('due soon') || 
     searchTerms.includes('renew') || searchTerms.includes('soon') || searchTerms.includes('this month') ||
-    searchTerms.includes('next month') || searchTerms.includes('overdue')) && hasCertContext;
+    searchTerms.includes('next month')) && hasCertContext;
   
   if (wantsExpiringCerts) {
     return await getCertificatesExpiringSoonForChat();
