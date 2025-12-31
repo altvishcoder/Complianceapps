@@ -1545,6 +1545,96 @@ async function getCertificatesPendingReview(): Promise<string> {
   }
 }
 
+// Get certificates expiring soon for chatbot
+async function getCertificatesExpiringSoonForChat(): Promise<string> {
+  try {
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now);
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    
+    // Use raw SQL to avoid type issues with text date columns
+    // Cast expiry_date to DATE for proper comparison
+    const results = await db.execute(sql`
+      SELECT 
+        c.id,
+        c.certificate_type as "certificateType",
+        c.expiry_date as "expiryDate",
+        c.property_id as "propertyId",
+        p.address_line1 as "propertyAddress",
+        p.postcode as "propertyPostcode"
+      FROM certificates c
+      LEFT JOIN properties p ON c.property_id = p.id
+      WHERE c.expiry_date IS NOT NULL
+        AND c.expiry_date::date >= ${now.toISOString().split('T')[0]}::date
+        AND c.expiry_date::date <= ${thirtyDaysFromNow.toISOString().split('T')[0]}::date
+      ORDER BY c.expiry_date::date ASC
+      LIMIT 50
+    `);
+    
+    const expiringCerts = (results.rows as any[]) || [];
+    
+    if (expiringCerts.length === 0) {
+      return `✅ **Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates →](/certificates?status=EXPIRING)`;
+    }
+    
+    // Group by type
+    const byType: Record<string, any[]> = {};
+    for (const cert of expiringCerts) {
+      const type = cert.certificateType || 'Unknown';
+      if (!byType[type]) byType[type] = [];
+      byType[type].push(cert);
+    }
+    
+    // Map common types to friendly names
+    const typeLabels: Record<string, string> = {
+      'GAS_SAFETY': 'Gas Safety (CP12)',
+      'CP12': 'Gas Safety (CP12)',
+      'EICR': 'Electrical (EICR)',
+      'FRA': 'Fire Risk Assessment',
+      'FIRE_RISK_ASSESSMENT': 'Fire Risk Assessment',
+      'EPC': 'Energy Performance',
+      'ASBESTOS': 'Asbestos Survey',
+      'LEGIONELLA': 'Legionella',
+      'LOLER': 'Lift Safety (LOLER)',
+      'LIFT_LOLER': 'Lift Safety (LOLER)',
+    };
+    
+    let response = `⏰ **Certificates Expiring Soon: ${expiringCerts.length}** (next 30 days)\n\n`;
+    
+    // Show breakdown by type with links
+    const sortedTypes = Object.entries(byType).sort((a, b) => b[1].length - a[1].length);
+    for (const [type, certs] of sortedTypes.slice(0, 5)) {
+      const label = typeLabels[type] || type.replace(/_/g, ' ');
+      response += `**${label}:** ${certs.length} expiring → [View](/certificates?status=EXPIRING&type=${encodeURIComponent(type)})\n`;
+      
+      // Show up to 3 specific certificates with links
+      for (const cert of certs.slice(0, 3)) {
+        let expiryStr = 'Unknown date';
+        if (cert.expiryDate) {
+          try {
+            expiryStr = new Date(cert.expiryDate).toLocaleDateString('en-GB');
+          } catch { expiryStr = cert.expiryDate; }
+        }
+        const shortAddr = cert.propertyAddress ? shortenAddress(cert.propertyAddress) : 'Unknown';
+        response += `  • [${shortAddr}](/certificates/${cert.id}) - expires ${expiryStr}\n`;
+      }
+      if (certs.length > 3) {
+        response += `  • +${certs.length - 3} more → [View all](/certificates?status=EXPIRING&type=${encodeURIComponent(type)})\n`;
+      }
+      response += `\n`;
+    }
+    
+    response += `**Quick Actions:**\n`;
+    response += `• [View all expiring certificates →](/certificates?status=EXPIRING)\n`;
+    response += `• [Manage remedial actions →](/remedial-actions)\n`;
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Failed to get expiring certificates');
+    return `😅 Couldn't fetch expiring certificates. [Check certificates page →](/certificates?status=EXPIRING)`;
+  }
+}
+
 // Component type keywords mapping
 const COMPONENT_TYPE_KEYWORDS: Record<string, string[]> = {
   'boiler': ['boiler', 'boilers', 'heating'],
@@ -1772,6 +1862,19 @@ async function searchProperties(query: string): Promise<string | null> {
   
   if (wantsPendingCerts) {
     return await getCertificatesPendingReview();
+  }
+  
+  // Check for expiring certificates queries - specifically about certificates, not properties
+  const hasCertContext = searchTerms.includes('certificate') || searchTerms.includes('cert') || 
+    searchTerms.includes('eicr') || searchTerms.includes('cp12') || searchTerms.includes('gas') ||
+    searchTerms.includes('electrical') || searchTerms.includes('fire') || searchTerms.includes('fra') ||
+    searchTerms.includes('epc') || searchTerms.includes('asbestos') || searchTerms.includes('legionella');
+  const wantsExpiringCerts = (searchTerms.includes('expir') || searchTerms.includes('due soon') || 
+    searchTerms.includes('renew') || searchTerms.includes('soon') || searchTerms.includes('this month') ||
+    searchTerms.includes('next month') || searchTerms.includes('overdue')) && hasCertContext;
+  
+  if (wantsExpiringCerts) {
+    return await getCertificatesExpiringSoonForChat();
   }
   
   // Check for compliance-based queries first - must include property-related terms
