@@ -558,7 +558,7 @@ const FAQ_DATABASE: FAQEntry[] = [
 
 **Regulation:** Gas Safety Regulations 1998
 
-👉 [View Gas Safety Certificates](/certificates?type=CP12) | [Track Renewals](/certificates?status=EXPIRING)`,
+[View Gas Safety Certificates](/certificates?type=CP12) | [Track Renewals](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`,
     sources: ["Gas Safety Regulations 1998", "HSE Guidance INDG285"],
   },
   {
@@ -581,7 +581,7 @@ All gas appliances, fittings, and flues must be checked:
 • Gas tightness (pipework)
 • Carbon monoxide alarm check
 
-👉 [View Gas Certificates](/certificates?type=CP12) | [Components](/components)`,
+[View Gas Certificates](/certificates?type=CP12) | [Components](/components) | [Remedial Actions](/remedial-actions)`,
     sources: ["Gas Safety Regulations 1998", "Gas Safe Technical Bulletin"],
   },
   {
@@ -591,23 +591,23 @@ All gas appliances, fittings, and flues must be checked:
     variations: ["Immediately dangerous gas appliance", "ID classification gas", "At risk gas appliance", "AR classification meaning", "Gas appliance warning notice"],
     answer: `**Gas Appliance Classifications:**
 
-🔴 **Immediately Dangerous (ID)**
+**Immediately Dangerous (ID)**
 • Poses immediate risk to life
 • Must be disconnected immediately
 • Cannot use until repaired by Gas Safe engineer
 
-🟠 **At Risk (AR)**
+**At Risk (AR)**
 • Not immediately dangerous but poses risk
 • Should be repaired ASAP
 • User warned in writing
 
-🟡 **Not to Current Standards (NCS)**
+**Not to Current Standards (NCS)**
 • Safe to use
 • Recommend upgrade when convenient
 
 **Landlord must fix all ID and AR issues before re-letting.**
 
-👉 [View Remedial Actions](/actions?severity=IMMEDIATE) | [Urgent Actions](/actions)`,
+[View Remedial Actions](/remedial-actions?severity=IMMEDIATE) | [Urgent Actions](/remedial-actions)`,
     sources: ["Gas Safe Register Unsafe Situations Procedure", "GIUSP"],
   },
   {
@@ -649,7 +649,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Regulation:** Electrical Safety Standards Regulations 2020
 
-👉 [View EICRs](/certificates?type=EICR) | [Schedule Remedial Work](/actions)`,
+[View EICRs](/certificates?type=EICR) | [Schedule Remedial Work](/remedial-actions)`,
     sources: ["Electrical Safety Standards Regulations 2020", "BS 7671:2018+A2:2022"],
   },
   {
@@ -659,16 +659,16 @@ All gas appliances, fittings, and flues must be checked:
     variations: ["EICR observation codes explained", "What is a C1 defect?", "C2 electrical code meaning", "Electrical report classification codes", "C3 code meaning"],
     answer: `**EICR Observation Codes:**
 
-🔴 **C1 - Danger Present**
+**C1 - Danger Present**
 • Immediate risk of injury
 • Requires immediate remedial action
 • **Action: Within 24-48 hours**
 
-🟠 **C2 - Potentially Dangerous**
+**C2 - Potentially Dangerous**
 • Could become dangerous
 • **Action: Within 28 days** (legal requirement)
 
-🟡 **C3 - Improvement Recommended**
+**C3 - Improvement Recommended**
 • Does not meet current standards
 • Not a safety issue
 • **Action: Recommended but not mandatory**
@@ -677,7 +677,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Any C1 or C2 = UNSATISFACTORY overall**
 
-👉 [View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/actions)`,
+[View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/remedial-actions)`,
     sources: ["BS 7671:2018", "Electrical Safety Standards Regulations 2020"],
   },
   {
@@ -706,7 +706,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **For landlords:** You need a valid EICR - not just the original EIC from when the property was built.
 
-👉 [View All Electrical Certificates](/certificates?type=EICR)`,
+[View All Electrical Certificates](/certificates?type=EICR) | [Remedial Actions](/remedial-actions)`,
     sources: ["BS 7671:2018", "IET Guidance Note 3"],
   },
   // ===== FIRE SAFETY (5 FAQs) =====
@@ -729,7 +729,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Best practice:** Review annually even if no changes - document the review date.
 
-👉 [View FRA Documents](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Safety Actions](/actions)`,
+[View FRA Documents](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Safety Actions](/remedial-actions)`,
     sources: ["Fire Safety Order 2005", "PAS 79-2:2020", "Building Safety Act 2022"],
   },
   {
@@ -754,7 +754,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Penalties:** Up to £5,000 fine for non-compliance.
 
-👉 [View Fire Safety Certificates](/certificates?type=FIRE_RISK_ASSESSMENT) | [Track Actions](/actions)`,
+[View Fire Safety Certificates](/certificates?type=FIRE_RISK_ASSESSMENT) | [Track Actions](/remedial-actions)`,
     sources: ["Smoke and CO Alarm Regulations 2022", "Fire Safety Order 2005"],
   },
   {
@@ -782,7 +782,7 @@ All gas appliances, fittings, and flues must be checked:
 • Flat entrance doors must be FD30S (30 min + smoke seals)
 • More rigorous inspection regime required
 
-👉 [View Fire Safety Records](/certificates?type=FIRE_RISK_ASSESSMENT) | [Actions](/actions)`,
+[View Fire Safety Records](/certificates?type=FIRE_RISK_ASSESSMENT) | [Remedial Actions](/remedial-actions)`,
     sources: ["Fire Safety Order 2005", "Building Safety Act 2022", "BS 8214"],
   },
   // ===== LEGIONELLA (3 FAQs) =====
@@ -813,7 +813,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Key control:** Keep hot water above 50°C stored, 60°C at cylinder
 
-👉 [View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
+[View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/remedial-actions)`,
     sources: ["ACOP L8", "HSG274 Parts 1-3", "HSE Guidance for Landlords"],
   },
   {
@@ -875,7 +875,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Note:** Asbestos was used in buildings until 1999 (banned 2000).
 
-👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
+[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/remedial-actions)`,
     sources: ["Control of Asbestos Regulations 2012", "HSG264", "HSG227"],
   },
   {
@@ -913,7 +913,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Important:** Never attempt DIY removal of asbestos.
 
-👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Remedial Actions](/actions)`,
+[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Remedial Actions](/remedial-actions)`,
     sources: ["Control of Asbestos Regulations 2012", "HSG264", "HSG247"],
   },
   // ===== GENERAL COMPLIANCE (8 FAQs) =====
@@ -924,17 +924,17 @@ All gas appliances, fittings, and flues must be checked:
     variations: ["Required certificates for rental property", "Landlord legal requirements certificates", "Rental property compliance checklist", "What inspections needed for BTL"],
     answer: `**Mandatory Certificates:**
 
-✅ [Gas Safety (CP12)](/certificates?type=CP12) - Annual (if gas)
-✅ [EICR](/certificates?type=EICR) - Every 5 years
-✅ [EPC](/certificates?type=EPC) - Every 10 years (Rating E+)
-✅ Smoke & CO Alarms - Each tenancy start
+- [Gas Safety (CP12)](/certificates?type=CP12) - Annual (if gas)
+- [EICR](/certificates?type=EICR) - Every 5 years
+- [EPC](/certificates?type=EPC) - Every 10 years (Rating E+)
+- Smoke & CO Alarms - Each tenancy start
 
 **Recommended/Situational:**
-📋 [Fire Risk Assessment](/certificates?type=FIRE_RISK_ASSESSMENT) - HMOs/common areas (annually)
-📋 [Legionella Risk Assessment](/certificates?type=LEGIONELLA) - Every 2 years
-📋 [Asbestos Survey](/certificates?type=ASBESTOS) - Pre-1999 buildings before works
+- [Fire Risk Assessment](/certificates?type=FIRE_RISK_ASSESSMENT) - HMOs/common areas (annually)
+- [Legionella Risk Assessment](/certificates?type=LEGIONELLA) - Every 2 years
+- [Asbestos Survey](/certificates?type=ASBESTOS) - Pre-1999 buildings before works
 
-👉 [View All Certificates](/certificates) | [Dashboard](/dashboard)`,
+[View All Certificates](/certificates) | [Dashboard](/dashboard) | [Remedial Actions](/remedial-actions)`,
     sources: ["Various regulations - see specific certificate types"],
   },
   {
@@ -1002,7 +1002,7 @@ All gas appliances, fittings, and flues must be checked:
 • Provide copies to new owner on sale
 • Essential for due diligence and insurance claims
 
-👉 [View All Certificates](/certificates)`,
+[View All Certificates](/certificates) | [Remedial Actions](/remedial-actions)`,
     sources: ["Gas Safety Regulations 1998", "Control of Asbestos Regulations 2012"],
   },
   {
@@ -1037,7 +1037,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Note:** Must provide EPC to tenants before letting.
 
-👉 [View EPCs](/certificates?type=EPC)`,
+[View EPCs](/certificates?type=EPC) | [Remedial Actions](/remedial-actions)`,
     sources: ["Energy Efficiency Regulations 2015", "MEES Regulations"],
   },
   {
@@ -1074,7 +1074,7 @@ All gas appliances, fittings, and flues must be checked:
 
 **Penalties:** Up to £30,000 fine + Rent Repayment Orders
 
-👉 [View Properties](/properties) | [Fire Safety Certs](/certificates?type=FIRE_RISK_ASSESSMENT)`,
+[View Properties](/properties) | [Fire Safety Certs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Remedial Actions](/remedial-actions)`,
     sources: ["Housing Act 2004", "Licensing of HMOs Regulations 2018", "LACORS Fire Safety Guide"],
   },
   // ===== LIFT / LOLER (2 FAQs) =====
@@ -1104,7 +1104,7 @@ All gas appliances, fittings, and flues must be checked:
 • Often required by building insurance
 • May be combined with LOLER inspection
 
-👉 [View Lift Certificates](/certificates?type=LIFT_LOLER) | [Components](/components)`,
+[View Lift Certificates](/certificates?type=LIFT_LOLER) | [Components](/components) | [Remedial Actions](/remedial-actions)`,
     sources: ["LOLER 1998", "PUWER 1998", "BS EN 13015"],
   },
   // ===== BUILDING SAFETY ACT (2 FAQs) =====
@@ -1136,7 +1136,7 @@ All gas appliances, fittings, and flues must be checked:
 • Criminal offences for non-compliance
 • Unlimited fines possible
 
-👉 [View Building Safety Records](/certificates) | [Actions](/actions)`,
+[View Building Safety Records](/certificates) | [Remedial Actions](/remedial-actions)`,
     sources: ["Building Safety Act 2022", "Building Safety Regulator Guidance"],
   },
   // ===== NAVIGATION HELP (3 FAQs) =====
@@ -1165,7 +1165,7 @@ All gas appliances, fittings, and flues must be checked:
 • Ensure all pages are included
 • Check extracted data before saving
 
-👉 [Go to Certificates →](/certificates)`,
+[Go to Certificates](/certificates) | [Remedial Actions](/remedial-actions)`,
     sources: [],
   },
   {
@@ -1194,7 +1194,7 @@ All gas appliances, fittings, and flues must be checked:
 • Properties can be auto-created when uploading certificates
 • System extracts address from certificate
 
-👉 [Go to Properties →](/properties) | [Import Data →](/admin/import)`,
+[Go to Properties](/properties) | [Import Data](/admin/import) | [Remedial Actions](/remedial-actions)`,
     sources: [],
   },
   {
@@ -1220,7 +1220,7 @@ All gas appliances, fittings, and flues must be checked:
 • [Remedial Actions](/actions) - Open work items
 • Filter by severity/status
 
-👉 [Go to Dashboard →](/dashboard) | [Certificates →](/certificates)`,
+[Go to Dashboard](/dashboard) | [Certificates](/certificates) | [Remedial Actions](/remedial-actions)`,
     sources: [],
   },
 ];
@@ -1342,14 +1342,14 @@ const FAQ_CACHE: Record<string, string> = {
 • CP12 certificate every **12 months**
 • Records kept **2 years**, tenant copy within **28 days**
 
-👉 [View Gas Certificates](/certificates?type=CP12) | [Track Renewals](/certificates)`,
+[View Gas Certificates](/certificates?type=CP12) | [Track Renewals](/certificates) | [Remedial Actions](/remedial-actions)`,
 
   "eicr renew": `**EICR** (Electrical Safety Standards 2020)
 • Required every **5 years**
 • Qualified electrician (BS 7671)
 • Fix issues within **28 days** if unsatisfactory
 
-👉 [View EICRs](/certificates?type=EICR) | [Remedial Actions](/actions)`,
+[View EICRs](/certificates?type=EICR) | [Remedial Actions](/remedial-actions)`,
 
   "c1 c2 c3": `**Defect Codes**
 • **C1** - Immediately Dangerous → Disconnect now
@@ -1357,7 +1357,7 @@ const FAQ_CACHE: Record<string, string> = {
 • **C3** - Not to standard → Fix at next service
 • **FI** - Further investigation needed
 
-👉 [View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Actions](/actions)`,
+[View Unsatisfactory Certs](/certificates?outcome=UNSATISFACTORY) | [Remedial Actions](/remedial-actions)`,
 
   "upload certificate": `**Upload a Certificate**
 1. Go to [Certificates](/certificates)
@@ -1371,21 +1371,21 @@ const FAQ_CACHE: Record<string, string> = {
 • Review annually or after changes
 • 18m+ buildings: more frequent (BSA 2022)
 
-👉 [View FRAs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Actions](/actions)`,
+[View FRAs](/certificates?type=FIRE_RISK_ASSESSMENT) | [Fire Actions](/remedial-actions)`,
 
   "asbestos": `**Asbestos** (CAR 2012)
 • Management survey for pre-2000 buildings
 • Re-inspect every 6-12 months
 • R&D survey before intrusive work
 
-👉 [View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/actions)`,
+[View Asbestos Surveys](/certificates?type=ASBESTOS) | [Management Plans](/remedial-actions)`,
 
   "legionella": `**Legionella** (L8 ACOP)
 • Risk assessment every **2 years**
 • Hot water: 60°C+ stored, 50°C+ delivered
 • Cold water: below 20°C
 
-👉 [View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/actions)`,
+[View Legionella Assessments](/certificates?type=LEGIONELLA) | [Control Measures](/remedial-actions)`,
 };
 
 const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
@@ -1506,7 +1506,7 @@ async function getCertificatesPendingReview(): Promise<string> {
       .where(eq(certificates.status, 'NEEDS_REVIEW'));
     
     if (pendingCerts.length === 0) {
-      return `✅ **No certificates pending review!**\nAll certificates have been reviewed. [View all certificates](/certificates)`;
+      return `**No certificates pending review!**\nAll certificates have been reviewed. [View all certificates](/certificates) | [Remedial Actions](/remedial-actions)`;
     }
     
     // Group by type
@@ -1528,7 +1528,7 @@ async function getCertificatesPendingReview(): Promise<string> {
       'LEGIONELLA': 'Legionella',
     };
     
-    let response = `🕵️ **Certificates Pending Review: ${pendingCerts.length}**\n\n`;
+    let response = `**Certificates Pending Review: ${pendingCerts.length}**\n\n`;
     
     const sortedTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]);
     for (const [type, count] of sortedTypes.slice(0, 5)) {
@@ -1541,7 +1541,7 @@ async function getCertificatesPendingReview(): Promise<string> {
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get pending certificates');
-    return `😅 Couldn't fetch pending certificates. [Check certificates page](/certificates?status=NEEDS_REVIEW)`;
+    return `Unable to fetch pending certificates. [Check certificates page](/certificates?status=NEEDS_REVIEW) | [Remedial Actions](/remedial-actions)`;
   }
 }
 
@@ -1553,7 +1553,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
     
     // Use raw SQL to avoid type issues with text date columns
-    // Cast expiry_date to DATE for proper comparison
+    // Filter for valid date format (YYYY-MM-DD) before casting to avoid errors
     const results = await db.execute(sql`
       SELECT 
         c.id,
@@ -1565,6 +1565,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
       FROM certificates c
       LEFT JOIN properties p ON c.property_id = p.id
       WHERE c.expiry_date IS NOT NULL
+        AND c.expiry_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
         AND c.expiry_date::date >= ${now.toISOString().split('T')[0]}::date
         AND c.expiry_date::date <= ${thirtyDaysFromNow.toISOString().split('T')[0]}::date
       ORDER BY c.expiry_date::date ASC
@@ -1574,7 +1575,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
     const expiringCerts = (results.rows as any[]) || [];
     
     if (expiringCerts.length === 0) {
-      return `✅ **Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates →](/certificates?status=EXPIRING)`;
+      return `**Great news!** No certificates expiring in the next 30 days.\n\n[View all certificates](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`;
     }
     
     // Group by type
@@ -1599,7 +1600,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
       'LIFT_LOLER': 'Lift Safety (LOLER)',
     };
     
-    let response = `⏰ **Certificates Expiring Soon: ${expiringCerts.length}** (next 30 days)\n\n`;
+    let response = `**Certificates Expiring Soon: ${expiringCerts.length}** (next 30 days)\n\n`;
     
     // Show breakdown by type with links
     const sortedTypes = Object.entries(byType).sort((a, b) => b[1].length - a[1].length);
@@ -1631,7 +1632,7 @@ async function getCertificatesExpiringSoonForChat(): Promise<string> {
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get expiring certificates');
-    return `😅 Couldn't fetch expiring certificates. [Check certificates page →](/certificates?status=EXPIRING)`;
+    return `Unable to fetch expiring certificates. [Check certificates page](/certificates?status=EXPIRING) | [Remedial Actions](/remedial-actions)`;
   }
 }
 
@@ -1678,7 +1679,7 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
       ).length;
       
       if (matchingCount === 0) {
-        return `🔍 **No ${typeLabel.toLowerCase()} found** in your portfolio. [View all components →](/components)`;
+        return `**No ${typeLabel.toLowerCase()} found** in your portfolio. [View all components](/components) | [Remedial Actions](/remedial-actions)`;
       }
     }
     
@@ -1718,27 +1719,27 @@ async function getComponentsNeedingAttention(typeFilter?: string | null): Promis
     }
     
     if (criticalComponents.length === 0) {
-      return `✅ **All ${typeLabel.toLowerCase()} up to date!** [View all →](/components)`;
+      return `**All ${typeLabel.toLowerCase()} up to date!** [View all](/components) | [Remedial Actions](/remedial-actions)`;
     }
     
-    let response = `🔧 **${typeLabel} Needing Attention: ${criticalComponents.length}**\n\n`;
+    let response = `**${typeLabel} Needing Attention: ${criticalComponents.length}**\n\n`;
     
     for (const c of criticalComponents.slice(0, 5)) {
       const typeName = c.componentTypeName || 'Component';
       const shortAddr = c.propertyPostcode || 'Unknown';
-      const status = c.nextInspectionDue ? `⚠️ Overdue` : `❓ No date`;
+      const status = c.nextInspectionDue ? `Overdue` : `No date set`;
       const link = c.propertyId ? `[${shortAddr}](/properties/${c.propertyId})` : shortAddr;
-      response += `• ${typeName} - ${link} ${status}\n`;
+      response += `- ${typeName} - ${link} (${status})\n`;
     }
     
     if (criticalComponents.length > 5) {
-      response += `\n+${criticalComponents.length - 5} more [View all →](/components)`;
+      response += `\n+${criticalComponents.length - 5} more [View all](/components) | [Remedial Actions](/remedial-actions)`;
     }
     
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get components needing attention');
-    return `😅 Couldn't fetch component data. Check the [Components page](/components) directly.`;
+    return `Unable to fetch component data. Check the [Components page](/components) | [Remedial Actions](/remedial-actions)`;
   }
 }
 
@@ -1781,13 +1782,13 @@ async function getPropertiesWithIssues(): Promise<string> {
       .limit(5);
     
     if (nonCompliantProps.length === 0 && propsWithActions.length === 0) {
-      return `🎉 **All clear!** No major compliance issues found. [View all properties →](/properties)`;
+      return `**All clear!** No major compliance issues found. [View all properties](/properties) | [Remedial Actions](/remedial-actions)`;
     }
     
-    let response = `⚠️ **Properties Needing Attention**\n\n`;
+    let response = `**Properties Needing Attention**\n\n`;
     
     if (nonCompliantProps.length > 0) {
-      response += `**🔴 Non-Compliant (${nonCompliantProps.length}):**\n`;
+      response += `**Non-Compliant (${nonCompliantProps.length}):**\n`;
       for (const p of nonCompliantProps.slice(0, 5)) {
         const shortAddr = shortenAddress(p.addressLine1);
         response += `• [${shortAddr}, ${p.postcode}](/properties/${p.id})\n`;
@@ -1811,7 +1812,7 @@ async function getPropertiesWithIssues(): Promise<string> {
           .where(or(...propIds.map(id => eq(properties.id, id))))
           .limit(5);
         
-        response += `**🔧 Open Actions:**\n`;
+        response += `**Open Actions:**\n`;
         for (const p of propsWithActionDetails) {
           const actionInfo = propsWithActions.find(a => a.propertyId === p.id);
           const shortAddr = shortenAddress(p.addressLine1);
@@ -1824,7 +1825,7 @@ async function getPropertiesWithIssues(): Promise<string> {
     return response;
   } catch (error) {
     logger.error({ error }, 'Failed to get properties with issues');
-    return `😅 Couldn't fetch data. [Check Properties page →](/properties)`;
+    return `Unable to fetch data. [Check Properties page](/properties) | [Remedial Actions](/remedial-actions)`;
   }
 }
 
@@ -1938,7 +1939,7 @@ async function searchProperties(query: string): Promise<string | null> {
       .limit(5);
     
     if (results.length === 0) {
-      return `🔍 I searched but couldn't find any properties matching "${cleanQuery}". Try searching by address, postcode, or block name!`;
+      return `I searched but couldn't find any properties matching "${cleanQuery}". Try searching by address, postcode, or block name. [View All Properties](/properties) | [Remedial Actions](/remedial-actions)`;
     }
     
     // Get certificate counts for found properties
@@ -1970,38 +1971,40 @@ async function searchProperties(query: string): Promise<string | null> {
       const p = results[0];
       const certCount = certCountMap.get(p.id) || 0;
       const actionCount = actionCountMap.get(p.id) || 0;
-      const statusEmoji = p.complianceStatus === 'COMPLIANT' ? '✅' : p.complianceStatus === 'NON_COMPLIANT' ? '🔴' : '⚠️';
+      const statusLabel = p.complianceStatus === 'COMPLIANT' ? 'Compliant' : p.complianceStatus === 'NON_COMPLIANT' ? 'Non-Compliant' : 'Unknown';
       
-      return `🏠 **Found it!** Here's what I know about this property:
+      return `**Found it!** Here's what I know about this property:
 
 **${p.addressLine1}${p.addressLine2 ? ', ' + p.addressLine2 : ''}**
-📍 ${p.city}, ${p.postcode}
+${p.city}, ${p.postcode}
 
 **Quick Facts:**
-- ${statusEmoji} Status: **${p.complianceStatus?.replace('_', ' ')}**
-- 🏘️ Block: ${p.blockName || 'Not assigned'}
-- 📋 Scheme: ${p.schemeName || 'Not assigned'}
-- 🛏️ ${p.bedrooms} bedroom ${p.propertyType?.toLowerCase() || 'property'}
-- ${p.hasGas ? '🔥 Gas supply' : '⚡ Electric only'}
-${p.epcRating ? `- 📊 EPC Rating: ${p.epcRating}` : ''}
+- Status: **${statusLabel}**
+- Block: ${p.blockName || 'Not assigned'}
+- Scheme: ${p.schemeName || 'Not assigned'}
+- ${p.bedrooms} bedroom ${p.propertyType?.toLowerCase() || 'property'}
+- ${p.hasGas ? 'Gas supply' : 'Electric only'}
+${p.epcRating ? `- EPC Rating: ${p.epcRating}` : ''}
 
 **Compliance Summary:**
-- 📄 ${certCount} certificate${certCount !== 1 ? 's' : ''} on file
-- 🔧 ${actionCount} remedial action${actionCount !== 1 ? 's' : ''}
+- ${certCount} certificate${certCount !== 1 ? 's' : ''} on file
+- ${actionCount} remedial action${actionCount !== 1 ? 's' : ''}
 
-👉 [View full property details](/properties/${p.id})`;
+[View full property details](/properties/${p.id}) | [Remedial Actions](/remedial-actions)`;
     }
     
     // Multiple results
-    let response = `🔍 I found **${results.length} properties** matching your search:\n\n`;
+    let response = `I found **${results.length} properties** matching your search:\n\n`;
     
     for (const p of results) {
-      const statusEmoji = p.complianceStatus === 'COMPLIANT' ? '✅' : p.complianceStatus === 'NON_COMPLIANT' ? '🔴' : '⚠️';
+      const statusLabel = p.complianceStatus === 'COMPLIANT' ? '[Compliant]' : p.complianceStatus === 'NON_COMPLIANT' ? '[Non-Compliant]' : '[Unknown]';
       const certCount = certCountMap.get(p.id) || 0;
       
-      response += `${statusEmoji} **${p.addressLine1}**, ${p.postcode}\n`;
-      response += `   ${p.blockName || 'No block'} • ${certCount} cert${certCount !== 1 ? 's' : ''} • [View details](/properties/${p.id})\n\n`;
+      response += `${statusLabel} **${p.addressLine1}**, ${p.postcode}\n`;
+      response += `   ${p.blockName || 'No block'} - ${certCount} cert${certCount !== 1 ? 's' : ''} - [View details](/properties/${p.id})\n\n`;
     }
+    
+    response += `[Remedial Actions](/remedial-actions)`;
     
     return response;
   } catch (error) {
@@ -2040,7 +2043,7 @@ async function getComplianceContext(): Promise<string> {
     const actionCount = actionsCount[0]?.count || 0;
     const pendingCount = pendingReview[0]?.count || 0;
 
-    return `PORTFOLIO SNAPSHOT: You're managing ${propCount} properties with ${certCount} certificates on file. ${pendingCount > 0 ? `⚠️ ${pendingCount} certificates need your review!` : '✅ All certificates reviewed!'} ${actionCount > 0 ? `There are ${actionCount} remedial actions being tracked.` : ''}`;
+    return `PORTFOLIO SNAPSHOT: You're managing ${propCount} properties with ${certCount} certificates on file. ${pendingCount > 0 ? `${pendingCount} certificates need your review!` : 'All certificates reviewed!'} ${actionCount > 0 ? `There are ${actionCount} remedial actions being tracked.` : ''}`;
   } catch (error) {
     logger.warn({ error }, 'Failed to load compliance context');
     return '';
@@ -2061,7 +2064,7 @@ const SYSTEM_PROMPT = `You are ComplianceAI Assistant - UK social housing compli
 
 **Platform pages:** Dashboard, Certificates, Properties, Actions, Human Review
 
-Stay brief and helpful! 🏠`;
+Stay brief and helpful!`;
 
 // =============================================================================
 // LAYER 4: RESPONSE ENHANCER
@@ -2098,7 +2101,7 @@ const STATIC_RESPONSES: Record<string, string> = {
 
 What would you like to know?`,
   
-  greeting_thanks: `You're welcome! 🏠 Let me know if you have any other compliance questions.`,
+  greeting_thanks: `You're welcome! Let me know if you have any other compliance questions.`,
   
   off_topic: `I'm specialized in UK housing compliance. I can help with:
 
