@@ -76,6 +76,7 @@ const lashanSuperUserNav = [
   { name: "Factory Settings", href: "/admin/factory-settings", icon: Shield },
   { name: "System Health", href: "/admin/system-health", icon: Activity },
   { name: "Chatbot Analytics", href: "/admin/chatbot-analytics", icon: MessageSquare },
+  { name: "Knowledge Training", href: "/admin/knowledge-training", icon: BookOpen },
 ];
 
 // Configuration visible to both admin and compliance manager

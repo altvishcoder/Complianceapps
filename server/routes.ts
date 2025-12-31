@@ -525,6 +525,189 @@ export async function registerRoutes(
     }
   });
   
+  // ===== KNOWLEDGE DOCUMENT MANAGEMENT (RAG Training) =====
+  // Get all knowledge documents
+  app.get("/api/knowledge", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      // Only admins can manage knowledge
+      const adminRoles = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'];
+      if (!adminRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const category = req.query.category as string | undefined;
+      
+      const { getKnowledgeDocuments } = await import('./services/ai-assistant');
+      const documents = await getKnowledgeDocuments(category);
+      
+      res.json(documents);
+    } catch (error) {
+      console.error("Get knowledge error:", error);
+      res.status(500).json({ error: "Failed to get knowledge documents" });
+    }
+  });
+  
+  // Get knowledge categories
+  app.get("/api/knowledge/categories", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const { getKnowledgeCategories } = await import('./services/ai-assistant');
+      const categories = await getKnowledgeCategories();
+      
+      res.json(categories);
+    } catch (error) {
+      console.error("Get categories error:", error);
+      res.status(500).json({ error: "Failed to get categories" });
+    }
+  });
+  
+  // Get single knowledge document
+  app.get("/api/knowledge/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const { getKnowledgeDocument } = await import('./services/ai-assistant');
+      const document = await getKnowledgeDocument(req.params.id);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      res.json(document);
+    } catch (error) {
+      console.error("Get knowledge document error:", error);
+      res.status(500).json({ error: "Failed to get document" });
+    }
+  });
+  
+  // Create knowledge document
+  app.post("/api/knowledge", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      // Only admins can manage knowledge
+      const adminRoles = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'];
+      if (!adminRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { title, content, category, sourceType, metadata } = req.body;
+      
+      if (!title || !content || !category || !sourceType) {
+        return res.status(400).json({ error: "Missing required fields: title, content, category, sourceType" });
+      }
+      
+      const { createKnowledgeDocument } = await import('./services/ai-assistant');
+      const result = await createKnowledgeDocument({
+        title,
+        content,
+        category,
+        sourceType,
+        metadata,
+      });
+      
+      if (result.success) {
+        res.status(201).json({ id: result.id, message: "Document created successfully" });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to create document" });
+      }
+    } catch (error) {
+      console.error("Create knowledge error:", error);
+      res.status(500).json({ error: "Failed to create document" });
+    }
+  });
+  
+  // Update knowledge document
+  app.put("/api/knowledge/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      // Only admins can manage knowledge
+      const adminRoles = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'];
+      if (!adminRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { updateKnowledgeDocument } = await import('./services/ai-assistant');
+      const result = await updateKnowledgeDocument(req.params.id, req.body);
+      
+      if (result.success) {
+        res.json({ message: "Document updated successfully" });
+      } else {
+        res.status(result.error === 'Document not found' ? 404 : 500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Update knowledge error:", error);
+      res.status(500).json({ error: "Failed to update document" });
+    }
+  });
+  
+  // Delete knowledge document
+  app.delete("/api/knowledge/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      // Only admins can manage knowledge
+      const adminRoles = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'];
+      if (!adminRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { deleteKnowledgeDocument } = await import('./services/ai-assistant');
+      const result = await deleteKnowledgeDocument(req.params.id);
+      
+      if (result.success) {
+        res.json({ message: "Document deleted successfully" });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to delete document" });
+      }
+    } catch (error) {
+      console.error("Delete knowledge error:", error);
+      res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+  
   // ===== GLOBAL SEARCH (PostgreSQL Full-Text Search) =====
   app.get("/api/search", async (req, res) => {
     try {
