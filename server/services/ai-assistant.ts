@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logger } from '../logger';
 import { db } from '../db';
-import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes, chatbotConversations, chatbotMessages, chatbotAnalytics } from '@shared/schema';
+import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes, chatbotConversations, chatbotMessages, chatbotAnalytics, knowledgeEmbeddings } from '@shared/schema';
 import { count, ilike, or, eq, and, isNull, lt, desc, sql } from 'drizzle-orm';
 
 // =============================================================================
@@ -159,6 +159,268 @@ export async function getChatbotAnalytics(days: number = 7): Promise<{
 }
 
 const anthropic = new Anthropic();
+
+// =============================================================================
+// KNOWLEDGE DOCUMENT MANAGEMENT (RAG Training Data)
+// CRUD operations for managing knowledge documents used in RAG retrieval
+// =============================================================================
+
+export interface KnowledgeDocument {
+  id?: string;
+  title: string;
+  content: string;
+  category: string;
+  sourceType: 'manual' | 'legislation' | 'guidance' | 'faq' | 'procedure';
+  metadata?: Record<string, any>;
+}
+
+// Get all knowledge documents
+export async function getKnowledgeDocuments(category?: string): Promise<KnowledgeDocument[]> {
+  try {
+    let query = db.select().from(knowledgeEmbeddings);
+    if (category) {
+      query = query.where(eq(knowledgeEmbeddings.category, category)) as typeof query;
+    }
+    const docs = await query.orderBy(desc(knowledgeEmbeddings.createdAt));
+    return docs.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      content: doc.content,
+      category: doc.category || 'general',
+      sourceType: (doc.sourceType as KnowledgeDocument['sourceType']) || 'manual',
+      metadata: doc.metadata as Record<string, any> || {},
+    }));
+  } catch (error) {
+    logger.error({ error }, 'Failed to get knowledge documents');
+    return [];
+  }
+}
+
+// Get a single knowledge document by ID
+export async function getKnowledgeDocument(id: string): Promise<KnowledgeDocument | null> {
+  try {
+    const [doc] = await db.select()
+      .from(knowledgeEmbeddings)
+      .where(eq(knowledgeEmbeddings.id, id));
+    
+    if (!doc) return null;
+    
+    return {
+      id: doc.id,
+      title: doc.title,
+      content: doc.content,
+      category: doc.category || 'general',
+      sourceType: (doc.sourceType as KnowledgeDocument['sourceType']) || 'manual',
+      metadata: doc.metadata as Record<string, any> || {},
+    };
+  } catch (error) {
+    logger.error({ error, id }, 'Failed to get knowledge document');
+    return null;
+  }
+}
+
+// Compute TF-IDF embedding for a document (stored as JSON)
+function computeDocumentEmbedding(text: string): Record<string, number> {
+  const tokens = text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 2);
+  
+  const termFrequency: Record<string, number> = {};
+  for (const token of tokens) {
+    termFrequency[token] = (termFrequency[token] || 0) + 1;
+  }
+  
+  // Normalize by document length
+  const docLength = tokens.length;
+  const embedding: Record<string, number> = {};
+  for (const [term, freq] of Object.entries(termFrequency)) {
+    embedding[term] = freq / docLength;
+  }
+  
+  return embedding;
+}
+
+// Create a new knowledge document
+export async function createKnowledgeDocument(doc: KnowledgeDocument): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const embedding = computeDocumentEmbedding(doc.title + ' ' + doc.content);
+    
+    const [created] = await db.insert(knowledgeEmbeddings).values({
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+      sourceType: doc.sourceType,
+      embeddingModel: 'tfidf-v1',
+      embedding: JSON.stringify(embedding),
+      metadata: doc.metadata || {},
+    }).returning();
+    
+    logger.info({ id: created.id, title: doc.title }, 'Knowledge document created');
+    return { success: true, id: created.id };
+  } catch (error: any) {
+    logger.error({ error }, 'Failed to create knowledge document');
+    return { success: false, error: error.message };
+  }
+}
+
+// Update an existing knowledge document
+export async function updateKnowledgeDocument(id: string, doc: Partial<KnowledgeDocument>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const existing = await getKnowledgeDocument(id);
+    if (!existing) {
+      return { success: false, error: 'Document not found' };
+    }
+    
+    const updatedContent = doc.content || existing.content;
+    const updatedTitle = doc.title || existing.title;
+    const embedding = computeDocumentEmbedding(updatedTitle + ' ' + updatedContent);
+    
+    await db.update(knowledgeEmbeddings)
+      .set({
+        title: updatedTitle,
+        content: updatedContent,
+        category: doc.category || existing.category,
+        sourceType: doc.sourceType || existing.sourceType,
+        embedding: JSON.stringify(embedding),
+        metadata: doc.metadata || existing.metadata,
+        updatedAt: new Date(),
+      })
+      .where(eq(knowledgeEmbeddings.id, id));
+    
+    logger.info({ id }, 'Knowledge document updated');
+    return { success: true };
+  } catch (error: any) {
+    logger.error({ error, id }, 'Failed to update knowledge document');
+    return { success: false, error: error.message };
+  }
+}
+
+// Delete a knowledge document
+export async function deleteKnowledgeDocument(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await db.delete(knowledgeEmbeddings).where(eq(knowledgeEmbeddings.id, id));
+    logger.info({ id }, 'Knowledge document deleted');
+    return { success: true };
+  } catch (error: any) {
+    logger.error({ error, id }, 'Failed to delete knowledge document');
+    return { success: false, error: error.message };
+  }
+}
+
+// Get knowledge document categories for filtering
+export async function getKnowledgeCategories(): Promise<string[]> {
+  try {
+    const docs = await db.selectDistinct({ category: knowledgeEmbeddings.category })
+      .from(knowledgeEmbeddings)
+      .where(sql`${knowledgeEmbeddings.category} IS NOT NULL`);
+    
+    return docs.map(d => d.category!).filter(Boolean);
+  } catch (error) {
+    logger.error({ error }, 'Failed to get knowledge categories');
+    return [];
+  }
+}
+
+// =============================================================================
+// RAG SEARCH (Retrieval-Augmented Generation)
+// Searches knowledge documents using TF-IDF similarity
+// =============================================================================
+
+interface RAGResult {
+  document: KnowledgeDocument;
+  score: number;
+}
+
+async function searchKnowledgeBase(query: string, topK: number = 3): Promise<RAGResult[]> {
+  try {
+    // Get all documents with embeddings
+    const docs = await db.select()
+      .from(knowledgeEmbeddings)
+      .where(sql`${knowledgeEmbeddings.embedding} IS NOT NULL`);
+    
+    if (docs.length === 0) return [];
+    
+    // Compute query embedding
+    const queryEmbedding = computeDocumentEmbedding(query);
+    
+    // Score each document
+    const results: RAGResult[] = [];
+    
+    for (const doc of docs) {
+      if (!doc.embedding) continue;
+      
+      let docEmbedding: Record<string, number>;
+      try {
+        docEmbedding = JSON.parse(doc.embedding);
+      } catch {
+        continue;
+      }
+      
+      // Compute cosine similarity
+      let dotProduct = 0;
+      let queryMag = 0;
+      let docMag = 0;
+      
+      for (const [term, weight] of Object.entries(queryEmbedding)) {
+        queryMag += weight * weight;
+        if (docEmbedding[term]) {
+          dotProduct += weight * docEmbedding[term];
+        }
+      }
+      
+      for (const weight of Object.values(docEmbedding)) {
+        docMag += weight * weight;
+      }
+      
+      const similarity = queryMag > 0 && docMag > 0 
+        ? dotProduct / (Math.sqrt(queryMag) * Math.sqrt(docMag))
+        : 0;
+      
+      if (similarity > 0.1) {
+        results.push({
+          document: {
+            id: doc.id,
+            title: doc.title,
+            content: doc.content,
+            category: doc.category || 'general',
+            sourceType: (doc.sourceType as KnowledgeDocument['sourceType']) || 'manual',
+            metadata: doc.metadata as Record<string, any> || {},
+          },
+          score: similarity,
+        });
+      }
+    }
+    
+    // Sort by score and return top K
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, topK);
+  } catch (error) {
+    logger.error({ error }, 'Failed to search knowledge base');
+    return [];
+  }
+}
+
+// Format RAG results into a response
+function formatRAGResponse(query: string, results: RAGResult[]): string | null {
+  if (results.length === 0) return null;
+  
+  const topResult = results[0];
+  
+  // Build response from top match
+  let response = `**${topResult.document.title}**\n\n`;
+  response += topResult.document.content;
+  
+  // Add sources if multiple relevant docs
+  if (results.length > 1) {
+    response += '\n\n**Related Topics:**\n';
+    for (let i = 1; i < Math.min(results.length, 3); i++) {
+      response += `• ${results[i].document.title}\n`;
+    }
+  }
+  
+  return response;
+}
 
 // =============================================================================
 // LAYER 0: INTENT CLASSIFICATION
@@ -1930,6 +2192,40 @@ export async function chatWithAssistant(
             outputTokens: 0,
             responseTimeMs: Date.now() - startTime,
             confidence: intent.confidence,
+          });
+          
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
+      }
+      
+      // ==========================================================================
+      // LAYER 2.5: RAG SEARCH (Knowledge Base Retrieval)
+      // ==========================================================================
+      const ragResults = await searchKnowledgeBase(query);
+      if (ragResults.length > 0 && ragResults[0].score > 0.2) {
+        logger.info({ 
+          query: query.substring(0, 50), 
+          topScore: ragResults[0].score.toFixed(3),
+          matches: ragResults.length 
+        }, 'Serving RAG knowledge match');
+        
+        const ragResponse = formatRAGResponse(query, ragResults);
+        if (ragResponse) {
+          const enhanced = enhanceResponse(ragResponse, intent, askedQuestions, 'rag');
+          
+          // Track analytics - RAG response
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'rag',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: ragResults[0].score,
           });
           
           return {
