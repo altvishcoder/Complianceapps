@@ -6,7 +6,466 @@ import { count, ilike, or, eq, and, isNull, lt, desc } from 'drizzle-orm';
 
 const anthropic = new Anthropic();
 
-// Cached FAQ responses for instant replies - kept short for small chat window
+// =============================================================================
+// LAYER 0: INTENT CLASSIFICATION
+// Fast keyword-based routing to bypass expensive processing for common patterns
+// =============================================================================
+
+type IntentCategory = 
+  | 'faq'           // General compliance questions → Layer 1
+  | 'database'      // Property/certificate lookups → Layer 2  
+  | 'navigation'    // Platform how-to questions → Static response
+  | 'greeting'      // Hello/thanks → Static response
+  | 'off_topic'     // Non-compliance questions → Polite redirect
+  | 'complex';      // Needs LLM → Layer 3
+
+interface IntentClassification {
+  category: IntentCategory;
+  confidence: number;
+  detectedTopics: string[];
+  suggestedHandler: string;
+}
+
+const INTENT_PATTERNS: Record<IntentCategory, RegExp[]> = {
+  greeting: [
+    /^(hi|hello|hey|thanks|thank you|cheers|bye|goodbye)\b/i,
+    /^how are you/i,
+    /^good (morning|afternoon|evening)/i,
+  ],
+  navigation: [
+    /how (do i|to|can i) (upload|add|import|view|find|delete|edit)/i,
+    /where (is|are|can i find|do i)/i,
+    /what (page|button|menu)/i,
+    /show me how/i,
+  ],
+  database: [
+    /show (me |my )?(properties|certificates|actions|components)/i,
+    /find (properties|certificates|actions|my|the)/i,
+    /which (properties|certificates|blocks|schemes)/i,
+    /how many (properties|certificates|actions)/i,
+    /list (all |my )?(properties|certificates|actions)/i,
+    /(overdue|expiring|pending|non-compliant|compliant)/i,
+    /search for/i,
+    /look up/i,
+  ],
+  faq: [
+    /(what|when|how often|how long|do i need|is .+ required)/i,
+    /what (is|are|does|do) (a |an |the )?(cp12|eicr|fra|lgsr|epc|loler)/i,
+    /requirements? for/i,
+    /regulations?|legislation|law|legal/i,
+    /(c1|c2|c3|code 1|code 2|code 3) (defect|classification|mean)/i,
+    /penalty|fine|consequences/i,
+    /gas safety|electrical|fire (risk|safety)|asbestos|legionella/i,
+  ],
+  off_topic: [
+    /weather|sport|news|politic|recipe|cook|movie|music|game|travel/i,
+    /joke|story|poem/i,
+    /what do you think|opinion|believe/i,
+    /who (are you|made you|created)/i,
+  ],
+  complex: [], // Fallback - no patterns, catches everything else
+};
+
+function classifyIntent(query: string): IntentClassification {
+  const lowerQuery = query.toLowerCase().trim();
+  const detectedTopics: string[] = [];
+  
+  // Quick topic detection for suggestions
+  const topicKeywords = {
+    gas: /gas|cp12|lgsr|boiler|heating/i,
+    electrical: /electr|eicr|wiring|socket/i,
+    fire: /fire|fra|smoke|alarm/i,
+    asbestos: /asbestos|acm/i,
+    legionella: /legionella|water|l8/i,
+    lift: /lift|loler|elevator/i,
+  };
+  
+  for (const [topic, regex] of Object.entries(topicKeywords)) {
+    if (regex.test(query)) {
+      detectedTopics.push(topic);
+    }
+  }
+  
+  // Check each intent category
+  for (const [category, patterns] of Object.entries(INTENT_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(lowerQuery)) {
+        return {
+          category: category as IntentCategory,
+          confidence: 0.9,
+          detectedTopics,
+          suggestedHandler: `Layer: ${category}`,
+        };
+      }
+    }
+  }
+  
+  // Default to complex for LLM handling
+  return {
+    category: 'complex',
+    confidence: 0.5,
+    detectedTopics,
+    suggestedHandler: 'Layer 3: LLM',
+  };
+}
+
+// =============================================================================
+// LAYER 1: FAQ DATABASE WITH TF-IDF SEMANTIC MATCHING
+// Comprehensive FAQ database with question variations for better matching
+// =============================================================================
+
+interface FAQEntry {
+  id: string;
+  category: string;
+  question: string;
+  variations: string[];
+  answer: string;
+  sources: string[];
+  keywords?: string[]; // Computed from question + variations
+  tfidfVector?: Map<string, number>; // Computed TF-IDF weights
+}
+
+// Enhanced FAQ database - loaded from attached JSON
+const FAQ_DATABASE: FAQEntry[] = [
+  {
+    id: "gas-001",
+    category: "gas_safety",
+    question: "How often do gas safety certificates need to be renewed?",
+    variations: ["When does a gas certificate expire?", "LGSR renewal frequency", "CP12 validity period", "Gas cert expiry"],
+    answer: `**Gas Safety Certificates** (LGSR/CP12) must be renewed **annually** - within 12 months.
+
+• Applies to all rental properties with gas appliances
+• Must be by Gas Safe registered engineer
+• Certificate to tenant within **28 days**
+• Records kept for **2 years**
+
+**Regulation:** Gas Safety Regulations 1998`,
+    sources: ["Gas Safety Regulations 1998", "HSE Guidance INDG285"],
+  },
+  {
+    id: "gas-002",
+    category: "gas_safety",
+    question: "What appliances need to be checked on a gas safety inspection?",
+    variations: ["What does a gas check cover?", "Gas safety inspection scope", "What's included in LGSR?"],
+    answer: `**Gas Safety Inspection Scope:**
+
+All gas appliances, fittings, and flues must be checked:
+• Gas boilers and central heating
+• Gas fires and heaters
+• Gas cookers and hobs
+• Gas water heaters
+
+**Checks performed:**
+• Appliance safety and operation
+• Flue flow and spillage tests
+• Ventilation adequacy
+• Gas tightness (pipework)`,
+    sources: ["Gas Safety Regulations 1998"],
+  },
+  {
+    id: "gas-003",
+    category: "gas_safety", 
+    question: "What happens if a gas appliance is condemned?",
+    variations: ["Immediately dangerous gas appliance", "ID classification gas", "At risk gas appliance", "AR classification meaning"],
+    answer: `**Gas Appliance Classifications:**
+
+🔴 **Immediately Dangerous (ID)**
+• Disconnect immediately
+• Cannot use until repaired
+
+🟠 **At Risk (AR)**
+• Should be repaired ASAP
+• User warned in writing
+
+🟡 **Not to Current Standards (NCS)**
+• Safe to use
+• Recommend upgrade when convenient
+
+**Landlord must fix all ID and AR issues before re-letting.**`,
+    sources: ["Gas Safe Register Unsafe Situations Procedure"],
+  },
+  {
+    id: "electrical-001",
+    category: "electrical",
+    question: "How often is an EICR required for rental properties?",
+    variations: ["EICR inspection frequency", "When do electrical certificates expire?", "Electrical safety check frequency"],
+    answer: `**EICRs required at least every 5 years**
+
+• Mandatory for all private rented sector (since April 2021)
+• Must be by qualified electrician (NICEIC, NAPIT, ELECSA)
+• C1/C2 defects: fix within **28 days**
+• Copy to tenant within **28 days**
+
+**Regulation:** Electrical Safety Standards Regulations 2020`,
+    sources: ["Electrical Safety Standards Regulations 2020", "BS 7671:2018+A2:2022"],
+  },
+  {
+    id: "electrical-002",
+    category: "electrical",
+    question: "What do EICR codes C1, C2, C3 mean?",
+    variations: ["EICR observation codes explained", "What is a C1 defect?", "C2 electrical code meaning", "Electrical report classification codes"],
+    answer: `**EICR Observation Codes:**
+
+🔴 **C1 - Danger Present**
+• Immediate risk → Fix within **24-48 hours**
+
+🟠 **C2 - Potentially Dangerous**
+• Could become dangerous → Fix within **28 days** (legal)
+
+🟡 **C3 - Improvement Recommended**
+• Not a safety issue → Recommended but not mandatory
+
+**FI** - Further Investigation needed
+
+**Any C1 or C2 = UNSATISFACTORY overall**`,
+    sources: ["BS 7671:2018", "Electrical Safety Standards Regulations 2020"],
+  },
+  {
+    id: "fire-001",
+    category: "fire_safety",
+    question: "How often should a Fire Risk Assessment be reviewed?",
+    variations: ["FRA review frequency", "When to update fire risk assessment", "Fire risk assessment renewal"],
+    answer: `**Fire Risk Assessment: Review annually** or sooner if:
+
+• Significant building changes
+• Changes to use or occupancy
+• After a fire or near-miss
+• New legislation introduced
+
+**High-rise (18m+):**
+• More frequent reviews (quarterly)
+• Building Safety Case required
+
+**Regulation:** Fire Safety Order 2005, Building Safety Act 2022`,
+    sources: ["Fire Safety Order 2005", "PAS 79-2:2020", "Building Safety Act 2022"],
+  },
+  {
+    id: "fire-002",
+    category: "fire_safety",
+    question: "Do I need fire alarms in rental properties?",
+    variations: ["Smoke alarm requirements rental", "Carbon monoxide alarm regulations", "Fire alarm requirements landlords"],
+    answer: `**Yes - smoke and CO alarms mandatory** (from Oct 2022)
+
+**Smoke alarms:**
+• At least one on each storey
+• Must work at start of each tenancy
+
+**Carbon monoxide alarms:**
+• In any room with combustion appliance
+• Includes gas boilers, fires, wood burners
+
+**Penalties:** Up to £5,000 fine
+
+**Regulation:** Smoke and CO Alarm Regulations 2022`,
+    sources: ["Smoke and CO Alarm Regulations 2022"],
+  },
+  {
+    id: "legionella-001",
+    category: "legionella",
+    question: "Do landlords need a Legionella risk assessment?",
+    variations: ["Legionella requirements rental property", "LRA mandatory for landlords?", "Water safety assessment rental"],
+    answer: `**Yes - all landlords must assess Legionella risk**
+
+• Document the assessment
+• Review every **2 years**
+• Implement control measures if needed
+
+**Temperature controls:**
+• Hot water: **60°C** stored, **50°C** delivered
+• Cold water: below **20°C**
+
+**Regulation:** HSE ACOP L8, HSG274`,
+    sources: ["ACOP L8", "HSG274 Parts 1-3"],
+  },
+  {
+    id: "asbestos-001",
+    category: "asbestos",
+    question: "When is an asbestos survey required?",
+    variations: ["Asbestos survey requirements", "Do I need asbestos survey?", "Asbestos check rental property"],
+    answer: `**Asbestos Surveys Required For:**
+
+**Management surveys:**
+• Non-domestic premises/common areas
+• Before routine maintenance
+• Pre-1999 buildings recommended
+
+**Refurbishment/Demolition surveys:**
+• Before ANY refurbishment work
+• Before demolition
+
+**Note:** Asbestos used until 1999 (banned 2000)
+
+**Regulation:** Control of Asbestos Regulations 2012`,
+    sources: ["Control of Asbestos Regulations 2012", "HSG264"],
+  },
+  {
+    id: "general-001",
+    category: "general",
+    question: "What compliance certificates do landlords need?",
+    variations: ["Required certificates for rental property", "Landlord legal requirements certificates", "Rental property compliance checklist"],
+    answer: `**Mandatory Certificates:**
+
+✅ **Gas Safety (CP12)** - Annual (if gas)
+✅ **EICR** - Every 5 years
+✅ **EPC** - Every 10 years (Rating E+)
+✅ **Smoke & CO Alarms** - Each tenancy start
+
+**Recommended:**
+📋 **Fire Risk Assessment** - HMOs/common areas
+📋 **Legionella Risk Assessment** - Every 2 years
+📋 **Asbestos Survey** - Pre-1999 buildings`,
+    sources: ["Various UK regulations"],
+  },
+  {
+    id: "general-002",
+    category: "general",
+    question: "What are the penalties for non-compliance?",
+    variations: ["Fines for missing gas certificate", "Landlord compliance penalties", "What happens if no EICR"],
+    answer: `**Compliance Penalties:**
+
+**Gas Safety:** Up to **£6,000** fine, 6 months prison
+**Electrical:** Up to **£30,000** fine
+**Smoke/CO Alarms:** Up to **£5,000** fine
+**Fire Safety:** **Unlimited** fines, 2 years prison
+
+**Also:**
+• Invalid Section 21 notices
+• Insurance may be void
+• Rent Repayment Orders possible`,
+    sources: ["Gas Safety Regs 1998", "Electrical Safety Standards 2020", "Housing Act 2004"],
+  },
+  {
+    id: "epc-001",
+    category: "general",
+    question: "What EPC rating is required for rental properties?",
+    variations: ["Minimum EPC rating to rent", "EPC requirements landlords", "Can I rent with EPC rating F", "MEES regulations"],
+    answer: `**Minimum EPC: E or above**
+
+• Cannot grant new tenancies if below E
+• Fine up to **£5,000** for breaches
+
+**Exemptions:**
+• All improvements up to £3,500 cap made
+• Valid exemption lasts 5 years
+
+**Future:** Potential C rating by 2028/2030
+
+**Regulation:** MEES Regulations`,
+    sources: ["Energy Efficiency Regulations 2015", "MEES Regulations"],
+  },
+];
+
+// Precompute keywords for TF-IDF matching
+function tokenize(text: string): string[] {
+  return text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !STOP_WORDS.has(word));
+}
+
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'must', 'can', 'need', 'for', 'and', 'but',
+  'or', 'nor', 'so', 'yet', 'both', 'either', 'neither', 'not', 'only',
+  'own', 'same', 'than', 'too', 'very', 'just', 'also', 'now', 'here',
+  'there', 'when', 'where', 'why', 'how', 'all', 'each', 'every', 'both',
+  'few', 'more', 'most', 'other', 'some', 'such', 'any', 'what', 'which',
+]);
+
+// Compute TF-IDF vectors for FAQ database
+function computeTFIDF(entries: FAQEntry[]): void {
+  const documentFrequency: Map<string, number> = new Map();
+  const totalDocs = entries.length;
+  
+  // First pass: count document frequency
+  for (const entry of entries) {
+    const allText = [entry.question, ...entry.variations].join(' ');
+    const tokens = new Set(tokenize(allText));
+    entry.keywords = Array.from(tokens);
+    
+    Array.from(tokens).forEach(token => {
+      documentFrequency.set(token, (documentFrequency.get(token) || 0) + 1);
+    });
+  }
+  
+  // Second pass: compute TF-IDF vectors
+  for (const entry of entries) {
+    const allText = [entry.question, ...entry.variations].join(' ');
+    const tokens = tokenize(allText);
+    const termFrequency: Map<string, number> = new Map();
+    
+    for (const token of tokens) {
+      termFrequency.set(token, (termFrequency.get(token) || 0) + 1);
+    }
+    
+    entry.tfidfVector = new Map();
+    Array.from(termFrequency.entries()).forEach(([term, tf]) => {
+      const df = documentFrequency.get(term) || 1;
+      const idf = Math.log(totalDocs / df);
+      const tfidf = tf * idf;
+      entry.tfidfVector!.set(term, tfidf);
+    });
+  }
+}
+
+// Initialize TF-IDF on module load
+computeTFIDF(FAQ_DATABASE);
+
+function cosineSimilarity(queryVector: Map<string, number>, docVector: Map<string, number>): number {
+  let dotProduct = 0;
+  let queryMagnitude = 0;
+  let docMagnitude = 0;
+  
+  Array.from(queryVector.entries()).forEach(([term, weight]) => {
+    queryMagnitude += weight * weight;
+    if (docVector.has(term)) {
+      dotProduct += weight * docVector.get(term)!;
+    }
+  });
+  
+  Array.from(docVector.values()).forEach(weight => {
+    docMagnitude += weight * weight;
+  });
+  
+  if (queryMagnitude === 0 || docMagnitude === 0) return 0;
+  return dotProduct / (Math.sqrt(queryMagnitude) * Math.sqrt(docMagnitude));
+}
+
+function findBestFAQMatch(query: string): { entry: FAQEntry | null; score: number } {
+  const queryTokens = tokenize(query);
+  if (queryTokens.length === 0) return { entry: null, score: 0 };
+  
+  // Build query TF-IDF vector
+  const queryTF: Map<string, number> = new Map();
+  for (const token of queryTokens) {
+    queryTF.set(token, (queryTF.get(token) || 0) + 1);
+  }
+  
+  // Simple TF for query (no IDF since it's a single document)
+  const queryVector: Map<string, number> = new Map();
+  Array.from(queryTF.entries()).forEach(([term, count]) => {
+    queryVector.set(term, count);
+  });
+  
+  let bestMatch: FAQEntry | null = null;
+  let bestScore = 0;
+  
+  for (const entry of FAQ_DATABASE) {
+    if (!entry.tfidfVector) continue;
+    
+    const score = cosineSimilarity(queryVector, entry.tfidfVector);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = entry;
+    }
+  }
+  
+  // Threshold: only return if reasonably confident
+  return { entry: bestScore > 0.15 ? bestMatch : null, score: bestScore };
+}
+
+// Legacy FAQ cache for backward compatibility (simple keyword matching)
 const FAQ_CACHE: Record<string, string> = {
   "gas safety": `**Gas Safety** (Gas Safety Regs 1998)
 • Annual check by Gas Safe engineer
@@ -619,53 +1078,189 @@ const SYSTEM_PROMPT = `You are ComplianceAI Assistant - UK social housing compli
 
 Stay brief and helpful! 🏠`;
 
+// =============================================================================
+// LAYER 4: RESPONSE ENHANCER
+// Adds formatting, sources, and follow-up suggestions
+// =============================================================================
+
+function enhanceResponse(
+  message: string, 
+  intent: IntentClassification, 
+  askedQuestions: string[],
+  source?: string
+): { message: string; suggestions: string[] } {
+  const suggestions = getFollowUpSuggestions(
+    intent.detectedTopics[0] || 'default', 
+    askedQuestions
+  );
+  
+  // Add source attribution if from FAQ
+  let enhanced = message;
+  if (source === 'faq' && !message.includes('Regulation:')) {
+    // Already has regulation info in most FAQ answers
+  }
+  
+  return { message: enhanced, suggestions };
+}
+
+// Static responses for common intents
+const STATIC_RESPONSES: Record<string, string> = {
+  greeting_hello: `👋 Hello! I'm your ComplianceAI assistant. I can help with:
+
+• **Compliance questions** - Gas, electrical, fire safety, etc.
+• **Your portfolio** - Find properties, certificates, actions
+• **UK regulations** - Deadlines, requirements, penalties
+
+What would you like to know?`,
+  
+  greeting_thanks: `You're welcome! 🏠 Let me know if you have any other compliance questions.`,
+  
+  off_topic: `I'm specialized in UK housing compliance. I can help with:
+
+• Gas safety (CP12), electrical (EICR), fire risk
+• Compliance deadlines and regulations
+• Finding your properties and certificates
+
+Try asking about a compliance topic!`,
+  
+  navigation_upload: `**To upload a certificate:**
+
+1. Go to [Certificates](/certificates)
+2. Click **Upload Certificate** button
+3. Select your PDF or image file
+4. AI will extract data automatically
+5. Review the extracted fields and save
+
+Need help with something else?`,
+};
+
 export async function chatWithAssistant(
   messages: ChatMessage[],
   organisationId?: string
 ): Promise<AssistantResponse> {
   try {
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-    const isFollowUp = messages.length > 1; // Has previous conversation
-    
-    // Get all user questions for filtering suggestions
+    const isFollowUp = messages.length > 1;
     const askedQuestions = messages.filter(m => m.role === 'user').map(m => m.content);
     
-    // Check if this looks like a follow-up question
-    const followUpIndicators = ['more', 'also', 'what about', 'and', 'tell me more', 'explain', 'why', 'how come', 'can you'];
-    const looksLikeFollowUp = isFollowUp && lastUserMessage && 
-      followUpIndicators.some(ind => lastUserMessage.content.toLowerCase().startsWith(ind));
+    if (!lastUserMessage) {
+      return {
+        success: true,
+        message: STATIC_RESPONSES.greeting_hello,
+        suggestions: ["What gas safety certificates do I need?", "Show my non-compliant properties"],
+      };
+    }
     
-    if (lastUserMessage && !looksLikeFollowUp) {
-      // Check FAQ cache first for instant responses (only for first questions)
-      const cachedResponse = findCachedResponse(lastUserMessage.content);
-      if (cachedResponse) {
-        logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving cached FAQ response');
-        const suggestions = getFollowUpSuggestions(lastUserMessage.content, askedQuestions);
+    const query = lastUserMessage.content;
+    
+    // ==========================================================================
+    // LAYER 0: INTENT CLASSIFICATION
+    // ==========================================================================
+    const intent = classifyIntent(query);
+    logger.debug({ intent, query: query.substring(0, 50) }, 'Intent classified');
+    
+    // Handle greetings instantly
+    if (intent.category === 'greeting') {
+      const isThankYou = /thank|cheers/i.test(query);
+      const response = isThankYou ? STATIC_RESPONSES.greeting_thanks : STATIC_RESPONSES.greeting_hello;
+      return {
+        success: true,
+        message: response,
+        suggestions: ["What compliance certificates do I need?", "Show properties with issues"],
+        tokensUsed: { input: 0, output: 0 },
+      };
+    }
+    
+    // Handle off-topic politely
+    if (intent.category === 'off_topic') {
+      return {
+        success: true,
+        message: STATIC_RESPONSES.off_topic,
+        suggestions: ["What is a CP12?", "How often is an EICR needed?"],
+        tokensUsed: { input: 0, output: 0 },
+      };
+    }
+    
+    // Handle navigation questions
+    if (intent.category === 'navigation') {
+      const cachedNav = findCachedResponse(query);
+      if (cachedNav) {
+        const enhanced = enhanceResponse(cachedNav, intent, askedQuestions, 'static');
         return {
           success: true,
-          message: cachedResponse,
-          suggestions,
+          message: enhanced.message,
+          suggestions: enhanced.suggestions,
           tokensUsed: { input: 0, output: 0 },
         };
       }
+      // Fall through to LLM for complex navigation
+    }
+    
+    // Check for follow-up questions (let LLM handle with context)
+    const followUpIndicators = ['more', 'also', 'what about', 'and', 'tell me more', 'explain', 'why', 'how come'];
+    const looksLikeFollowUp = isFollowUp && 
+      followUpIndicators.some(ind => query.toLowerCase().startsWith(ind));
+    
+    if (!looksLikeFollowUp) {
+      // ==========================================================================
+      // LAYER 1: FAQ DATABASE (TF-IDF Semantic Matching)
+      // ==========================================================================
+      if (intent.category === 'faq' || intent.confidence < 0.8) {
+        const faqMatch = findBestFAQMatch(query);
+        if (faqMatch.entry && faqMatch.score > 0.15) {
+          logger.info({ 
+            query: query.substring(0, 50), 
+            faqId: faqMatch.entry.id,
+            score: faqMatch.score.toFixed(3)
+          }, 'Serving TF-IDF FAQ match');
+          
+          const enhanced = enhanceResponse(faqMatch.entry.answer, intent, askedQuestions, 'faq');
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
+        
+        // Also check legacy keyword cache
+        const cachedResponse = findCachedResponse(query);
+        if (cachedResponse) {
+          logger.info({ query: query.substring(0, 50) }, 'Serving legacy FAQ cache');
+          const enhanced = enhanceResponse(cachedResponse, intent, askedQuestions, 'faq');
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
+      }
       
-      // Check for property search queries
-      const propertyResponse = await searchProperties(lastUserMessage.content);
-      if (propertyResponse) {
-        logger.info({ query: lastUserMessage.content.substring(0, 50) }, 'Serving property search response');
-        const suggestions = getFollowUpSuggestions(lastUserMessage.content, askedQuestions);
-        return {
-          success: true,
-          message: propertyResponse,
-          suggestions,
-          tokensUsed: { input: 0, output: 0 },
-        };
+      // ==========================================================================
+      // LAYER 2: DATABASE QUERIES (Property/Certificate Lookups)
+      // ==========================================================================
+      if (intent.category === 'database') {
+        const propertyResponse = await searchProperties(query);
+        if (propertyResponse) {
+          logger.info({ query: query.substring(0, 50) }, 'Serving database query response');
+          const enhanced = enhanceResponse(propertyResponse, intent, askedQuestions, 'database');
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
       }
     }
 
-    // Fall back to LLM for non-cached queries
-    const complianceContext = await getComplianceContext();
+    // ==========================================================================
+    // LAYER 3: LLM HANDLER (Claude for Complex Queries)
+    // ==========================================================================
+    logger.info({ query: query.substring(0, 50), intent: intent.category }, 'Escalating to LLM');
     
+    const complianceContext = await getComplianceContext();
     const systemContent = complianceContext 
       ? `${SYSTEM_PROMPT}\n\n${complianceContext}`
       : SYSTEM_PROMPT;
@@ -683,15 +1278,15 @@ export async function chatWithAssistant(
     const textContent = response.content.find(c => c.type === 'text');
     let message = textContent?.type === 'text' ? textContent.text : 'I apologize, but I was unable to generate a response.';
     
-    // Get suggestions for LLM responses too
-    const suggestions = lastUserMessage 
-      ? getFollowUpSuggestions(lastUserMessage.content, askedQuestions)
-      : [];
+    // ==========================================================================
+    // LAYER 4: RESPONSE ENHANCEMENT
+    // ==========================================================================
+    const enhanced = enhanceResponse(message, intent, askedQuestions, 'llm');
 
     return {
       success: true,
-      message,
-      suggestions,
+      message: enhanced.message,
+      suggestions: enhanced.suggestions,
       tokensUsed: {
         input: response.usage.input_tokens,
         output: response.usage.output_tokens,
