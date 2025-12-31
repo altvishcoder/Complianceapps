@@ -1728,7 +1728,7 @@ async function getExpiredCertificatesForChat(): Promise<string> {
     response += `**Urgent Actions Required:**\n`;
     response += `• Schedule immediate re-inspections\n`;
     response += `• Book qualified contractors\n`;
-    response += `• [View all certificates →](/certificates)\n`;
+    response += `• [View all expired certificates →](/certificates?filter=expired)\n`;
     response += `• [Manage remedial actions →](/remedial-actions)\n`;
     
     return response;
@@ -1974,16 +1974,22 @@ async function searchProperties(query: string): Promise<string | null> {
     searchTerms.includes('epc') || searchTerms.includes('asbestos') || searchTerms.includes('legionella');
   
   // Check if asking about already expired vs expiring soon
+  // "expired", "overdue", "past due" clearly mean already past expiry
+  // "expiring", "expiring soon", "due soon" mean upcoming
+  // "expiry" alone is ambiguous - check context
   const wantsAlreadyExpired = (searchTerms.includes('expired') || searchTerms.includes('overdue') || 
     searchTerms.includes('past due') || searchTerms.includes('out of date') || 
-    searchTerms.includes('lapsed')) && hasCertContext;
+    searchTerms.includes('lapsed') || searchTerms.includes('already expired')) && hasCertContext;
   
   if (wantsAlreadyExpired) {
     return await getExpiredCertificatesForChat();
   }
   
-  const wantsExpiringCerts = (searchTerms.includes('expir') || searchTerms.includes('due soon') || 
-    searchTerms.includes('renew') || searchTerms.includes('soon') || searchTerms.includes('this month') ||
+  // "expiry" with "all" suggests they want both, default to expiring soon
+  // "expiring", "due soon", "renew", "soon" all suggest upcoming expirations
+  const wantsExpiringCerts = (searchTerms.includes('expiring') || searchTerms.includes('expiry') ||
+    searchTerms.includes('due soon') || searchTerms.includes('renew') || 
+    searchTerms.includes('soon') || searchTerms.includes('this month') ||
     searchTerms.includes('next month')) && hasCertContext;
   
   if (wantsExpiringCerts) {

@@ -117,7 +117,8 @@ export default function CertificatesPage() {
   
   useEffect(() => {
     const params = new URLSearchParams(searchString);
-    if (params.get("filter") === "overdue") {
+    const filterParam = params.get("filter");
+    if (filterParam === "overdue" || filterParam === "expired") {
       setOverdueFilter(true);
     }
     if (params.get("status")) {
