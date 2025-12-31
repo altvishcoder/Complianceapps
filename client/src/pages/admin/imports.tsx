@@ -114,6 +114,7 @@ export default function ImportsPage() {
       const res = await fetch('/api/geocoding/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ data })
       });
       if (!res.ok) {

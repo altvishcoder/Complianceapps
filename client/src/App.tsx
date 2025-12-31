@@ -6,18 +6,29 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useExtractionEvents } from "@/hooks/useExtractionEvents";
 import { useEffect, useState, ComponentType } from "react";
 import NotFound from "@/pages/not-found";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 function ProtectedRoute({ component: Component }: { component: ComponentType }) {
   const [, setLocation] = useLocation();
-  const userId = localStorage.getItem("user_id");
+  const { isAuthenticated, isLoading } = useAuth();
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
-    if (!userId) {
+    if (!isLoading && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
       setLocation("/login");
     }
-  }, [userId, setLocation]);
+  }, [isAuthenticated, isLoading, setLocation, redirecting]);
 
-  if (!userId) {
+  if (isLoading || redirecting) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -111,7 +122,7 @@ function Router() {
 function AppContent() {
   useExtractionEvents();
   const [location] = useLocation();
-  const isAuthenticated = localStorage.getItem("user_id");
+  const { isAuthenticated } = useAuth();
   const isProtectedRoute = !["/", "/login", "/register", "/mfa"].includes(location);
   
   return (
@@ -129,7 +140,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

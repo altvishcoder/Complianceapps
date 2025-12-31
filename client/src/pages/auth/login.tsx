@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
-import { ShieldCheck, ArrowRight, Lock, Smartphone, AlertCircle } from "lucide-react";
+import { ShieldCheck, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Captcha } from "@/components/ui/captcha";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -15,44 +16,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/dashboard");
+    }
+  }, [isAuthenticated, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // Include cookies for session
-        body: JSON.stringify({ username, password })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Login failed");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Store user info in localStorage for backward compatibility
-      localStorage.setItem("user_id", data.user.id);
-      localStorage.setItem("user_name", data.user.name || "");
-      localStorage.setItem("user_email", data.user.email || "");
-      localStorage.setItem("user_role", data.user.role);
-      localStorage.setItem("user_username", data.user.username);
-      
-      // Dispatch storage event for other components to detect login
-      window.dispatchEvent(new Event('storage'));
-      
-      setIsLoading(false);
+    const result = await login(username, password);
+    
+    if (result.success) {
       setLocation("/dashboard");
-    } catch (err) {
-      setError("Unable to connect to server");
-      setIsLoading(false);
+    } else {
+      setError(result.error || "Login failed");
     }
+    
+    setIsLoading(false);
   };
 
   return (

@@ -32,7 +32,7 @@ export default function ApiIntegrationPage() {
   const { data: apiClients, refetch: refetchClients } = useQuery<ApiClient[]>({
     queryKey: ["/api/admin/api-clients"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/api-clients");
+      const res = await fetch("/api/admin/api-clients", { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch API clients");
       return res.json();
     },
@@ -47,6 +47,7 @@ export default function ApiIntegrationPage() {
       const res = await fetch("/api/admin/api-clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ name: newKeyName, organisationId: "default-org" }),
       });
       if (!res.ok) throw new Error("Failed to generate API key");
@@ -65,6 +66,7 @@ export default function ApiIntegrationPage() {
       const res = await fetch(`/api/admin/api-clients/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ isActive }),
       });
       if (!res.ok) throw new Error("Failed to update API key");

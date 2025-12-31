@@ -13,11 +13,11 @@ import {
   Key,
   RefreshCw,
   Building,
-  Settings,
   Wand2,
   Copy,
   Eye,
-  EyeOff
+  EyeOff,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface User {
   id: string;
@@ -88,6 +89,7 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser, isLoading: authLoading } = useAuth();
   
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [addUserData, setAddUserData] = useState({ name: "", email: "", username: "", role: "VIEWER", password: "" });
@@ -133,10 +135,11 @@ export default function AdminUsersPage() {
   const { data: users = [], isLoading, refetch } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
-      const res = await fetch("/api/users");
+      const res = await fetch("/api/users", { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
-    }
+    },
+    enabled: !!currentUser?.id,
   });
 
   const updateRoleMutation = useMutation({
@@ -144,6 +147,7 @@ export default function AdminUsersPage() {
       const res = await fetch(`/api/users/${userId}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ role })
       });
       if (!res.ok) throw new Error("Failed to update role");
@@ -157,6 +161,25 @@ export default function AdminUsersPage() {
       toast({ title: "Error", description: "Failed to update user role.", variant: "destructive" });
     }
   });
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="text-center">
+          <Settings className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-muted-foreground">Please log in to access this page</p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -175,6 +198,7 @@ export default function AdminUsersPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(addUserData)
       });
       
@@ -213,14 +237,13 @@ export default function AdminUsersPage() {
     
     setIsResettingPassword(true);
     try {
-      const currentUserId = localStorage.getItem("user_id");
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({
           userId: resetPasswordUser.id,
-          newPassword: newPassword,
-          requestingUserId: currentUserId
+          newPassword: newPassword
         })
       });
       
@@ -270,7 +293,7 @@ export default function AdminUsersPage() {
     return <Users className="h-3 w-3 text-muted-foreground" />;
   };
 
-  const currentUserRole = localStorage.getItem("user_role");
+  const currentUserRole = currentUser?.role || "";
   const canResetPassword = (targetRole: string) => {
     if (currentUserRole === "LASHAN_SUPER_USER") return true;
     if (currentUserRole === "SUPER_ADMIN" && targetRole !== "LASHAN_SUPER_USER") return true;

@@ -9,11 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Settings, Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw } from "lucide-react";
+import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { adminApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FactorySetting {
   id: string;
@@ -57,22 +58,35 @@ export default function FactorySettings() {
     document.title = "Factory Settings - ComplianceAI";
   }, []);
 
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
   const [confirmDialog, setConfirmDialog] = useState<{ key: string; value: string } | null>(null);
   const [activeTab, setActiveTab] = useState("RATE_LIMITING");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
+  
+  const userRole = user?.role || "";
+  const isAuthorized = userRole === "LASHAN_SUPER_USER" || userRole === "lashan_super_user" || 
+                       userRole === "super_admin" || userRole === "SUPER_ADMIN";
 
-  useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    if (role === "LASHAN_SUPER_USER" || role === "lashan_super_user" || 
-        role === "super_admin" || role === "SUPER_ADMIN") {
-      setIsAuthorized(true);
-    } else {
-      setIsAuthorized(false);
-    }
-  }, []);
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="text-center">
+          <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-muted-foreground">Please log in to access this page</p>
+        </div>
+      </div>
+    );
+  }
 
   const wipeDataMutation = useMutation({
     mutationFn: (includeProperties: boolean) => adminApi.wipeData(includeProperties),
@@ -108,21 +122,17 @@ export default function FactorySettings() {
   });
 
   const isDemoLoading = wipeDataMutation.isPending || seedDemoMutation.isPending || resetDemoMutation.isPending;
-
-  const userId = typeof window !== 'undefined' ? localStorage.getItem("user_id") : null;
   
   const { data, isLoading, error } = useQuery<SettingsResponse>({
     queryKey: ["factorySettings"],
     queryFn: async () => {
       const res = await fetch("/api/admin/factory-settings", {
-        headers: {
-          'X-User-Id': userId || ''
-        }
+        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to load factory settings");
       return res.json();
     },
-    enabled: isAuthorized && !!userId,
+    enabled: isAuthorized && !!user?.id,
   });
 
   const updateMutation = useMutation({
@@ -130,10 +140,10 @@ export default function FactorySettings() {
       const res = await fetch(`/api/admin/factory-settings/${key}`, {
         method: "PATCH",
         headers: { 
-          "Content-Type": "application/json",
-          "X-User-Id": userId || ''
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ value, userId: userId || "system" }),
+        credentials: 'include',
+        body: JSON.stringify({ value }),
       });
       if (!res.ok) {
         const err = await res.json();

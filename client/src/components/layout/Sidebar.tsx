@@ -5,7 +5,6 @@ import {
   Building2, 
   UploadCloud, 
   FileText, 
-  Settings, 
   ShieldCheck,
   AlertTriangle,
   LogOut,
@@ -37,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { actionsApi, certificatesApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navigation = [
   { name: "Overview Hub", href: "/dashboard", icon: LayoutDashboard },
@@ -83,11 +83,12 @@ const configurationNav = [
 const SIDEBAR_SCROLL_KEY = 'sidebar_scroll_position';
 
 export function Sidebar() {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
   
-  const userRole = typeof window !== 'undefined' ? localStorage.getItem("user_role") : null;
+  const userRole = user?.role || null;
   const isLashanSuperUser = userRole === "LASHAN_SUPER_USER" || userRole === "lashan_super_user";
   const isSuperAdmin = userRole === "super_admin" || userRole === "SUPER_ADMIN";
   const isSystemAdmin = userRole === "system_admin" || userRole === "SYSTEM_ADMIN";
@@ -404,22 +405,15 @@ export function Sidebar() {
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-white/5">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-sm font-bold">
-            {(localStorage.getItem("user_name") || "User").charAt(0).toUpperCase()}
+            {(user?.name || "User").charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{localStorage.getItem("user_name") || "Guest User"}</p>
-            <p className="text-xs text-slate-500 truncate">{localStorage.getItem("user_email") || "Not logged in"}</p>
+            <p className="text-sm font-medium text-white truncate">{user?.name || "Guest User"}</p>
+            <p className="text-xs text-slate-500 truncate">{user?.email || "Not logged in"}</p>
           </div>
         </div>
         <button 
-          onClick={() => {
-            localStorage.removeItem("user_id");
-            localStorage.removeItem("user_name");
-            localStorage.removeItem("user_email");
-            localStorage.removeItem("user_role");
-            localStorage.removeItem("user_username");
-            setLocation("/login");
-          }}
+          onClick={logout}
           className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
           aria-label="Sign out of your account"
         >

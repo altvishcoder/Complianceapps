@@ -12,9 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter, X } from "lucide-react";
+import { FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter, X, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useLayoutEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { 
@@ -27,6 +26,7 @@ import type {
   ComplianceRule, NormalisationRule, InsertCertificateType, InsertClassificationCode 
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Configuration() {
   useEffect(() => {
@@ -34,9 +34,9 @@ export default function Configuration() {
   }, []);
 
   const [, setLocation] = useLocation();
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
   const [editingStream, setEditingStream] = useState<ComplianceStream | null>(null);
   const [editingCertType, setEditingCertType] = useState<CertificateType | null>(null);
   const [editingCode, setEditingCode] = useState<ClassificationCode | null>(null);
@@ -51,15 +51,29 @@ export default function Configuration() {
   const [showNormRuleDialog, setShowNormRuleDialog] = useState(false);
   const [selectedStreamFilters, setSelectedStreamFilters] = useState<string[]>([]);
 
-  useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    if (role === "super_admin" || role === "SUPER_ADMIN" || 
-        role === "compliance_manager" || role === "COMPLIANCE_MANAGER") {
-      setIsAuthorized(true);
-    } else {
-      setIsAuthorized(false);
-    }
-  }, []);
+  const userRole = user?.role || "";
+  const isAuthorized = userRole === "super_admin" || userRole === "SUPER_ADMIN" || 
+                       userRole === "compliance_manager" || userRole === "COMPLIANCE_MANAGER" ||
+                       userRole === "LASHAN_SUPER_USER" || userRole === "SYSTEM_ADMIN";
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="text-center">
+          <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-muted-foreground">Please log in to access this page</p>
+        </div>
+      </div>
+    );
+  }
 
   const { data: complianceStreams = [], isLoading: streamsLoading } = useQuery({
     queryKey: ["complianceStreams"],

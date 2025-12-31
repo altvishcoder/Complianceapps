@@ -14,6 +14,7 @@ const API_BASE = "/api";
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
+    credentials: 'include',
     headers: {
       "Content-Type": "application/json",
       ...options?.headers,

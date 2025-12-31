@@ -88,12 +88,12 @@ function WebhooksTab() {
 
   const { data: webhooks = [], isLoading } = useQuery({
     queryKey: ["/api/admin/webhooks"],
-    queryFn: () => fetch("/api/admin/webhooks").then(r => r.json())
+    queryFn: () => fetch("/api/admin/webhooks", { credentials: 'include' }).then(r => r.json())
   });
 
   const { data: deliveries = [] } = useQuery({
     queryKey: ["/api/admin/webhook-deliveries"],
-    queryFn: () => fetch("/api/admin/webhook-deliveries?limit=50").then(r => r.json())
+    queryFn: () => fetch("/api/admin/webhook-deliveries?limit=50", { credentials: 'include' }).then(r => r.json())
   });
 
   const createMutation = useMutation({
@@ -101,6 +101,7 @@ function WebhooksTab() {
       fetch("/api/admin/webhooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(data)
       }).then(r => r.json()),
     onSuccess: () => {
@@ -113,7 +114,7 @@ function WebhooksTab() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/admin/webhooks/${id}`, { method: "DELETE" }),
+      fetch(`/api/admin/webhooks/${id}`, { method: "DELETE", credentials: 'include' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/webhooks"] });
       toast.success("Webhook deleted");
@@ -122,7 +123,7 @@ function WebhooksTab() {
 
   const testMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/admin/webhooks/${id}/test`, { method: "POST" }).then(r => r.json()),
+      fetch(`/api/admin/webhooks/${id}/test`, { method: "POST", credentials: 'include' }).then(r => r.json()),
     onSuccess: (data) => {
       if (data.success) {
         toast.success(`Test successful! Status: ${data.status}, Duration: ${data.duration}ms`);
@@ -344,7 +345,7 @@ function ApiKeysTab() {
 
   const { data: apiKeys = [], isLoading } = useQuery({
     queryKey: ["/api/admin/api-keys"],
-    queryFn: () => fetch("/api/admin/api-keys").then(r => r.json())
+    queryFn: () => fetch("/api/admin/api-keys", { credentials: 'include' }).then(r => r.json())
   });
 
   const createMutation = useMutation({
@@ -352,6 +353,7 @@ function ApiKeysTab() {
       fetch("/api/admin/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(data)
       }).then(r => r.json()),
     onSuccess: (data) => {
@@ -363,7 +365,7 @@ function ApiKeysTab() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/admin/api-keys/${id}`, { method: "DELETE" }),
+      fetch(`/api/admin/api-keys/${id}`, { method: "DELETE", credentials: 'include' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/api-keys"] });
       toast.success("API key revoked");
@@ -533,7 +535,7 @@ function ApiKeysTab() {
 function IncomingWebhooksTab() {
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["/api/admin/incoming-webhooks"],
-    queryFn: () => fetch("/api/admin/incoming-webhooks?limit=100").then(r => r.json())
+    queryFn: () => fetch("/api/admin/incoming-webhooks?limit=100", { credentials: 'include' }).then(r => r.json())
   });
 
   return (

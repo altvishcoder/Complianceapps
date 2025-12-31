@@ -26,6 +26,7 @@ import {
   XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface QueueStats {
   ingestion: {
@@ -100,6 +101,7 @@ function LogLevelBadge({ level }: { level: string }) {
 }
 
 export default function SystemHealthPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState("health");
   
@@ -113,29 +115,27 @@ export default function SystemHealthPage() {
   const { data: queueStats, isLoading: queueLoading, isError: queueError, refetch: refetchQueue } = useQuery<QueueStats>({
     queryKey: ["queue-stats"],
     queryFn: async () => {
-      const userId = localStorage.getItem("user_id");
       const res = await fetch("/api/admin/queue-stats", {
-        headers: { "X-User-Id": userId || "" }
+        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to fetch queue stats");
       return res.json();
     },
     refetchInterval: 10000,
+    enabled: !!user?.id,
   });
 
   const { data: healthStatus, isLoading: healthLoading, refetch: refetchHealth } = useQuery<HealthStatus>({
     queryKey: ["system-health"],
     queryFn: async () => {
-      const userId = localStorage.getItem("user_id");
-      
       try {
         const dbRes = await fetch("/api/schemes", {
-          headers: { "X-User-Id": userId || "" }
+          credentials: 'include'
         });
         const dbOk = dbRes.ok;
         
         const apiRes = await fetch("/api/health", {
-          headers: { "X-User-Id": userId || "" }
+          credentials: 'include'
         });
         const apiOk = apiRes.ok || apiRes.status === 404;
         
@@ -153,12 +153,12 @@ export default function SystemHealthPage() {
       }
     },
     refetchInterval: 30000,
+    enabled: !!user?.id,
   });
   
   const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useQuery<LogsResponse>({
     queryKey: ["system-logs", logLevel, logSource, logSearch, logPage],
     queryFn: async () => {
-      const userId = localStorage.getItem("user_id");
       const params = new URLSearchParams({
         limit: logsPerPage.toString(),
         offset: (logPage * logsPerPage).toString(),
@@ -168,13 +168,13 @@ export default function SystemHealthPage() {
       if (logSearch) params.set("search", logSearch);
       
       const res = await fetch(`/api/admin/logs?${params}`, {
-        headers: { "X-User-Id": userId || "" }
+        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to fetch logs");
       return res.json();
     },
     refetchInterval: autoRefresh ? 5000 : false,
-    enabled: activeTab === "logs",
+    enabled: activeTab === "logs" && !!user?.id,
   });
   
   const queueHealthy = deriveQueueHealth(queueStats, queueError);
@@ -201,6 +201,28 @@ export default function SystemHealthPage() {
 
   const allHealthy = healthStatus?.database && healthStatus?.api && queueHealthy;
   const totalPages = logsData ? Math.ceil(logsData.total / logsPerPage) : 0;
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="text-center">
+          <Activity className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-muted-foreground">Please log in to view system health</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-muted/30">

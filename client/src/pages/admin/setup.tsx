@@ -12,6 +12,7 @@ import { useLocation, Link } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminSetup() {
   useEffect(() => {
@@ -19,18 +20,32 @@ export default function AdminSetup() {
   }, []);
 
   const [, setLocation] = useLocation();
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
 
-  useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    if (role === "super_admin" || role === "SUPER_ADMIN" || role === "LASHAN_SUPER_USER" || role === "SYSTEM_ADMIN") {
-      setIsAuthorized(true);
-    } else {
-      setIsAuthorized(false);
-    }
-  }, []);
+  const userRole = user?.role || "";
+  const isAuthorized = userRole === "super_admin" || userRole === "SUPER_ADMIN" || 
+                       userRole === "LASHAN_SUPER_USER" || userRole === "SYSTEM_ADMIN";
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="text-center">
+          <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-muted-foreground">Please log in to access this page</p>
+        </div>
+      </div>
+    );
+  }
 
   const wipeDataMutation = useMutation({
     mutationFn: (includeProperties: boolean) => adminApi.wipeData(includeProperties),

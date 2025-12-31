@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Search, Download, Clock, User, FileText, Settings, CheckCircle, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Download, Clock, User, FileText, Settings, CheckCircle, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AuditEvent {
   id: string;
@@ -77,15 +78,11 @@ const eventIcons: Record<string, React.ReactNode> = {
 };
 
 export default function AuditLogPage() {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, isLoading: authLoading } = useAuth();
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
   const [eventTypeFilter, setEventTypeFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setUserId(localStorage.getItem("user_id"));
-  }, []);
 
   const { data, isLoading, error } = useQuery<AuditResponse>({
     queryKey: ["/api/audit-events", entityTypeFilter, eventTypeFilter, searchQuery],
@@ -96,12 +93,12 @@ export default function AuditLogPage() {
       params.set("limit", "100");
       
       const res = await fetch(`/api/audit-events?${params}`, {
-        headers: { "X-User-Id": userId || "" },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error("Failed to fetch audit logs");
       return res.json();
     },
-    enabled: !!userId,
+    enabled: !!user?.id,
   });
 
   const toggleRow = (id: string) => {
@@ -124,6 +121,25 @@ export default function AuditLogPage() {
       event.eventType.toLowerCase().includes(query)
     );
   }) || [];
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Lock className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+          <p className="text-muted-foreground">Please log in to view audit logs</p>
+        </div>
+      </div>
+    );
+  }
 
   const exportToCSV = () => {
     if (!filteredEvents.length) return;

@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mockNotifications = [
   { id: 1, title: "Gas Safety Certificate Expiring", message: "Property 45 High Street certificate expires in 7 days", time: "2 hours ago", read: false },
@@ -29,6 +30,7 @@ function formatRole(role: string): string {
 export function Header({ title }: { title: string }) {
   const [, navigate] = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { user } = useAuth();
   
   return (
     <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50 sticky top-0 z-10">
@@ -118,12 +120,12 @@ export function Header({ title }: { title: string }) {
         
         <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-3 ml-1 border-l border-border/50">
           <div className="text-right hidden md:block">
-            <p className="text-sm font-medium text-foreground">{localStorage.getItem("user_name") || "Guest User"}</p>
-            <p className="text-xs text-muted-foreground">{formatRole(localStorage.getItem("user_role") || "VIEWER")}</p>
+            <p className="text-sm font-medium text-foreground">{user?.name || "Guest User"}</p>
+            <p className="text-xs text-muted-foreground">{formatRole(user?.role || "VIEWER")}</p>
           </div>
           <Avatar className="h-8 w-8 md:h-9 md:w-9 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
             <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold text-xs md:text-sm">
-              {(localStorage.getItem("user_name") || "GU").split(" ").map(n => n.charAt(0)).join("").substring(0, 2).toUpperCase()}
+              {(user?.name || "GU").split(" ").map(n => n.charAt(0)).join("").substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </div>
