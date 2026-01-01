@@ -441,10 +441,10 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
     
     // Get recent job history for the watchdog
     const jobsResult = await db.execute(sql`
-      SELECT id, state, createdon, completedon
+      SELECT id, state, created_on, completed_on
       FROM pgboss.job 
       WHERE name = ${QUEUE_NAMES.CERTIFICATE_WATCHDOG}
-      ORDER BY createdon DESC
+      ORDER BY created_on DESC
       LIMIT 10
     `);
     
@@ -452,8 +452,8 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
     const recentJobs = (jobsResult.rows as any[]).map(job => ({
       id: job.id,
       state: job.state,
-      createdOn: new Date(job.createdon),
-      completedOn: job.completedon ? new Date(job.completedon) : null,
+      createdOn: new Date(job.created_on),
+      completedOn: job.completed_on ? new Date(job.completed_on) : null,
     }));
     
     if (schedule) {

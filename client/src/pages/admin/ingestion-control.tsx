@@ -167,10 +167,34 @@ export default function IngestionControlRoom() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("overview");
+  const [scheduledJobDateFilter, setScheduledJobDateFilter] = useState<string>("all");
 
   useEffect(() => {
     document.title = "Ingestion Control Room - ComplianceAI";
   }, []);
+
+  const filterJobsByDate = (jobs: ScheduledJobInfo['recentJobs']) => {
+    if (scheduledJobDateFilter === "all") return jobs;
+    
+    const now = new Date();
+    const filterDate = new Date();
+    
+    switch (scheduledJobDateFilter) {
+      case "today":
+        filterDate.setHours(0, 0, 0, 0);
+        break;
+      case "7days":
+        filterDate.setDate(now.getDate() - 7);
+        break;
+      case "30days":
+        filterDate.setDate(now.getDate() - 30);
+        break;
+      default:
+        return jobs;
+    }
+    
+    return jobs.filter(job => new Date(job.createdOn) >= filterDate);
+  };
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<IngestionStats>({
     queryKey: ["/api/admin/ingestion-stats"],
@@ -842,7 +866,20 @@ export default function IngestionControlRoom() {
 
                           {job.recentJobs.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-medium mb-2">Run History</h4>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-medium">Run History</h4>
+                                <Select value={scheduledJobDateFilter} onValueChange={setScheduledJobDateFilter}>
+                                  <SelectTrigger className="w-36 h-8" data-testid="select-date-filter">
+                                    <SelectValue placeholder="Filter by date" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">All Time</SelectItem>
+                                    <SelectItem value="today">Today</SelectItem>
+                                    <SelectItem value="7days">Last 7 Days</SelectItem>
+                                    <SelectItem value="30days">Last 30 Days</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               <ScrollArea className="h-48">
                                 <Table>
                                   <TableHeader>
@@ -854,34 +891,42 @@ export default function IngestionControlRoom() {
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {job.recentJobs.map((run) => (
-                                      <TableRow key={run.id} data-testid={`scheduled-run-${run.id}`}>
-                                        <TableCell className="font-mono text-xs">{run.id.slice(0, 8)}...</TableCell>
-                                        <TableCell>
-                                          <Badge 
-                                            className={
-                                              run.state === 'completed' 
-                                                ? 'bg-emerald-100 text-emerald-800' 
-                                                : run.state === 'failed' 
-                                                  ? 'bg-red-100 text-red-800'
-                                                  : run.state === 'active'
-                                                    ? 'bg-amber-100 text-amber-800'
-                                                    : 'bg-blue-100 text-blue-800'
-                                            }
-                                          >
-                                            {run.state}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm">
-                                          {format(new Date(run.createdOn), 'dd/MM HH:mm:ss')}
-                                        </TableCell>
-                                        <TableCell className="text-sm">
-                                          {run.completedOn 
-                                            ? format(new Date(run.completedOn), 'dd/MM HH:mm:ss')
-                                            : '-'}
+                                    {filterJobsByDate(job.recentJobs).length > 0 ? (
+                                      filterJobsByDate(job.recentJobs).map((run) => (
+                                        <TableRow key={run.id} data-testid={`scheduled-run-${run.id}`}>
+                                          <TableCell className="font-mono text-xs">{run.id.slice(0, 8)}...</TableCell>
+                                          <TableCell>
+                                            <Badge 
+                                              className={
+                                                run.state === 'completed' 
+                                                  ? 'bg-emerald-100 text-emerald-800' 
+                                                  : run.state === 'failed' 
+                                                    ? 'bg-red-100 text-red-800'
+                                                    : run.state === 'active'
+                                                      ? 'bg-amber-100 text-amber-800'
+                                                      : 'bg-blue-100 text-blue-800'
+                                              }
+                                            >
+                                              {run.state}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="text-sm">
+                                            {format(new Date(run.createdOn), 'dd/MM HH:mm:ss')}
+                                          </TableCell>
+                                          <TableCell className="text-sm">
+                                            {run.completedOn 
+                                              ? format(new Date(run.completedOn), 'dd/MM HH:mm:ss')
+                                              : '-'}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    ) : (
+                                      <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                                          No runs found for selected date range
                                         </TableCell>
                                       </TableRow>
-                                    ))}
+                                    )}
                                   </TableBody>
                                 </Table>
                               </ScrollArea>
