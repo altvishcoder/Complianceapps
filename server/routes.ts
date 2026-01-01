@@ -1544,6 +1544,336 @@ export async function registerRoutes(
     }
   });
   
+  // ===== CONTRACTOR CERTIFICATIONS - requires authentication =====
+  app.get("/api/contractor-certifications", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractorId = req.query.contractorId as string | undefined;
+      if (contractorId) {
+        const contractor = await storage.getContractor(contractorId);
+        if (!contractor || contractor.organisationId !== user.organisationId) {
+          return res.status(403).json({ error: "Access denied to contractor" });
+        }
+      }
+      const certifications = await storage.listContractorCertifications(user.organisationId, contractorId);
+      res.json(certifications);
+    } catch (error) {
+      console.error("Error fetching contractor certifications:", error);
+      res.status(500).json({ error: "Failed to fetch contractor certifications" });
+    }
+  });
+  
+  app.get("/api/contractor-certifications/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const certification = await storage.getContractorCertification(req.params.id);
+      if (!certification) {
+        return res.status(404).json({ error: "Certification not found" });
+      }
+      if (certification.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(certification);
+    } catch (error) {
+      console.error("Error fetching contractor certification:", error);
+      res.status(500).json({ error: "Failed to fetch contractor certification" });
+    }
+  });
+  
+  app.post("/api/contractor-certifications", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractor = await storage.getContractor(req.body.contractorId);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Invalid contractor or access denied" });
+      }
+      const certification = await storage.createContractorCertification({
+        ...req.body,
+        organisationId: user.organisationId,
+        verifiedById: userId,
+      });
+      res.status(201).json(certification);
+    } catch (error) {
+      console.error("Error creating contractor certification:", error);
+      res.status(500).json({ error: "Failed to create contractor certification" });
+    }
+  });
+  
+  app.patch("/api/contractor-certifications/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const certification = await storage.getContractorCertification(req.params.id);
+      if (!certification) {
+        return res.status(404).json({ error: "Certification not found" });
+      }
+      if (certification.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.updateContractorCertification(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contractor certification:", error);
+      res.status(500).json({ error: "Failed to update contractor certification" });
+    }
+  });
+  
+  app.delete("/api/contractor-certifications/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const certification = await storage.getContractorCertification(req.params.id);
+      if (!certification) {
+        return res.status(404).json({ error: "Certification not found" });
+      }
+      if (certification.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteContractorCertification(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contractor certification:", error);
+      res.status(500).json({ error: "Failed to delete contractor certification" });
+    }
+  });
+  
+  // ===== CONTRACTOR VERIFICATION HISTORY =====
+  app.get("/api/contractors/:id/verification-history", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const history = await storage.listContractorVerificationHistory(req.params.id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching verification history:", error);
+      res.status(500).json({ error: "Failed to fetch verification history" });
+    }
+  });
+  
+  app.post("/api/contractors/:id/verify", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const { action, notes, certificationId, verificationType, verificationMethod } = req.body;
+      if (!['VERIFIED', 'FAILED', 'PENDING', 'EXPIRED', 'SUSPENDED', 'REVOKED', 'UNVERIFIED'].includes(action)) {
+        return res.status(400).json({ error: "Invalid verification action" });
+      }
+      const historyEntry = await storage.createContractorVerificationHistory({
+        contractorId: req.params.id,
+        certificationId: certificationId || null,
+        organisationId: user.organisationId,
+        verificationType: verificationType || 'MANUAL_REVIEW',
+        verificationMethod: verificationMethod || 'MANUAL',
+        newStatus: action,
+        verifiedById: userId,
+        notes: notes || null,
+      });
+      if (certificationId) {
+        await storage.updateContractorCertification(certificationId, {
+          verificationStatus: action,
+          verifiedAt: new Date(),
+          verifiedById: userId,
+        });
+      }
+      res.status(201).json(historyEntry);
+    } catch (error) {
+      console.error("Error creating verification:", error);
+      res.status(500).json({ error: "Failed to create verification" });
+    }
+  });
+  
+  // ===== CONTRACTOR ALERTS =====
+  app.get("/api/contractor-alerts", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractorId = req.query.contractorId as string | undefined;
+      const status = req.query.status as string | undefined;
+      if (contractorId) {
+        const contractor = await storage.getContractor(contractorId);
+        if (!contractor || contractor.organisationId !== user.organisationId) {
+          return res.status(403).json({ error: "Access denied to contractor" });
+        }
+      }
+      const alerts = await storage.listContractorAlerts(user.organisationId, { contractorId, status });
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching contractor alerts:", error);
+      res.status(500).json({ error: "Failed to fetch contractor alerts" });
+    }
+  });
+  
+  app.patch("/api/contractor-alerts/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const alert = await storage.getContractorAlert(req.params.id);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      if (alert.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.updateContractorAlert(req.params.id, {
+        ...req.body,
+        acknowledgedById: req.body.status === 'ACKNOWLEDGED' ? userId : alert.acknowledgedById,
+        acknowledgedAt: req.body.status === 'ACKNOWLEDGED' ? new Date() : alert.acknowledgedAt,
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contractor alert:", error);
+      res.status(500).json({ error: "Failed to update contractor alert" });
+    }
+  });
+  
+  // ===== CONTRACTOR ASSIGNMENTS =====
+  app.get("/api/contractor-assignments", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractorId = req.query.contractorId as string | undefined;
+      const propertyId = req.query.propertyId as string | undefined;
+      const status = req.query.status as string | undefined;
+      if (contractorId) {
+        const contractor = await storage.getContractor(contractorId);
+        if (!contractor || contractor.organisationId !== user.organisationId) {
+          return res.status(403).json({ error: "Access denied to contractor" });
+        }
+      }
+      const assignments = await storage.listContractorAssignments(user.organisationId, { contractorId, propertyId, status });
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching contractor assignments:", error);
+      res.status(500).json({ error: "Failed to fetch contractor assignments" });
+    }
+  });
+  
+  app.post("/api/contractor-assignments", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const contractor = await storage.getContractor(req.body.contractorId);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Invalid contractor or access denied" });
+      }
+      const property = await storage.getProperty(req.body.propertyId);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+      const assignment = await storage.createContractorAssignment({
+        ...req.body,
+        organisationId: user.organisationId,
+        assignedBy: userId,
+      });
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error creating contractor assignment:", error);
+      res.status(500).json({ error: "Failed to create contractor assignment" });
+    }
+  });
+  
+  app.patch("/api/contractor-assignments/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const assignment = await storage.getContractorAssignment(req.params.id);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      if (assignment.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.updateContractorAssignment(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contractor assignment:", error);
+      res.status(500).json({ error: "Failed to update contractor assignment" });
+    }
+  });
+  
   // ===== CERTIFICATE EXPIRY ALERTS - requires authentication =====
   app.get("/api/certificates/expiring", async (req, res) => {
     try {
