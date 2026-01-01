@@ -27,8 +27,10 @@ import {
   Droplets,
   Wind,
   ThermometerSun,
-  Loader2
+  Loader2,
+  ChevronRight
 } from "lucide-react";
+import { Link } from "wouter";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Legend,
   AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid
@@ -394,34 +396,48 @@ export default function BoardReporting() {
 
             {/* Key Metrics Row */}
             <div className="grid gap-4 md:grid-cols-4">
-              {keyMetrics.map((metric, index) => (
-                <Card key={index} data-testid={`card-metric-${index}`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <metric.icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <TrendIndicator trend={metric.trend} />
-                        <span className={`text-sm ${
-                          metric.trend === "up" ? "text-green-500" : 
-                          metric.trend === "down" ? "text-red-500" : 
-                          "text-muted-foreground"
-                        }`}>
-                          {metric.change}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {metric.label}
-                        {(metric as any).sublabel && <span className="text-xs ml-1">{(metric as any).sublabel}</span>}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {keyMetrics.map((metric, index) => {
+                const metricLinks: Record<string, string> = {
+                  "Total Properties": "/properties",
+                  "Active Certificates": "/certificates",
+                  "Open Actions": "/remedial-actions",
+                  "Contractors Active": "/contractors"
+                };
+                const href = metricLinks[metric.label] || "#";
+                return (
+                  <Link key={index} href={href}>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow" data-testid={`card-metric-${index}`}>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <metric.icon className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <TrendIndicator trend={metric.trend} />
+                              <span className={`text-sm ${
+                                metric.trend === "up" ? "text-green-500" : 
+                                metric.trend === "down" ? "text-red-500" : 
+                                "text-muted-foreground"
+                              }`}>
+                                {metric.change}
+                              </span>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {metric.label}
+                            {(metric as any).sublabel && <span className="text-xs ml-1">{(metric as any).sublabel}</span>}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
 
             {/* Main Content Grid */}
@@ -520,39 +536,57 @@ export default function BoardReporting() {
               <Card className="lg:col-span-2" data-testid="card-compliance-streams">
                 <CardHeader>
                   <CardTitle>Compliance by Stream</CardTitle>
-                  <CardDescription>Performance across key compliance areas</CardDescription>
+                  <CardDescription>Performance across key compliance areas - click to view details</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {complianceStreams.map((stream, index) => (
-                      <div 
-                        key={stream.name} 
-                        className="flex items-center gap-4 p-4 rounded-lg border bg-card"
-                        data-testid={`stream-card-${index}`}
-                      >
-                        <div 
-                          className="p-3 rounded-lg" 
-                          style={{ backgroundColor: `${stream.color}20` }}
+                    {complianceStreams.map((stream, index) => {
+                      const streamCodeMap: Record<string, string> = {
+                        "Gas Safety": "GAS_HEATING",
+                        "Electrical": "ELECTRICAL",
+                        "Fire Safety": "FIRE_SAFETY",
+                        "Water/Legionella": "WATER_SAFETY",
+                        "Asbestos": "ASBESTOS",
+                        "Energy (EPC)": "ENERGY"
+                      };
+                      const streamCode = streamCodeMap[stream.name] || "";
+                      return (
+                        <Link 
+                          key={stream.name}
+                          href={`/certificates?stream=${streamCode}`}
                         >
-                          <stream.icon className="h-5 w-5" style={{ color: stream.color }} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm" data-testid={`text-stream-name-${index}`}>{stream.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-lg font-bold ${getScoreColor(stream.score)}`} data-testid={`text-stream-score-${index}`}>
-                              {stream.score}%
-                            </span>
-                            <TrendIndicator trend={stream.trend} />
-                          </div>
-                          <div className="mt-2 h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden" data-testid={`progress-stream-${index}`}>
+                          <div 
+                            className="flex items-center gap-4 p-4 rounded-lg border bg-card cursor-pointer hover:shadow-md transition-shadow"
+                            data-testid={`stream-card-${index}`}
+                          >
                             <div 
-                              className={`h-full rounded-full ${getScoreBgColor(stream.score)}`}
-                              style={{ width: `${stream.score}%` }}
-                            />
+                              className="p-3 rounded-lg" 
+                              style={{ backgroundColor: `${stream.color}20` }}
+                            >
+                              <stream.icon className="h-5 w-5" style={{ color: stream.color }} />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium text-sm" data-testid={`text-stream-name-${index}`}>{stream.name}</p>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`text-lg font-bold ${getScoreColor(stream.score)}`} data-testid={`text-stream-score-${index}`}>
+                                  {stream.score}%
+                                </span>
+                                <TrendIndicator trend={stream.trend} />
+                              </div>
+                              <div className="mt-2 h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden" data-testid={`progress-stream-${index}`}>
+                                <div 
+                                  className={`h-full rounded-full ${getScoreBgColor(stream.score)}`}
+                                  style={{ width: `${stream.score}%` }}
+                                />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ))}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -569,39 +603,46 @@ export default function BoardReporting() {
                         <AlertTriangle className="h-5 w-5 text-amber-500" />
                         Items Requiring Attention
                       </CardTitle>
-                      <CardDescription>Priority matters for board awareness</CardDescription>
+                      <CardDescription>Priority matters for board awareness - click to view actions</CardDescription>
                     </div>
-                    <Badge variant="outline" className="text-amber-600 border-amber-600" data-testid="badge-alert-count">
-                      {criticalAlerts.length} items
-                    </Badge>
+                    <Link href="/remedial-actions?status=OPEN">
+                      <Badge variant="outline" className="text-amber-600 border-amber-600 cursor-pointer hover:bg-amber-50" data-testid="badge-alert-count">
+                        {criticalAlerts.length} items
+                        <ChevronRight className="h-3 w-3 ml-1" />
+                      </Badge>
+                    </Link>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {criticalAlerts.map((alert, index) => (
-                      <div 
-                        key={index} 
-                        className="flex items-start gap-4 p-4 rounded-lg border bg-card"
-                        data-testid={`alert-item-${index}`}
-                      >
-                        <div className={`p-2 rounded-full ${
-                          alert.urgency === "High" ? "bg-red-100 dark:bg-red-900/30" : "bg-amber-100 dark:bg-amber-900/30"
-                        }`}>
-                          <AlertTriangle className={`h-4 w-4 ${
-                            alert.urgency === "High" ? "text-red-600" : "text-amber-600"
-                          }`} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium" data-testid={`text-alert-title-${index}`}>{alert.title}</p>
-                            <Badge variant={alert.urgency === "High" ? "destructive" : "secondary"} data-testid={`badge-alert-urgency-${index}`}>
-                              {alert.urgency}
-                            </Badge>
+                      <Link key={index} href="/remedial-actions?status=OPEN">
+                        <div 
+                          className="flex items-start gap-4 p-4 rounded-lg border bg-card cursor-pointer hover:shadow-md transition-shadow"
+                          data-testid={`alert-item-${index}`}
+                        >
+                          <div className={`p-2 rounded-full ${
+                            alert.urgency === "High" ? "bg-red-100 dark:bg-red-900/30" : "bg-amber-100 dark:bg-amber-900/30"
+                          }`}>
+                            <AlertTriangle className={`h-4 w-4 ${
+                              alert.urgency === "High" ? "text-red-600" : "text-amber-600"
+                            }`} />
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1" data-testid={`text-alert-location-${index}`}>{alert.location}</p>
-                          <p className="text-sm text-muted-foreground" data-testid={`text-alert-impact-${index}`}>{alert.impact}</p>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium" data-testid={`text-alert-title-${index}`}>{alert.title}</p>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={alert.urgency === "High" ? "destructive" : "secondary"} data-testid={`badge-alert-urgency-${index}`}>
+                                  {alert.urgency}
+                                </Badge>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1" data-testid={`text-alert-location-${index}`}>{alert.location}</p>
+                            <p className="text-sm text-muted-foreground" data-testid={`text-alert-impact-${index}`}>{alert.impact}</p>
+                          </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </CardContent>

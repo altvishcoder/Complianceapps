@@ -61,9 +61,11 @@ export default function CertificatesPage() {
   const searchString = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [multiStatusFilter, setMultiStatusFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [streamFilter, setStreamFilter] = useState<string | null>(null);
   const [overdueFilter, setOverdueFilter] = useState(false);
+  const [expiringFilter, setExpiringFilter] = useState(false);
   const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
   
@@ -117,18 +119,47 @@ export default function CertificatesPage() {
   
   useEffect(() => {
     const params = new URLSearchParams(searchString);
+    
+    // Reset all URL-driven filters first, then apply based on current params
     const filterParam = params.get("filter");
     if (filterParam === "overdue" || filterParam === "expired") {
       setOverdueFilter(true);
+      setExpiringFilter(false);
+    } else if (filterParam === "expiring") {
+      setExpiringFilter(true);
+      setOverdueFilter(false);
+    } else {
+      // No filter param - reset both
+      setOverdueFilter(false);
+      setExpiringFilter(false);
     }
-    if (params.get("status")) {
-      setStatusFilter(params.get("status"));
+    
+    // Handle multiple status params (e.g., status=APPROVED&status=EXTRACTED)
+    const statuses = params.getAll("status");
+    if (statuses.length > 1) {
+      setMultiStatusFilter(statuses);
+      setStatusFilter(null);
+    } else if (statuses.length === 1) {
+      setStatusFilter(statuses[0]);
+      setMultiStatusFilter([]);
+    } else {
+      // No status params - reset both
+      setMultiStatusFilter([]);
+      setStatusFilter(null);
     }
+    
+    // Reset and apply type filter
     if (params.get("type")) {
       setTypeFilter(params.get("type"));
+    } else {
+      setTypeFilter(null);
     }
+    
+    // Reset and apply stream filter
     if (params.get("stream")) {
       setStreamFilter(params.get("stream"));
+    } else {
+      setStreamFilter(null);
     }
   }, [searchString]);
   
@@ -142,6 +173,14 @@ export default function CertificatesPage() {
     return new Date(cert.expiryDate) < new Date();
   };
   
+  const isExpiringSoon = (cert: EnrichedCertificate) => {
+    if (!cert.expiryDate) return false;
+    const expiry = new Date(cert.expiryDate);
+    const now = new Date();
+    const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return expiry > now && expiry <= thirtyDays;
+  };
+  
   const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
   
   const filteredCertificates = certificates.filter((cert) => {
@@ -150,13 +189,18 @@ export default function CertificatesPage() {
       cert.certificateType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cert.fileName?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = !statusFilter || 
+    // Handle multi-status filter (e.g., [APPROVED, EXTRACTED])
+    const matchesMultiStatus = multiStatusFilter.length === 0 || multiStatusFilter.includes(cert.status);
+    const matchesSingleStatus = !statusFilter || 
       (statusFilter === 'PENDING' ? PENDING_STATUSES.includes(cert.status) : cert.status === statusFilter);
+    const matchesStatus = multiStatusFilter.length > 0 ? matchesMultiStatus : matchesSingleStatus;
+    
     const matchesType = !typeFilter || cert.certificateType === typeFilter;
     const matchesStream = !streamCertTypes || streamCertTypes.has(cert.certificateType);
     const matchesOverdue = !overdueFilter || isOverdue(cert);
+    const matchesExpiring = !expiringFilter || isExpiringSoon(cert);
     
-    return matchesSearch && matchesStatus && matchesType && matchesStream && matchesOverdue;
+    return matchesSearch && matchesStatus && matchesType && matchesStream && matchesOverdue && matchesExpiring;
   });
   
   const handleStatusClick = (e: React.MouseEvent, status: string) => {
@@ -219,7 +263,31 @@ export default function CertificatesPage() {
                   onClick={() => setOverdueFilter(false)}
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  Overdue Only
+                  Expired Only
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+              {expiringFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  onClick={() => setExpiringFilter(false)}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  Expiring Soon
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+              {multiStatusFilter.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  onClick={() => setMultiStatusFilter([])}
+                >
+                  <Filter className="h-3 w-3" />
+                  {multiStatusFilter.join(' / ')}
                   <X className="h-3 w-3" />
                 </Button>
               )}

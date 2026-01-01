@@ -17,13 +17,14 @@ import {
   FileText, Download, Filter, Search, Calendar as CalendarIcon, 
   BarChart3, PieChart, TrendingUp, Building2, FileCheck, 
   AlertTriangle, Clock, CheckCircle, XCircle, Loader2, RefreshCw,
-  Play, Edit, Trash2, Eye, Mail, Copy, Save, Plus, Pause
+  Play, Edit, Trash2, Eye, Mail, Copy, Save, Plus, Pause, ChevronRight
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { cn, formatDate } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell, Legend, LineChart, Line } from "recharts";
+import { Link, useLocation } from "wouter";
 
 interface ReportFilters {
   dateFrom: Date | undefined;
@@ -103,6 +104,8 @@ export default function Reports() {
   const [scheduleFrequency, setScheduleFrequency] = useState("weekly");
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
+  const [selectedStreamFilters, setSelectedStreamFilters] = useState<string[]>([]);
+  const [, setLocation] = useLocation();
 
   const { data: reportTemplatesData, refetch: refetchTemplates } = useQuery<any[]>({
     queryKey: ["reportTemplates"],
@@ -206,10 +209,19 @@ export default function Reports() {
     }, {} as Record<string, { schemeId: string; blockId: string }>);
   }, [properties]);
 
+  const toggleStreamFilter = (streamId: string) => {
+    setSelectedStreamFilters(prev => 
+      prev.includes(streamId) 
+        ? prev.filter(id => id !== streamId)
+        : [...prev, streamId]
+    );
+  };
+
   const filteredCertificates = useMemo(() => {
     return (certificates || []).filter(cert => {
       if (filters.status !== "all" && cert.status !== filters.status) return false;
       if (filters.complianceStream !== "all" && cert.complianceStreamId !== filters.complianceStream) return false;
+      if (selectedStreamFilters.length > 0 && !selectedStreamFilters.includes(cert.complianceStreamId)) return false;
       
       if (filters.dateFrom) {
         const certDate = cert.createdAt ? new Date(cert.createdAt) : null;
@@ -231,7 +243,7 @@ export default function Reports() {
       
       return true;
     });
-  }, [certificates, filters, propertySchemeMap]);
+  }, [certificates, filters, propertySchemeMap, selectedStreamFilters]);
 
   const summary: ComplianceSummary = {
     total: filteredCertificates.length,
@@ -573,6 +585,48 @@ export default function Reports() {
             </div>
           </div>
 
+          {/* Stream Filter Badges */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-sm font-medium">Filter by Compliance Stream</Label>
+                {selectedStreamFilters.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedStreamFilters([])} data-testid="button-clear-stream-filters">
+                    Clear all
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {complianceStreams?.filter((s: any) => s.isActive).map((stream: any) => {
+                  const isSelected = selectedStreamFilters.includes(stream.id);
+                  const color = stream.colorCode || "#6366F1";
+                  return (
+                    <Badge
+                      key={stream.id}
+                      variant={isSelected ? "default" : "outline"}
+                      className="cursor-pointer transition-all hover:opacity-80"
+                      style={{
+                        backgroundColor: isSelected ? color : 'transparent',
+                        borderColor: color,
+                        color: isSelected ? 'white' : color
+                      }}
+                      onClick={() => toggleStreamFilter(stream.id)}
+                      data-testid={`badge-stream-${stream.code}`}
+                    >
+                      {stream.name}
+                      {isSelected && <span className="ml-1">&times;</span>}
+                    </Badge>
+                  );
+                })}
+              </div>
+              {selectedStreamFilters.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Showing data for {selectedStreamFilters.length} selected stream{selectedStreamFilters.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="builder" data-testid="tab-builder">
@@ -713,65 +767,90 @@ export default function Reports() {
               </Card>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Certificates</p>
-                        <p className="text-2xl font-bold">{summary.total}</p>
+                <Link href="/certificates?from=/reports" data-testid="link-total-certificates">
+                  <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Certificates</p>
+                          <p className="text-2xl font-bold">{summary.total}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <FileText className="h-8 w-8 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </div>
-                      <FileText className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-                <Card className="border-emerald-200 bg-emerald-50/50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-emerald-600">Compliant</p>
-                        <p className="text-2xl font-bold text-emerald-700">{summary.compliant}</p>
+                <Link href="/certificates?status=APPROVED&status=EXTRACTED&from=/reports" data-testid="link-compliant-certificates">
+                  <Card className="border-emerald-200 bg-emerald-50/50 cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-emerald-600">Compliant</p>
+                          <p className="text-2xl font-bold text-emerald-700">{summary.compliant}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="h-8 w-8 text-emerald-500" />
+                          <ChevronRight className="h-4 w-4 text-emerald-500" />
+                        </div>
                       </div>
-                      <CheckCircle className="h-8 w-8 text-emerald-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-                <Card className="border-red-200 bg-red-50/50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-red-600">Non-Compliant</p>
-                        <p className="text-2xl font-bold text-red-700">{summary.nonCompliant}</p>
+                <Link href="/certificates?status=FAILED&status=REJECTED&from=/reports" data-testid="link-noncompliant-certificates">
+                  <Card className="border-red-200 bg-red-50/50 cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-red-600">Non-Compliant</p>
+                          <p className="text-2xl font-bold text-red-700">{summary.nonCompliant}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <XCircle className="h-8 w-8 text-red-500" />
+                          <ChevronRight className="h-4 w-4 text-red-500" />
+                        </div>
                       </div>
-                      <XCircle className="h-8 w-8 text-red-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-                <Card className="border-amber-200 bg-amber-50/50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-amber-600">Expiring Soon</p>
-                        <p className="text-2xl font-bold text-amber-700">{summary.expiringSoon}</p>
+                <Link href="/certificates?filter=expiring&from=/reports" data-testid="link-expiring-certificates">
+                  <Card className="border-amber-200 bg-amber-50/50 cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-amber-600">Expiring Soon</p>
+                          <p className="text-2xl font-bold text-amber-700">{summary.expiringSoon}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-8 w-8 text-amber-500" />
+                          <ChevronRight className="h-4 w-4 text-amber-500" />
+                        </div>
                       </div>
-                      <Clock className="h-8 w-8 text-amber-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-                <Card className="border-purple-200 bg-purple-50/50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-purple-600">Expired</p>
-                        <p className="text-2xl font-bold text-purple-700">{summary.expired}</p>
+                <Link href="/certificates?filter=expired&from=/reports" data-testid="link-expired-certificates">
+                  <Card className="border-purple-200 bg-purple-50/50 cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-purple-600">Expired</p>
+                          <p className="text-2xl font-bold text-purple-700">{summary.expired}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="h-8 w-8 text-purple-500" />
+                          <ChevronRight className="h-4 w-4 text-purple-500" />
+                        </div>
                       </div>
-                      <AlertTriangle className="h-8 w-8 text-purple-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               </div>
             </TabsContent>
 
