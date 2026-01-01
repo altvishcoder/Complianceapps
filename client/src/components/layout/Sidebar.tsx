@@ -81,6 +81,7 @@ const lashanSuperUserNav = [
   { name: "System Health", href: "/admin/system-health", icon: Activity },
   { name: "Ingestion Control", href: "/admin/ingestion-control", icon: Sparkles },
   { name: "Remedial Kanban", href: "/admin/remedial-kanban", icon: Wrench },
+  { name: "Asset Health", href: "/admin/asset-health", icon: Building2 },
   { name: "Chatbot Analytics", href: "/admin/chatbot-analytics", icon: MessageSquare },
   { name: "Knowledge Training", href: "/admin/knowledge-training", icon: BookOpen },
 ];
