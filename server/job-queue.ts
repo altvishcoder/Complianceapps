@@ -19,6 +19,7 @@ export const QUEUE_NAMES = {
   CERTIFICATE_INGESTION: "certificate-ingestion",
   WEBHOOK_DELIVERY: "webhook-delivery",
   RATE_LIMIT_CLEANUP: "rate-limit-cleanup",
+  CERTIFICATE_WATCHDOG: "certificate-watchdog",
 } as const;
 
 interface IngestionJobData {
@@ -110,24 +111,40 @@ async function registerWorkers(): Promise<void> {
   await boss.send(QUEUE_NAMES.RATE_LIMIT_CLEANUP, {}, { singletonKey: 'rate-limit-cleanup' });
 
   // Certificate processing watchdog - marks stuck certificates as failed
-  // Use setInterval for simple periodic check instead of pg-boss schedule
-  const watchdogIntervalMinutes = parsePositiveIntOrDefault(await storage.getFactorySettingValue('CERTIFICATE_WATCHDOG_INTERVAL_MINUTES', '5'), 5);
-  setInterval(async () => {
-    try {
-      await processCertificateWatchdog();
-    } catch (error) {
-      jobLogger.error({ error }, "Certificate watchdog error");
-    }
-  }, watchdogIntervalMinutes * 60 * 1000);
+  // Using pg-boss schedule for proper job queue integration and monitoring
   
-  // Run immediately on startup
+  // Create the queue first (required in pg-boss v10+)
+  await boss.createQueue(QUEUE_NAMES.CERTIFICATE_WATCHDOG);
+  
+  // Register worker for the watchdog queue
+  await boss.work(
+    QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+    async () => {
+      await processCertificateWatchdog();
+    }
+  );
+  
+  // Schedule watchdog to run every 5 minutes (configurable via factory settings)
+  const watchdogIntervalMinutes = parsePositiveIntOrDefault(await storage.getFactorySettingValue('CERTIFICATE_WATCHDOG_INTERVAL_MINUTES', '5'), 5);
+  const cronExpression = `*/${watchdogIntervalMinutes} * * * *`;
+  
+  await boss.schedule(
+    QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+    cronExpression,
+    {},
+    { tz: 'UTC' }
+  );
+  
+  jobLogger.info({ cronExpression, intervalMinutes: watchdogIntervalMinutes }, "Certificate watchdog scheduled");
+
+  // Run watchdog immediately on startup (after short delay to ensure setup complete)
   setTimeout(async () => {
     try {
-      await processCertificateWatchdog();
+      await triggerWatchdogNow();
     } catch (error) {
       jobLogger.error({ error }, "Initial certificate watchdog error");
     }
-  }, 10000); // 10 seconds after startup
+  }, 5000);
 
   jobLogger.info("Workers registered for all queues");
 }
@@ -371,6 +388,111 @@ export async function stopJobQueue(): Promise<void> {
     boss = null;
     jobLogger.info("Job queue stopped");
   }
+}
+
+// Trigger the certificate watchdog to run immediately on demand
+export async function triggerWatchdogNow(): Promise<string | null> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  jobLogger.info("Manually triggering certificate watchdog");
+  const jobId = await boss.send(QUEUE_NAMES.CERTIFICATE_WATCHDOG, {}, { 
+    singletonKey: 'manual-watchdog-trigger',
+    singletonSeconds: 60 // Prevent duplicate manual triggers within 60 seconds
+  });
+  
+  return jobId;
+}
+
+// Get scheduled jobs status for monitoring UI
+export interface ScheduledJobInfo {
+  name: string;
+  cron: string;
+  timezone: string;
+  lastRun: Date | null;
+  nextRun: Date | null;
+  recentJobs: Array<{
+    id: string;
+    state: string;
+    createdOn: Date;
+    completedOn: Date | null;
+  }>;
+}
+
+export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
+  if (!boss) {
+    return [];
+  }
+  
+  const scheduledJobs: ScheduledJobInfo[] = [];
+  
+  // Query pg-boss schedule table directly for schedule info
+  const { db } = await import("./db");
+  const { sql } = await import("drizzle-orm");
+  
+  try {
+    // Get schedule info
+    const scheduleResult = await db.execute(sql`
+      SELECT name, cron, timezone, created_on, updated_on
+      FROM pgboss.schedule 
+      WHERE name = ${QUEUE_NAMES.CERTIFICATE_WATCHDOG}
+    `);
+    
+    // Get recent job history for the watchdog
+    const jobsResult = await db.execute(sql`
+      SELECT id, state, createdon, completedon
+      FROM pgboss.job 
+      WHERE name = ${QUEUE_NAMES.CERTIFICATE_WATCHDOG}
+      ORDER BY createdon DESC
+      LIMIT 10
+    `);
+    
+    const schedule = scheduleResult.rows[0] as any;
+    const recentJobs = (jobsResult.rows as any[]).map(job => ({
+      id: job.id,
+      state: job.state,
+      createdOn: new Date(job.createdon),
+      completedOn: job.completedon ? new Date(job.completedon) : null,
+    }));
+    
+    if (schedule) {
+      // Calculate next run based on cron expression
+      const lastCompletedJob = recentJobs.find(j => j.state === 'completed');
+      
+      scheduledJobs.push({
+        name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+        cron: schedule.cron || '*/5 * * * *',
+        timezone: schedule.timezone || 'UTC',
+        lastRun: lastCompletedJob?.completedOn || null,
+        nextRun: null, // pg-boss handles this internally
+        recentJobs,
+      });
+    } else {
+      // Schedule might not exist yet, return with empty info
+      scheduledJobs.push({
+        name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+        cron: '*/5 * * * *',
+        timezone: 'UTC',
+        lastRun: null,
+        nextRun: null,
+        recentJobs,
+      });
+    }
+  } catch (error) {
+    jobLogger.error({ error }, "Error fetching scheduled jobs status");
+    // Return minimal info if tables don't exist yet
+    scheduledJobs.push({
+      name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+      cron: '*/5 * * * *',
+      timezone: 'UTC',
+      lastRun: null,
+      nextRun: null,
+      recentJobs: [],
+    });
+  }
+  
+  return scheduledJobs;
 }
 
 export { boss };

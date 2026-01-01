@@ -6449,6 +6449,40 @@ export async function registerRoutes(
     }
   });
   
+  // Get scheduled jobs status (pg-boss scheduled jobs like watchdog)
+  app.get("/api/admin/scheduled-jobs", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { getScheduledJobsStatus } = await import('./job-queue');
+      const scheduledJobs = await getScheduledJobsStatus();
+      
+      res.json(scheduledJobs);
+    } catch (error) {
+      console.error("Error getting scheduled jobs:", error);
+      res.status(500).json({ error: "Failed to get scheduled jobs" });
+    }
+  });
+  
+  // Trigger certificate watchdog on demand
+  app.post("/api/admin/scheduled-jobs/watchdog/run", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { triggerWatchdogNow } = await import('./job-queue');
+      const jobId = await triggerWatchdogNow();
+      
+      res.json({ 
+        success: true, 
+        message: "Certificate watchdog triggered", 
+        jobId 
+      });
+    } catch (error) {
+      console.error("Error triggering watchdog:", error);
+      res.status(500).json({ error: "Failed to trigger watchdog" });
+    }
+  });
+  
   app.get("/api/admin/logs", async (req, res) => {
     try {
       if (!await requireAdminRole(req, res)) return;

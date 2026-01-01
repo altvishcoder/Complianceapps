@@ -25,7 +25,9 @@ import {
   TrendingUp,
   Zap,
   FileWarning,
-  RotateCcw
+  RotateCcw,
+  Timer,
+  CalendarClock
 } from "lucide-react";
 import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend } from "recharts";
@@ -87,6 +89,20 @@ interface IngestionJob {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+}
+
+interface ScheduledJobInfo {
+  name: string;
+  cron: string;
+  timezone: string;
+  lastRun: string | null;
+  nextRun: string | null;
+  recentJobs: Array<{
+    id: string;
+    state: string;
+    createdOn: string;
+    completedOn: string | null;
+  }>;
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -246,6 +262,37 @@ export default function IngestionControlRoom() {
     },
   });
 
+  const { data: scheduledJobs, isLoading: scheduledJobsLoading, refetch: refetchScheduledJobs } = useQuery<ScheduledJobInfo[]>({
+    queryKey: ["/api/admin/scheduled-jobs"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/scheduled-jobs", { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch scheduled jobs");
+      return res.json();
+    },
+    refetchInterval: 10000,
+  });
+
+  const runWatchdogMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/scheduled-jobs/watchdog/run', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to trigger watchdog");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Watchdog Triggered", description: data.message });
+      refetchScheduledJobs();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Trigger Watchdog", description: error.message, variant: "destructive" });
+    },
+  });
+
   const certThroughputData = stats?.certificates?.throughputByHour?.map(item => ({
     hour: new Date(item.hour + ':00:00Z').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     count: item.count,
@@ -365,6 +412,7 @@ export default function IngestionControlRoom() {
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
               <TabsTrigger value="jobs" data-testid="tab-jobs">Job Queue</TabsTrigger>
               <TabsTrigger value="errors" data-testid="tab-errors">Error Triage</TabsTrigger>
+              <TabsTrigger value="scheduled" data-testid="tab-scheduled">Scheduled Jobs</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -712,6 +760,143 @@ export default function IngestionControlRoom() {
                       </div>
                     )}
                   </ScrollArea>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="scheduled">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <CalendarClock className="h-5 w-5 text-blue-500" />
+                        Scheduled Jobs
+                      </CardTitle>
+                      <CardDescription>Background tasks running on a schedule</CardDescription>
+                    </div>
+                    <Button
+                      onClick={() => refetchScheduledJobs()}
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-refresh-scheduled"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {scheduledJobsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : scheduledJobs && scheduledJobs.length > 0 ? (
+                    <div className="space-y-6">
+                      {scheduledJobs.map((job) => (
+                        <div key={job.name} className="border rounded-lg p-4" data-testid={`scheduled-job-${job.name}`}>
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <h3 className="font-semibold flex items-center gap-2">
+                                <Timer className="h-4 w-4 text-amber-500" />
+                                {job.name === 'certificate-watchdog' ? 'Certificate Watchdog' : job.name}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Marks certificates stuck in PROCESSING status as FAILED after timeout
+                              </p>
+                            </div>
+                            <Button
+                              onClick={() => runWatchdogMutation.mutate()}
+                              disabled={runWatchdogMutation.isPending}
+                              size="sm"
+                              data-testid="button-run-watchdog"
+                            >
+                              {runWatchdogMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Play className="h-4 w-4 mr-2" />
+                              )}
+                              Run Now
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div className="bg-muted/50 rounded p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Schedule</p>
+                              <p className="font-mono text-sm">{job.cron}</p>
+                              <p className="text-xs text-muted-foreground">({job.timezone})</p>
+                            </div>
+                            <div className="bg-muted/50 rounded p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Last Run</p>
+                              <p className="text-sm">
+                                {job.lastRun 
+                                  ? format(new Date(job.lastRun), 'dd/MM/yyyy HH:mm:ss')
+                                  : 'Never'}
+                              </p>
+                            </div>
+                            <div className="bg-muted/50 rounded p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Recent Runs</p>
+                              <p className="text-sm font-medium">{job.recentJobs.length} jobs</p>
+                            </div>
+                          </div>
+
+                          {job.recentJobs.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-2">Run History</h4>
+                              <ScrollArea className="h-48">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Job ID</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead>Created</TableHead>
+                                      <TableHead>Completed</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {job.recentJobs.map((run) => (
+                                      <TableRow key={run.id} data-testid={`scheduled-run-${run.id}`}>
+                                        <TableCell className="font-mono text-xs">{run.id.slice(0, 8)}...</TableCell>
+                                        <TableCell>
+                                          <Badge 
+                                            className={
+                                              run.state === 'completed' 
+                                                ? 'bg-emerald-100 text-emerald-800' 
+                                                : run.state === 'failed' 
+                                                  ? 'bg-red-100 text-red-800'
+                                                  : run.state === 'active'
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : 'bg-blue-100 text-blue-800'
+                                            }
+                                          >
+                                            {run.state}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                          {format(new Date(run.createdOn), 'dd/MM HH:mm:ss')}
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                          {run.completedOn 
+                                            ? format(new Date(run.completedOn), 'dd/MM HH:mm:ss')
+                                            : '-'}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </ScrollArea>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <CalendarClock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                      <p className="font-medium">No Scheduled Jobs</p>
+                      <p className="text-sm">Scheduled jobs will appear here once configured</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
