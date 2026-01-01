@@ -621,7 +621,7 @@ export default function Ingestion() {
                   <CardContent className="flex-1 space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Select Property</Label>
+                        <Label>Select Property (Structure)</Label>
                         <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId} disabled={processingState !== 'idle'}>
                           <SelectTrigger data-testid="select-property-ingestion">
                             <SelectValue placeholder="Choose property..." />
@@ -641,6 +641,9 @@ export default function Ingestion() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                          UKHDS: Property = Structure within a Block. For dwelling-level certs, select the containing property.
+                        </p>
                         {selectedPropertyId === 'auto-detect' && (
                           <p className="text-xs text-emerald-600 flex items-center gap-1">
                             <BrainCircuit className="h-3 w-3" />

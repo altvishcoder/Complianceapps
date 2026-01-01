@@ -55,7 +55,7 @@ const portfolioHealth = [
 ];
 
 const keyMetrics = [
-  { label: "Total Properties", value: "1,045", icon: Building2, change: "+12", trend: "up" },
+  { label: "Total Properties", value: "1,045", icon: Building2, change: "+12", trend: "up", sublabel: "(Structures)" },
   { label: "Active Certificates", value: "4,892", icon: Shield, change: "+156", trend: "up" },
   { label: "Open Actions", value: "89", icon: Clock, change: "-23", trend: "down" },
   { label: "Contractors Active", value: "24", icon: Users, change: "0", trend: "stable" },
@@ -214,7 +214,10 @@ export default function BoardReporting() {
                     </div>
                     <div className="mt-4">
                       <p className="text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
-                      <p className="text-sm text-muted-foreground">{metric.label}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {metric.label}
+                        {(metric as any).sublabel && <span className="text-xs ml-1">{(metric as any).sublabel}</span>}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

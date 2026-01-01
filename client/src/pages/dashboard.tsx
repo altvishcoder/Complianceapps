@@ -437,6 +437,7 @@ export default function Dashboard() {
                     <span className="text-muted-foreground flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
                       Total Properties
+                      <span className="text-xs text-muted-foreground/70">(Structures)</span>
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{stats?.totalProperties || 0}</span>
