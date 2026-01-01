@@ -326,9 +326,11 @@ export default function IngestionControlRoom() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
-                Pipeline Status
+                Certificate Pipeline Status
               </CardTitle>
-              <CardDescription>Real-time view of the certificate processing pipeline</CardDescription>
+              <CardDescription>
+                All certificates from any source (manual uploads, API submissions, bulk imports) - shows processing stages after upload
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
@@ -444,8 +446,10 @@ export default function IngestionControlRoom() {
               <Card data-testid="card-queue-health">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>API Ingestion Jobs</CardTitle>
-                    <CardDescription>Jobs submitted via External Ingestion API (/api/v1/ingestions) - click any status to view details</CardDescription>
+                    <CardTitle>Background Job Queue</CardTitle>
+                    <CardDescription>
+                      Async processing queue for API submissions and bulk imports (not manual UI uploads which process immediately)
+                    </CardDescription>
                   </div>
                   <Button
                     variant="outline"
@@ -497,7 +501,8 @@ export default function IngestionControlRoom() {
                     </button>
                   </div>
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                    <strong>Note:</strong> API ingestion jobs are processed by background workers. Manual uploads via the UI are processed immediately and appear in the Certificate Status section above.
+                    <strong>How it works:</strong> Manual uploads via the UI are processed immediately and show in the Certificate Pipeline above. 
+                    API submissions and bulk imports go through this background queue first, then appear in the Pipeline once processing completes.
                   </div>
                 </CardContent>
               </Card>
@@ -508,8 +513,8 @@ export default function IngestionControlRoom() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>API Ingestion Jobs</CardTitle>
-                      <CardDescription>Jobs submitted via External API (/api/v1/ingestions)</CardDescription>
+                      <CardTitle>Background Job Queue</CardTitle>
+                      <CardDescription>Jobs from API submissions, bulk imports, and demo data (manual UI uploads process immediately and don't appear here)</CardDescription>
                     </div>
                     <div className="flex gap-2">
                       <Button
