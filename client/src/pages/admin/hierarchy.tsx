@@ -147,8 +147,13 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
             <div className={cn("w-2 h-2 rounded-full", statusColors[node.status] || statusColors.UNKNOWN)} />
           )}
           
-          <Badge variant="secondary" className="text-xs capitalize">
-            {node.type}
+          <Badge variant="secondary" className="text-xs">
+            {node.type === 'scheme' && 'Scheme (Site)'}
+            {node.type === 'block' && 'Block (Building)'}
+            {node.type === 'property' && 'Property (Structure)'}
+            {node.type === 'unit' && 'Unit (Dwelling)'}
+            {node.type === 'space' && 'Space (Room)'}
+            {node.type === 'component' && 'Component (Asset)'}
           </Badge>
           
           {hasChildren && (
@@ -254,13 +259,16 @@ function VisualHierarchy({ hierarchyData, viewMode, onNodeClick }: { hierarchyDa
   }
   
   if (viewMode === 'list') {
+    // UKHDS hierarchy labels with housing association friendly terms
+    // Note: Housing associations typically call "Unit" as "Property" (the lettable dwelling)
+    // UKHDS "Property" actually means Building/Block level
     const typeLabels: Record<string, string> = {
-      scheme: 'Scheme',
-      block: 'Block',
-      property: 'Property',
-      unit: 'Unit',
-      space: 'Space',
-      component: 'Component',
+      scheme: 'Scheme (Site)',
+      block: 'Block (Building)',
+      property: 'Property (Structure)',
+      unit: 'Unit (Dwelling)',
+      space: 'Space (Room)',
+      component: 'Component (Asset)',
     };
 
     const statusColors: Record<string, string> = {
@@ -751,7 +759,13 @@ export default function PropertyHierarchy() {
                 <div className="flex items-start gap-2">
                   <Info className="h-5 w-5 text-emerald-600 mt-0.5" />
                   <div className="text-sm text-emerald-800">
-                    <strong>HACT/UKHDS 5-Level Hierarchy:</strong> Organisation → Scheme (Site) → Block (Building) → Property (Dwelling) → Unit → Space (Room) → Component
+                    <strong>UKHDS Asset Hierarchy:</strong> Organisation → Scheme (Site/Estate) → Block (Building) → Property → Unit (Dwelling) → Space (Room) → Component (Asset)
+                  </div>
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="text-xs text-blue-800">
+                    <strong>Housing Association Terminology:</strong> What housing associations typically call a "Property" is the <strong>Unit (Dwelling)</strong> level in UKHDS - the individual lettable home (flat, house). 
+                    The UKHDS "Property" layer refers to a structure within a Block. Components attach at any level.
                   </div>
                 </div>
               </div>
@@ -770,6 +784,7 @@ export default function PropertyHierarchy() {
                   <MapPin className="h-6 w-6 text-blue-600 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-blue-900">{totalCounts.schemes}</div>
                   <div className="text-sm text-blue-600">Schemes</div>
+                  <div className="text-xs text-blue-400 mt-0.5">Site Layer</div>
                 </CardContent>
               </Card>
               <Card className="bg-amber-50 border-amber-200">
@@ -777,6 +792,7 @@ export default function PropertyHierarchy() {
                   <Building className="h-6 w-6 text-amber-600 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-amber-900">{totalCounts.blocks}</div>
                   <div className="text-sm text-amber-600">Blocks</div>
+                  <div className="text-xs text-amber-400 mt-0.5">Building Layer</div>
                 </CardContent>
               </Card>
               <Card className="bg-emerald-50 border-emerald-200">
@@ -784,6 +800,7 @@ export default function PropertyHierarchy() {
                   <Home className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-emerald-900">{totalCounts.properties}</div>
                   <div className="text-sm text-emerald-600">Properties</div>
+                  <div className="text-xs text-emerald-400 mt-0.5">Property Layer</div>
                 </CardContent>
               </Card>
               <Card className="bg-purple-50 border-purple-200">
@@ -791,6 +808,7 @@ export default function PropertyHierarchy() {
                   <Layers className="h-5 w-5 text-purple-600 mx-auto mb-1" />
                   <div className="text-xl font-bold text-purple-900">{totalCounts.units}</div>
                   <div className="text-xs text-purple-600">Units</div>
+                  <div className="text-xs text-purple-400">Dwelling</div>
                 </CardContent>
               </Card>
               <Card className="bg-cyan-50 border-cyan-200">
@@ -798,6 +816,7 @@ export default function PropertyHierarchy() {
                   <FolderTree className="h-5 w-5 text-cyan-600 mx-auto mb-1" />
                   <div className="text-xl font-bold text-cyan-900">{totalCounts.spaces}</div>
                   <div className="text-xs text-cyan-600">Spaces</div>
+                  <div className="text-xs text-cyan-400">Room</div>
                 </CardContent>
               </Card>
               <Card className="bg-slate-50 border-slate-200">
@@ -805,6 +824,7 @@ export default function PropertyHierarchy() {
                   <Package className="h-5 w-5 text-slate-600 mx-auto mb-1" />
                   <div className="text-xl font-bold text-slate-900">{totalCounts.components}</div>
                   <div className="text-xs text-slate-600">Components</div>
+                  <div className="text-xs text-slate-400">Asset</div>
                 </CardContent>
               </Card>
             </div>
