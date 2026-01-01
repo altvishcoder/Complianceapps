@@ -404,9 +404,24 @@ export default function IngestionControlRoom() {
               </Card>
 
               <Card data-testid="card-queue-health">
-                <CardHeader>
-                  <CardTitle>API Ingestion Jobs</CardTitle>
-                  <CardDescription>Jobs submitted via External Ingestion API (/api/v1/ingestions) - click any status to view details</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>API Ingestion Jobs</CardTitle>
+                    <CardDescription>Jobs submitted via External Ingestion API (/api/v1/ingestions) - click any status to view details</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => createTestJobsMutation.mutate(4)}
+                    disabled={createTestJobsMutation.isPending}
+                    data-testid="button-create-demo-jobs-overview"
+                  >
+                    {createTestJobsMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
+                    ) : (
+                      <><Activity className="h-4 w-4 mr-2" /> Create Demo Jobs</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-4">
