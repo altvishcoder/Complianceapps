@@ -38,9 +38,10 @@ type ViewMode = 'tree' | 'list' | 'grid';
 interface HierarchyNode {
   id: string;
   name: string;
-  type: 'organisation' | 'scheme' | 'block' | 'property' | 'component';
+  type: 'scheme' | 'block' | 'property' | 'unit' | 'space' | 'component';
   reference?: string;
   status?: string;
+  linkStatus?: 'VERIFIED' | 'UNVERIFIED';
   children: HierarchyNode[];
   data?: any;
 }
@@ -65,18 +66,20 @@ function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode
   const hasChildren = node.children.length > 0;
   
   const typeColors: Record<string, string> = {
-    organisation: 'bg-purple-100 text-purple-800 border-purple-200',
     scheme: 'bg-blue-100 text-blue-800 border-blue-200',
     block: 'bg-amber-100 text-amber-800 border-amber-200',
     property: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    unit: 'bg-purple-100 text-purple-800 border-purple-200',
+    space: 'bg-cyan-100 text-cyan-800 border-cyan-200',
     component: 'bg-slate-100 text-slate-800 border-slate-200',
   };
   
   const typeIcons: Record<string, React.ReactNode> = {
-    organisation: <Building2 className="h-4 w-4" />,
     scheme: <MapPin className="h-4 w-4" />,
     block: <Building className="h-4 w-4" />,
     property: <Home className="h-4 w-4" />,
+    unit: <Layers className="h-4 w-4" />,
+    space: <FolderTree className="h-4 w-4" />,
     component: <Package className="h-4 w-4" />,
   };
   
@@ -124,11 +127,17 @@ function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode
             </div>
           </div>
           
+          {node.linkStatus === 'UNVERIFIED' && (
+            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+              Unverified
+            </Badge>
+          )}
+          
           {node.status && (
             <div className={cn("w-2 h-2 rounded-full", statusColors[node.status] || statusColors.UNKNOWN)} />
           )}
           
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="secondary" className="text-xs capitalize">
             {node.type}
           </Badge>
           
@@ -155,18 +164,20 @@ function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode
 
 function GridCard({ node }: { node: HierarchyNode }) {
   const typeColors: Record<string, string> = {
-    organisation: 'border-l-purple-500 bg-purple-50/50',
     scheme: 'border-l-blue-500 bg-blue-50/50',
     block: 'border-l-amber-500 bg-amber-50/50',
     property: 'border-l-emerald-500 bg-emerald-50/50',
+    unit: 'border-l-purple-500 bg-purple-50/50',
+    space: 'border-l-cyan-500 bg-cyan-50/50',
     component: 'border-l-slate-500 bg-slate-50/50',
   };
   
   const typeIcons: Record<string, React.ReactNode> = {
-    organisation: <Building2 className="h-5 w-5 text-purple-600" />,
     scheme: <MapPin className="h-5 w-5 text-blue-600" />,
     block: <Building className="h-5 w-5 text-amber-600" />,
     property: <Home className="h-5 w-5 text-emerald-600" />,
+    unit: <Layers className="h-5 w-5 text-purple-600" />,
+    space: <FolderTree className="h-5 w-5 text-cyan-600" />,
     component: <Package className="h-5 w-5 text-slate-600" />,
   };
 
@@ -234,10 +245,11 @@ function VisualHierarchy({ hierarchyData, viewMode }: { hierarchyData: Hierarchy
   
   if (viewMode === 'list') {
     const typeLabels: Record<string, string> = {
-      organisation: 'Organisation',
       scheme: 'Scheme',
       block: 'Block',
       property: 'Property',
+      unit: 'Unit',
+      space: 'Space',
       component: 'Component',
     };
 
@@ -361,53 +373,50 @@ export default function PropertyHierarchy() {
   });
 
   const hierarchyData = useMemo((): HierarchyNode[] => {
-    return organisations.map((org: Organisation) => ({
-      id: org.id,
-      name: org.name,
-      type: 'organisation' as const,
-      data: org,
-      children: schemes
-        .filter((s) => s.organisationId === org.id)
-        .map((scheme) => ({
-          id: scheme.id,
-          name: scheme.name,
-          type: 'scheme' as const,
-          reference: scheme.reference,
-          status: scheme.complianceStatus,
-          data: scheme,
-          children: blocks
-            .filter((b) => b.schemeId === scheme.id)
-            .map((block) => ({
-              id: block.id,
-              name: block.name,
-              type: 'block' as const,
-              reference: block.reference,
-              status: block.complianceStatus,
-              data: block,
-              children: properties
-                .filter((p: Property) => p.blockId === block.id)
-                .map((property: Property) => ({
-                  id: property.id,
-                  name: `${property.addressLine1}, ${property.postcode}`,
-                  type: 'property' as const,
-                  reference: property.uprn,
-                  status: property.complianceStatus,
-                  data: property,
-                  children: components
-                    .filter((c: Component) => c.propertyId === property.id)
-                    .map((component: Component) => ({
-                      id: component.id,
-                      name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
-                      type: 'component' as const,
-                      reference: component.serialNumber || undefined,
-                      data: component,
-                      children: [],
-                    })),
+    // UKHDS hierarchy: Scheme → Block → Property → Unit → Space → Component
+    // Organisation is assumed/implicit and not shown in hierarchy
+    return schemes.map((scheme) => ({
+      id: scheme.id,
+      name: scheme.name,
+      type: 'scheme' as const,
+      reference: scheme.reference,
+      status: scheme.complianceStatus,
+      linkStatus: (scheme as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
+      data: scheme,
+      children: blocks
+        .filter((b) => b.schemeId === scheme.id)
+        .map((block) => ({
+          id: block.id,
+          name: block.name,
+          type: 'block' as const,
+          reference: block.reference,
+          status: block.complianceStatus,
+          linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
+          data: block,
+          children: properties
+            .filter((p: Property) => p.blockId === block.id)
+            .map((property: Property) => ({
+              id: property.id,
+              name: `${property.addressLine1}, ${property.postcode}`,
+              type: 'property' as const,
+              reference: property.uprn,
+              status: property.complianceStatus,
+              linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
+              data: property,
+              children: components
+                .filter((c: Component) => c.propertyId === property.id)
+                .map((component: Component) => ({
+                  id: component.id,
+                  name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
+                  type: 'component' as const,
+                  reference: component.serialNumber || undefined,
+                  data: component,
+                  children: [],
                 })),
             })),
         })),
     }));
-  }, [organisations, schemes, blocks, properties, components]);
+  }, [schemes, blocks, properties, components]);
 
   const createOrgMutation = useMutation({
     mutationFn: organisationsApi.create,
@@ -548,7 +557,7 @@ export default function PropertyHierarchy() {
       setBlockForm({ 
         name: block.name, 
         reference: block.reference, 
-        schemeId: block.schemeId,
+        schemeId: block.schemeId || "",
         hasLift: block.hasLift, 
         hasCommunalBoiler: block.hasCommunalBoiler 
       });
@@ -931,7 +940,7 @@ export default function PropertyHierarchy() {
                                   <TableRow key={block.id} data-testid={`row-block-${block.id}`}>
                                     <TableCell className="font-medium">{block.name}</TableCell>
                                     <TableCell>{block.reference}</TableCell>
-                                    <TableCell>{getSchemeForBlock(block.schemeId)?.name || '-'}</TableCell>
+                                    <TableCell>{block.schemeId ? getSchemeForBlock(block.schemeId)?.name || '-' : '-'}</TableCell>
                                     <TableCell>
                                       <div className="flex gap-1">
                                         {block.hasLift && <Badge variant="outline">Lift</Badge>}

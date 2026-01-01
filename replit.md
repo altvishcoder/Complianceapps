@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 -   **ORM**: Drizzle ORM with PostgreSQL dialect.
 -   **Database**: PostgreSQL.
 -   **Migrations**: Drizzle Kit.
--   **Data Model**: Follows UKHDS 5-level asset hierarchy (Organisation, Scheme, Block, Property, Unit, Component).
+-   **Data Model**: Follows UKHDS 5-level asset hierarchy (Scheme, Block, Property, Unit, Space) with optional linking and verification status. Organisation is implicit. Components attach at any hierarchy level.
 -   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 compliance streams aligned with UK social housing regulations.
 -   **Compliance Streams**: 16 high-level compliance categories (Gas & Heating, Electrical, Energy, Fire Safety, Asbestos, Water Safety, Lifting Equipment, Building Safety, External Areas, Security, HRB-specific, Housing Health, Accessibility, Pest Control, Waste, Communal) with system protection (isSystem streams cannot be deleted, only disabled).
 -   **Configuration Data**: Comprehensive industry-standard configuration:
@@ -40,8 +40,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Navigation Structure
 -   **Command Centre**: Overview, Analytics, Ingestion, Reporting (main dashboards)
--   **Asset Management**: Hierarchy (admin/manager only), Properties, Components
--   **Compliance Operations**: Certificates, Risk Radar, Remedial Actions, Calendar, Contractors, Risk Maps, Asset Health (super admin), Remedial Kanban (super admin), Human Review (admin/manager)
+-   **Asset Management**: Property Hierarchy (admin/manager only), Properties, Components
+-   **Operations**: Certificates, Risk Radar, Remedial Actions, Calendar, Risk Maps, Asset Health (super admin), Remedial Kanban (super admin), Human Review (admin/manager)
+-   **Contractor Management**: Contractors (expandable for contractor reports/analytics)
 -   **Monitoring**: System Health, Ingestion Control, Chatbot Analytics, Audit Log, Test Suite, Model Insights (admin/manager access required)
 -   **Administration**: User Management, Configuration, Factory Settings, Knowledge Training, Integrations, API Integration, API Documentation (admin only)
 -   **Resources**: Data Import, Video Library, Help Guide
