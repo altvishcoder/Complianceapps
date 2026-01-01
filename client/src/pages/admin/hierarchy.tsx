@@ -208,16 +208,16 @@ function VisualHierarchy({ hierarchyData, viewMode }: { hierarchyData: Hierarchy
     );
   }
   
+  const flattenNodes = (nodes: HierarchyNode[], depth = 0): (HierarchyNode & { depth: number })[] => {
+    return nodes.flatMap(node => [
+      { ...node, depth },
+      ...flattenNodes(node.children, depth + 1)
+    ]);
+  };
+  
+  const allNodes = flattenNodes(hierarchyData);
+
   if (viewMode === 'grid') {
-    const flattenNodes = (nodes: HierarchyNode[], depth = 0): (HierarchyNode & { depth: number })[] => {
-      return nodes.flatMap(node => [
-        { ...node, depth },
-        ...flattenNodes(node.children, depth + 1)
-      ]);
-    };
-    
-    const allNodes = flattenNodes(hierarchyData);
-    
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {allNodes.slice(0, 50).map((node, index) => (
@@ -228,6 +228,76 @@ function VisualHierarchy({ hierarchyData, viewMode }: { hierarchyData: Hierarchy
             Showing first 50 of {allNodes.length} items. Use Tree view for full hierarchy.
           </div>
         )}
+      </div>
+    );
+  }
+  
+  if (viewMode === 'list') {
+    const typeLabels: Record<string, string> = {
+      organisation: 'Organisation',
+      scheme: 'Scheme',
+      block: 'Block',
+      property: 'Property',
+      component: 'Component',
+    };
+
+    const statusColors: Record<string, string> = {
+      COMPLIANT: 'bg-green-100 text-green-800',
+      NON_COMPLIANT: 'bg-red-100 text-red-800',
+      EXPIRING_SOON: 'bg-amber-100 text-amber-800',
+      UNKNOWN: 'bg-gray-100 text-gray-800',
+    };
+
+    return (
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50">
+              <TableHead className="w-8"></TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Reference</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Children</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {allNodes.slice(0, 100).map((node, index) => (
+              <TableRow key={`${node.type}-${node.id}-${index}`} data-testid={`list-row-${node.type}-${node.id}`}>
+                <TableCell className="py-2">
+                  <div style={{ marginLeft: `${node.depth * 16}px` }} className="w-2 h-2 rounded-full bg-slate-400" />
+                </TableCell>
+                <TableCell className="font-medium">{node.name}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="capitalize">{typeLabels[node.type]}</Badge>
+                </TableCell>
+                <TableCell className="text-slate-500">{node.reference || '-'}</TableCell>
+                <TableCell>
+                  {node.status ? (
+                    <Badge className={statusColors[node.status] || statusColors.UNKNOWN}>
+                      {node.status.replace('_', ' ')}
+                    </Badge>
+                  ) : '-'}
+                </TableCell>
+                <TableCell className="text-slate-500">{node.children.length || '-'}</TableCell>
+              </TableRow>
+            ))}
+            {allNodes.length > 100 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-slate-500 py-4">
+                  Showing first 100 of {allNodes.length} items. Use Tree view for full hierarchy.
+                </TableCell>
+              </TableRow>
+            )}
+            {allNodes.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                  No hierarchy data found. Add organisations and properties to get started.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
     );
   }
@@ -654,7 +724,7 @@ export default function PropertyHierarchy() {
               </div>
 
               <TabsContent value="properties">
-                {showVisualView && viewMode !== 'list' ? (
+                {showVisualView ? (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
