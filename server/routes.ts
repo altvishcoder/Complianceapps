@@ -7909,6 +7909,220 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to export report" });
     }
   });
+
+  // ===== EVIDENCE PACK EXPORT =====
+  // Generate regulatory evidence packs bundling certificates, remedial actions, and compliance documentation
+  app.post("/api/evidence-packs", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { 
+        packType, // 'REGULATORY_SUBMISSION', 'AUDIT_RESPONSE', 'BOARD_REPORT', 'SCHEME_COMPLIANCE'
+        schemeIds, // optional - filter by schemes
+        complianceStreams, // optional - filter by streams (e.g., ['gas', 'electrical'])
+        dateFrom, // optional - certificates from date
+        dateTo, // optional - certificates to date
+        includeRemedialActions = true,
+        includeContractorDetails = true,
+        includePropertyDetails = true,
+        format = 'JSON' // 'JSON', 'PDF', 'ZIP'
+      } = req.body;
+
+      if (!packType) {
+        return res.status(400).json({ error: "Pack type is required" });
+      }
+
+      // Collect evidence data
+      const evidenceData: any = {
+        packId: `EP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        packType,
+        generatedAt: new Date().toISOString(),
+        generatedBy: user.displayName || user.email,
+        organisation: user.organisationId,
+      };
+
+      // Get relevant certificates based on filters
+      let certQuery = db.select({
+        id: certificates.id,
+        certificateType: certificates.certificateType,
+        complianceStreamId: certificates.complianceStreamId,
+        status: certificates.status,
+        issueDate: certificates.issueDate,
+        expiryDate: certificates.expiryDate,
+        propertyId: certificates.propertyId,
+        fileName: certificates.fileName,
+        extractedData: certificates.extractedData,
+      })
+      .from(certificates)
+      .where(eq(certificates.organisationId, user.organisationId));
+
+      const certsResult = await certQuery;
+      evidenceData.certificates = {
+        total: certsResult.length,
+        byStatus: {
+          compliant: certsResult.filter(c => c.status === 'APPROVED' || c.status === 'EXTRACTED').length,
+          pending: certsResult.filter(c => c.status === 'PENDING' || c.status === 'NEEDS_REVIEW').length,
+          failed: certsResult.filter(c => c.status === 'FAILED').length,
+        },
+        items: certsResult.slice(0, 100), // Limit for response size
+      };
+
+      // Get remedial actions if requested - scoped to organisation via certificates
+      if (includeRemedialActions) {
+        const actions = await db.select({
+          id: remedialActions.id,
+          description: remedialActions.description,
+          severity: remedialActions.severity,
+          status: remedialActions.status,
+          targetDate: remedialActions.targetDate,
+          completedDate: remedialActions.completedDate,
+        })
+        .from(remedialActions)
+        .innerJoin(certificates, eq(remedialActions.certificateId, certificates.id))
+        .where(eq(certificates.organisationId, user.organisationId))
+        .limit(100);
+
+        evidenceData.remedialActions = {
+          total: actions.length,
+          bySeverity: {
+            critical: actions.filter(a => a.severity === 'IMMEDIATE').length,
+            urgent: actions.filter(a => a.severity === 'URGENT').length,
+            priority: actions.filter(a => a.severity === 'PRIORITY').length,
+            routine: actions.filter(a => a.severity === 'ROUTINE').length,
+          },
+          items: actions,
+        };
+      }
+
+      // Get contractor summary if requested
+      if (includeContractorDetails) {
+        const contractorData = await db.select({
+          id: contractors.id,
+          companyName: contractors.companyName,
+          tradeType: contractors.tradeType,
+          status: contractors.status,
+          gasRegistered: contractors.gasRegistered,
+          nicEicApproved: contractors.nicEicApproved,
+        })
+        .from(contractors)
+        .where(eq(contractors.organisationId, user.organisationId))
+        .limit(50);
+
+        evidenceData.contractors = {
+          total: contractorData.length,
+          items: contractorData,
+        };
+      }
+
+      // Get property summary if requested
+      if (includePropertyDetails) {
+        const propertyData = await db.select({
+          id: properties.id,
+          uprn: properties.uprn,
+          addressLine1: properties.addressLine1,
+          postcode: properties.postcode,
+          tenure: properties.tenure,
+          riskScore: properties.riskScore,
+        })
+        .from(properties)
+        .innerJoin(blocks, eq(properties.blockId, blocks.id))
+        .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+        .where(eq(schemes.organisationId, user.organisationId))
+        .limit(100);
+
+        evidenceData.properties = {
+          total: propertyData.length,
+          items: propertyData,
+        };
+      }
+
+      // Calculate compliance summary
+      const complianceRate = evidenceData.certificates.total > 0
+        ? Math.round((evidenceData.certificates.byStatus.compliant / evidenceData.certificates.total) * 100)
+        : 0;
+
+      evidenceData.summary = {
+        complianceRate,
+        riskLevel: complianceRate >= 95 ? 'LOW' : complianceRate >= 85 ? 'MEDIUM' : complianceRate >= 70 ? 'HIGH' : 'CRITICAL',
+        totalCertificates: evidenceData.certificates.total,
+        openRemedialActions: evidenceData.remedialActions?.items?.filter((a: any) => a.status !== 'COMPLETED' && a.status !== 'CANCELLED').length || 0,
+        generationDate: new Date().toISOString(),
+      };
+
+      res.json(evidenceData);
+    } catch (error) {
+      console.error("Error generating evidence pack:", error);
+      res.status(500).json({ error: "Failed to generate evidence pack" });
+    }
+  });
+
+  // Get available evidence pack templates
+  app.get("/api/evidence-packs/templates", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const templates = [
+        {
+          id: 'REGULATORY_SUBMISSION',
+          name: 'Regulatory Submission Pack',
+          description: 'Complete compliance evidence for regulatory submissions (RSH, HSE)',
+          includes: ['certificates', 'remedialActions', 'contractors', 'properties'],
+          complianceStreams: ['all'],
+        },
+        {
+          id: 'GAS_SAFETY_AUDIT',
+          name: 'Gas Safety Audit Pack',
+          description: 'Gas safety certificates and contractor credentials for HSE audits',
+          includes: ['certificates', 'contractors'],
+          complianceStreams: ['gas'],
+        },
+        {
+          id: 'FIRE_SAFETY_AUDIT',
+          name: 'Fire Safety Audit Pack',
+          description: 'Fire risk assessments and remedial actions for Fire Authority submissions',
+          includes: ['certificates', 'remedialActions'],
+          complianceStreams: ['fire'],
+        },
+        {
+          id: 'ELECTRICAL_SAFETY',
+          name: 'Electrical Safety Pack',
+          description: 'EICR certificates and electrical safety documentation',
+          includes: ['certificates', 'contractors'],
+          complianceStreams: ['electrical'],
+        },
+        {
+          id: 'BUILDING_SAFETY_ACT',
+          name: 'Building Safety Act Compliance Pack',
+          description: 'Higher-Risk Building compliance documentation for BSR submissions',
+          includes: ['certificates', 'remedialActions', 'contractors', 'properties'],
+          complianceStreams: ['all'],
+        },
+        {
+          id: 'BOARD_QUARTERLY',
+          name: 'Board Quarterly Report',
+          description: 'Executive summary for board presentations',
+          includes: ['summary', 'certificates', 'remedialActions'],
+          complianceStreams: ['all'],
+        },
+      ];
+
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching evidence pack templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
   
   return httpServer;
 }
