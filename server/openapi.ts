@@ -20,8 +20,8 @@ registry.registerComponent('securitySchemes', 'sessionAuth', {
 });
 
 const ErrorResponse = z.object({
-  message: z.string().describe('Human-readable error message'),
-  error: z.string().optional().describe('Error type identifier'),
+  error: z.string().describe('Human-readable error message'),
+  message: z.string().optional().describe('Alternative error message field'),
   errors: z.array(z.object({
     field: z.string().optional().describe('Field that caused the validation error'),
     message: z.string().describe('Specific error message for this field'),
@@ -201,20 +201,24 @@ Returns the user object without sensitive fields (password hash, etc.)
       content: {
         'application/json': {
           schema: z.object({
-            id: z.string().uuid(),
-            username: z.string(),
-            email: z.string().email(),
-            name: z.string(),
-            role: z.string(),
-            organisationId: z.string(),
+            user: z.object({
+              id: z.string().uuid(),
+              username: z.string(),
+              email: z.string().email(),
+              name: z.string(),
+              role: z.string(),
+              organisationId: z.string(),
+            }),
           }),
           example: {
-            id: '550e8400-e29b-41d4-a716-446655440000',
-            username: 'john.smith',
-            email: 'john.smith@housing.org.uk',
-            name: 'John Smith',
-            role: 'COMPLIANCE_MANAGER',
-            organisationId: 'org-001',
+            user: {
+              id: '550e8400-e29b-41d4-a716-446655440000',
+              username: 'john.smith',
+              email: 'john.smith@housing.org.uk',
+              name: 'John Smith',
+              role: 'COMPLIANCE_MANAGER',
+              organisationId: 'org-001',
+            },
           },
         },
       },
