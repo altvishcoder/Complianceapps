@@ -6245,7 +6245,7 @@ export async function registerRoutes(
       const [queueStats, ingestionStats, certificates] = await Promise.all([
         getQueueStats(),
         storage.getIngestionStats(),
-        storage.listCertificates("")
+        storage.listCertificates(ORG_ID)
       ]);
       
       const now = new Date();
