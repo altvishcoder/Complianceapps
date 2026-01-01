@@ -1383,6 +1383,144 @@ Returns all users in the organisation. Requires admin privileges.
 
 registry.registerPath({
   method: 'get',
+  path: '/api/auth/oauth/microsoft-entra',
+  summary: 'Initiate Microsoft Entra ID SSO login',
+  description: `
+Initiates the Microsoft Entra ID (formerly Azure AD) Single Sign-On flow.
+
+## Prerequisites
+This endpoint is only available when the following environment variables are configured:
+- \`AZURE_TENANT_ID\` - Your Azure AD tenant ID
+- \`AZURE_CLIENT_ID\` - Application (client) ID from Azure app registration
+- \`AZURE_CLIENT_SECRET\` - Client secret from Azure app registration
+
+## SSO Flow Overview
+1. **User clicks SSO button** → Frontend redirects to this endpoint
+2. **Redirect to Microsoft** → User is sent to Microsoft Entra login page
+3. **User authenticates** → User enters their Microsoft credentials
+4. **Callback with code** → Microsoft redirects back with authorization code
+5. **Token exchange** → Server exchanges code for access/ID tokens
+6. **Session created** → User session is established, redirected to app
+
+## Azure Portal Configuration
+Your Azure app registration must be configured with:
+- **Redirect URI**: \`{APP_URL}/api/auth/oauth/microsoft-entra/callback\`
+- **Supported account types**: Single tenant or multi-tenant as needed
+- **API Permissions**: openid, profile, email (Microsoft Graph)
+
+Note: PKCE (Proof Key for Code Exchange) is automatically enabled by the server for enhanced security.
+
+## Frontend Integration
+\`\`\`typescript
+// Using BetterAuth client
+import { signIn } from '@/lib/auth-client';
+
+const handleMicrosoftLogin = () => {
+  signIn.social({ provider: 'microsoft-entra' });
+};
+
+// Or direct navigation
+window.location.href = '/api/auth/oauth/microsoft-entra';
+\`\`\`
+  `,
+  tags: ['SSO Integration'],
+  responses: {
+    302: {
+      description: 'Redirect to Microsoft Entra login page',
+      headers: {
+        Location: {
+          description: 'Microsoft Entra authorization URL with state, code_challenge, and scope parameters',
+          schema: { type: 'string' },
+        },
+      },
+    },
+    404: {
+      description: 'SSO not configured - Azure credentials not set',
+      content: {
+        'application/json': {
+          schema: ErrorResponse,
+          example: {
+            error: 'OAuth provider not configured',
+          },
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/auth/oauth/microsoft-entra/callback',
+  summary: 'Microsoft Entra ID SSO callback',
+  description: `
+Callback endpoint that receives the authorization response from Microsoft Entra ID.
+
+## Automatic Processing
+This endpoint is called automatically by Microsoft after user authentication. Do not call this directly.
+
+## Flow
+1. Microsoft redirects user here with \`code\` and \`state\` parameters
+2. Server validates the \`state\` parameter to prevent CSRF
+3. Server exchanges the \`code\` for access and ID tokens
+4. User account is created or linked (based on provider ID)
+5. Session cookie is set
+6. User is redirected to the application
+
+## User Account Handling
+- **New users**: Account automatically created using profile data from Microsoft (email, name)
+- **Default role**: New SSO users are assigned the VIEWER role
+- **Provider-based linking**: Users are identified by their Microsoft provider account ID
+
+## Error Handling
+Authentication failures are handled by BetterAuth's built-in error handling.
+  `,
+  tags: ['SSO Integration'],
+  parameters: [
+    {
+      name: 'code',
+      in: 'query' as const,
+      required: true,
+      schema: { type: 'string' as const },
+      description: 'Authorization code from Microsoft Entra',
+    },
+    {
+      name: 'state',
+      in: 'query' as const,
+      required: true,
+      schema: { type: 'string' as const },
+      description: 'State parameter for CSRF protection',
+    },
+  ],
+  responses: {
+    302: {
+      description: 'Authentication successful - redirect to application',
+      headers: {
+        Location: {
+          description: 'Application URL (configured via APP_URL)',
+          schema: { type: 'string' },
+        },
+        'Set-Cookie': {
+          description: 'Session cookie (complianceai.session_token)',
+          schema: { type: 'string' },
+        },
+      },
+    },
+    400: {
+      description: 'Invalid callback parameters',
+      content: {
+        'application/json': {
+          schema: ErrorResponse,
+          example: {
+            error: 'Invalid state parameter',
+          },
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
   path: '/api/compliance-streams',
   summary: 'List compliance streams',
   description: `
@@ -1467,6 +1605,14 @@ This API provides programmatic access to manage:
 ### Session-Based (Web Application)
 Use the \`/api/auth/login\` endpoint to obtain a session. The session cookie is automatically included in subsequent requests.
 
+### Single Sign-On (SSO)
+ComplianceAI supports Microsoft Entra ID (Azure AD) Single Sign-On for enterprise organisations:
+- **Endpoint**: \`GET /api/auth/oauth/microsoft-entra\`
+- **Callback**: \`GET /api/auth/oauth/microsoft-entra/callback\`
+- **Security**: PKCE-enabled OAuth 2.0 flow
+
+SSO is available when Azure credentials (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET) are configured.
+
 ### Bearer Token (External API)
 For machine-to-machine integrations, use Bearer token authentication:
 \`\`\`
@@ -1510,6 +1656,10 @@ For API support, contact: support@lashandigital.com
       { 
         name: 'Authentication', 
         description: 'User authentication and session management. Supports session-based auth for web applications and Bearer tokens for external integrations.',
+      },
+      { 
+        name: 'SSO Integration', 
+        description: 'Microsoft Entra ID (Azure AD) Single Sign-On integration. Enables enterprise users to authenticate using their corporate Microsoft accounts. Requires Azure app registration with redirect URI configuration.',
       },
       { 
         name: 'Schemes', 
