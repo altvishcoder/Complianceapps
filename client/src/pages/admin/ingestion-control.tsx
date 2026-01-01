@@ -406,26 +406,42 @@ export default function IngestionControlRoom() {
               <Card data-testid="card-queue-health">
                 <CardHeader>
                   <CardTitle>API Ingestion Jobs</CardTitle>
-                  <CardDescription>Jobs submitted via External Ingestion API (/api/v1/ingestions) - processed asynchronously by background workers</CardDescription>
+                  <CardDescription>Jobs submitted via External Ingestion API (/api/v1/ingestions) - click any status to view details</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-4">
-                    <div className="p-4 border rounded-lg text-center">
+                    <button
+                      className="p-4 border rounded-lg text-center hover:bg-amber-50 hover:border-amber-300 transition-colors cursor-pointer"
+                      onClick={() => { setStatusFilter('QUEUED'); setActiveTab('jobs'); refetchJobs(); }}
+                      data-testid="button-status-queued"
+                    >
                       <div className="text-2xl font-bold text-amber-600">{stats?.byStatus?.QUEUED || 0}</div>
                       <div className="text-sm text-muted-foreground">Queued</div>
-                    </div>
-                    <div className="p-4 border rounded-lg text-center">
+                    </button>
+                    <button
+                      className="p-4 border rounded-lg text-center hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer"
+                      onClick={() => { setStatusFilter('PROCESSING'); setActiveTab('jobs'); refetchJobs(); }}
+                      data-testid="button-status-processing"
+                    >
                       <div className="text-2xl font-bold text-blue-600">{stats?.byStatus?.PROCESSING || 0}</div>
                       <div className="text-sm text-muted-foreground">Processing</div>
-                    </div>
-                    <div className="p-4 border rounded-lg text-center">
+                    </button>
+                    <button
+                      className="p-4 border rounded-lg text-center hover:bg-emerald-50 hover:border-emerald-300 transition-colors cursor-pointer"
+                      onClick={() => { setStatusFilter('COMPLETE'); setActiveTab('jobs'); refetchJobs(); }}
+                      data-testid="button-status-complete"
+                    >
                       <div className="text-2xl font-bold text-emerald-600">{stats?.byStatus?.COMPLETE || 0}</div>
                       <div className="text-sm text-muted-foreground">Completed</div>
-                    </div>
-                    <div className="p-4 border rounded-lg text-center">
+                    </button>
+                    <button
+                      className="p-4 border rounded-lg text-center hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer"
+                      onClick={() => { setStatusFilter('FAILED'); setActiveTab('jobs'); refetchJobs(); }}
+                      data-testid="button-status-failed"
+                    >
                       <div className="text-2xl font-bold text-red-600">{stats?.byStatus?.FAILED || 0}</div>
                       <div className="text-sm text-muted-foreground">Failed</div>
-                    </div>
+                    </button>
                   </div>
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
                     <strong>Note:</strong> API ingestion jobs are processed by background workers. Manual uploads via the UI are processed immediately and appear in the Certificate Status section above.
