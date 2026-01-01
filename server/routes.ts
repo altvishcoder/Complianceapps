@@ -6347,16 +6347,25 @@ export async function registerRoutes(
           apiClientId: null
         });
         
-        // Update to target status for demo purposes
-        if (status !== 'QUEUED') {
-          await storage.updateIngestionJob(job.id, {
-            status,
-            statusMessage: status === 'COMPLETE' ? 'Demo: completed successfully' : 
-                          status === 'FAILED' ? 'Demo: no file content (test job)' :
-                          status === 'PROCESSING' ? 'Demo: currently processing' : undefined,
-            completedAt: status === 'COMPLETE' || status === 'FAILED' ? new Date() : undefined,
-          });
-        }
+        // Update to target status with appropriate progress for demo purposes
+        const progressByStatus: Record<string, number> = {
+          'QUEUED': 0,
+          'PROCESSING': 50,
+          'COMPLETE': 100,
+          'FAILED': 25,
+        };
+        
+        await storage.updateIngestionJob(job.id, {
+          status,
+          progress: progressByStatus[status] || 0,
+          statusMessage: status === 'COMPLETE' ? 'Demo: completed successfully' : 
+                        status === 'FAILED' ? 'Demo: no file content (test job)' :
+                        status === 'PROCESSING' ? 'Demo: currently processing' : 
+                        status === 'QUEUED' ? 'Demo: waiting in queue' : undefined,
+          completedAt: status === 'COMPLETE' || status === 'FAILED' ? new Date() : undefined,
+          lastAttemptAt: status !== 'QUEUED' ? new Date() : undefined,
+          attemptCount: status === 'COMPLETE' ? 1 : status === 'FAILED' ? 3 : status === 'PROCESSING' ? 1 : 0,
+        });
         
         createdJobs.push({ id: job.id, type: certType, status, property: property.address });
       }
