@@ -2610,3 +2610,78 @@ export type InsertUkhdsExport = z.infer<typeof insertUkhdsExportSchema>;
 
 export type ComplianceCalendarEvent = typeof complianceCalendarEvents.$inferSelect;
 export type InsertComplianceCalendarEvent = z.infer<typeof insertComplianceCalendarEventSchema>;
+
+// Navigation Configuration - Database-driven navigation
+export const navigationSections = pgTable("navigation_sections", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id),
+  
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  iconKey: text("icon_key").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  defaultOpen: boolean("default_open").notNull().default(false),
+  
+  requiresRole: text("requires_role"), // 'admin' | 'adminOrManager' | 'factorySettings' | null
+  
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const navigationItems = pgTable("navigation_items", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sectionId: varchar("section_id").references(() => navigationSections.id).notNull(),
+  
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  href: text("href").notNull(),
+  iconKey: text("icon_key").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  
+  requiresAdmin: boolean("requires_admin").notNull().default(false),
+  requiresFactorySettings: boolean("requires_factory_settings").notNull().default(false),
+  requiresAITools: boolean("requires_ai_tools").notNull().default(false),
+  requiresRole: text("requires_role"), // More granular role requirement
+  
+  featureFlagKey: text("feature_flag_key"), // Optional feature flag to check
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const iconRegistry = pgTable("icon_registry", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  iconKey: text("icon_key").notNull().unique(),
+  lucideName: text("lucide_name").notNull(),
+  customSvg: text("custom_svg"),
+  category: text("category"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNavigationSectionSchema = createInsertSchema(navigationSections).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertNavigationItemSchema = createInsertSchema(navigationItems).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertIconRegistrySchema = createInsertSchema(iconRegistry).omit({ 
+  id: true, createdAt: true 
+});
+
+export type NavigationSection = typeof navigationSections.$inferSelect;
+export type InsertNavigationSection = z.infer<typeof insertNavigationSectionSchema>;
+export type NavigationItem = typeof navigationItems.$inferSelect;
+export type InsertNavigationItem = z.infer<typeof insertNavigationItemSchema>;
+export type IconRegistryEntry = typeof iconRegistry.$inferSelect;
+export type InsertIconRegistryEntry = z.infer<typeof insertIconRegistrySchema>;
