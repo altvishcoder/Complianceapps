@@ -405,6 +405,33 @@ export async function triggerWatchdogNow(): Promise<string | null> {
   return jobId;
 }
 
+// Update the watchdog schedule interval
+export async function updateWatchdogSchedule(intervalMinutes: number): Promise<void> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  if (intervalMinutes < 1 || intervalMinutes > 60) {
+    throw new Error("Interval must be between 1 and 60 minutes");
+  }
+  
+  const cronExpression = `*/${intervalMinutes} * * * *`;
+  
+  // Ensure queue exists before scheduling (handles race with init)
+  await boss.createQueue(QUEUE_NAMES.CERTIFICATE_WATCHDOG);
+  
+  // pg-boss schedule() with same name will upsert/overwrite the schedule
+  // This preserves job history in pgboss.job table while updating the cron expression
+  await boss.schedule(
+    QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+    cronExpression,
+    {},
+    { tz: 'UTC' }
+  );
+  
+  jobLogger.info({ cronExpression, intervalMinutes }, "Certificate watchdog schedule updated");
+}
+
 // Get scheduled jobs status for monitoring UI
 export interface ScheduledJobInfo {
   name: string;

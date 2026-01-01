@@ -6483,6 +6483,39 @@ export async function registerRoutes(
     }
   });
   
+  // Update certificate watchdog schedule interval
+  app.put("/api/admin/scheduled-jobs/watchdog/schedule", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { intervalMinutes } = req.body;
+      
+      if (!intervalMinutes || typeof intervalMinutes !== 'number') {
+        return res.status(400).json({ error: "intervalMinutes is required and must be a number" });
+      }
+      
+      if (intervalMinutes < 1 || intervalMinutes > 60) {
+        return res.status(400).json({ error: "intervalMinutes must be between 1 and 60" });
+      }
+      
+      // Update factory setting
+      await storage.setFactorySetting('CERTIFICATE_WATCHDOG_INTERVAL_MINUTES', String(intervalMinutes));
+      
+      // Reschedule the watchdog with new interval
+      const { updateWatchdogSchedule } = await import('./job-queue');
+      await updateWatchdogSchedule(intervalMinutes);
+      
+      res.json({ 
+        success: true, 
+        message: `Watchdog schedule updated to every ${intervalMinutes} minute(s)`,
+        intervalMinutes 
+      });
+    } catch (error) {
+      console.error("Error updating watchdog schedule:", error);
+      res.status(500).json({ error: "Failed to update watchdog schedule" });
+    }
+  });
+  
   app.get("/api/admin/logs", async (req, res) => {
     try {
       if (!await requireAdminRole(req, res)) return;

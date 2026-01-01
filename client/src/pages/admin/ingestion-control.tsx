@@ -10,6 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Activity, 
   Upload, 
@@ -27,7 +30,8 @@ import {
   FileWarning,
   RotateCcw,
   Timer,
-  CalendarClock
+  CalendarClock,
+  Settings
 } from "lucide-react";
 import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend } from "recharts";
@@ -168,6 +172,8 @@ export default function IngestionControlRoom() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("overview");
   const [scheduledJobDateFilter, setScheduledJobDateFilter] = useState<string>("all");
+  const [editScheduleOpen, setEditScheduleOpen] = useState(false);
+  const [newIntervalMinutes, setNewIntervalMinutes] = useState<number>(5);
 
   useEffect(() => {
     document.title = "Ingestion Control Room - ComplianceAI";
@@ -314,6 +320,30 @@ export default function IngestionControlRoom() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to Trigger Watchdog", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateScheduleMutation = useMutation({
+    mutationFn: async (intervalMinutes: number) => {
+      const res = await fetch('/api/admin/scheduled-jobs/watchdog/schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ intervalMinutes }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to update schedule");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Schedule Updated", description: data.message });
+      setEditScheduleOpen(false);
+      refetchScheduledJobs();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Update Schedule", description: error.message, variant: "destructive" });
     },
   });
 
@@ -846,7 +876,83 @@ export default function IngestionControlRoom() {
                           
                           <div className="grid grid-cols-3 gap-4 mb-4">
                             <div className="bg-muted/50 rounded p-3">
-                              <p className="text-xs text-muted-foreground mb-1">Schedule</p>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-xs text-muted-foreground">Schedule</p>
+                                <Dialog open={editScheduleOpen} onOpenChange={setEditScheduleOpen}>
+                                  <DialogTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0"
+                                      data-testid="button-edit-schedule"
+                                      onClick={() => {
+                                        const match = job.cron.match(/^\*\/(\d+)/);
+                                        if (match) {
+                                          const interval = parseInt(match[1]);
+                                          setNewIntervalMinutes(isNaN(interval) ? 5 : Math.min(60, Math.max(1, interval)));
+                                        } else {
+                                          setNewIntervalMinutes(5);
+                                        }
+                                      }}
+                                    >
+                                      <Settings className="h-3 w-3" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Edit Watchdog Schedule</DialogTitle>
+                                      <DialogDescription>
+                                        Set how often the certificate watchdog runs to check for stuck certificates.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4">
+                                      <Label htmlFor="interval-minutes">Run every (minutes)</Label>
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <Input
+                                          id="interval-minutes"
+                                          type="number"
+                                          min={1}
+                                          max={60}
+                                          value={newIntervalMinutes}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (!isNaN(val) && val >= 1 && val <= 60) {
+                                              setNewIntervalMinutes(val);
+                                            } else if (e.target.value === '') {
+                                              setNewIntervalMinutes(1);
+                                            }
+                                          }}
+                                          className="w-24"
+                                          data-testid="input-interval-minutes"
+                                        />
+                                        <span className="text-sm text-muted-foreground">minutes (1-60)</span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mt-2">
+                                        Current schedule: {job.cron}
+                                      </p>
+                                    </div>
+                                    <DialogFooter>
+                                      <Button 
+                                        variant="outline" 
+                                        onClick={() => setEditScheduleOpen(false)}
+                                        data-testid="button-cancel-schedule"
+                                      >
+                                        Cancel
+                                      </Button>
+                                      <Button 
+                                        onClick={() => updateScheduleMutation.mutate(newIntervalMinutes)}
+                                        disabled={updateScheduleMutation.isPending || newIntervalMinutes < 1 || newIntervalMinutes > 60}
+                                        data-testid="button-save-schedule"
+                                      >
+                                        {updateScheduleMutation.isPending ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : null}
+                                        Save
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              </div>
                               <p className="font-mono text-sm">{job.cron}</p>
                               <p className="text-xs text-muted-foreground">({job.timezone})</p>
                             </div>
