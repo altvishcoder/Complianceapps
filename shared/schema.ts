@@ -15,6 +15,7 @@ export const certificateOutcomeEnum = pgEnum('certificate_outcome', ['SATISFACTO
 export const severityEnum = pgEnum('severity', ['IMMEDIATE', 'URGENT', 'PRIORITY', 'ROUTINE', 'ADVISORY']);
 export const actionStatusEnum = pgEnum('action_status', ['OPEN', 'IN_PROGRESS', 'SCHEDULED', 'COMPLETED', 'CANCELLED']);
 export const propertySourceEnum = pgEnum('property_source', ['MANUAL', 'AUTO_EXTRACTED', 'IMPORTED']);
+export const linkStatusEnum = pgEnum('link_status', ['VERIFIED', 'UNVERIFIED']);
 
 // Lashan Owned Model Enums
 export const extractionStatusEnum = pgEnum('extraction_status', [
@@ -93,10 +94,11 @@ export const verifications = pgTable("verifications", {
 
 export const schemes = pgTable("schemes", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  organisationId: varchar("organisation_id").references(() => organisations.id),
   name: text("name").notNull(),
   reference: text("reference").notNull(),
   complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
@@ -104,12 +106,13 @@ export const schemes = pgTable("schemes", {
 
 export const blocks = pgTable("blocks", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  schemeId: varchar("scheme_id").references(() => schemes.id, { onDelete: 'cascade' }).notNull(),
+  schemeId: varchar("scheme_id").references(() => schemes.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   reference: text("reference").notNull(),
   hasLift: boolean("has_lift").notNull().default(false),
   hasCommunalBoiler: boolean("has_communal_boiler").notNull().default(false),
   complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
@@ -117,7 +120,7 @@ export const blocks = pgTable("blocks", {
 
 export const properties = pgTable("properties", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }).notNull(),
+  blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
   uprn: text("uprn").notNull().unique(),
   addressLine1: text("address_line1").notNull(),
   addressLine2: text("address_line2"),
@@ -130,6 +133,7 @@ export const properties = pgTable("properties", {
   complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
   source: propertySourceEnum("source").notNull().default('MANUAL'),
   needsVerification: boolean("needs_verification").notNull().default(false),
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
   extractedMetadata: json("extracted_metadata"),
   
   // Additional compliance fields
@@ -717,10 +721,10 @@ export const componentTypes = pgTable("component_types", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Units (rooms/areas within a property - HACT hierarchy)
+// Units (rooms/areas within a property - UKHDS hierarchy level 4)
 export const units = pgTable("units", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
   
   name: text("name").notNull(),                       // "Kitchen", "Communal Hall", etc.
   reference: text("reference"),                        // Unit reference code
@@ -738,17 +742,49 @@ export const units = pgTable("units", {
   fireCompartment: text("fire_compartment"),          // Fire compartmentation zone
   asbestosPresent: boolean("asbestos_present").notNull().default(false),
   
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Components (assets within units/properties - HACT hierarchy)
+// Space type enum for UKHDS
+export const spaceTypeEnum = pgEnum('space_type', ['ROOM', 'COMMUNAL_AREA', 'EXTERNAL', 'CIRCULATION', 'UTILITY', 'STORAGE', 'OTHER']);
+
+// Spaces (specific locations within units - UKHDS hierarchy level 5)
+export const spaces = pgTable("spaces", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
+  
+  name: text("name").notNull(),                       // "Boiler Cupboard", "Under Stairs", etc.
+  reference: text("reference"),                        // Space reference code
+  spaceType: spaceTypeEnum("space_type").notNull().default('ROOM'),
+  
+  description: text("description"),
+  
+  // Location details
+  floor: text("floor"),                               // "Ground", "1st", "Basement"
+  accessNotes: text("access_notes"),
+  
+  // Compliance fields
+  areaSqMeters: real("area_sq_meters"),
+  isAccessible: boolean("is_accessible").notNull().default(true),
+  requiresKeyAccess: boolean("requires_key_access").notNull().default(false),
+  
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Components (assets within units/properties - UKHDS hierarchy)
 export const components = pgTable("components", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   
-  // Hierarchical location (at least one required)
+  // Hierarchical location (all optional for UKHDS flexibility)
   propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
   unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
+  spaceId: varchar("space_id").references(() => spaces.id, { onDelete: 'cascade' }),
   blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
   
   componentTypeId: varchar("component_type_id").references(() => componentTypes.id).notNull(),
@@ -1448,6 +1484,7 @@ export const insertOutcomeRuleSchema = createInsertSchema(certificateOutcomeRule
 // HACT Architecture Insert Schemas
 export const insertComponentTypeSchema = createInsertSchema(componentTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUnitSchema = createInsertSchema(units).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSpaceSchema = createInsertSchema(spaces).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertComponentSchema = createInsertSchema(components).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertComponentCertificateSchema = createInsertSchema(componentCertificates).omit({ id: true, createdAt: true });
 export const insertDataImportSchema = createInsertSchema(dataImports).omit({ id: true, createdAt: true, updatedAt: true });
