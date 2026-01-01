@@ -1,6 +1,6 @@
 // Seed script for initial ComplianceAI data
 import { db } from "./db";
-import { organisations, schemes, blocks, properties, users, complianceStreams, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings } from "@shared/schema";
+import { organisations, schemes, blocks, properties, users, complianceStreams, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings, navigationSections, navigationItems, iconRegistry } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -302,6 +302,12 @@ async function seedConfiguration() {
   const [existingFactorySetting] = await db.select().from(factorySettings).limit(1);
   if (!existingFactorySetting) {
     await seedFactorySettings();
+  }
+  
+  // Always seed navigation if it doesn't exist
+  const [existingNavSection] = await db.select().from(navigationSections).limit(1);
+  if (!existingNavSection) {
+    await seedNavigation();
   }
   
   console.log("🔧 Seeding/updating configuration data (upsert mode)...");
@@ -2151,4 +2157,144 @@ async function seedFactorySettings() {
   
   await db.insert(factorySettings).values(factorySettingsData);
   console.log("✓ Created factory settings");
+}
+
+async function seedNavigation() {
+  console.log("🧭 Seeding navigation configuration...");
+  
+  // Seed icon registry first
+  const iconsData = [
+    { iconKey: "LayoutDashboard", lucideName: "LayoutDashboard", category: "navigation" },
+    { iconKey: "BarChart3", lucideName: "BarChart3", category: "navigation" },
+    { iconKey: "UploadCloud", lucideName: "UploadCloud", category: "navigation" },
+    { iconKey: "FileText", lucideName: "FileText", category: "navigation" },
+    { iconKey: "Briefcase", lucideName: "Briefcase", category: "navigation" },
+    { iconKey: "Settings2", lucideName: "Settings2", category: "navigation" },
+    { iconKey: "Shield", lucideName: "Shield", category: "navigation" },
+    { iconKey: "TreePine", lucideName: "TreePine", category: "navigation" },
+    { iconKey: "Building2", lucideName: "Building2", category: "navigation" },
+    { iconKey: "Package", lucideName: "Package", category: "navigation" },
+    { iconKey: "Files", lucideName: "Files", category: "navigation" },
+    { iconKey: "Radar", lucideName: "Radar", category: "navigation" },
+    { iconKey: "Wrench", lucideName: "Wrench", category: "navigation" },
+    { iconKey: "Calendar", lucideName: "Calendar", category: "navigation" },
+    { iconKey: "Map", lucideName: "Map", category: "navigation" },
+    { iconKey: "HeartPulse", lucideName: "HeartPulse", category: "navigation" },
+    { iconKey: "ClipboardCheck", lucideName: "ClipboardCheck", category: "navigation" },
+    { iconKey: "Eye", lucideName: "Eye", category: "navigation" },
+    { iconKey: "Users", lucideName: "Users", category: "navigation" },
+    { iconKey: "Target", lucideName: "Target", category: "navigation" },
+    { iconKey: "Activity", lucideName: "Activity", category: "navigation" },
+    { iconKey: "Sparkles", lucideName: "Sparkles", category: "navigation" },
+    { iconKey: "MessageSquare", lucideName: "MessageSquare", category: "navigation" },
+    { iconKey: "ClipboardList", lucideName: "ClipboardList", category: "navigation" },
+    { iconKey: "FlaskConical", lucideName: "FlaskConical", category: "navigation" },
+    { iconKey: "Brain", lucideName: "Brain", category: "navigation" },
+    { iconKey: "UserCog", lucideName: "UserCog", category: "navigation" },
+    { iconKey: "Webhook", lucideName: "Webhook", category: "navigation" },
+    { iconKey: "Key", lucideName: "Key", category: "navigation" },
+    { iconKey: "BookOpen", lucideName: "BookOpen", category: "navigation" },
+    { iconKey: "Database", lucideName: "Database", category: "navigation" },
+    { iconKey: "Film", lucideName: "Film", category: "navigation" },
+    { iconKey: "HelpCircle", lucideName: "HelpCircle", category: "navigation" },
+    { iconKey: "Gauge", lucideName: "Gauge", category: "navigation" },
+    { iconKey: "FolderTree", lucideName: "FolderTree", category: "navigation" },
+    { iconKey: "MonitorCheck", lucideName: "MonitorCheck", category: "navigation" },
+    { iconKey: "Cog", lucideName: "Cog", category: "navigation" },
+    { iconKey: "Library", lucideName: "Library", category: "navigation" },
+  ];
+  
+  for (const icon of iconsData) {
+    await db.insert(iconRegistry).values(icon)
+      .onConflictDoNothing();
+  }
+  console.log(`✓ Seeded ${iconsData.length} icons`);
+  
+  // Seed navigation sections
+  const sectionsData = [
+    { id: "sec-command", slug: "command-centre", title: "Command Centre", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
+    { id: "sec-regulatory", slug: "regulatory", title: "Regulatory", iconKey: "Shield", displayOrder: 2, defaultOpen: false, isSystem: true },
+    { id: "sec-assets", slug: "asset-management", title: "Asset Management", iconKey: "FolderTree", displayOrder: 3, defaultOpen: false, isSystem: true },
+    { id: "sec-ops", slug: "operations", title: "Operations", iconKey: "Briefcase", displayOrder: 4, defaultOpen: true, isSystem: true },
+    { id: "sec-contractor", slug: "contractor-management", title: "Contractor Management", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
+    { id: "sec-staff", slug: "staff-dlo", title: "Staff & DLO", iconKey: "Briefcase", displayOrder: 6, defaultOpen: false, isSystem: true },
+    { id: "sec-monitoring", slug: "monitoring", title: "Monitoring", iconKey: "MonitorCheck", displayOrder: 7, defaultOpen: false, requiresRole: "adminOrManager", isSystem: true },
+    { id: "sec-admin", slug: "administration", title: "Administration", iconKey: "Cog", displayOrder: 8, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 9, defaultOpen: false, isSystem: true },
+  ];
+  
+  for (const section of sectionsData) {
+    await db.insert(navigationSections).values(section)
+      .onConflictDoNothing();
+  }
+  console.log(`✓ Seeded ${sectionsData.length} navigation sections`);
+  
+  // Seed navigation items
+  const itemsData = [
+    // Command Centre
+    { sectionId: "sec-command", slug: "overview", name: "Overview", href: "/dashboard", iconKey: "LayoutDashboard", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-command", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-command", slug: "reporting", name: "Reporting", href: "/reports", iconKey: "FileText", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-command", slug: "board", name: "Board", href: "/reports/board", iconKey: "Briefcase", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-command", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 5, isSystem: true },
+    
+    // Regulatory
+    { sectionId: "sec-regulatory", slug: "regulatory-evidence", name: "Regulatory Evidence", href: "/reports/regulatory", iconKey: "Shield", displayOrder: 1, isSystem: true },
+    
+    // Asset Management
+    { sectionId: "sec-assets", slug: "property-hierarchy", name: "Property Hierarchy", href: "/admin/hierarchy", iconKey: "TreePine", displayOrder: 1, requiresAITools: true, isSystem: true },
+    { sectionId: "sec-assets", slug: "properties", name: "Properties", href: "/properties", iconKey: "Building2", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-assets", slug: "components", name: "Components", href: "/components", iconKey: "Package", displayOrder: 3, isSystem: true },
+    
+    // Operations
+    { sectionId: "sec-ops", slug: "ingestion", name: "Ingestion", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-ops", slug: "certificates", name: "Certificates", href: "/certificates", iconKey: "Files", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-ops", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-ops", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-ops", slug: "calendar", name: "Calendar", href: "/calendar", iconKey: "Calendar", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-ops", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-ops", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-ops", slug: "remedial-kanban", name: "Remedial Kanban", href: "/admin/remedial-kanban", iconKey: "ClipboardCheck", displayOrder: 8, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-ops", slug: "human-review", name: "Human Review", href: "/human-review", iconKey: "Eye", displayOrder: 9, requiresAITools: true, isSystem: true },
+    
+    // Contractor Management
+    { sectionId: "sec-contractor", slug: "contractor-performance", name: "Performance", href: "/contractors/dashboard", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-contractor", slug: "contractor-sla", name: "SLA Tracking", href: "/contractors/sla", iconKey: "Target", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-contractor", slug: "contractors", name: "Contractors", href: "/contractors", iconKey: "Users", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-contractor", slug: "contractor-reports", name: "Reports", href: "/contractors/reports", iconKey: "FileText", displayOrder: 4, isSystem: true },
+    
+    // Staff & DLO
+    { sectionId: "sec-staff", slug: "staff-performance", name: "Performance", href: "/staff/dashboard", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-staff", slug: "staff-sla", name: "SLA Tracking", href: "/staff/sla", iconKey: "Target", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-staff", slug: "staff-directory", name: "Staff Directory", href: "/staff", iconKey: "Users", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-staff", slug: "staff-reports", name: "Reports", href: "/staff/reports", iconKey: "FileText", displayOrder: 4, isSystem: true },
+    
+    // Monitoring
+    { sectionId: "sec-monitoring", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 2, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, requiresAdmin: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "model-insights", name: "Model Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 6, requiresAITools: true, isSystem: true },
+    
+    // Administration
+    { sectionId: "sec-admin", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-admin", slug: "configuration", name: "Configuration", href: "/admin/configuration", iconKey: "Settings2", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-admin", slug: "factory-settings", name: "Factory Settings", href: "/admin/factory-settings", iconKey: "Shield", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-admin", slug: "knowledge-training", name: "Knowledge Training", href: "/admin/knowledge-training", iconKey: "BookOpen", displayOrder: 4, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-admin", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-admin", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-admin", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 7, isSystem: true },
+    
+    // Resources
+    { sectionId: "sec-resources", slug: "data-import", name: "Data Import", href: "/admin/imports", iconKey: "Database", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-resources", slug: "video-library", name: "Video Library", href: "/video-library", iconKey: "Film", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-resources", slug: "help-guide", name: "Help Guide", href: "/help", iconKey: "HelpCircle", displayOrder: 3, isSystem: true },
+  ];
+  
+  for (const item of itemsData) {
+    await db.insert(navigationItems).values(item)
+      .onConflictDoNothing();
+  }
+  console.log(`✓ Seeded ${itemsData.length} navigation items`);
 }
