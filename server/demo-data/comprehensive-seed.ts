@@ -1,9 +1,14 @@
 import { db } from "../db";
 import { 
-  schemes, blocks, properties, units, components, componentTypes,
+  schemes, blocks, properties, units, spaces, components, componentTypes,
   certificates, remedialActions, contractors, 
   contractorSLAProfiles, complianceStreams
 } from "@shared/schema";
+
+const SPACE_NAMES = [
+  "Living Room", "Kitchen", "Bathroom", "Bedroom 1", "Bedroom 2",
+  "Hallway", "Boiler Cupboard", "Under Stairs", "Utility Room", "Dining Area"
+];
 
 const UK_CITIES = [
   { name: "London", lat: 51.5074, lng: -0.1278, postcodePrefix: "SW", wards: ["Westminster", "Lambeth", "Southwark", "Tower Hamlets", "Islington"] },
@@ -75,6 +80,9 @@ export async function seedComprehensiveDemoData(orgId: string) {
   
   const unitIds = await seedUnits(propertyIds);
   console.log(`✓ Created ${unitIds.length} units`);
+  
+  const spaceIds = await seedSpaces(unitIds);
+  console.log(`✓ Created ${spaceIds.length} spaces (rooms)`);
   
   const componentIds = await seedComponents(propertyIds, allComponentTypes);
   console.log(`✓ Created ${componentIds.length} components`);
@@ -209,6 +217,28 @@ async function seedUnits(propertyIds: string[]): Promise<string[]> {
   }
   
   return unitIds;
+}
+
+async function seedSpaces(unitIds: string[]): Promise<string[]> {
+  const spaceIds: string[] = [];
+  
+  for (let i = 0; i < Math.min(unitIds.length, 400); i++) {
+    const spacesPerUnit = Math.floor(Math.random() * 4) + 2;
+    
+    const batchValues = [];
+    for (let s = 0; s < spacesPerUnit; s++) {
+      batchValues.push({
+        unitId: unitIds[i],
+        name: SPACE_NAMES[s % SPACE_NAMES.length],
+        reference: `SPACE-${i}-${s}`,
+      });
+    }
+    
+    const inserted = await db.insert(spaces).values(batchValues).returning();
+    spaceIds.push(...inserted.map(sp => sp.id));
+  }
+  
+  return spaceIds;
 }
 
 async function seedComponents(propertyIds: string[], componentTypesList: any[]): Promise<string[]> {

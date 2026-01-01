@@ -1569,6 +1569,9 @@ export type InsertComponentType = z.infer<typeof insertComponentTypeSchema>;
 export type Unit = typeof units.$inferSelect;
 export type InsertUnit = z.infer<typeof insertUnitSchema>;
 
+export type Space = typeof spaces.$inferSelect;
+export type InsertSpace = z.infer<typeof insertSpaceSchema>;
+
 export type Component = typeof components.$inferSelect;
 export type InsertComponent = z.infer<typeof insertComponentSchema>;
 

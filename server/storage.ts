@@ -4,7 +4,7 @@ import {
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
   complianceStreams, certificateTypes, classificationCodes,
-  componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
+  componentTypes, units, spaces, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
   factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, ingestionBatches, rateLimitEntries,
@@ -33,6 +33,7 @@ import {
   type NormalisationRule, type InsertNormalisationRule,
   type ComponentType, type InsertComponentType,
   type Unit, type InsertUnit,
+  type Space, type InsertSpace,
   type Component, type InsertComponent,
   type ComponentCertificate, type InsertComponentCertificate,
   type DataImport, type InsertDataImport,
@@ -244,6 +245,13 @@ export interface IStorage {
   createUnit(unit: InsertUnit): Promise<Unit>;
   updateUnit(id: string, updates: Partial<InsertUnit>): Promise<Unit | undefined>;
   deleteUnit(id: string): Promise<boolean>;
+  
+  // HACT Architecture - Spaces (Rooms)
+  listSpaces(unitId?: string): Promise<Space[]>;
+  getSpace(id: string): Promise<Space | undefined>;
+  createSpace(space: InsertSpace): Promise<Space>;
+  updateSpace(id: string, updates: Partial<InsertSpace>): Promise<Space | undefined>;
+  deleteSpace(id: string): Promise<boolean>;
   
   // HACT Architecture - Components
   listComponents(filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]>;
@@ -1549,6 +1557,39 @@ export class DatabaseStorage implements IStorage {
   
   async deleteUnit(id: string): Promise<boolean> {
     const result = await db.delete(units).where(eq(units.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  // HACT Architecture - Spaces (Rooms)
+  async listSpaces(unitId?: string): Promise<Space[]> {
+    if (unitId) {
+      return db.select().from(spaces)
+        .where(eq(spaces.unitId, unitId))
+        .orderBy(spaces.name);
+    }
+    return db.select().from(spaces).orderBy(spaces.name);
+  }
+  
+  async getSpace(id: string): Promise<Space | undefined> {
+    const [space] = await db.select().from(spaces).where(eq(spaces.id, id));
+    return space || undefined;
+  }
+  
+  async createSpace(space: InsertSpace): Promise<Space> {
+    const [created] = await db.insert(spaces).values(space).returning();
+    return created;
+  }
+  
+  async updateSpace(id: string, updates: Partial<InsertSpace>): Promise<Space | undefined> {
+    const [updated] = await db.update(spaces)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(spaces.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteSpace(id: string): Promise<boolean> {
+    const result = await db.delete(spaces).where(eq(spaces.id, id)).returning();
     return result.length > 0;
   }
   

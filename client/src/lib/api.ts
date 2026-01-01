@@ -6,7 +6,7 @@ import type {
   CertificateType, InsertCertificateType, ClassificationCode, InsertClassificationCode,
   ExtractionSchema, InsertExtractionSchema, ComplianceRule, InsertComplianceRule,
   NormalisationRule, InsertNormalisationRule,
-  ComponentType, InsertComponentType, Unit, InsertUnit, Component, InsertComponent, DataImport, InsertDataImport
+  ComponentType, InsertComponentType, Unit, InsertUnit, Space, InsertSpace, Component, InsertComponent, DataImport, InsertDataImport
 } from "@shared/schema";
 
 const API_BASE = "/api";
@@ -451,6 +451,30 @@ export const unitsApi = {
   }),
   
   delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/units/${id}`, {
+    method: "DELETE",
+  }),
+};
+
+// HACT Architecture - Spaces (Rooms)
+export const spacesApi = {
+  list: (unitId?: string) => {
+    const params = unitId ? `?unitId=${unitId}` : "";
+    return fetchJSON<Space[]>(`${API_BASE}/spaces${params}`);
+  },
+  
+  get: (id: string) => fetchJSON<Space>(`${API_BASE}/spaces/${id}`),
+  
+  create: (data: InsertSpace) => fetchJSON<Space>(`${API_BASE}/spaces`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
+  update: (id: string, data: Partial<InsertSpace>) => fetchJSON<Space>(`${API_BASE}/spaces/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/spaces/${id}`, {
     method: "DELETE",
   }),
 };

@@ -19,8 +19,9 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { organisationsApi, schemesApi, blocksApi, propertiesApi, componentsApi } from "@/lib/api";
-import type { Scheme, Block, Property, Component } from "@shared/schema";
+import { organisationsApi, schemesApi, blocksApi, propertiesApi, unitsApi, spacesApi, componentsApi } from "@/lib/api";
+import type { Scheme, Block, Property, Unit, Space, Component } from "@shared/schema";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,7 @@ function HactBadge({ label }: { label: string }) {
   );
 }
 
-function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode; level?: number; defaultOpen?: boolean }) {
+function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: HierarchyNode; level?: number; defaultOpen?: boolean; onNodeClick?: (node: HierarchyNode) => void }) {
   const [isOpen, setIsOpen] = useState(defaultOpen && level < 2);
   const hasChildren = node.children.length > 0;
   
@@ -90,18 +91,27 @@ function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode
     UNKNOWN: 'bg-gray-400',
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onNodeClick) {
+      onNodeClick(node);
+    }
+  };
+
   return (
     <div className="select-none">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div 
           className={cn(
-            "flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors group",
+            "flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer",
             level === 0 && "bg-slate-50"
           )}
           style={{ marginLeft: `${level * 24}px` }}
+          onClick={handleClick}
+          data-testid={`tree-node-${node.type}-${node.id}`}
         >
           {hasChildren ? (
-            <CollapsibleTrigger asChild>
+            <CollapsibleTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-slate-500" />
@@ -120,7 +130,7 @@ function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-slate-900 truncate">{node.name}</span>
+              <span className="font-medium text-slate-900 truncate hover:underline">{node.name}</span>
               {node.reference && (
                 <span className="text-xs text-slate-500">({node.reference})</span>
               )}
@@ -152,7 +162,7 @@ function TreeNode({ node, level = 0, defaultOpen = true }: { node: HierarchyNode
           <CollapsibleContent>
             <div className="border-l-2 border-slate-200 ml-6">
               {node.children.map((child) => (
-                <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={level < 1} />
+                <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={level < 1} onNodeClick={onNodeClick} />
               ))}
             </div>
           </CollapsibleContent>
@@ -208,12 +218,12 @@ function GridCard({ node }: { node: HierarchyNode }) {
   );
 }
 
-function VisualHierarchy({ hierarchyData, viewMode }: { hierarchyData: HierarchyNode[]; viewMode: ViewMode }) {
+function VisualHierarchy({ hierarchyData, viewMode, onNodeClick }: { hierarchyData: HierarchyNode[]; viewMode: ViewMode; onNodeClick?: (node: HierarchyNode) => void }) {
   if (viewMode === 'tree') {
     return (
       <div className="space-y-1">
         {hierarchyData.map((node) => (
-          <TreeNode key={`${node.type}-${node.id}`} node={node} />
+          <TreeNode key={`${node.type}-${node.id}`} node={node} onNodeClick={onNodeClick} />
         ))}
       </div>
     );
@@ -317,17 +327,42 @@ function VisualHierarchy({ hierarchyData, viewMode }: { hierarchyData: Hierarchy
   return null;
 }
 
+const HIERARCHY_STATE_KEY = 'complianceai_hierarchy_state';
+
 export default function PropertyHierarchy() {
+  const [, setLocation] = useLocation();
+  
   useEffect(() => {
     document.title = "Property Hierarchy - ComplianceAI";
+    // Save current location to localStorage for "back" navigation
+    localStorage.setItem(HIERARCHY_STATE_KEY, JSON.stringify({ 
+      lastVisited: Date.now(),
+      viewMode: 'tree'
+    }));
   }, []);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
+  // Restore view mode from localStorage
+  const savedState = useMemo(() => {
+    try {
+      const saved = localStorage.getItem(HIERARCHY_STATE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  }, []);
+  
   const [mainTab, setMainTab] = useState<'properties' | 'assets'>('properties');
-  const [viewMode, setViewMode] = useState<ViewMode>('tree');
+  const [viewMode, setViewMode] = useState<ViewMode>(savedState?.viewMode || 'tree');
   const [showVisualView, setShowVisualView] = useState(true);
+  
+  // Save view mode changes
+  useEffect(() => {
+    localStorage.setItem(HIERARCHY_STATE_KEY, JSON.stringify({ 
+      lastVisited: Date.now(),
+      viewMode 
+    }));
+  }, [viewMode]);
   
   const [showOrgDialog, setShowOrgDialog] = useState(false);
   const [showSchemeDialog, setShowSchemeDialog] = useState(false);
@@ -372,8 +407,18 @@ export default function PropertyHierarchy() {
     queryFn: () => componentsApi.list(),
   });
 
+  const { data: allUnits = [], isLoading: unitsLoading } = useQuery({
+    queryKey: ["units"],
+    queryFn: () => unitsApi.list(),
+  });
+
+  const { data: allSpaces = [], isLoading: spacesLoading } = useQuery({
+    queryKey: ["spaces"],
+    queryFn: () => spacesApi.list(),
+  });
+
   const hierarchyData = useMemo((): HierarchyNode[] => {
-    // UKHDS hierarchy: Scheme → Block → Property → Unit → Space → Component
+    // UKHDS 5-level hierarchy: Scheme → Block → Property → Unit → Space → Component
     // Organisation is assumed/implicit and not shown in hierarchy
     return schemes.map((scheme) => ({
       id: scheme.id,
@@ -395,16 +440,12 @@ export default function PropertyHierarchy() {
           data: block,
           children: properties
             .filter((p: Property) => p.blockId === block.id)
-            .map((property: Property) => ({
-              id: property.id,
-              name: `${property.addressLine1}, ${property.postcode}`,
-              type: 'property' as const,
-              reference: property.uprn,
-              status: property.complianceStatus,
-              linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
-              data: property,
-              children: components
-                .filter((c: Component) => c.propertyId === property.id)
+            .map((property: Property) => {
+              // Get units for this property
+              const propertyUnits = allUnits.filter((u: Unit) => u.propertyId === property.id);
+              // Get components directly attached to property (not via unit/space)
+              const directComponents = components
+                .filter((c: Component) => c.propertyId === property.id && !c.unitId && !c.spaceId)
                 .map((component: Component) => ({
                   id: component.id,
                   name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
@@ -412,11 +453,70 @@ export default function PropertyHierarchy() {
                   reference: component.serialNumber || undefined,
                   data: component,
                   children: [],
-                })),
-            })),
+                }));
+              
+              const unitNodes: HierarchyNode[] = propertyUnits.map((unit: Unit) => {
+                // Get spaces for this unit
+                const unitSpaces = allSpaces.filter((s: Space) => s.unitId === unit.id);
+                // Get components directly attached to unit (not via space)
+                const unitComponents = components
+                  .filter((c: Component) => c.unitId === unit.id && !c.spaceId)
+                  .map((component: Component) => ({
+                    id: component.id,
+                    name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
+                    type: 'component' as const,
+                    reference: component.serialNumber || undefined,
+                    data: component,
+                    children: [],
+                  }));
+                
+                const spaceNodes: HierarchyNode[] = unitSpaces.map((space: Space) => {
+                  // Get components attached to this space
+                  const spaceComponents = components
+                    .filter((c: Component) => c.spaceId === space.id)
+                    .map((component: Component) => ({
+                      id: component.id,
+                      name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
+                      type: 'component' as const,
+                      reference: component.serialNumber || undefined,
+                      data: component,
+                      children: [],
+                    }));
+                  
+                  return {
+                    id: space.id,
+                    name: space.name,
+                    type: 'space' as const,
+                    reference: space.reference || undefined,
+                    data: space,
+                    children: spaceComponents,
+                  };
+                });
+                
+                return {
+                  id: unit.id,
+                  name: unit.name,
+                  type: 'unit' as const,
+                  reference: unit.reference || undefined,
+                  data: unit,
+                  children: [...spaceNodes, ...unitComponents],
+                };
+              });
+              
+              return {
+                id: property.id,
+                name: `${property.addressLine1}, ${property.postcode}`,
+                type: 'property' as const,
+                reference: property.uprn,
+                status: property.complianceStatus,
+                linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
+                data: property,
+                children: [...unitNodes, ...directComponents],
+              };
+            }),
         })),
     }));
-  }, [schemes, blocks, properties, components]);
+  }, [schemes, blocks, properties, allUnits, allSpaces, components]);
 
   const createOrgMutation = useMutation({
     mutationFn: organisationsApi.create,
@@ -596,14 +696,40 @@ export default function PropertyHierarchy() {
     return schemes.find(s => s.id === schemeId);
   };
 
-  const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || componentsLoading;
+  const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || componentsLoading || unitsLoading || spacesLoading;
 
   const totalCounts = {
     organisations: organisations.length,
     schemes: schemes.length,
     blocks: blocks.length,
     properties: properties.length,
+    units: allUnits.length,
+    spaces: allSpaces.length,
     components: components.length,
+  };
+
+  const handleNodeClick = (node: HierarchyNode) => {
+    // Navigate to the appropriate detail page based on node type
+    switch (node.type) {
+      case 'property':
+        setLocation(`/properties/${node.id}`);
+        break;
+      case 'component':
+        toast({ 
+          title: "Component Selected", 
+          description: `${node.name} - Click to view component details` 
+        });
+        break;
+      case 'scheme':
+      case 'block':
+      case 'unit':
+      case 'space':
+        toast({ 
+          title: `${node.type.charAt(0).toUpperCase() + node.type.slice(1)} Selected`, 
+          description: node.name 
+        });
+        break;
+    }
   };
 
   return (
@@ -625,13 +751,13 @@ export default function PropertyHierarchy() {
                 <div className="flex items-start gap-2">
                   <Info className="h-5 w-5 text-emerald-600 mt-0.5" />
                   <div className="text-sm text-emerald-800">
-                    <strong>HACT/UKHDS Hierarchy:</strong> Organisation → Scheme (Site) → Block (Property/Building) → Property (Unit/Dwelling) → Component
+                    <strong>HACT/UKHDS 5-Level Hierarchy:</strong> Organisation → Scheme (Site) → Block (Building) → Property (Dwelling) → Unit → Space (Room) → Component
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-7 gap-3 mb-6">
               <Card className="bg-purple-50 border-purple-200">
                 <CardContent className="p-4 text-center">
                   <Building2 className="h-6 w-6 text-purple-600 mx-auto mb-2" />
@@ -660,11 +786,25 @@ export default function PropertyHierarchy() {
                   <div className="text-sm text-emerald-600">Properties</div>
                 </CardContent>
               </Card>
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-3 text-center">
+                  <Layers className="h-5 w-5 text-purple-600 mx-auto mb-1" />
+                  <div className="text-xl font-bold text-purple-900">{totalCounts.units}</div>
+                  <div className="text-xs text-purple-600">Units</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-cyan-50 border-cyan-200">
+                <CardContent className="p-3 text-center">
+                  <FolderTree className="h-5 w-5 text-cyan-600 mx-auto mb-1" />
+                  <div className="text-xl font-bold text-cyan-900">{totalCounts.spaces}</div>
+                  <div className="text-xs text-cyan-600">Spaces</div>
+                </CardContent>
+              </Card>
               <Card className="bg-slate-50 border-slate-200">
-                <CardContent className="p-4 text-center">
-                  <Package className="h-6 w-6 text-slate-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-slate-900">{totalCounts.components}</div>
-                  <div className="text-sm text-slate-600">Components</div>
+                <CardContent className="p-3 text-center">
+                  <Package className="h-5 w-5 text-slate-600 mx-auto mb-1" />
+                  <div className="text-xl font-bold text-slate-900">{totalCounts.components}</div>
+                  <div className="text-xs text-slate-600">Components</div>
                 </CardContent>
               </Card>
             </div>
@@ -755,7 +895,7 @@ export default function PropertyHierarchy() {
                           <p>No hierarchy data yet. Start by adding an organisation below.</p>
                         </div>
                       ) : (
-                        <VisualHierarchy hierarchyData={hierarchyData} viewMode={viewMode} />
+                        <VisualHierarchy hierarchyData={hierarchyData} viewMode={viewMode} onNodeClick={handleNodeClick} />
                       )}
                     </CardContent>
                   </Card>

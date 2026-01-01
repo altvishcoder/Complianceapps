@@ -11,7 +11,7 @@ import {
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
   insertComplianceStreamSchema, insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
-  insertComponentTypeSchema, insertUnitSchema, insertComponentSchema, insertDataImportSchema,
+  insertComponentTypeSchema, insertUnitSchema, insertSpaceSchema, insertComponentSchema, insertDataImportSchema,
   insertDetectionPatternSchema, insertOutcomeRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
   componentTypes, components, units, componentCertificates, users, extractionTierAudits,
@@ -5000,6 +5000,77 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting unit:", error);
       res.status(500).json({ error: "Failed to delete unit" });
+    }
+  });
+  
+  // ===== HACT ARCHITECTURE - SPACES (ROOMS) =====
+  app.get("/api/spaces", async (req, res) => {
+    try {
+      const unitId = req.query.unitId as string | undefined;
+      const spacesList = await storage.listSpaces(unitId);
+      res.json(spacesList);
+    } catch (error) {
+      console.error("Error fetching spaces:", error);
+      res.status(500).json({ error: "Failed to fetch spaces" });
+    }
+  });
+  
+  app.get("/api/spaces/:id", async (req, res) => {
+    try {
+      const space = await storage.getSpace(req.params.id);
+      if (!space) {
+        return res.status(404).json({ error: "Space not found" });
+      }
+      res.json(space);
+    } catch (error) {
+      console.error("Error fetching space:", error);
+      res.status(500).json({ error: "Failed to fetch space" });
+    }
+  });
+  
+  app.post("/api/spaces", async (req, res) => {
+    try {
+      const data = insertSpaceSchema.parse(req.body);
+      const space = await storage.createSpace(data);
+      res.status(201).json(space);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error creating space:", error);
+        res.status(500).json({ error: "Failed to create space" });
+      }
+    }
+  });
+  
+  app.patch("/api/spaces/:id", async (req, res) => {
+    try {
+      const updateData = insertSpaceSchema.partial().parse(req.body);
+      const updated = await storage.updateSpace(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Space not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        console.error("Error updating space:", error);
+        res.status(500).json({ error: "Failed to update space" });
+      }
+    }
+  });
+  
+  app.delete("/api/spaces/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteSpace(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Space not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting space:", error);
+      res.status(500).json({ error: "Failed to delete space" });
     }
   });
   
