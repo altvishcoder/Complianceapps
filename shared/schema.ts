@@ -1938,3 +1938,194 @@ export type InsertRiskFactorDefinition = z.infer<typeof insertRiskFactorDefiniti
 
 export type RiskAlert = typeof riskAlerts.$inferSelect;
 export type InsertRiskAlert = z.infer<typeof insertRiskAlertSchema>;
+
+// =====================================================
+// CONTRACTOR VERIFICATION SYSTEM
+// UK Building Safety Act & Social Housing Regulation Act Compliance
+// =====================================================
+
+export const contractorRegistrationTypeEnum = pgEnum('contractor_registration_type', [
+  'GAS_SAFE',           // Gas Safe Register - required for all gas work
+  'NICEIC',             // National Inspection Council for Electrical Installation
+  'NAPIT',              // National Association of Professional Inspectors and Testers
+  'ELECSA',             // Electrical Competent Person Scheme
+  'ECS',                // Electrotechnical Certification Scheme
+  'OFTEC',              // Oil Firing Technical Association
+  'HETAS',              // Solid fuel heating
+  'BESCA',              // Building Engineering Services Competence Assessment
+  'FENSA',              // Fenestration Self-Assessment Scheme
+  'CHAS',               // Contractors Health and Safety Assessment
+  'SAFE_CONTRACTOR',    // SafeContractor accreditation
+  'CONSTRUCTIONLINE',   // Constructionline verified
+  'CIOB',               // Chartered Institute of Building - Principal Contractor
+  'PAS_8672',           // Building Safety Act Principal Contractor competence
+  'SSIP',               // Safety Schemes in Procurement
+  'OTHER'
+]);
+
+export const contractorVerificationStatusEnum = pgEnum('contractor_verification_status', [
+  'UNVERIFIED',         // Not yet verified
+  'PENDING',            // Verification in progress
+  'VERIFIED',           // Manually verified as valid
+  'EXPIRED',            // Registration has expired
+  'SUSPENDED',          // Registration suspended by issuing body
+  'REVOKED',            // Registration revoked
+  'FAILED'              // Verification failed
+]);
+
+export const contractorWorkCategoryEnum = pgEnum('contractor_work_category', [
+  'GAS_BOILER',         // Gas boiler installation/service
+  'GAS_APPLIANCES',     // Gas appliance work
+  'GAS_FIRES',          // Gas fire installation
+  'ELECTRICAL_INSTALL', // Electrical installation
+  'ELECTRICAL_TEST',    // Electrical testing/inspection
+  'FIRE_ALARM',         // Fire alarm systems
+  'FIRE_DOOR',          // Fire door installation
+  'FIRE_EXTINGUISHER',  // Fire extinguisher service
+  'LIFT_MAINTENANCE',   // Lift/elevator maintenance
+  'LEGIONELLA',         // Legionella risk assessment
+  'ASBESTOS_SURVEY',    // Asbestos surveys
+  'ASBESTOS_REMOVAL',   // Asbestos removal (licensed)
+  'WATER_HYGIENE',      // Water hygiene testing
+  'EPC_ASSESSMENT',     // EPC assessments
+  'GENERAL_MAINTENANCE',// General property maintenance
+  'ROOFING',            // Roofing work
+  'PLUMBING',           // Plumbing work
+  'OTHER'
+]);
+
+// Contractor certifications/registrations
+export const contractorCertifications = pgTable("contractor_certifications", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  contractorId: varchar("contractor_id").references(() => contractors.id, { onDelete: 'cascade' }).notNull(),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  registrationType: contractorRegistrationTypeEnum("registration_type").notNull(),
+  registrationNumber: text("registration_number").notNull(),
+  registrationName: text("registration_name"),
+  
+  issueDate: timestamp("issue_date"),
+  expiryDate: timestamp("expiry_date"),
+  
+  verificationStatus: contractorVerificationStatusEnum("verification_status").notNull().default('UNVERIFIED'),
+  verifiedAt: timestamp("verified_at"),
+  verifiedById: varchar("verified_by_id").references(() => users.id),
+  verificationMethod: text("verification_method"),
+  verificationNotes: text("verification_notes"),
+  
+  workCategories: text("work_categories").array(),
+  
+  documentUrl: text("document_url"),
+  documentId: varchar("document_id"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  metadata: json("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Verification history for audit trail
+export const contractorVerificationHistory = pgTable("contractor_verification_history", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  contractorId: varchar("contractor_id").references(() => contractors.id, { onDelete: 'cascade' }).notNull(),
+  certificationId: varchar("certification_id").references(() => contractorCertifications.id, { onDelete: 'cascade' }),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  verificationType: text("verification_type").notNull(),
+  previousStatus: contractorVerificationStatusEnum("previous_status"),
+  newStatus: contractorVerificationStatusEnum("new_status").notNull(),
+  
+  verifiedById: varchar("verified_by_id").references(() => users.id),
+  verifiedByName: text("verified_by_name"),
+  verificationMethod: text("verification_method").notNull(),
+  
+  lookupUrl: text("lookup_url"),
+  screenshotUrl: text("screenshot_url"),
+  notes: text("notes"),
+  
+  registrationDataSnapshot: json("registration_data_snapshot"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Contractor alerts for expiring certifications
+export const contractorAlerts = pgTable("contractor_alerts", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  contractorId: varchar("contractor_id").references(() => contractors.id, { onDelete: 'cascade' }).notNull(),
+  certificationId: varchar("certification_id").references(() => contractorCertifications.id, { onDelete: 'cascade' }),
+  
+  alertType: text("alert_type").notNull(),
+  severity: severityEnum("severity").notNull().default('PRIORITY'),
+  status: riskAlertStatusEnum("status").notNull().default('OPEN'),
+  
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  
+  dueDate: timestamp("due_date"),
+  slaHours: integer("sla_hours"),
+  
+  acknowledgedById: varchar("acknowledged_by_id").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedById: varchar("resolved_by_id").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  metadata: json("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Contractor work assignments tracking
+export const contractorAssignments = pgTable("contractor_assignments", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  contractorId: varchar("contractor_id").references(() => contractors.id).notNull(),
+  propertyId: varchar("property_id").references(() => properties.id),
+  remedialActionId: varchar("remedial_action_id").references(() => remedialActions.id),
+  
+  workCategory: contractorWorkCategoryEnum("work_category").notNull(),
+  description: text("description"),
+  
+  scheduledDate: timestamp("scheduled_date"),
+  completedDate: timestamp("completed_date"),
+  status: actionStatusEnum("status").notNull().default('OPEN'),
+  
+  verifiedCertificationsAtAssignment: text("verified_certifications").array(),
+  
+  assignedById: varchar("assigned_by_id").references(() => users.id),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  
+  notes: text("notes"),
+  metadata: json("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for contractor verification tables
+export const insertContractorCertificationSchema = createInsertSchema(contractorCertifications).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertContractorVerificationHistorySchema = createInsertSchema(contractorVerificationHistory).omit({ 
+  id: true, createdAt: true 
+});
+export const insertContractorAlertSchema = createInsertSchema(contractorAlerts).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertContractorAssignmentSchema = createInsertSchema(contractorAssignments).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+
+// Types for contractor verification tables
+export type ContractorCertification = typeof contractorCertifications.$inferSelect;
+export type InsertContractorCertification = z.infer<typeof insertContractorCertificationSchema>;
+
+export type ContractorVerificationHistory = typeof contractorVerificationHistory.$inferSelect;
+export type InsertContractorVerificationHistory = z.infer<typeof insertContractorVerificationHistorySchema>;
+
+export type ContractorAlert = typeof contractorAlerts.$inferSelect;
+export type InsertContractorAlert = z.infer<typeof insertContractorAlertSchema>;
+
+export type ContractorAssignment = typeof contractorAssignments.$inferSelect;
+export type InsertContractorAssignment = z.infer<typeof insertContractorAssignmentSchema>;
