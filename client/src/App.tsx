@@ -59,6 +59,7 @@ import AdminFactorySettings from "@/pages/admin/factory-settings";
 import AdminApiIntegration from "@/pages/admin/api-integration";
 import AdminSystemHealth from "@/pages/admin/system-health";
 import AdminIngestionControl from "@/pages/admin/ingestion-control";
+import AdminRemedialKanban from "@/pages/admin/remedial-kanban";
 import AdminAuditLog from "@/pages/admin/AuditLogPage";
 import AdminApiDocs from "@/pages/admin/api-docs";
 import AdminChatbotAnalytics from "@/pages/admin/chatbot-analytics";
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/admin/api-integration">{() => <ProtectedRoute component={AdminApiIntegration} />}</Route>
       <Route path="/admin/system-health">{() => <ProtectedRoute component={AdminSystemHealth} />}</Route>
       <Route path="/admin/ingestion-control">{() => <ProtectedRoute component={AdminIngestionControl} />}</Route>
+      <Route path="/admin/remedial-kanban">{() => <ProtectedRoute component={AdminRemedialKanban} />}</Route>
       <Route path="/admin/audit-log">{() => <ProtectedRoute component={AdminAuditLog} />}</Route>
       <Route path="/admin/api-docs">{() => <ProtectedRoute component={AdminApiDocs} />}</Route>
       <Route path="/admin/chatbot-analytics">{() => <ProtectedRoute component={AdminChatbotAnalytics} />}</Route>
