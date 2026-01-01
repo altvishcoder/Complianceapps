@@ -108,11 +108,11 @@ const STATUS_ICONS: Record<string, React.ElementType> = {
 };
 
 const PIPELINE_STAGES = [
-  { id: "QUEUED", label: "Queued", icon: Clock },
-  { id: "UPLOADING", label: "Uploading", icon: Upload },
+  { id: "UPLOADED", label: "Uploaded", icon: Upload },
   { id: "PROCESSING", label: "Processing", icon: Loader2 },
-  { id: "EXTRACTING", label: "AI Extraction", icon: Zap },
-  { id: "COMPLETE", label: "Complete", icon: CheckCircle2 },
+  { id: "EXTRACTED", label: "Extracted", icon: Zap },
+  { id: "NEEDS_REVIEW", label: "Needs Review", icon: FileWarning },
+  { id: "APPROVED", label: "Approved", icon: CheckCircle2 },
 ];
 
 const PIE_COLORS = ["#3b82f6", "#6366f1", "#f59e0b", "#8b5cf6", "#10b981", "#ef4444", "#6b7280"];
@@ -274,8 +274,8 @@ export default function IngestionControlRoom() {
                   <div key={stage.id} className="flex items-center flex-1">
                     <PipelineStage 
                       stage={stage} 
-                      count={stats?.byStatus?.[stage.id] || 0}
-                      isActive={(stats?.byStatus?.[stage.id] || 0) > 0}
+                      count={stats?.certificates?.byStatus?.[stage.id] || 0}
+                      isActive={(stats?.certificates?.byStatus?.[stage.id] || 0) > 0}
                     />
                     {index < PIPELINE_STAGES.length - 1 && (
                       <ArrowRight className="h-6 w-6 text-muted-foreground mx-2" />
@@ -289,7 +289,7 @@ export default function IngestionControlRoom() {
                       <XCircle className="h-6 w-6 text-red-600" />
                     </div>
                     <span className="text-sm font-medium mt-2">Failed</span>
-                    <span className="text-2xl font-bold text-red-600">{stats?.byStatus?.FAILED || 0}</span>
+                    <span className="text-2xl font-bold text-red-600">{stats?.certificates?.byStatus?.FAILED || stats?.certificates?.byStatus?.REJECTED || 0}</span>
                   </div>
                 </div>
               </div>
