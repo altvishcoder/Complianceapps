@@ -60,7 +60,11 @@ import {
   type CertificateVersion, type InsertCertificateVersion,
   type AuditFieldChange, type InsertAuditFieldChange,
   type UkhdsExport, type InsertUkhdsExport,
-  type ComplianceCalendarEvent, type InsertComplianceCalendarEvent
+  type ComplianceCalendarEvent, type InsertComplianceCalendarEvent,
+  navigationSections, navigationItems, iconRegistry,
+  type NavigationSection, type InsertNavigationSection,
+  type NavigationItem, type InsertNavigationItem,
+  type IconRegistryEntry, type InsertIconRegistryEntry
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
@@ -432,6 +436,24 @@ export interface IStorage {
   createOutcomeRule(rule: InsertOutcomeRule): Promise<OutcomeRule>;
   updateOutcomeRule(id: string, updates: Partial<InsertOutcomeRule>): Promise<OutcomeRule | undefined>;
   deleteOutcomeRule(id: string): Promise<boolean>;
+  
+  // Navigation Configuration
+  listNavigationSections(organisationId?: string): Promise<NavigationSection[]>;
+  getNavigationSection(id: string): Promise<NavigationSection | undefined>;
+  createNavigationSection(section: InsertNavigationSection): Promise<NavigationSection>;
+  updateNavigationSection(id: string, updates: Partial<InsertNavigationSection>): Promise<NavigationSection | undefined>;
+  deleteNavigationSection(id: string): Promise<boolean>;
+  
+  listNavigationItems(sectionId?: string): Promise<NavigationItem[]>;
+  getNavigationItem(id: string): Promise<NavigationItem | undefined>;
+  createNavigationItem(item: InsertNavigationItem): Promise<NavigationItem>;
+  updateNavigationItem(id: string, updates: Partial<InsertNavigationItem>): Promise<NavigationItem | undefined>;
+  deleteNavigationItem(id: string): Promise<boolean>;
+  
+  getNavigationWithItems(organisationId?: string): Promise<Array<NavigationSection & { items: NavigationItem[] }>>;
+  
+  listIconRegistry(): Promise<IconRegistryEntry[]>;
+  createIconRegistryEntry(entry: InsertIconRegistryEntry): Promise<IconRegistryEntry>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2676,6 +2698,109 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(certificateOutcomeRules.id, id), eq(certificateOutcomeRules.isSystem, false)))
       .returning();
     return result.length > 0;
+  }
+
+  // Navigation Configuration
+  async listNavigationSections(organisationId?: string): Promise<NavigationSection[]> {
+    if (organisationId) {
+      return db.select()
+        .from(navigationSections)
+        .where(eq(navigationSections.organisationId, organisationId))
+        .orderBy(navigationSections.displayOrder);
+    }
+    return db.select()
+      .from(navigationSections)
+      .where(eq(navigationSections.isActive, true))
+      .orderBy(navigationSections.displayOrder);
+  }
+
+  async getNavigationSection(id: string): Promise<NavigationSection | undefined> {
+    const [section] = await db.select()
+      .from(navigationSections)
+      .where(eq(navigationSections.id, id));
+    return section || undefined;
+  }
+
+  async createNavigationSection(section: InsertNavigationSection): Promise<NavigationSection> {
+    const [created] = await db.insert(navigationSections).values(section).returning();
+    return created;
+  }
+
+  async updateNavigationSection(id: string, updates: Partial<InsertNavigationSection>): Promise<NavigationSection | undefined> {
+    const [updated] = await db.update(navigationSections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(navigationSections.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteNavigationSection(id: string): Promise<boolean> {
+    const result = await db.delete(navigationSections)
+      .where(and(eq(navigationSections.id, id), eq(navigationSections.isSystem, false)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async listNavigationItems(sectionId?: string): Promise<NavigationItem[]> {
+    if (sectionId) {
+      return db.select()
+        .from(navigationItems)
+        .where(eq(navigationItems.sectionId, sectionId))
+        .orderBy(navigationItems.displayOrder);
+    }
+    return db.select()
+      .from(navigationItems)
+      .where(eq(navigationItems.isActive, true))
+      .orderBy(navigationItems.displayOrder);
+  }
+
+  async getNavigationItem(id: string): Promise<NavigationItem | undefined> {
+    const [item] = await db.select()
+      .from(navigationItems)
+      .where(eq(navigationItems.id, id));
+    return item || undefined;
+  }
+
+  async createNavigationItem(item: InsertNavigationItem): Promise<NavigationItem> {
+    const [created] = await db.insert(navigationItems).values(item).returning();
+    return created;
+  }
+
+  async updateNavigationItem(id: string, updates: Partial<InsertNavigationItem>): Promise<NavigationItem | undefined> {
+    const [updated] = await db.update(navigationItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(navigationItems.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteNavigationItem(id: string): Promise<boolean> {
+    const result = await db.delete(navigationItems)
+      .where(and(eq(navigationItems.id, id), eq(navigationItems.isSystem, false)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getNavigationWithItems(organisationId?: string): Promise<Array<NavigationSection & { items: NavigationItem[] }>> {
+    const sections = await this.listNavigationSections(organisationId);
+    const allItems = await this.listNavigationItems();
+    
+    return sections.map(section => ({
+      ...section,
+      items: allItems.filter(item => item.sectionId === section.id)
+    }));
+  }
+
+  async listIconRegistry(): Promise<IconRegistryEntry[]> {
+    return db.select()
+      .from(iconRegistry)
+      .where(eq(iconRegistry.isActive, true))
+      .orderBy(iconRegistry.iconKey);
+  }
+
+  async createIconRegistryEntry(entry: InsertIconRegistryEntry): Promise<IconRegistryEntry> {
+    const [created] = await db.insert(iconRegistry).values(entry).returning();
+    return created;
   }
 }
 
