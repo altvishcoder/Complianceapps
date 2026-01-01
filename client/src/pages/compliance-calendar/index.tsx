@@ -19,7 +19,7 @@ import { Calendar, dateFnsLocalizer, Views, type View, type Event as RBCEvent, t
 import { format, parse, startOfWeek, getDay, differenceInDays, addDays } from "date-fns";
 import { enGB } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { cn, formatDate, apiRequest } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
