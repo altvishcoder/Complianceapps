@@ -44,7 +44,9 @@ import {
   Library,
   TreePine,
   BarChart3,
-  HeartPulse
+  HeartPulse,
+  Target,
+  Timer
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -132,7 +134,10 @@ export function Sidebar() {
     icon: Users,
     defaultOpen: false,
     items: [
+      { name: "Performance", href: "/contractors/dashboard", icon: BarChart3 },
+      { name: "SLA Tracking", href: "/contractors/sla", icon: Target },
       { name: "Contractors", href: "/contractors", icon: Users },
+      { name: "Reports", href: "/contractors/reports", icon: FileText },
     ]
   };
 

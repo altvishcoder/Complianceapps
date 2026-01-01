@@ -45,6 +45,9 @@ import CertificateDetailPage from "@/pages/certificates/detail";
 import CompliancePage from "@/pages/compliance";
 import ActionsPage from "@/pages/actions";
 import ContractorsPage from "@/pages/contractors";
+import ContractorDashboardPage from "@/pages/contractors/dashboard";
+import ContractorSLAPage from "@/pages/contractors/sla";
+import ContractorReportsPage from "@/pages/contractors/reports";
 import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import MFAPage from "@/pages/mfa";
@@ -99,6 +102,9 @@ function Router() {
       <Route path="/compliance">{() => <ProtectedRoute component={CompliancePage} />}</Route>
       <Route path="/actions">{() => <ProtectedRoute component={ActionsPage} />}</Route>
       <Route path="/contractors">{() => <ProtectedRoute component={ContractorsPage} />}</Route>
+      <Route path="/contractors/dashboard">{() => <ProtectedRoute component={ContractorDashboardPage} />}</Route>
+      <Route path="/contractors/sla">{() => <ProtectedRoute component={ContractorSLAPage} />}</Route>
+      <Route path="/contractors/reports">{() => <ProtectedRoute component={ContractorReportsPage} />}</Route>
       <Route path="/risk-radar">{() => <ProtectedRoute component={RiskRadarPage} />}</Route>
       <Route path="/reports">{() => <ProtectedRoute component={Reports} />}</Route>
       <Route path="/calendar">{() => <ProtectedRoute component={ComplianceCalendar} />}</Route>
