@@ -2466,8 +2466,9 @@ export async function registerRoutes(
           );
           
           if (result.success) {
+            // Always go to NEEDS_REVIEW for human verification, consistent with main extraction flow
             await storage.updateCertificate(certificate.id, {
-              status: result.requiresReview ? 'NEEDS_REVIEW' : 'EXTRACTED',
+              status: 'NEEDS_REVIEW',
               statusMessage: `Reprocessed with ${result.finalTier} (confidence: ${(result.confidence * 100).toFixed(1)}%)`,
             });
           } else {

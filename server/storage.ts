@@ -7,7 +7,7 @@ import {
   componentTypes, units, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
-  factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, rateLimitEntries,
+  factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, ingestionBatches, rateLimitEntries,
   systemLogs, auditEvents,
   certificateDetectionPatterns, certificateOutcomeRules,
   contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
@@ -51,6 +51,7 @@ import {
   type ApiClient, type InsertApiClient,
   type UploadSession, type InsertUploadSession,
   type IngestionJob, type InsertIngestionJob,
+  type IngestionBatch, type InsertIngestionBatch,
   type SystemLog,
   type AuditEvent, type InsertAuditEvent,
   type DetectionPattern, type InsertDetectionPattern,
@@ -103,6 +104,12 @@ export interface IStorage {
   bulkVerifyProperties(ids: string[]): Promise<number>;
   bulkRejectProperties(ids: string[]): Promise<number>;
   getOrCreateAutoProperty(organisationId: string, addressData: { addressLine1: string; city?: string; postcode?: string }): Promise<Property>;
+  
+  // Ingestion Batches
+  listIngestionBatches(organisationId: string): Promise<IngestionBatch[]>;
+  getIngestionBatch(id: string): Promise<IngestionBatch | undefined>;
+  createIngestionBatch(batch: InsertIngestionBatch): Promise<IngestionBatch>;
+  updateIngestionBatch(id: string, updates: Partial<InsertIngestionBatch>): Promise<IngestionBatch | undefined>;
   
   // Certificates
   listCertificates(organisationId: string, filters?: { propertyId?: string; status?: string }): Promise<Certificate[]>;
@@ -720,6 +727,31 @@ export class DatabaseStorage implements IStorage {
       if (result.rowCount && result.rowCount > 0) deleted++;
     }
     return deleted;
+  }
+  
+  // Ingestion Batches
+  async listIngestionBatches(organisationId: string): Promise<IngestionBatch[]> {
+    return db.select().from(ingestionBatches)
+      .where(eq(ingestionBatches.organisationId, organisationId))
+      .orderBy(desc(ingestionBatches.createdAt));
+  }
+  
+  async getIngestionBatch(id: string): Promise<IngestionBatch | undefined> {
+    const [batch] = await db.select().from(ingestionBatches).where(eq(ingestionBatches.id, id));
+    return batch || undefined;
+  }
+  
+  async createIngestionBatch(batch: InsertIngestionBatch): Promise<IngestionBatch> {
+    const [newBatch] = await db.insert(ingestionBatches).values(batch).returning();
+    return newBatch;
+  }
+  
+  async updateIngestionBatch(id: string, updates: Partial<InsertIngestionBatch>): Promise<IngestionBatch | undefined> {
+    const [updated] = await db.update(ingestionBatches)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(ingestionBatches.id, id))
+      .returning();
+    return updated || undefined;
   }
   
   // Certificates

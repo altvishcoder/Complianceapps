@@ -1563,6 +1563,10 @@ export const insertUploadSessionSchema = createInsertSchema(uploadSessions).omit
 export type UploadSession = typeof uploadSessions.$inferSelect;
 export type InsertUploadSession = z.infer<typeof insertUploadSessionSchema>;
 
+// Ingestion Batches schemas and types
+export type IngestionBatch = typeof ingestionBatches.$inferSelect;
+export type InsertIngestionBatch = z.infer<typeof insertIngestionBatchSchema>;
+
 // Ingestion Jobs schemas and types
 export const insertIngestionJobSchema = createInsertSchema(ingestionJobs).omit({ id: true, createdAt: true, updatedAt: true, completedAt: true, lastAttemptAt: true, nextRetryAt: true });
 export type IngestionJob = typeof ingestionJobs.$inferSelect;
