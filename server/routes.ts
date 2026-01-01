@@ -2038,6 +2038,136 @@ export async function registerRoutes(
     }
   });
   
+  // ===== COMPLIANCE CALENDAR EVENTS - requires authentication =====
+  app.get("/api/calendar/events", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const filters: { startDate?: Date; endDate?: Date; eventType?: string; complianceStreamId?: string } = {};
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+      if (req.query.eventType) filters.eventType = req.query.eventType as string;
+      if (req.query.complianceStreamId) filters.complianceStreamId = req.query.complianceStreamId as string;
+      
+      const events = await storage.listCalendarEvents(user.organisationId, filters);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  
+  app.get("/api/calendar/events/upcoming", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const daysAhead = parseInt(req.query.days as string) || 7;
+      const events = await storage.getUpcomingEvents(user.organisationId, daysAhead);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching upcoming events:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming events" });
+    }
+  });
+  
+  app.get("/api/calendar/events/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const event = await storage.getCalendarEvent(req.params.id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error fetching calendar event:", error);
+      res.status(500).json({ error: "Failed to fetch calendar event" });
+    }
+  });
+  
+  app.post("/api/calendar/events", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const eventData = {
+        ...req.body,
+        organisationId: user.organisationId,
+        createdBy: userId,
+        startDate: new Date(req.body.startDate),
+        endDate: req.body.endDate ? new Date(req.body.endDate) : null,
+      };
+      
+      const event = await storage.createCalendarEvent(eventData);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  
+  app.patch("/api/calendar/events/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const updates = { ...req.body };
+      if (updates.startDate) updates.startDate = new Date(updates.startDate);
+      if (updates.endDate) updates.endDate = new Date(updates.endDate);
+      
+      const event = await storage.updateCalendarEvent(req.params.id, updates);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error updating calendar event:", error);
+      res.status(500).json({ error: "Failed to update calendar event" });
+    }
+  });
+  
+  app.delete("/api/calendar/events/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const deleted = await storage.deleteCalendarEvent(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting calendar event:", error);
+      res.status(500).json({ error: "Failed to delete calendar event" });
+    }
+  });
+  
   // ===== CERTIFICATE EXPIRY ALERTS - requires authentication =====
   app.get("/api/certificates/expiring", async (req, res) => {
     try {
