@@ -38,6 +38,7 @@ interface IngestionStats {
   };
   byStatus: Record<string, number>;
   byType: Record<string, number>;
+  byChannel: Record<string, number>;
   recentErrors: IngestionJob[];
   throughputByHour: Array<{ hour: string; count: number }>;
   avgProcessingTime: number;
@@ -71,6 +72,7 @@ interface IngestionJob {
   propertyId: string | null;
   fileName: string;
   objectPath: string | null;
+  channel: string | null;
   status: string;
   progress: number;
   statusMessage: string | null;
@@ -86,6 +88,20 @@ interface IngestionJob {
   updatedAt: string;
   completedAt: string | null;
 }
+
+const CHANNEL_COLORS: Record<string, string> = {
+  MANUAL_UPLOAD: "bg-blue-100 text-blue-800 border-blue-200",
+  EXTERNAL_API: "bg-purple-100 text-purple-800 border-purple-200",
+  BULK_IMPORT: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  DEMO: "bg-gray-100 text-gray-500 border-gray-200",
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  MANUAL_UPLOAD: "Manual",
+  EXTERNAL_API: "API",
+  BULK_IMPORT: "Bulk",
+  DEMO: "Demo",
+};
 
 const STATUS_COLORS: Record<string, string> = {
   QUEUED: "bg-blue-100 text-blue-800 border-blue-200",
@@ -205,6 +221,28 @@ export default function IngestionControlRoom() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to Create Test Jobs", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const clearDemoJobsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/clear-demo-jobs', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to clear demo jobs");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Demo Jobs Cleared", description: data.message });
+      refetchJobs();
+      refetchStats();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Clear Demo Jobs", description: error.message, variant: "destructive" });
     },
   });
 
@@ -487,6 +525,22 @@ export default function IngestionControlRoom() {
                           <><Activity className="h-4 w-4 mr-2" /> Create Demo Jobs</>
                         )}
                       </Button>
+                      {(stats?.byChannel?.DEMO || 0) > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => clearDemoJobsMutation.mutate()}
+                          disabled={clearDemoJobsMutation.isPending}
+                          className="text-gray-600 border-gray-300 hover:bg-gray-100"
+                          data-testid="button-clear-demo-jobs"
+                        >
+                          {clearDemoJobsMutation.isPending ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Clearing...</>
+                          ) : (
+                            <><XCircle className="h-4 w-4 mr-2" /> Clear Demo ({stats?.byChannel?.DEMO})</>
+                          )}
+                        </Button>
+                      )}
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-40" data-testid="select-status-filter">
                           <SelectValue placeholder="Filter by status" />
@@ -508,6 +562,7 @@ export default function IngestionControlRoom() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Channel</TableHead>
                           <TableHead>Certificate Type</TableHead>
                           <TableHead>File</TableHead>
                           <TableHead>Status</TableHead>
@@ -520,8 +575,14 @@ export default function IngestionControlRoom() {
                       <TableBody>
                         {jobs?.map((job) => {
                           const StatusIcon = STATUS_ICONS[job.status] || Clock;
+                          const channel = job.channel || 'MANUAL_UPLOAD';
                           return (
                             <TableRow key={job.id} data-testid={`row-job-${job.id}`}>
+                              <TableCell>
+                                <Badge className={CHANNEL_COLORS[channel] || CHANNEL_COLORS.MANUAL_UPLOAD} variant="outline">
+                                  {CHANNEL_LABELS[channel] || channel}
+                                </Badge>
+                              </TableCell>
                               <TableCell className="font-medium">{job.certificateType.replace(/_/g, ' ')}</TableCell>
                               <TableCell className="max-w-48 truncate" title={job.fileName}>{job.fileName}</TableCell>
                               <TableCell>
@@ -559,7 +620,7 @@ export default function IngestionControlRoom() {
                         })}
                         {(!jobs || jobs.length === 0) && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                               No jobs found
                             </TableCell>
                           </TableRow>

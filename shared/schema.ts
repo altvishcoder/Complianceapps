@@ -1130,12 +1130,16 @@ export const uploadSessions = pgTable("upload_sessions", {
 
 // Ingestion Jobs (async certificate processing)
 export const ingestionJobStatusEnum = pgEnum('ingestion_job_status', ['QUEUED', 'UPLOADING', 'PROCESSING', 'EXTRACTING', 'COMPLETE', 'FAILED', 'CANCELLED']);
+export const ingestionChannelEnum = pgEnum('ingestion_channel', ['MANUAL_UPLOAD', 'EXTERNAL_API', 'BULK_IMPORT', 'DEMO']);
 
 export const ingestionJobs = pgTable("ingestion_jobs", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
   apiClientId: varchar("api_client_id").references(() => apiClients.id),
   uploadSessionId: varchar("upload_session_id").references(() => uploadSessions.id),
+  
+  // Ingestion channel (source)
+  channel: ingestionChannelEnum("channel").notNull().default('MANUAL_UPLOAD'),
   
   // Certificate metadata
   certificateType: certificateTypeEnum("certificate_type").notNull(),

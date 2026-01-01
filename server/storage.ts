@@ -339,9 +339,11 @@ export interface IStorage {
   createIngestionJob(job: InsertIngestionJob): Promise<IngestionJob>;
   updateIngestionJob(id: string, updates: Partial<IngestionJob>): Promise<IngestionJob | undefined>;
   getNextPendingIngestionJob(): Promise<IngestionJob | undefined>;
+  deleteIngestionJobsByChannel(channel: string): Promise<number>;
   getIngestionStats(): Promise<{
     byStatus: Record<string, number>;
     byType: Record<string, number>;
+    byChannel: Record<string, number>;
     recentErrors: IngestionJob[];
     throughputByHour: Array<{ hour: string; count: number }>;
     avgProcessingTime: number;
@@ -2123,9 +2125,17 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
   }
 
+  async deleteIngestionJobsByChannel(channel: string): Promise<number> {
+    const deleted = await db.delete(ingestionJobs)
+      .where(eq(ingestionJobs.channel, channel as any))
+      .returning();
+    return deleted.length;
+  }
+
   async getIngestionStats(): Promise<{
     byStatus: Record<string, number>;
     byType: Record<string, number>;
+    byChannel: Record<string, number>;
     recentErrors: IngestionJob[];
     throughputByHour: Array<{ hour: string; count: number }>;
     avgProcessingTime: number;
@@ -2135,6 +2145,7 @@ export class DatabaseStorage implements IStorage {
     
     const byStatus: Record<string, number> = {};
     const byType: Record<string, number> = {};
+    const byChannel: Record<string, number> = {};
     let totalCompleted = 0;
     let totalFailed = 0;
     let totalProcessingTime = 0;
@@ -2143,6 +2154,7 @@ export class DatabaseStorage implements IStorage {
     for (const job of allJobs) {
       byStatus[job.status] = (byStatus[job.status] || 0) + 1;
       byType[job.certificateType] = (byType[job.certificateType] || 0) + 1;
+      byChannel[job.channel || 'MANUAL_UPLOAD'] = (byChannel[job.channel || 'MANUAL_UPLOAD'] || 0) + 1;
       
       if (job.status === 'COMPLETE') {
         totalCompleted++;
@@ -2183,6 +2195,7 @@ export class DatabaseStorage implements IStorage {
     return {
       byStatus,
       byType,
+      byChannel,
       recentErrors,
       throughputByHour,
       avgProcessingTime,

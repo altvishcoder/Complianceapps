@@ -6068,6 +6068,7 @@ export async function registerRoutes(
         organisationId: auth.client.organisationId,
         propertyId,
         certificateType,
+        channel: 'EXTERNAL_API',
         fileName,
         objectPath,
         webhookUrl,
@@ -6340,6 +6341,7 @@ export async function registerRoutes(
           organisationId: ORG_ID,
           propertyId: property.id,
           certificateType: certType,
+          channel: 'DEMO',
           fileName: `test_${certType.toLowerCase()}_${Date.now()}_${i}.pdf`,
           objectPath: null,
           webhookUrl: null,
@@ -6377,6 +6379,24 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating test queue jobs:", error);
       res.status(500).json({ error: "Failed to create test queue jobs" });
+    }
+  });
+  
+  // Clear demo ingestion jobs - Admin only
+  app.delete("/api/admin/clear-demo-jobs", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const deletedCount = await storage.deleteIngestionJobsByChannel('DEMO');
+      
+      res.json({ 
+        success: true,
+        message: `Cleared ${deletedCount} demo jobs`,
+        deletedCount
+      });
+    } catch (error) {
+      console.error("Error clearing demo jobs:", error);
+      res.status(500).json({ error: "Failed to clear demo jobs" });
     }
   });
   
