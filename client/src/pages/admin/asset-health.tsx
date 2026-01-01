@@ -6,12 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Building2, Home, Layers, ChevronRight, AlertTriangle, CheckCircle, 
-  Clock, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus
+  Clock, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, ExternalLink
 } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Treemap, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
+import { useLocation } from "wouter";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface Property {
   id: string;
@@ -49,6 +51,7 @@ interface TreeNode {
   expiredProperties: number;
   nodeType?: 'scheme' | 'block' | 'property';
   blocksCount?: number;
+  nodeId?: string;
   children?: TreeNode[];
 }
 
@@ -111,6 +114,10 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
               {rate.toFixed(0)}%
             </span>
           </div>
+          <div className="flex items-center gap-1 text-blue-600 pt-1 border-t mt-1">
+            <ExternalLink className="h-3 w-3" />
+            <span>Click to view property</span>
+          </div>
         </div>
       </div>
     );
@@ -150,6 +157,10 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
             <span className="text-red-600">Expired:</span>
             <span>{data.expiredProperties}</span>
           </div>
+          <div className="flex items-center gap-1 text-blue-600 pt-1 border-t mt-1">
+            <ExternalLink className="h-3 w-3" />
+            <span>Click to view properties in scheme</span>
+          </div>
         </div>
       </div>
     );
@@ -182,6 +193,10 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
           <span className="text-red-600">Expired:</span>
           <span>{data.expiredProperties}</span>
         </div>
+        <div className="flex items-center gap-1 text-blue-600 pt-1 border-t mt-1">
+          <ExternalLink className="h-3 w-3" />
+          <span>Click to view properties in block</span>
+        </div>
       </div>
     </div>
   );
@@ -196,6 +211,8 @@ interface TreemapContentProps {
   complianceRate?: number;
   depth?: number;
   index?: number;
+  nodeType?: 'scheme' | 'block' | 'property';
+  nodeId?: string;
 }
 
 function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', complianceRate = 0, depth = 0 }: TreemapContentProps) {
@@ -204,7 +221,7 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
   const color = getComplianceColor(complianceRate);
   
   return (
-    <g>
+    <g style={{ cursor: 'pointer' }}>
       <rect
         x={x}
         y={y}
@@ -421,6 +438,7 @@ export default function AssetHealth() {
         expiredProperties: expired,
         complianceRate,
         nodeType: 'property' as const,
+        nodeId: prop.id,
       };
     };
     
@@ -442,6 +460,7 @@ export default function AssetHealth() {
             ...stats,
             nodeType: 'scheme' as const,
             blocksCount: schemeBlocks.length,
+            nodeId: scheme.id,
           };
         })
         .filter(node => node.totalProperties > 0);
@@ -470,6 +489,7 @@ export default function AssetHealth() {
             size: Math.max(stats.totalProperties, 1),
             ...stats,
             nodeType: 'block' as const,
+            nodeId: block.id,
           };
         })
         .filter(node => node.totalProperties > 0);
@@ -522,6 +542,28 @@ export default function AssetHealth() {
     return blocks.filter(b => b.schemeId === selectedScheme);
   }, [blocks, selectedScheme]);
 
+  const [, navigate] = useLocation();
+
+  const handleTreemapClick = useCallback((data: any) => {
+    if (!data || !data.nodeType || !data.nodeId) return;
+    
+    switch (data.nodeType) {
+      case 'property':
+        navigate(`/properties/${data.nodeId}`);
+        break;
+      case 'scheme':
+        // Navigate to properties page with scheme filter
+        setSelectedScheme(data.nodeId);
+        setViewLevel('block');
+        break;
+      case 'block':
+        // Navigate to properties page with block filter
+        setSelectedBlock(data.nodeId);
+        setViewLevel('property');
+        break;
+    }
+  }, [navigate]);
+
   return (
     <div className="flex h-screen overflow-hidden" data-testid="page-asset-health">
       <Sidebar />
@@ -539,6 +581,7 @@ export default function AssetHealth() {
             </Button>
           </div>
 
+          <ErrorBoundary sectionName="Statistics">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card>
               <CardContent className="pt-6">
@@ -610,7 +653,9 @@ export default function AssetHealth() {
               </CardContent>
             </Card>
           </div>
+          </ErrorBoundary>
 
+          <ErrorBoundary sectionName="Treemap">
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -674,6 +719,7 @@ export default function AssetHealth() {
                       dataKey="size"
                       stroke="#fff"
                       content={<CustomTreemapContent />}
+                      onClick={handleTreemapClick}
                     >
                       <Tooltip content={<CustomTreemapTooltip />} />
                     </Treemap>
@@ -682,6 +728,7 @@ export default function AssetHealth() {
               )}
             </CardContent>
           </Card>
+          </ErrorBoundary>
 
           <div className="flex items-center justify-center gap-6 text-sm" data-testid="color-legend">
             <span className="text-muted-foreground font-medium">Compliance Legend:</span>
