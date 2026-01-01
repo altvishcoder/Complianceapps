@@ -2225,6 +2225,125 @@ export type ContractorAssignment = typeof contractorAssignments.$inferSelect;
 export type InsertContractorAssignment = z.infer<typeof insertContractorAssignmentSchema>;
 
 // =====================================================
+// CONTRACTOR SLA & PERFORMANCE TRACKING
+// =====================================================
+
+// SLA Priority levels
+export const slaPriorityEnum = pgEnum('sla_priority', [
+  'EMERGENCY',    // 24 hours or less
+  'URGENT',       // 3 days
+  'HIGH',         // 7 days
+  'STANDARD',     // 28 days
+  'LOW'           // 60 days
+]);
+
+// SLA compliance status
+export const slaComplianceStatusEnum = pgEnum('sla_compliance_status', [
+  'ON_TRACK',     // Within SLA timeframe
+  'AT_RISK',      // 75%+ of SLA time used
+  'BREACHED',     // SLA deadline passed
+  'COMPLETED',    // Finished within SLA
+  'COMPLETED_LATE' // Finished but after SLA
+]);
+
+// Contractor SLA Profiles - Define SLA targets per work category
+export const contractorSLAProfiles = pgTable("contractor_sla_profiles", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  workCategory: contractorWorkCategoryEnum("work_category").notNull(),
+  priority: slaPriorityEnum("priority").notNull(),
+  
+  responseTimeHours: integer("response_time_hours").notNull(),
+  completionTimeHours: integer("completion_time_hours").notNull(),
+  
+  penaltyPercentage: integer("penalty_percentage").default(0),
+  bonusPercentage: integer("bonus_percentage").default(0),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Contractor Job Performance - Track actual performance per assignment
+export const contractorJobPerformance = pgTable("contractor_job_performance", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  contractorId: varchar("contractor_id").references(() => contractors.id).notNull(),
+  assignmentId: varchar("assignment_id").references(() => contractorAssignments.id),
+  
+  slaProfileId: varchar("sla_profile_id").references(() => contractorSLAProfiles.id),
+  priority: slaPriorityEnum("priority").notNull(),
+  
+  assignedAt: timestamp("assigned_at").notNull(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  slaDeadline: timestamp("sla_deadline").notNull(),
+  responseDeadline: timestamp("response_deadline"),
+  
+  slaStatus: slaComplianceStatusEnum("sla_status").notNull().default('ON_TRACK'),
+  
+  responseTimeMinutes: integer("response_time_minutes"),
+  completionTimeMinutes: integer("completion_time_minutes"),
+  slaBreachMinutes: integer("sla_breach_minutes"),
+  
+  firstTimeFixRate: boolean("first_time_fix"),
+  returnVisitRequired: boolean("return_visit_required").default(false),
+  defectsRaised: integer("defects_raised").default(0),
+  
+  notes: text("notes"),
+  metadata: json("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Contractor Ratings - Customer/property manager satisfaction
+export const contractorRatings = pgTable("contractor_ratings", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  contractorId: varchar("contractor_id").references(() => contractors.id).notNull(),
+  jobPerformanceId: varchar("job_performance_id").references(() => contractorJobPerformance.id),
+  
+  ratedById: varchar("rated_by_id").references(() => users.id),
+  
+  overallRating: integer("overall_rating").notNull(),
+  qualityRating: integer("quality_rating"),
+  timelinessRating: integer("timeliness_rating"),
+  communicationRating: integer("communication_rating"),
+  safetyRating: integer("safety_rating"),
+  
+  feedback: text("feedback"),
+  wouldRecommend: boolean("would_recommend"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for SLA tables
+export const insertContractorSLAProfileSchema = createInsertSchema(contractorSLAProfiles).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertContractorJobPerformanceSchema = createInsertSchema(contractorJobPerformance).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertContractorRatingSchema = createInsertSchema(contractorRatings).omit({ 
+  id: true, createdAt: true 
+});
+
+// Types for SLA tables
+export type ContractorSLAProfile = typeof contractorSLAProfiles.$inferSelect;
+export type InsertContractorSLAProfile = z.infer<typeof insertContractorSLAProfileSchema>;
+
+export type ContractorJobPerformance = typeof contractorJobPerformance.$inferSelect;
+export type InsertContractorJobPerformance = z.infer<typeof insertContractorJobPerformanceSchema>;
+
+export type ContractorRating = typeof contractorRatings.$inferSelect;
+export type InsertContractorRating = z.infer<typeof insertContractorRatingSchema>;
+
+// =====================================================
 // GOLDEN THREAD COMPLIANCE TABLES
 // =====================================================
 
