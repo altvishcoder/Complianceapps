@@ -274,6 +274,16 @@ async function seedComponents(propertyIds: string[], componentTypesList: any[]):
   return componentIds;
 }
 
+const DLO_STAFF_NAMES = [
+  "John Smith", "Sarah Johnson", "Michael Brown", "Emma Wilson", "David Taylor",
+  "Lisa Anderson", "James Martin", "Sophie Davis", "Robert Thomas", "Claire Jackson",
+  "William White", "Hannah Harris", "Daniel Clark", "Emily Lewis", "Matthew Walker"
+];
+
+const DLO_DEPARTMENTS = [
+  "Gas & Heating", "Electrical", "General Maintenance", "Plumbing", "Fire Safety"
+];
+
 async function seedContractors(orgId: string, streamCodeToId: Record<string, string>): Promise<string[]> {
   const contractorIds: string[] = [];
   const statuses = ["APPROVED", "PENDING", "APPROVED", "APPROVED", "SUSPENDED"] as const;
@@ -293,9 +303,32 @@ async function seedContractors(orgId: string, streamCodeToId: Record<string, str
       status: statuses[i % statuses.length],
       gasRegistration: tradeType === "GAS_ENGINEER" ? `${Math.floor(Math.random() * 999999)}` : null,
       electricalRegistration: tradeType === "ELECTRICIAN" ? `NICEIC${String(i).padStart(6, '0')}` : null,
+      isInternal: false,
     }).returning();
     
     contractorIds.push(contractor.id);
+  }
+  
+  for (let i = 0; i < 25; i++) {
+    const staffName = DLO_STAFF_NAMES[i % DLO_STAFF_NAMES.length];
+    const department = DLO_DEPARTMENTS[i % DLO_DEPARTMENTS.length];
+    const tradeType = TRADE_TYPES[i % TRADE_TYPES.length];
+    
+    const [staff] = await db.insert(contractors).values({
+      organisationId: orgId,
+      companyName: staffName,
+      tradeType,
+      contactEmail: `${staffName.toLowerCase().replace(' ', '.')}@housing.org.uk`,
+      contactPhone: `07${String(Math.floor(Math.random() * 999999999)).padStart(9, '0')}`,
+      status: "APPROVED",
+      gasRegistration: tradeType === "GAS_ENGINEER" ? `${Math.floor(Math.random() * 999999)}` : null,
+      electricalRegistration: tradeType === "ELECTRICIAN" ? `NICEIC${String(i).padStart(6, '0')}` : null,
+      isInternal: true,
+      employeeId: `EMP-${String(i + 1).padStart(4, '0')}`,
+      department,
+    }).returning();
+    
+    contractorIds.push(staff.id);
   }
   
   return contractorIds;

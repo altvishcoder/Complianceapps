@@ -144,6 +144,18 @@ export function Sidebar() {
     ]
   };
 
+  const staffManagement: NavSection = {
+    title: "Staff & DLO",
+    icon: Briefcase,
+    defaultOpen: false,
+    items: [
+      { name: "Performance", href: "/staff/dashboard", icon: BarChart3 },
+      { name: "SLA Tracking", href: "/staff/sla", icon: Target },
+      { name: "Staff Directory", href: "/staff", icon: Users },
+      { name: "Reports", href: "/staff/reports", icon: FileText },
+    ]
+  };
+
   const monitoring: NavSection = {
     title: "Monitoring",
     icon: MonitorCheck,
@@ -386,6 +398,7 @@ export function Sidebar() {
           {renderSection(assetManagement)}
           {renderSection(operations)}
           {renderSection(contractorManagement)}
+          {renderSection(staffManagement)}
           {renderSection(monitoring)}
           {renderSection(administration)}
           {renderSection(resources)}

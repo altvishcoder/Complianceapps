@@ -1451,10 +1451,12 @@ export async function registerRoutes(
     }
   });
   
-  // ===== CONTRACTORS =====
+  // ===== CONTRACTORS & STAFF =====
   app.get("/api/contractors", async (req, res) => {
     try {
-      const contractors = await storage.listContractors(ORG_ID);
+      const isInternalParam = req.query.isInternal;
+      const isInternal = isInternalParam === 'true' ? true : isInternalParam === 'false' ? false : undefined;
+      const contractors = await storage.listContractors(ORG_ID, isInternal);
       res.json(contractors);
     } catch (error) {
       console.error("Error fetching contractors:", error);

@@ -48,6 +48,10 @@ import ContractorsPage from "@/pages/contractors";
 import ContractorDashboardPage from "@/pages/contractors/dashboard";
 import ContractorSLAPage from "@/pages/contractors/sla";
 import ContractorReportsPage from "@/pages/contractors/reports";
+import StaffDirectoryPage from "@/pages/staff";
+import StaffDashboardPage from "@/pages/staff/dashboard";
+import StaffSLAPage from "@/pages/staff/sla";
+import StaffReportsPage from "@/pages/staff/reports";
 import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import MFAPage from "@/pages/mfa";
@@ -108,6 +112,10 @@ function Router() {
       <Route path="/contractors/dashboard">{() => <ProtectedRoute component={ContractorDashboardPage} />}</Route>
       <Route path="/contractors/sla">{() => <ProtectedRoute component={ContractorSLAPage} />}</Route>
       <Route path="/contractors/reports">{() => <ProtectedRoute component={ContractorReportsPage} />}</Route>
+      <Route path="/staff">{() => <ProtectedRoute component={StaffDirectoryPage} />}</Route>
+      <Route path="/staff/dashboard">{() => <ProtectedRoute component={StaffDashboardPage} />}</Route>
+      <Route path="/staff/sla">{() => <ProtectedRoute component={StaffSLAPage} />}</Route>
+      <Route path="/staff/reports">{() => <ProtectedRoute component={StaffReportsPage} />}</Route>
       <Route path="/risk-radar">{() => <ProtectedRoute component={RiskRadarPage} />}</Route>
       <Route path="/reports">{() => <ProtectedRoute component={Reports} />}</Route>
       <Route path="/reports/board">{() => <ProtectedRoute component={BoardReportingPage} />}</Route>

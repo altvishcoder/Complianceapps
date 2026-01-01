@@ -246,15 +246,15 @@ export const usersApi = {
     }),
 };
 
-// Contractors
+// Contractors (external)
 export const contractorsApi = {
-  list: () => fetchJSON<Contractor[]>(`${API_BASE}/contractors`),
+  list: () => fetchJSON<Contractor[]>(`${API_BASE}/contractors?isInternal=false`),
   
   get: (id: string) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`),
   
   create: (data: Omit<InsertContractor, 'organisationId'>) => fetchJSON<Contractor>(`${API_BASE}/contractors`, {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, isInternal: false }),
   }),
   
   update: (id: string, data: Partial<Contractor>) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`, {
@@ -278,6 +278,29 @@ export const contractorsApi = {
     fetchJSON<{ success: boolean; rejected: number }>(`${API_BASE}/contractors/bulk-reject`, {
       method: "POST",
       body: JSON.stringify({ ids }),
+    }),
+};
+
+// Staff / DLO (internal operatives)
+export const staffApi = {
+  list: () => fetchJSON<Contractor[]>(`${API_BASE}/contractors?isInternal=true`),
+  
+  get: (id: string) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`),
+  
+  create: (data: Omit<InsertContractor, 'organisationId'>) => fetchJSON<Contractor>(`${API_BASE}/contractors`, {
+    method: "POST",
+    body: JSON.stringify({ ...data, isInternal: true }),
+  }),
+  
+  update: (id: string, data: Partial<Contractor>) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  
+  updateStatus: (id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED') => 
+    fetchJSON<Contractor>(`${API_BASE}/contractors/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
     }),
 };
 

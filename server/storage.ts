@@ -907,9 +907,13 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
   
-  // Contractors
-  async listContractors(organisationId: string): Promise<Contractor[]> {
-    return db.select().from(contractors).where(eq(contractors.organisationId, organisationId)).orderBy(desc(contractors.createdAt));
+  // Contractors & Staff
+  async listContractors(organisationId: string, isInternal?: boolean): Promise<Contractor[]> {
+    const conditions = [eq(contractors.organisationId, organisationId)];
+    if (isInternal !== undefined) {
+      conditions.push(eq(contractors.isInternal, isInternal));
+    }
+    return db.select().from(contractors).where(and(...conditions)).orderBy(desc(contractors.createdAt));
   }
   
   async getContractor(id: string): Promise<Contractor | undefined> {
