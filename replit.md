@@ -38,6 +38,14 @@ Preferred communication style: Simple, everyday language.
     - 84 detection patterns for certificate type identification (FILENAME and TEXT_CONTENT patterns with priority-based matching)
     - 27 outcome rules for compliance result interpretation (supports field checks, array matching for appliances/defects, and UK legislation references)
 
+### Navigation Structure
+-   **Command Centre**: Overview, Analytics, Ingestion, Reporting (main dashboards)
+-   **Asset Management**: Hierarchy (admin/manager only), Properties, Components
+-   **Compliance Operations**: Certificates, Risk Radar, Remedial Actions, Calendar, Contractors, Risk Maps, Asset Health (super admin), Remedial Kanban (super admin), Human Review (admin/manager)
+-   **Monitoring**: System Health, Ingestion Control, Chatbot Analytics, Audit Log, Test Suite, Model Insights (admin/manager access required)
+-   **Administration**: User Management, Configuration, Factory Settings, Knowledge Training, Integrations, API Integration, API Documentation (admin only)
+-   **Resources**: Data Import, Video Library, Help Guide
+
 ### Key Features
 -   **AI-powered Document Extraction**: Processes uploaded compliance certificates using AI, covering 45 extraction schemas.
 -   **Configuration-Driven Remedial Actions**: Generates remedial actions based on configurable classification codes and UK legislation references.
