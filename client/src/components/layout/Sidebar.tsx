@@ -105,7 +105,7 @@ export function Sidebar() {
     icon: FolderTree,
     defaultOpen: false,
     items: [
-      { name: "Hierarchy", href: "/admin/hierarchy", icon: TreePine, requiresAITools: true },
+      { name: "Property Hierarchy", href: "/admin/hierarchy", icon: TreePine, requiresAITools: true },
       { name: "Properties", href: "/properties", icon: Building2 },
       { name: "Components", href: "/components", icon: Package },
     ]
