@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { organisationsApi, schemesApi, blocksApi, propertiesApi, unitsApi, spacesApi, componentsApi } from "@/lib/api";
+import { organisationsApi, schemesApi, blocksApi, propertiesApi, unitsApi, spacesApi, componentsApi, type EnrichedComponent } from "@/lib/api";
 import type { Scheme, Block, Property, Unit, Space, Component } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -452,11 +452,17 @@ export default function PropertyHierarchy() {
               // Get units for this property
               const propertyUnits = allUnits.filter((u: Unit) => u.propertyId === property.id);
               // Get components directly attached to property (not via unit/space)
+              const getComponentName = (comp: EnrichedComponent) => {
+                if (comp.componentType?.name) return comp.componentType.name;
+                if (comp.manufacturer) return `${comp.manufacturer} ${comp.model || ''}`.trim();
+                return comp.assetTag || comp.serialNumber || 'Component';
+              };
+              
               const directComponents = components
-                .filter((c: Component) => c.propertyId === property.id && !c.unitId && !c.spaceId)
-                .map((component: Component) => ({
+                .filter((c: EnrichedComponent) => c.propertyId === property.id && !c.unitId && !c.spaceId)
+                .map((component: EnrichedComponent) => ({
                   id: component.id,
-                  name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
+                  name: getComponentName(component),
                   type: 'component' as const,
                   reference: component.serialNumber || undefined,
                   data: { ...component, propertyId: property.id },
@@ -468,10 +474,10 @@ export default function PropertyHierarchy() {
                 const unitSpaces = allSpaces.filter((s: Space) => s.unitId === unit.id);
                 // Get components directly attached to unit (not via space)
                 const unitComponents = components
-                  .filter((c: Component) => c.unitId === unit.id && !c.spaceId)
-                  .map((component: Component) => ({
+                  .filter((c: EnrichedComponent) => c.unitId === unit.id && !c.spaceId)
+                  .map((component: EnrichedComponent) => ({
                     id: component.id,
-                    name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
+                    name: getComponentName(component),
                     type: 'component' as const,
                     reference: component.serialNumber || undefined,
                     data: { ...component, propertyId: property.id },
@@ -481,10 +487,10 @@ export default function PropertyHierarchy() {
                 const spaceNodes: HierarchyNode[] = unitSpaces.map((space: Space) => {
                   // Get components attached to this space
                   const spaceComponents = components
-                    .filter((c: Component) => c.spaceId === space.id)
-                    .map((component: Component) => ({
+                    .filter((c: EnrichedComponent) => c.spaceId === space.id)
+                    .map((component: EnrichedComponent) => ({
                       id: component.id,
-                      name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
+                      name: getComponentName(component),
                       type: 'component' as const,
                       reference: component.serialNumber || undefined,
                       data: { ...component, propertyId: property.id },

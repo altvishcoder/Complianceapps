@@ -39,22 +39,6 @@ export default function ComponentsPage() {
   const [hasScrolled, setHasScrolled] = useState(false);
   const [lastHighlightId, setLastHighlightId] = useState<string | null>(null);
   const [wasLoading, setWasLoading] = useState(false);
-  
-  // Reset scroll state when highlightId changes or when data finishes loading
-  useEffect(() => {
-    if (highlightId !== lastHighlightId) {
-      setHasScrolled(false);
-      setLastHighlightId(highlightId);
-    }
-  }, [highlightId, lastHighlightId]);
-  
-  // Track loading transitions to reset scroll state on data refresh
-  useEffect(() => {
-    if (wasLoading && !componentsLoading) {
-      setHasScrolled(false);
-    }
-    setWasLoading(componentsLoading);
-  }, [componentsLoading, wasLoading]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -85,6 +69,22 @@ export default function ComponentsPage() {
     queryKey: ["properties"],
     queryFn: () => propertiesApi.list(),
   });
+  
+  // Reset scroll state when highlightId changes
+  useEffect(() => {
+    if (highlightId !== lastHighlightId) {
+      setHasScrolled(false);
+      setLastHighlightId(highlightId);
+    }
+  }, [highlightId, lastHighlightId]);
+  
+  // Track loading transitions to reset scroll state on data refresh
+  useEffect(() => {
+    if (wasLoading && !componentsLoading) {
+      setHasScrolled(false);
+    }
+    setWasLoading(componentsLoading);
+  }, [componentsLoading, wasLoading]);
   
   const createMutation = useMutation({
     mutationFn: (data: InsertComponent) => componentsApi.create(data),
