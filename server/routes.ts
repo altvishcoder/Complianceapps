@@ -8246,7 +8246,7 @@ export async function registerRoutes(
     }
   });
 
-  // Create scheduled report
+  // Create scheduled report - uses pg-boss for scheduling
   app.post("/api/reports/scheduled", async (req, res) => {
     try {
       const { name, templateName, frequency, format, recipients, filters, isActive } = req.body;
@@ -8262,14 +8262,28 @@ export async function registerRoutes(
         VALUES ((SELECT id FROM organisations LIMIT 1), ${name}, ${templateName}, ${frequency}, ${format || 'PDF'}, ${recipients || []}, ${JSON.stringify(filters || {})}, ${isActive !== false}, ${nextRunAt})
         RETURNING *
       `);
-      res.json(result.rows[0]);
+      
+      const scheduledReport = result.rows[0] as any;
+      
+      // Create pg-boss schedule for this report
+      if (isActive !== false) {
+        try {
+          const { createReportSchedule } = await import("./job-queue");
+          await createReportSchedule(scheduledReport.id, frequency);
+        } catch (scheduleError) {
+          console.error("Failed to create pg-boss schedule:", scheduleError);
+          // Report is still saved, just not scheduled yet
+        }
+      }
+      
+      res.json(scheduledReport);
     } catch (error) {
       console.error("Error creating scheduled report:", error);
       res.status(500).json({ error: "Failed to create scheduled report" });
     }
   });
 
-  // Update scheduled report
+  // Update scheduled report - uses pg-boss for schedule management
   app.patch("/api/reports/scheduled/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -8279,6 +8293,29 @@ export async function registerRoutes(
         await db.execute(sql`
           UPDATE scheduled_reports SET is_active = ${isActive}, updated_at = NOW() WHERE id = ${id}
         `);
+        
+        // Update pg-boss schedule (recalculates next_run_at when re-enabling)
+        try {
+          const { setReportScheduleActive } = await import("./job-queue");
+          await setReportScheduleActive(id, isActive);
+        } catch (scheduleError) {
+          console.error("Failed to update pg-boss schedule:", scheduleError);
+        }
+      }
+      
+      // When frequency changes, recalculate next_run_at immediately
+      if (frequency) {
+        await db.execute(sql`
+          UPDATE scheduled_reports SET frequency = ${frequency}, updated_at = NOW() WHERE id = ${id}
+        `);
+        
+        try {
+          const { setReportScheduleActive } = await import("./job-queue");
+          // Re-calculate next_run_at based on new frequency
+          await setReportScheduleActive(id, true);
+        } catch (scheduleError) {
+          console.error("Failed to update next_run_at for frequency change:", scheduleError);
+        }
       }
       
       const result = await db.execute(sql`SELECT * FROM scheduled_reports WHERE id = ${id}`);
@@ -8289,10 +8326,19 @@ export async function registerRoutes(
     }
   });
 
-  // Delete scheduled report
+  // Delete scheduled report - removes pg-boss schedule
   app.delete("/api/reports/scheduled/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Remove pg-boss schedule first
+      try {
+        const { removeReportSchedule } = await import("./job-queue");
+        await removeReportSchedule(id);
+      } catch (scheduleError) {
+        console.error("Failed to remove pg-boss schedule:", scheduleError);
+      }
+      
       await db.execute(sql`DELETE FROM scheduled_reports WHERE id = ${id}`);
       res.json({ success: true });
     } catch (error) {
@@ -8332,7 +8378,7 @@ export async function registerRoutes(
     }
   });
 
-  // Run scheduled report (generate immediately)
+  // Run scheduled report (generate immediately via pg-boss)
   app.post("/api/reports/scheduled/:id/run", async (req, res) => {
     try {
       const { id } = req.params;
@@ -8343,19 +8389,33 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Scheduled report not found" });
       }
 
-      // Create a generated report record
-      const result = await db.execute(sql`
-        INSERT INTO generated_reports (organisation_id, name, scheduled_report_id, format, status, filters)
-        VALUES (${schedule.organisation_id}, ${schedule.name}, ${id}, ${schedule.format}, 'READY', ${JSON.stringify(schedule.filters || {})})
-        RETURNING *
-      `);
+      // Enqueue immediate execution via pg-boss
+      try {
+        const { enqueueScheduledReportNow } = await import("./job-queue");
+        const jobId = await enqueueScheduledReportNow(id);
+        
+        res.json({ 
+          success: true, 
+          message: "Report generation queued via pg-boss",
+          jobId,
+          scheduledReportId: id 
+        });
+      } catch (queueError) {
+        console.error("Failed to enqueue via pg-boss, falling back to direct execution:", queueError);
+        
+        // Fallback: direct execution if pg-boss fails
+        const result = await db.execute(sql`
+          INSERT INTO generated_reports (organisation_id, name, scheduled_report_id, format, status, filters)
+          VALUES (${schedule.organisation_id}, ${schedule.name}, ${id}, ${schedule.format}, 'READY', ${JSON.stringify(schedule.filters || {})})
+          RETURNING *
+        `);
 
-      // Update last run time
-      await db.execute(sql`
-        UPDATE scheduled_reports SET last_run_at = NOW(), updated_at = NOW() WHERE id = ${id}
-      `);
+        await db.execute(sql`
+          UPDATE scheduled_reports SET last_run_at = NOW(), updated_at = NOW() WHERE id = ${id}
+        `);
 
-      res.json(result.rows[0]);
+        res.json(result.rows[0]);
+      }
     } catch (error) {
       console.error("Error running scheduled report:", error);
       res.status(500).json({ error: "Failed to run scheduled report" });

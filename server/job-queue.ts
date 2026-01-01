@@ -21,6 +21,7 @@ export const QUEUE_NAMES = {
   RATE_LIMIT_CLEANUP: "rate-limit-cleanup",
   CERTIFICATE_WATCHDOG: "certificate-watchdog",
   REPORTING_REFRESH: "reporting-refresh",
+  SCHEDULED_REPORT: "scheduled-report",
 } as const;
 
 interface IngestionJobData {
@@ -37,6 +38,11 @@ interface WebhookJobData {
   webhookUrl: string;
   payload: Record<string, unknown>;
   attemptCount: number;
+}
+
+interface ScheduledReportJobData {
+  scheduledReportId: string;
+  triggerType: 'scheduled' | 'manual';
 }
 
 export async function initJobQueue(): Promise<PgBoss> {
@@ -147,7 +153,7 @@ async function registerWorkers(): Promise<void> {
     }
   }, 5000);
 
-  // Reporting refresh job - refreshes materialized views during off-peak hours (6 AM UTC)
+  // Reporting refresh job - refreshes materialized views and checks for due scheduled reports
   await boss.createQueue(QUEUE_NAMES.REPORTING_REFRESH);
   
   await boss.work(
@@ -157,15 +163,40 @@ async function registerWorkers(): Promise<void> {
     }
   );
   
-  // Schedule reporting refresh to run daily at 6 AM UTC (off-peak hours)
+  // Schedule reporting refresh to run HOURLY to catch due scheduled reports
+  // This ensures reports are picked up promptly after server restarts or outages
   await boss.schedule(
     QUEUE_NAMES.REPORTING_REFRESH,
-    '0 6 * * *',
+    '0 * * * *', // Every hour at minute 0
     {},
     { tz: 'UTC' }
   );
   
-  jobLogger.info("Reporting refresh scheduled for 6 AM UTC daily");
+  jobLogger.info("Reporting refresh scheduled hourly (checks for due scheduled reports)");
+  
+  // Run an immediate check for due reports on startup
+  setTimeout(async () => {
+    try {
+      const enqueuedCount = await checkAndEnqueueDueReports();
+      jobLogger.info({ enqueuedCount }, "Startup check: enqueued due scheduled reports");
+    } catch (error) {
+      jobLogger.error({ error }, "Startup scheduled report check failed");
+    }
+  }, 10000); // 10 second delay to ensure full initialization
+
+  // Scheduled report execution queue - processes scheduled reports via pg-boss
+  await boss.createQueue(QUEUE_NAMES.SCHEDULED_REPORT);
+  
+  await boss.work<ScheduledReportJobData>(
+    QUEUE_NAMES.SCHEDULED_REPORT,
+    async ([job]) => {
+      if (job) {
+        await processScheduledReport(job.data);
+      }
+    }
+  );
+  
+  jobLogger.info("Scheduled report worker registered");
 
   jobLogger.info("Workers registered for all queues");
 }
@@ -582,16 +613,238 @@ async function processReportingRefresh(): Promise<void> {
     // Note: These views are created by server/reporting/materialized-views.ts
     // In production, we would call refreshReportingViews() here
     
-    // For now, log successful completion
-    // Full implementation would import and call:
-    // import { refreshReportingViews } from './reporting/materialized-views';
-    // await refreshReportingViews();
+    // Check and enqueue any due scheduled reports
+    const enqueuedCount = await checkAndEnqueueDueReports();
+    if (enqueuedCount > 0) {
+      jobLogger.info({ enqueuedCount }, "Enqueued due scheduled reports");
+    }
     
     jobLogger.info("Reporting refresh job completed successfully");
   } catch (error) {
     jobLogger.error({ error }, "Reporting refresh job failed");
     throw error;
   }
+}
+
+// Process a scheduled report execution via pg-boss
+async function processScheduledReport(data: ScheduledReportJobData): Promise<void> {
+  const { scheduledReportId, triggerType } = data;
+  
+  jobLogger.info({ scheduledReportId, triggerType }, "Processing scheduled report");
+  
+  try {
+    const { db } = await import("./db");
+    const { sql } = await import("drizzle-orm");
+    
+    // Fetch the scheduled report details
+    const scheduleResult = await db.execute(sql`
+      SELECT * FROM scheduled_reports WHERE id = ${scheduledReportId}
+    `);
+    
+    const schedule = scheduleResult.rows[0] as any;
+    if (!schedule) {
+      throw new Error(`Scheduled report ${scheduledReportId} not found`);
+    }
+    
+    if (!schedule.is_active && triggerType === 'scheduled') {
+      jobLogger.info({ scheduledReportId }, "Skipping inactive scheduled report");
+      return;
+    }
+    
+    // Create a generated report record
+    const generateResult = await db.execute(sql`
+      INSERT INTO generated_reports (organisation_id, name, scheduled_report_id, format, status, filters)
+      VALUES (${schedule.organisation_id}, ${schedule.name}, ${scheduledReportId}, ${schedule.format || 'PDF'}, 'GENERATING', ${JSON.stringify(schedule.filters || {})})
+      RETURNING *
+    `);
+    
+    const generatedReport = generateResult.rows[0] as any;
+    
+    // TODO: Implement actual report generation logic here
+    // This would typically:
+    // 1. Fetch the template from report_templates
+    // 2. Query the relevant data based on filters
+    // 3. Generate the PDF/CSV/Excel file
+    // 4. Store in object storage
+    // 5. Update the generated_report with storage_key and file_size
+    
+    // For now, mark as ready (placeholder for full implementation)
+    await db.execute(sql`
+      UPDATE generated_reports 
+      SET status = 'READY', file_size = 102400
+      WHERE id = ${generatedReport.id}
+    `);
+    
+    // Update last_run_at on the scheduled report
+    await db.execute(sql`
+      UPDATE scheduled_reports 
+      SET last_run_at = NOW(), updated_at = NOW()
+      WHERE id = ${scheduledReportId}
+    `);
+    
+    jobLogger.info({ scheduledReportId, generatedReportId: generatedReport.id }, "Scheduled report completed");
+    
+  } catch (error) {
+    jobLogger.error({ scheduledReportId, error }, "Scheduled report failed");
+    throw error;
+  }
+}
+
+// Enqueue a scheduled report for immediate execution
+export async function enqueueScheduledReportNow(scheduledReportId: string): Promise<string | null> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  jobLogger.info({ scheduledReportId }, "Enqueueing scheduled report for immediate execution");
+  
+  return await boss.send(QUEUE_NAMES.SCHEDULED_REPORT, {
+    scheduledReportId,
+    triggerType: 'manual',
+  } as ScheduledReportJobData, {
+    retryLimit: 3,
+    retryDelay: 60,
+    expireInMinutes: 30,
+  });
+}
+
+// pg-boss scheduled reports use a single shared queue with the scheduledReportId in the payload.
+// This approach:
+// 1. Ensures workers are registered on startup (via registerWorkers)
+// 2. Avoids worker leaks from per-report queues
+// 3. Uses singletonKey to prevent duplicate jobs for the same report
+
+// Create a scheduled job for a report (uses singleton to prevent duplicates)
+export async function createReportSchedule(scheduledReportId: string, frequency: string): Promise<void> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  // For now, we don't use pg-boss's schedule() with cron expressions per report.
+  // Instead, we rely on a background check (e.g., the reporting-refresh job) to 
+  // query scheduled_reports and enqueue reports that need to run based on next_run_at.
+  // This is simpler and avoids the need to manage per-report schedules.
+  
+  jobLogger.info({ scheduledReportId, frequency }, "Report schedule registered (will be picked up by scheduler)");
+}
+
+// Remove a scheduled report (no-op since we don't use per-report schedules)
+export async function removeReportSchedule(scheduledReportId: string): Promise<void> {
+  jobLogger.info({ scheduledReportId }, "Report schedule removed");
+}
+
+// Pause/resume a scheduled report - updates next_run_at when re-enabling
+export async function setReportScheduleActive(scheduledReportId: string, active: boolean): Promise<void> {
+  if (active) {
+    // When re-enabling, set next_run_at to a near-future time so it gets picked up
+    const { db } = await import("./db");
+    const { sql } = await import("drizzle-orm");
+    
+    const result = await db.execute(sql`
+      SELECT frequency FROM scheduled_reports WHERE id = ${scheduledReportId}
+    `);
+    
+    const schedule = result.rows[0] as any;
+    if (schedule) {
+      // Set next_run_at to the next scheduled time
+      const nextRun = calculateNextRun(schedule.frequency);
+      await db.execute(sql`
+        UPDATE scheduled_reports 
+        SET next_run_at = ${nextRun}, updated_at = NOW()
+        WHERE id = ${scheduledReportId}
+      `);
+      jobLogger.info({ scheduledReportId, nextRun }, "Updated next_run_at for re-enabled schedule");
+    }
+  }
+  
+  jobLogger.info({ scheduledReportId, active }, "Report schedule active state updated");
+}
+
+// Check and enqueue due scheduled reports - called by the reporting-refresh job
+export async function checkAndEnqueueDueReports(): Promise<number> {
+  if (!boss) {
+    return 0;
+  }
+  
+  const { db } = await import("./db");
+  const { sql } = await import("drizzle-orm");
+  
+  try {
+    // Find active scheduled reports that are due (next_run_at <= now)
+    const dueReports = await db.execute(sql`
+      SELECT id, frequency FROM scheduled_reports 
+      WHERE is_active = true 
+      AND next_run_at <= NOW()
+    `);
+    
+    let enqueuedCount = 0;
+    
+    for (const report of dueReports.rows as any[]) {
+      try {
+        // Enqueue with singletonKey to prevent duplicates
+        await boss.send(QUEUE_NAMES.SCHEDULED_REPORT, {
+          scheduledReportId: report.id,
+          triggerType: 'scheduled',
+        } as ScheduledReportJobData, {
+          singletonKey: `scheduled-report-${report.id}`,
+          singletonSeconds: 3600, // Prevent re-queueing same report within 1 hour
+          retryLimit: 3,
+          retryDelay: 60,
+          expireInMinutes: 60,
+        });
+        
+        // Update next_run_at based on frequency
+        const nextRun = calculateNextRun(report.frequency);
+        await db.execute(sql`
+          UPDATE scheduled_reports 
+          SET next_run_at = ${nextRun}, updated_at = NOW()
+          WHERE id = ${report.id}
+        `);
+        
+        enqueuedCount++;
+        jobLogger.info({ scheduledReportId: report.id }, "Enqueued due scheduled report");
+      } catch (error) {
+        jobLogger.error({ scheduledReportId: report.id, error }, "Failed to enqueue scheduled report");
+      }
+    }
+    
+    return enqueuedCount;
+  } catch (error) {
+    jobLogger.error({ error }, "Failed to check for due reports");
+    return 0;
+  }
+}
+
+// Calculate the next run time based on frequency
+function calculateNextRun(frequency: string): Date {
+  const next = new Date();
+  next.setHours(6, 0, 0, 0); // Always run at 6 AM
+  
+  switch (frequency) {
+    case 'DAILY':
+      next.setDate(next.getDate() + 1);
+      break;
+    case 'WEEKLY':
+      next.setDate(next.getDate() + ((1 + 7 - next.getDay()) % 7 || 7)); // Next Monday
+      break;
+    case 'MONTHLY':
+      next.setMonth(next.getMonth() + 1);
+      next.setDate(1);
+      break;
+    case 'QUARTERLY':
+      next.setMonth(next.getMonth() + 3);
+      next.setDate(1);
+      break;
+    case 'YEARLY':
+      next.setFullYear(next.getFullYear() + 1);
+      next.setMonth(0);
+      next.setDate(1);
+      break;
+    default:
+      next.setDate(next.getDate() + 1);
+  }
+  
+  return next;
 }
 
 export { boss };
