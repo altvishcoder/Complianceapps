@@ -42,6 +42,25 @@ interface IngestionStats {
   throughputByHour: Array<{ hour: string; count: number }>;
   avgProcessingTime: number;
   successRate: number;
+  certificates?: {
+    total: number;
+    recent24h: number;
+    byStatus: Record<string, number>;
+    byType: Record<string, number>;
+    throughputByHour: Array<{ hour: string; count: number }>;
+    pending: number;
+    processing: number;
+    approved: number;
+    successRate: number;
+  };
+  recentCertificates?: Array<{
+    id: string;
+    certificateType: string;
+    fileName: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 }
 
 interface IngestionJob {
@@ -165,24 +184,22 @@ export default function IngestionControlRoom() {
     },
   });
 
-  const throughputData = stats?.throughputByHour.map(item => ({
+  const certThroughputData = stats?.certificates?.throughputByHour?.map(item => ({
     hour: new Date(item.hour + ':00:00Z').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     count: item.count,
   })) || [];
 
-  const statusData = stats ? Object.entries(stats.byStatus).map(([status, count]) => ({
-    name: status,
-    value: count,
-  })) : [];
-
-  const typeData = stats ? Object.entries(stats.byType).map(([type, count]) => ({
+  const certTypeData = stats?.certificates?.byType ? Object.entries(stats.certificates.byType).map(([type, count]) => ({
     name: type.replace(/_/g, ' '),
     value: count,
   })).sort((a, b) => b.value - a.value).slice(0, 8) : [];
 
-  const totalJobs = stats ? Object.values(stats.byStatus).reduce((a, b) => a + b, 0) : 0;
-  const activeJobs = (stats?.byStatus?.QUEUED || 0) + (stats?.byStatus?.UPLOADING || 0) + 
-                     (stats?.byStatus?.PROCESSING || 0) + (stats?.byStatus?.EXTRACTING || 0);
+  const totalCertificates = stats?.certificates?.total || 0;
+  const recent24h = stats?.certificates?.recent24h || 0;
+  const pendingCerts = stats?.certificates?.pending || 0;
+  const processingCerts = stats?.certificates?.processing || 0;
+  const approvedCerts = stats?.certificates?.approved || 0;
+  const certSuccessRate = stats?.certificates?.successRate || 0;
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -205,40 +222,40 @@ export default function IngestionControlRoom() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-4 mb-6">
-            <Card data-testid="card-total-jobs">
+            <Card data-testid="card-total-certs">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Certificates</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{totalJobs}</div>
+                <div className="text-3xl font-bold">{totalCertificates}</div>
                 <p className="text-xs text-muted-foreground mt-1">All time</p>
               </CardContent>
             </Card>
-            <Card data-testid="card-active-jobs">
+            <Card data-testid="card-recent-24h">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Active Jobs</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Recent (24h)</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-blue-600">{activeJobs}</div>
-                <p className="text-xs text-muted-foreground mt-1">Currently processing</p>
+                <div className="text-3xl font-bold text-blue-600">{recent24h}</div>
+                <p className="text-xs text-muted-foreground mt-1">Processed today</p>
               </CardContent>
             </Card>
-            <Card data-testid="card-success-rate">
+            <Card data-testid="card-approved">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Success Rate</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-emerald-600">{stats?.successRate.toFixed(1) || 0}%</div>
-                <Progress value={stats?.successRate || 0} className="mt-2 h-2" />
+                <div className="text-3xl font-bold text-emerald-600">{approvedCerts}</div>
+                <p className="text-xs text-muted-foreground mt-1">Successfully processed</p>
               </CardContent>
             </Card>
-            <Card data-testid="card-avg-time">
+            <Card data-testid="card-pending">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Processing Time</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Pending/Processing</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{stats?.avgProcessingTime.toFixed(1) || 0}s</div>
-                <p className="text-xs text-muted-foreground mt-1">Per certificate</p>
+                <div className="text-3xl font-bold text-amber-600">{pendingCerts + processingCerts}</div>
+                <p className="text-xs text-muted-foreground mt-1">Awaiting completion</p>
               </CardContent>
             </Card>
           </div>
@@ -292,18 +309,18 @@ export default function IngestionControlRoom() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <TrendingUp className="h-5 w-5" />
-                      Throughput (24 Hours)
+                      Certificate Uploads (24 Hours)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={throughputData}>
+                        <AreaChart data={certThroughputData}>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                           <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
                           <YAxis tick={{ fontSize: 12 }} />
                           <Tooltip />
-                          <Area type="monotone" dataKey="count" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} name="Jobs" />
+                          <Area type="monotone" dataKey="count" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} name="Certificates" />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -314,18 +331,18 @@ export default function IngestionControlRoom() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <FileCheck className="h-5 w-5" />
-                      Jobs by Certificate Type
+                      Certificates by Type
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={typeData} layout="vertical">
+                        <BarChart data={certTypeData} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                           <XAxis type="number" tick={{ fontSize: 12 }} />
                           <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={120} />
                           <Tooltip />
-                          <Bar dataKey="value" fill="#3b82f6" name="Jobs" />
+                          <Bar dataKey="value" fill="#3b82f6" name="Certificates" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

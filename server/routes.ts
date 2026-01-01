@@ -6242,14 +6242,69 @@ export async function registerRoutes(
     try {
       if (!await requireAdminRole(req, res)) return;
       
-      const [queueStats, ingestionStats] = await Promise.all([
+      const [queueStats, ingestionStats, certificates] = await Promise.all([
         getQueueStats(),
-        storage.getIngestionStats()
+        storage.getIngestionStats(),
+        storage.listCertificates("")
       ]);
+      
+      const now = new Date();
+      const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      const recentCerts = certificates.filter(c => new Date(c.createdAt) >= last24Hours);
+      
+      const certByStatus: Record<string, number> = {};
+      const certByType: Record<string, number> = {};
+      
+      for (const cert of certificates) {
+        certByStatus[cert.status] = (certByStatus[cert.status] || 0) + 1;
+        certByType[cert.certificateType] = (certByType[cert.certificateType] || 0) + 1;
+      }
+      
+      const hourCounts: Record<string, number> = {};
+      for (let i = 23; i >= 0; i--) {
+        const hour = new Date(now.getTime() - i * 60 * 60 * 1000);
+        const hourKey = hour.toISOString().slice(0, 13);
+        hourCounts[hourKey] = 0;
+      }
+      
+      for (const cert of recentCerts) {
+        const hourKey = new Date(cert.createdAt).toISOString().slice(0, 13);
+        if (hourCounts.hasOwnProperty(hourKey)) {
+          hourCounts[hourKey]++;
+        }
+      }
+      
+      const certThroughputByHour = Object.entries(hourCounts).map(([hour, count]) => ({ hour, count }));
+      
+      const pendingCount = certByStatus['PENDING'] || 0;
+      const processingCount = certByStatus['PROCESSING'] || 0;
+      const approvedCount = certByStatus['APPROVED'] || 0;
+      const totalProcessed = approvedCount + (certByStatus['REJECTED'] || 0);
+      const successRate = totalProcessed > 0 ? (approvedCount / totalProcessed) * 100 : 0;
       
       res.json({
         queue: queueStats,
-        ...ingestionStats
+        ...ingestionStats,
+        certificates: {
+          total: certificates.length,
+          recent24h: recentCerts.length,
+          byStatus: certByStatus,
+          byType: certByType,
+          throughputByHour: certThroughputByHour,
+          pending: pendingCount,
+          processing: processingCount,
+          approved: approvedCount,
+          successRate,
+        },
+        recentCertificates: recentCerts.slice(0, 50).map(c => ({
+          id: c.id,
+          certificateType: c.certificateType,
+          fileName: c.fileName || 'Unknown',
+          status: c.status,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        })),
       });
     } catch (error) {
       console.error("Error getting ingestion stats:", error);
