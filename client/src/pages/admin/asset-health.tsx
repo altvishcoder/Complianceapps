@@ -47,6 +47,8 @@ interface TreeNode {
   compliantProperties: number;
   atRiskProperties: number;
   expiredProperties: number;
+  nodeType?: 'scheme' | 'block' | 'property';
+  blocksCount?: number;
   children?: TreeNode[];
 }
 
@@ -84,7 +86,76 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
   
   const data = payload[0].payload;
   const rate = data.complianceRate || 0;
+  const nodeType = data.nodeType || 'scheme';
   
+  // Property-level tooltip - simpler display
+  if (nodeType === 'property') {
+    const status = data.expiredProperties > 0 ? 'Expired' : 
+                   data.atRiskProperties > 0 ? 'At Risk' : 
+                   data.compliantProperties > 0 ? 'Compliant' : 'No Certificates';
+    const statusColor = data.expiredProperties > 0 ? 'text-red-600' :
+                        data.atRiskProperties > 0 ? 'text-amber-600' :
+                        data.compliantProperties > 0 ? 'text-green-600' : 'text-muted-foreground';
+    
+    return (
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border text-sm" data-testid="treemap-tooltip">
+        <p className="font-semibold mb-2">{data.name}</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Status:</span>
+            <span className={`font-medium ${statusColor}`}>{status}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Compliance Score:</span>
+            <span className="font-medium" style={{ color: getComplianceColor(rate) }}>
+              {rate.toFixed(0)}%
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Scheme-level tooltip - shows blocks and properties
+  if (nodeType === 'scheme') {
+    return (
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border text-sm" data-testid="treemap-tooltip">
+        <p className="font-semibold mb-2">{data.name}</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Compliance:</span>
+            <span className="font-medium" style={{ color: getComplianceColor(rate) }}>
+              {rate.toFixed(1)}%
+            </span>
+          </div>
+          {data.blocksCount !== undefined && (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Blocks:</span>
+              <span>{data.blocksCount}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Properties:</span>
+            <span>{data.totalProperties}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-green-600">Compliant:</span>
+            <span>{data.compliantProperties}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-amber-600">At Risk:</span>
+            <span>{data.atRiskProperties}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-red-600">Expired:</span>
+            <span>{data.expiredProperties}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Block-level tooltip - shows properties within block
   return (
     <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border text-sm" data-testid="treemap-tooltip">
       <p className="font-semibold mb-2">{data.name}</p>
@@ -349,6 +420,7 @@ export default function AssetHealth() {
         atRiskProperties: atRisk,
         expiredProperties: expired,
         complianceRate,
+        nodeType: 'property' as const,
       };
     };
     
@@ -363,10 +435,13 @@ export default function AssetHealth() {
       const schemeData = filteredSchemes
         .map(scheme => {
           const stats = calculateSchemeStats(scheme.id);
+          const schemeBlocks = blocksByScheme.get(scheme.id) || [];
           return {
             name: scheme.name,
             size: Math.max(stats.totalProperties, 1),
             ...stats,
+            nodeType: 'scheme' as const,
+            blocksCount: schemeBlocks.length,
           };
         })
         .filter(node => node.totalProperties > 0);
@@ -394,6 +469,7 @@ export default function AssetHealth() {
             name: `${scheme?.name || 'Unknown'} / ${block.name}`,
             size: Math.max(stats.totalProperties, 1),
             ...stats,
+            nodeType: 'block' as const,
           };
         })
         .filter(node => node.totalProperties > 0);
@@ -416,22 +492,7 @@ export default function AssetHealth() {
         }
         return true;
       })
-      .map(prop => {
-        const status = propertyComplianceMap.get(prop.id);
-        const compliant = status?.compliant && !status.expired ? 1 : 0;
-        const atRisk = status?.atRisk ? 1 : 0;
-        const expired = status?.expired ? 1 : 0;
-        
-        return {
-          name: prop.addressLine1 || 'Unknown Property',
-          size: 1,
-          totalProperties: 1,
-          compliantProperties: compliant,
-          atRiskProperties: atRisk,
-          expiredProperties: expired,
-          complianceRate: compliant ? 100 : 0,
-        };
-      });
+      .map(propertyToTreeNode);
   }, [schemes, blocks, properties, propertyComplianceMap, viewLevel, selectedScheme, selectedBlock]);
 
   const overallStats = useMemo(() => {
