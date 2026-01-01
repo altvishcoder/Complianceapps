@@ -16,6 +16,7 @@ import {
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
   componentTypes, components, units, componentCertificates, users, extractionTierAudits,
   propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes, remedialActions, contractors,
+  contractorSLAProfiles, contractorJobPerformance, contractorRatings,
   type ApiClient
 } from "@shared/schema";
 import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
@@ -1877,6 +1878,207 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating contractor assignment:", error);
       res.status(500).json({ error: "Failed to update contractor assignment" });
+    }
+  });
+  
+  // ===== CONTRACTOR SLA PROFILES =====
+  app.get("/api/contractor-sla-profiles", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const profiles = await db.select()
+        .from(contractorSLAProfiles)
+        .where(eq(contractorSLAProfiles.organisationId, user.organisationId));
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching SLA profiles:", error);
+      res.status(500).json({ error: "Failed to fetch SLA profiles" });
+    }
+  });
+  
+  app.post("/api/contractor-sla-profiles", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const [profile] = await db.insert(contractorSLAProfiles)
+        .values({
+          ...req.body,
+          organisationId: user.organisationId,
+        })
+        .returning();
+      res.status(201).json(profile);
+    } catch (error) {
+      console.error("Error creating SLA profile:", error);
+      res.status(500).json({ error: "Failed to create SLA profile" });
+    }
+  });
+  
+  // ===== CONTRACTOR JOB PERFORMANCE =====
+  app.get("/api/contractor-performance/:contractorId", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const contractor = await storage.getContractor(req.params.contractorId);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const performance = await db.select()
+        .from(contractorJobPerformance)
+        .where(eq(contractorJobPerformance.contractorId, req.params.contractorId))
+        .orderBy(desc(contractorJobPerformance.createdAt))
+        .limit(50);
+      
+      const [stats] = await db.select({
+        totalJobs: count(),
+        slaMetCount: sql<number>`COUNT(*) FILTER (WHERE ${contractorJobPerformance.slaMet} = true)`,
+        averageResponseTime: sql<number>`AVG(${contractorJobPerformance.responseTimeDays})`,
+        averageCompletionTime: sql<number>`AVG(${contractorJobPerformance.completionTimeDays})`,
+      })
+      .from(contractorJobPerformance)
+      .where(eq(contractorJobPerformance.contractorId, req.params.contractorId));
+      
+      const slaComplianceRate = stats.totalJobs > 0 
+        ? Math.round((stats.slaMetCount / stats.totalJobs) * 100) 
+        : 0;
+      
+      res.json({
+        performance,
+        summary: {
+          totalJobs: stats.totalJobs,
+          slaComplianceRate,
+          averageResponseDays: Math.round((stats.averageResponseTime || 0) * 10) / 10,
+          averageCompletionDays: Math.round((stats.averageCompletionTime || 0) * 10) / 10,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching contractor performance:", error);
+      res.status(500).json({ error: "Failed to fetch contractor performance" });
+    }
+  });
+  
+  app.post("/api/contractor-performance", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const contractor = await storage.getContractor(req.body.contractorId);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Invalid contractor or access denied" });
+      }
+      
+      const [record] = await db.insert(contractorJobPerformance)
+        .values(req.body)
+        .returning();
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating performance record:", error);
+      res.status(500).json({ error: "Failed to create performance record" });
+    }
+  });
+  
+  // ===== CONTRACTOR RATINGS =====
+  app.get("/api/contractor-ratings/:contractorId", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const contractor = await storage.getContractor(req.params.contractorId);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const ratings = await db.select()
+        .from(contractorRatings)
+        .where(eq(contractorRatings.contractorId, req.params.contractorId))
+        .orderBy(desc(contractorRatings.createdAt))
+        .limit(50);
+      
+      const [stats] = await db.select({
+        totalRatings: count(),
+        averageOverall: sql<number>`AVG(${contractorRatings.overallRating})`,
+        averageQuality: sql<number>`AVG(${contractorRatings.qualityOfWork})`,
+        averageTimeliness: sql<number>`AVG(${contractorRatings.timeliness})`,
+        averageCommunication: sql<number>`AVG(${contractorRatings.communication})`,
+        averageProfessionalism: sql<number>`AVG(${contractorRatings.professionalism})`,
+      })
+      .from(contractorRatings)
+      .where(eq(contractorRatings.contractorId, req.params.contractorId));
+      
+      res.json({
+        ratings,
+        summary: {
+          totalRatings: stats.totalRatings,
+          averageOverall: Math.round((stats.averageOverall || 0) * 10) / 10,
+          averageQuality: Math.round((stats.averageQuality || 0) * 10) / 10,
+          averageTimeliness: Math.round((stats.averageTimeliness || 0) * 10) / 10,
+          averageCommunication: Math.round((stats.averageCommunication || 0) * 10) / 10,
+          averageProfessionalism: Math.round((stats.averageProfessionalism || 0) * 10) / 10,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching contractor ratings:", error);
+      res.status(500).json({ error: "Failed to fetch contractor ratings" });
+    }
+  });
+  
+  app.post("/api/contractor-ratings", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      
+      const contractor = await storage.getContractor(req.body.contractorId);
+      if (!contractor || contractor.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Invalid contractor or access denied" });
+      }
+      
+      const [rating] = await db.insert(contractorRatings)
+        .values({
+          ...req.body,
+          ratedById: userId,
+        })
+        .returning();
+      res.status(201).json(rating);
+    } catch (error) {
+      console.error("Error creating contractor rating:", error);
+      res.status(500).json({ error: "Failed to create contractor rating" });
     }
   });
   
