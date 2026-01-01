@@ -41,7 +41,6 @@ import {
   clearLoginAttempts,
   getPasswordPolicyDescription 
 } from "./services/password-policy";
-import { keycloakRouter } from "./routes/keycloak.routes";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -160,9 +159,6 @@ export async function registerRoutes(
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
-
-  // Register Keycloak SSO routes
-  app.use('/api/auth/keycloak', keycloakRouter);
 
   // OpenAPI/Swagger documentation
   const openApiSpec = generateOpenAPIDocument();

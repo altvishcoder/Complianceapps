@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link, useSearch } from "wouter";
-import { ShieldCheck, ArrowRight, AlertCircle, KeyRound } from "lucide-react";
+import { ShieldCheck, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,9 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Captcha } from "@/components/ui/captcha";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -20,15 +18,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const { login, isAuthenticated } = useAuth();
-
-  const { data: keycloakStatus } = useQuery({
-    queryKey: ['keycloak-status'],
-    queryFn: async () => {
-      const res = await fetch('/api/auth/keycloak/status');
-      return res.json();
-    },
-    staleTime: 60000,
-  });
 
   useEffect(() => {
     const params = new URLSearchParams(searchString);
@@ -124,31 +113,6 @@ export default function LoginPage() {
                 {isLoading ? "Signing in..." : "Sign In"} 
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />}
               </Button>
-              
-              {keycloakStatus?.enabled && (
-                <>
-                  <div className="relative w-full">
-                    <div className="absolute inset-0 flex items-center">
-                      <Separator className="w-full" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                    </div>
-                  </div>
-                  
-                  <a href="/api/auth/keycloak/login" className="w-full">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="w-full gap-2"
-                      data-testid="button-sso-login"
-                    >
-                      <KeyRound className="h-4 w-4" />
-                      Single Sign-On (SSO)
-                    </Button>
-                  </a>
-                </>
-              )}
               
               <div className="text-center text-sm">
                 <span className="text-muted-foreground">Don't have an account? </span>

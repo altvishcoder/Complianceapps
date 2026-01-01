@@ -54,12 +54,6 @@ Preferred communication style: Simple, everyday language.
 ### Security
 -   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
 -   **Authentication**: Session-based authentication with bcrypt password hashing and secure cookies.
--   **Keycloak SSO Integration**: Optional enterprise SSO via OpenID Connect (openid-client v6):
-    - PKCE authentication flow with state/nonce validation
-    - Automatic role mapping from Keycloak realm roles
-    - Organisation-level tenant isolation via organisationId claim
-    - Graceful coexistence with local authentication (phased rollout)
-    - Environment variables: KEYCLOAK_BASE_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET
 -   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
 -   **Rate Limiting**: PostgreSQL-backed rate limiting.
 
