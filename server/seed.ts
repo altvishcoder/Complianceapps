@@ -116,6 +116,9 @@ export async function seedDatabase() {
     // Only seed demo data if SEED_DEMO_DATA is true
     if (SEED_DEMO_DATA) {
       await seedDemoData(org.id);
+      // Import and run comprehensive demo data for full reporting data
+      const { seedComprehensiveDemoData } = await import("./demo-data/comprehensive-seed");
+      await seedComprehensiveDemoData(org.id);
     } else {
       console.log("ℹ️  Demo data skipped (set SEED_DEMO_DATA=true to enable)");
     }
