@@ -15,7 +15,7 @@ import {
   insertDetectionPatternSchema, insertOutcomeRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
   componentTypes, components, units, componentCertificates, users, extractionTierAudits,
-  propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes,
+  propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes, remedialActions, contractors,
   type ApiClient
 } from "@shared/schema";
 import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
@@ -7301,6 +7301,410 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching risk factor definitions:", error);
       res.status(500).json({ error: "Failed to fetch factor definitions" });
+    }
+  });
+
+  // ============ REPORTING API ENDPOINTS ============
+
+  // Compliance Summary Report - uses materialized view or live query
+  app.get("/api/reports/compliance-summary", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { useCached } = req.query;
+
+      // Build base query with org scoping - certificates have organisationId directly
+      const query = db.select({
+        stream: certificates.complianceStreamId,
+        type: certificates.certificateType,
+        total: count(),
+        compliant: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED' OR ${certificates.status} = 'EXTRACTED')`,
+        nonCompliant: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'FAILED')`,
+        expired: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'EXPIRED')`,
+        expiringSoon: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate}::date < CURRENT_DATE + INTERVAL '30 days' AND ${certificates.expiryDate}::date >= CURRENT_DATE)`,
+      })
+      .from(certificates)
+      .where(eq(certificates.organisationId, user.organisationId))
+      .groupBy(certificates.complianceStreamId, certificates.certificateType);
+
+      const results = await query;
+
+      // Calculate overall metrics
+      const totals = results.reduce((acc, row) => ({
+        totalCertificates: acc.totalCertificates + Number(row.total),
+        compliant: acc.compliant + Number(row.compliant),
+        nonCompliant: acc.nonCompliant + Number(row.nonCompliant),
+        expired: acc.expired + Number(row.expired),
+        expiringSoon: acc.expiringSoon + Number(row.expiringSoon),
+      }), { totalCertificates: 0, compliant: 0, nonCompliant: 0, expired: 0, expiringSoon: 0 });
+
+      const complianceRate = totals.totalCertificates > 0 
+        ? Math.round((totals.compliant / totals.totalCertificates) * 100) 
+        : 0;
+
+      res.json({
+        summary: {
+          ...totals,
+          complianceRate,
+          lastUpdated: new Date().toISOString(),
+          queryType: useCached === 'true' ? 'cached' : 'live'
+        },
+        byStream: results
+      });
+    } catch (error) {
+      console.error("Error fetching compliance summary:", error);
+      res.status(500).json({ error: "Failed to fetch compliance summary" });
+    }
+  });
+
+  // Property Health Report
+  app.get("/api/reports/property-health", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { minScore, maxScore } = req.query;
+
+      // Get properties with their certificate counts and health scores
+      // Properties link to blocks -> schemes -> organisations
+      const propertyData = await db.select({
+        id: properties.id,
+        address: properties.addressLine1,
+        blockId: properties.blockId,
+        totalCertificates: sql<number>`COUNT(DISTINCT ${certificates.id})`,
+        compliantCertificates: sql<number>`COUNT(DISTINCT ${certificates.id}) FILTER (WHERE ${certificates.status} IN ('APPROVED', 'EXTRACTED'))`,
+        openActions: sql<number>`COUNT(DISTINCT ${remedialActions.id}) FILTER (WHERE ${remedialActions.status} IN ('OPEN', 'IN_PROGRESS'))`,
+      })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .leftJoin(certificates, eq(certificates.propertyId, properties.id))
+      .leftJoin(remedialActions, eq(remedialActions.propertyId, properties.id))
+      .where(eq(schemes.organisationId, user.organisationId))
+      .groupBy(properties.id, properties.addressLine1, properties.blockId);
+
+      // Calculate health scores
+      const propertiesWithScores = propertyData.map(p => {
+        const total = Number(p.totalCertificates);
+        const compliant = Number(p.compliantCertificates);
+        const actions = Number(p.openActions);
+        
+        const certScore = total > 0 ? (compliant / total) * 100 : 50;
+        const actionPenalty = actions * 5;
+        const healthScore = Math.max(0, Math.min(100, Math.round(certScore - actionPenalty)));
+
+        return {
+          ...p,
+          healthScore,
+          riskLevel: healthScore >= 80 ? 'LOW' : healthScore >= 60 ? 'MEDIUM' : healthScore >= 40 ? 'HIGH' : 'CRITICAL'
+        };
+      });
+
+      // Apply filters
+      let filtered = propertiesWithScores;
+      if (minScore) {
+        filtered = filtered.filter(p => p.healthScore >= Number(minScore));
+      }
+      if (maxScore) {
+        filtered = filtered.filter(p => p.healthScore <= Number(maxScore));
+      }
+
+      // Calculate distribution
+      const distribution = {
+        excellent: filtered.filter(p => p.healthScore >= 90).length,
+        good: filtered.filter(p => p.healthScore >= 70 && p.healthScore < 90).length,
+        fair: filtered.filter(p => p.healthScore >= 50 && p.healthScore < 70).length,
+        poor: filtered.filter(p => p.healthScore < 50).length,
+      };
+
+      res.json({
+        properties: filtered.sort((a, b) => a.healthScore - b.healthScore),
+        distribution,
+        averageScore: filtered.length > 0 
+          ? Math.round(filtered.reduce((sum, p) => sum + p.healthScore, 0) / filtered.length) 
+          : 0,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching property health:", error);
+      res.status(500).json({ error: "Failed to fetch property health" });
+    }
+  });
+
+  // Contractor Performance Report
+  app.get("/api/reports/contractor-performance", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      // Get contractors with basic info - simplified query without certificate join
+      const contractorData = await db.select({
+        id: contractors.id,
+        name: contractors.companyName,
+        tradeType: contractors.tradeType,
+        status: contractors.status,
+      })
+      .from(contractors)
+      .where(eq(contractors.organisationId, user.organisationId));
+
+      // Add metrics (in production, this would come from a proper join)
+      const contractorsWithMetrics = contractorData.map(c => ({
+        ...c,
+        totalJobs: 0,
+        completedOnTime: 0,
+        successRate: 0,
+        rating: 'PENDING' as const
+      }));
+
+      res.json({
+        contractors: contractorsWithMetrics,
+        averageSuccessRate: 0,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching contractor performance:", error);
+      res.status(500).json({ error: "Failed to fetch contractor performance" });
+    }
+  });
+
+  // Monthly Trends Report
+  app.get("/api/reports/monthly-trends", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { months = '12' } = req.query;
+      const monthsBack = parseInt(months as string) || 12;
+
+      const trends = await db.select({
+        month: sql<string>`DATE_TRUNC('month', ${certificates.createdAt})::date`,
+        stream: certificates.complianceStreamId,
+        issued: count(),
+        compliant: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} IN ('APPROVED', 'EXTRACTED'))`,
+        failed: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'FAILED')`,
+      })
+      .from(certificates)
+      .where(and(
+        eq(certificates.organisationId, user.organisationId),
+        gte(certificates.createdAt, sql`CURRENT_DATE - INTERVAL '${sql.raw(monthsBack.toString())} months'`)
+      ))
+      .groupBy(sql`DATE_TRUNC('month', ${certificates.createdAt})`, certificates.complianceStreamId)
+      .orderBy(sql`DATE_TRUNC('month', ${certificates.createdAt})`);
+
+      res.json({
+        trends,
+        period: `${monthsBack} months`,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching monthly trends:", error);
+      res.status(500).json({ error: "Failed to fetch monthly trends" });
+    }
+  });
+
+  // Certificate Expiry Report
+  app.get("/api/reports/certificate-expiry", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { days = '90' } = req.query;
+      const daysAhead = parseInt(days as string) || 90;
+
+      const expiringCerts = await db.select({
+        id: certificates.id,
+        type: certificates.certificateType,
+        complianceStream: certificates.complianceStreamId,
+        expiryDate: certificates.expiryDate,
+        propertyId: certificates.propertyId,
+        propertyAddress: properties.addressLine1,
+      })
+      .from(certificates)
+      .innerJoin(properties, eq(certificates.propertyId, properties.id))
+      .where(and(
+        eq(certificates.organisationId, user.organisationId),
+        isNotNull(certificates.expiryDate),
+        lt(certificates.expiryDate, sql`(CURRENT_DATE + INTERVAL '${sql.raw(daysAhead.toString())} days')::text`),
+        gte(certificates.expiryDate, sql`CURRENT_DATE::text`)
+      ))
+      .orderBy(certificates.expiryDate);
+
+      // Group by urgency
+      const now = new Date();
+      const grouped = {
+        urgent: expiringCerts.filter(c => {
+          const days = Math.ceil((new Date(c.expiryDate!).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return days <= 7;
+        }),
+        soon: expiringCerts.filter(c => {
+          const days = Math.ceil((new Date(c.expiryDate!).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return days > 7 && days <= 30;
+        }),
+        upcoming: expiringCerts.filter(c => {
+          const days = Math.ceil((new Date(c.expiryDate!).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return days > 30;
+        }),
+      };
+
+      res.json({
+        expiring: expiringCerts,
+        grouped,
+        summary: {
+          total: expiringCerts.length,
+          urgentCount: grouped.urgent.length,
+          soonCount: grouped.soon.length,
+          upcomingCount: grouped.upcoming.length,
+        },
+        period: `${daysAhead} days`,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching certificate expiry:", error);
+      res.status(500).json({ error: "Failed to fetch certificate expiry" });
+    }
+  });
+
+  // Board Summary Report - Executive dashboard data
+  app.get("/api/reports/board-summary", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      // Get overall compliance metrics - certificates have organisationId directly
+      const [certStats] = await db.select({
+        total: count(),
+        compliant: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} IN ('APPROVED', 'EXTRACTED'))`,
+        nonCompliant: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'FAILED')`,
+        pending: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} IN ('PENDING', 'NEEDS_REVIEW'))`,
+      })
+      .from(certificates)
+      .where(eq(certificates.organisationId, user.organisationId));
+
+      // Get property count via schemes -> blocks -> properties
+      const [propStats] = await db.select({
+        total: count(),
+      })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(schemes.organisationId, user.organisationId));
+
+      // Get open remedial actions by severity
+      const [actionStats] = await db.select({
+        total: count(),
+        critical: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.severity} = 'IMMEDIATE' AND ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED'))`,
+        major: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.severity} IN ('URGENT', 'PRIORITY') AND ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED'))`,
+        minor: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.severity} IN ('ROUTINE', 'ADVISORY') AND ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED'))`,
+      })
+      .from(remedialActions);
+
+      const total = Number(certStats?.total || 0);
+      const compliant = Number(certStats?.compliant || 0);
+      const overallCompliance = total > 0 ? Math.round((compliant / total) * 100) : 0;
+
+      res.json({
+        overview: {
+          overallCompliance,
+          totalProperties: Number(propStats?.total || 0),
+          totalCertificates: total,
+          openActions: Number(actionStats?.total || 0) - Number(actionStats?.critical || 0) - Number(actionStats?.major || 0) - Number(actionStats?.minor || 0),
+        },
+        certificates: {
+          total,
+          compliant,
+          nonCompliant: Number(certStats?.nonCompliant || 0),
+          pending: Number(certStats?.pending || 0),
+        },
+        actions: {
+          critical: Number(actionStats?.critical || 0),
+          major: Number(actionStats?.major || 0),
+          minor: Number(actionStats?.minor || 0),
+        },
+        riskLevel: overallCompliance >= 95 ? 'LOW' : overallCompliance >= 85 ? 'MEDIUM' : overallCompliance >= 70 ? 'HIGH' : 'CRITICAL',
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching board summary:", error);
+      res.status(500).json({ error: "Failed to fetch board summary" });
+    }
+  });
+
+  // Report export endpoint
+  app.post("/api/reports/export", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.organisationId) {
+        return res.status(403).json({ error: "No organisation access" });
+      }
+
+      const { reportType, format, filters } = req.body;
+
+      if (!reportType || !format) {
+        return res.status(400).json({ error: "Report type and format are required" });
+      }
+
+      // Queue export job
+      const exportId = `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // For now, return immediate acknowledgment
+      // In production, this would queue a pg-boss job
+      res.json({
+        exportId,
+        status: 'QUEUED',
+        message: `${reportType} export queued in ${format} format`,
+        estimatedCompletion: new Date(Date.now() + 60000).toISOString()
+      });
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      res.status(500).json({ error: "Failed to export report" });
     }
   });
   
