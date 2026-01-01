@@ -174,7 +174,7 @@ export default function Reports() {
     };
   });
 
-  const handleExport = (format: 'csv' | 'pdf') => {
+  const handleExport = (exportFormat: 'csv' | 'pdf') => {
     const data = filteredCertificates.map(cert => ({
       'Certificate Type': cert.certificateType,
       'Property': cert.propertyId,
@@ -184,7 +184,7 @@ export default function Reports() {
       'Created': formatDate(cert.createdAt),
     }));
 
-    if (format === 'csv') {
+    if (exportFormat === 'csv') {
       const headers = Object.keys(data[0] || {}).join(',');
       const rows = data.map(row => Object.values(row).join(','));
       const csv = [headers, ...rows].join('\n');

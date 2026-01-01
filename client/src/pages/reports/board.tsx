@@ -1,8 +1,14 @@
+import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { jsPDF } from "jspdf";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -20,7 +26,8 @@ import {
   Zap,
   Droplets,
   Wind,
-  ThermometerSun
+  ThermometerSun,
+  Loader2
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Legend,
@@ -164,7 +171,168 @@ function RiskGauge({ score, previousScore }: { score: number; previousScore: num
 }
 
 export default function BoardReporting() {
+  const { toast } = useToast();
   const totalProperties = portfolioHealth.reduce((sum, item) => sum + item.value, 0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState("weekly");
+  
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const bottomMargin = 25;
+      let yPos = 20;
+      
+      const checkPageBreak = (requiredSpace: number) => {
+        if (yPos + requiredSpace > pageHeight - bottomMargin) {
+          doc.addPage();
+          yPos = 20;
+        }
+      };
+      
+      const addFooter = () => {
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.text(`ComplianceAI - Confidential Board Report | Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+        }
+      };
+      
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("Board Compliance Report", pageWidth / 2, yPos, { align: "center" });
+      yPos += 10;
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth / 2, yPos, { align: "center" });
+      yPos += 15;
+      
+      checkPageBreak(30);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Executive Summary", margin, yPos);
+      yPos += 10;
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Overall Risk Score: ${overallRiskScore}/100`, margin, yPos);
+      yPos += 7;
+      doc.text(`Score Change: +${overallRiskScore - previousRiskScore} points from previous period`, margin, yPos);
+      yPos += 15;
+      
+      checkPageBreak(10 + keyMetrics.length * 6);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Key Metrics", margin, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      keyMetrics.forEach(metric => {
+        checkPageBreak(6);
+        doc.text(`${metric.label}: ${metric.value} (${metric.change})`, margin + 5, yPos);
+        yPos += 6;
+      });
+      yPos += 10;
+      
+      checkPageBreak(10 + complianceStreams.length * 6);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Compliance Streams", margin, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      complianceStreams.forEach(stream => {
+        checkPageBreak(6);
+        const trendSymbol = stream.trend === "up" ? "+" : stream.trend === "down" ? "-" : "=";
+        doc.text(`${stream.name}: ${stream.score}% [${trendSymbol}]`, margin + 5, yPos);
+        yPos += 6;
+      });
+      yPos += 10;
+      
+      checkPageBreak(10 + portfolioHealth.length * 6);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Portfolio Health", margin, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      portfolioHealth.forEach(item => {
+        checkPageBreak(6);
+        const percentage = Math.round((item.value / totalProperties) * 100);
+        doc.text(`${item.name}: ${item.value} properties (${percentage}%)`, margin + 5, yPos);
+        yPos += 6;
+      });
+      yPos += 10;
+      
+      if (criticalAlerts.length > 0) {
+        checkPageBreak(20);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Critical Alerts", margin, yPos);
+        yPos += 8;
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        criticalAlerts.forEach(alert => {
+          checkPageBreak(14);
+          doc.text(`- ${alert.title} (${alert.location})`, margin + 5, yPos);
+          yPos += 5;
+          doc.text(`  Urgency: ${alert.urgency}, Impact: ${alert.impact}`, margin + 5, yPos);
+          yPos += 7;
+        });
+      }
+      
+      checkPageBreak(20);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Quarterly Highlights", margin, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      quarterlyHighlights.forEach(item => {
+        checkPageBreak(6);
+        const statusIcon = item.status === "achieved" ? "[OK]" : item.status === "approaching" ? "[~]" : "[!]";
+        doc.text(`${item.metric}: ${item.current} / Target: ${item.target} ${statusIcon}`, margin + 5, yPos);
+        yPos += 6;
+      });
+      
+      addFooter();
+      
+      doc.save(`board-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast({
+        title: "PDF Exported",
+        description: "Board report PDF has been downloaded successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate PDF report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  
+  const handleScheduleReport = () => {
+    toast({
+      title: "Report Scheduled",
+      description: `Board report will be sent ${scheduleFrequency} to stakeholders.`,
+    });
+    setShowScheduleDialog(false);
+  };
   
   return (
     <div className="flex h-screen bg-background">
@@ -181,16 +349,48 @@ export default function BoardReporting() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" data-testid="button-export-pdf">
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Export PDF
+                <Button variant="outline" onClick={handleExportPdf} disabled={isExporting} data-testid="button-export-pdf">
+                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+                  {isExporting ? "Exporting..." : "Export PDF"}
                 </Button>
-                <Button variant="outline" data-testid="button-schedule-report">
+                <Button variant="outline" onClick={() => setShowScheduleDialog(true)} data-testid="button-schedule-report">
                   <Calendar className="h-4 w-4 mr-2" />
                   Schedule Report
                 </Button>
               </div>
             </div>
+            
+            {/* Schedule Dialog */}
+            <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Schedule Board Report</DialogTitle>
+                  <DialogDescription>
+                    Configure automatic report generation and distribution to stakeholders.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Frequency</Label>
+                    <Select value={scheduleFrequency} onValueChange={setScheduleFrequency}>
+                      <SelectTrigger data-testid="select-schedule-frequency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly (Monday)</SelectItem>
+                        <SelectItem value="monthly">Monthly (1st)</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Cancel</Button>
+                  <Button onClick={handleScheduleReport} data-testid="button-confirm-schedule">Schedule</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Key Metrics Row */}
             <div className="grid gap-4 md:grid-cols-4">

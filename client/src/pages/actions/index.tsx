@@ -126,7 +126,7 @@ export default function ActionsPage() {
     }
     
     // Apply type filter
-    if (typeFilter && action.certificateType !== typeFilter) {
+    if (typeFilter && action.certificate?.certificateType !== typeFilter) {
       return false;
     }
     

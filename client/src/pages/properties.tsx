@@ -260,7 +260,7 @@ export default function Properties() {
     
     // Scheme filter (through block)
     if (schemeFilter !== "all") {
-      const blockScheme = blockToScheme.get(p.blockId);
+      const blockScheme = p.blockId ? blockToScheme.get(p.blockId) : null;
       if (blockScheme !== schemeFilter) return false;
     }
     
