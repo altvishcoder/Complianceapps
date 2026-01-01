@@ -328,9 +328,39 @@ export default function AssetHealth() {
       };
     };
     
+    // Helper to generate property treemap nodes with proper compliance calculation
+    const propertyToTreeNode = (prop: Property) => {
+      const status = propertyComplianceMap.get(prop.id);
+      const compliant = status?.compliant && !status.expired ? 1 : 0;
+      const atRisk = status?.atRisk && !status.expired ? 1 : 0;
+      const expired = status?.expired ? 1 : 0;
+      
+      // Calculate compliance rate based on actual status
+      let complianceRate = 100; // Default if no certificates
+      if (expired) complianceRate = 0;
+      else if (atRisk) complianceRate = 60;
+      else if (!compliant) complianceRate = 30;
+      
+      return {
+        name: prop.addressLine1 || 'Unknown Property',
+        size: 1,
+        totalProperties: 1,
+        compliantProperties: compliant,
+        atRiskProperties: atRisk,
+        expiredProperties: expired,
+        complianceRate,
+      };
+    };
+    
     if (viewLevel === 'scheme') {
-      return schemes
-        .filter(s => selectedScheme === 'all' || s.id === selectedScheme)
+      // Get the block IDs that belong to the selected scheme(s)
+      const filteredSchemes = schemes.filter(s => selectedScheme === 'all' || s.id === selectedScheme);
+      const filteredSchemeIds = new Set(filteredSchemes.map(s => s.id));
+      const blockIdsInSchemes = new Set(
+        blocks.filter(b => filteredSchemeIds.has(b.schemeId)).map(b => b.id)
+      );
+      
+      const schemeData = filteredSchemes
         .map(scheme => {
           const stats = calculateSchemeStats(scheme.id);
           return {
@@ -340,12 +370,23 @@ export default function AssetHealth() {
           };
         })
         .filter(node => node.totalProperties > 0);
+      
+      // If only 1 scheme, show properties within it for more detail
+      if (schemeData.length === 1 && properties.length > 0) {
+        const filteredProperties = properties.filter(p => blockIdsInSchemes.has(p.blockId));
+        return filteredProperties.map(propertyToTreeNode);
+      }
+      
+      return schemeData;
     }
     
     if (viewLevel === 'block') {
-      return blocks
+      const filteredBlocks = blocks
         .filter(b => selectedScheme === 'all' || b.schemeId === selectedScheme)
-        .filter(b => selectedBlock === 'all' || b.id === selectedBlock)
+        .filter(b => selectedBlock === 'all' || b.id === selectedBlock);
+      const filteredBlockIds = new Set(filteredBlocks.map(b => b.id));
+      
+      const blockData = filteredBlocks
         .map(block => {
           const stats = calculateBlockStats(block.id);
           const scheme = schemeMap.get(block.schemeId);
@@ -356,6 +397,14 @@ export default function AssetHealth() {
           };
         })
         .filter(node => node.totalProperties > 0);
+      
+      // If only 1 block, show properties within it for more detail
+      if (blockData.length === 1 && properties.length > 0) {
+        const filteredProperties = properties.filter(p => filteredBlockIds.has(p.blockId));
+        return filteredProperties.map(propertyToTreeNode);
+      }
+      
+      return blockData;
     }
     
     return properties
