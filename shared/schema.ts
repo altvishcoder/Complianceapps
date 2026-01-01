@@ -2488,6 +2488,101 @@ export const complianceCalendarEvents = pgTable("compliance_calendar_events", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Scheduled Reports - automated report generation
+export const reportFrequencyEnum = pgEnum('report_frequency', ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']);
+export const reportFormatEnum = pgEnum('report_format', ['PDF', 'CSV', 'EXCEL']);
+
+export const scheduledReports = pgTable("scheduled_reports", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  name: text("name").notNull(),
+  templateId: varchar("template_id"),
+  templateName: text("template_name").notNull(),
+  
+  frequency: reportFrequencyEnum("frequency").notNull(),
+  cronExpression: text("cron_expression"),
+  nextRunAt: timestamp("next_run_at"),
+  lastRunAt: timestamp("last_run_at"),
+  
+  format: reportFormatEnum("format").notNull().default('PDF'),
+  recipients: text("recipients").array().default([]),
+  
+  filters: json("filters").$type<{
+    dateRangeType?: string;
+    complianceStreamId?: string;
+    schemeIds?: string[];
+  }>(),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdById: varchar("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Report Templates - reusable report configurations
+export const reportTemplates = pgTable("report_templates", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  sections: text("sections").array().default([]),
+  
+  defaultFilters: json("default_filters").$type<{
+    dateRangeType?: string;
+    complianceStreamId?: string;
+  }>(),
+  
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdById: varchar("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Generated Reports - historical record of generated reports
+export const generatedReports = pgTable("generated_reports", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  name: text("name").notNull(),
+  templateId: varchar("template_id").references(() => reportTemplates.id),
+  scheduledReportId: varchar("scheduled_report_id").references(() => scheduledReports.id),
+  
+  format: reportFormatEnum("format").notNull().default('PDF'),
+  storageKey: text("storage_key"),
+  fileSize: integer("file_size"),
+  
+  filters: json("filters"),
+  status: text("status").notNull().default('READY'),
+  
+  generatedById: varchar("generated_by_id").references(() => users.id),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertScheduledReportSchema = createInsertSchema(scheduledReports).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertGeneratedReportSchema = createInsertSchema(generatedReports).omit({ 
+  id: true, createdAt: true 
+});
+
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
+export type InsertScheduledReport = z.infer<typeof insertScheduledReportSchema>;
+export type ReportTemplate = typeof reportTemplates.$inferSelect;
+export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
+export type GeneratedReport = typeof generatedReports.$inferSelect;
+export type InsertGeneratedReport = z.infer<typeof insertGeneratedReportSchema>;
+
 // Insert schemas for Golden Thread tables
 export const insertCertificateVersionSchema = createInsertSchema(certificateVersions).omit({ 
   id: true, createdAt: true 

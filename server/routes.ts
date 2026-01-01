@@ -8196,6 +8196,171 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch templates" });
     }
   });
+
+  // ========================
+  // REPORTING API ENDPOINTS
+  // ========================
+
+  // Get report templates
+  app.get("/api/reports/templates", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM report_templates 
+        WHERE is_active = true 
+        ORDER BY is_system DESC, name ASC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching report templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  // Create report template
+  app.post("/api/reports/templates", async (req, res) => {
+    try {
+      const { name, description, sections } = req.body;
+      const result = await db.execute(sql`
+        INSERT INTO report_templates (name, description, sections, is_system, is_active)
+        VALUES (${name}, ${description}, ${sections || []}, false, true)
+        RETURNING *
+      `);
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error creating template:", error);
+      res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  // Get scheduled reports
+  app.get("/api/reports/scheduled", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM scheduled_reports 
+        ORDER BY created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching scheduled reports:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled reports" });
+    }
+  });
+
+  // Create scheduled report
+  app.post("/api/reports/scheduled", async (req, res) => {
+    try {
+      const { name, templateName, frequency, format, recipients, filters, isActive } = req.body;
+      const nextRunAt = new Date();
+      nextRunAt.setHours(6, 0, 0, 0);
+      if (frequency === 'WEEKLY') nextRunAt.setDate(nextRunAt.getDate() + ((1 + 7 - nextRunAt.getDay()) % 7 || 7));
+      else if (frequency === 'MONTHLY') { nextRunAt.setMonth(nextRunAt.getMonth() + 1); nextRunAt.setDate(1); }
+      else if (frequency === 'QUARTERLY') { nextRunAt.setMonth(nextRunAt.getMonth() + 3); nextRunAt.setDate(1); }
+      else nextRunAt.setDate(nextRunAt.getDate() + 1);
+
+      const result = await db.execute(sql`
+        INSERT INTO scheduled_reports (organisation_id, name, template_name, frequency, format, recipients, filters, is_active, next_run_at)
+        VALUES ((SELECT id FROM organisations LIMIT 1), ${name}, ${templateName}, ${frequency}, ${format || 'PDF'}, ${recipients || []}, ${JSON.stringify(filters || {})}, ${isActive !== false}, ${nextRunAt})
+        RETURNING *
+      `);
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error creating scheduled report:", error);
+      res.status(500).json({ error: "Failed to create scheduled report" });
+    }
+  });
+
+  // Update scheduled report
+  app.patch("/api/reports/scheduled/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive, frequency } = req.body;
+      
+      if (isActive !== undefined) {
+        await db.execute(sql`
+          UPDATE scheduled_reports SET is_active = ${isActive}, updated_at = NOW() WHERE id = ${id}
+        `);
+      }
+      
+      const result = await db.execute(sql`SELECT * FROM scheduled_reports WHERE id = ${id}`);
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error updating scheduled report:", error);
+      res.status(500).json({ error: "Failed to update scheduled report" });
+    }
+  });
+
+  // Delete scheduled report
+  app.delete("/api/reports/scheduled/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.execute(sql`DELETE FROM scheduled_reports WHERE id = ${id}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting scheduled report:", error);
+      res.status(500).json({ error: "Failed to delete scheduled report" });
+    }
+  });
+
+  // Get generated reports (recent)
+  app.get("/api/reports/generated", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM generated_reports 
+        ORDER BY generated_at DESC 
+        LIMIT 50
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching generated reports:", error);
+      res.status(500).json({ error: "Failed to fetch generated reports" });
+    }
+  });
+
+  // Create generated report (record report generation)
+  app.post("/api/reports/generated", async (req, res) => {
+    try {
+      const { name, templateId, format, fileSize, filters, status } = req.body;
+      const result = await db.execute(sql`
+        INSERT INTO generated_reports (organisation_id, name, template_id, format, file_size, filters, status)
+        VALUES ((SELECT id FROM organisations LIMIT 1), ${name}, ${templateId || null}, ${format || 'PDF'}, ${fileSize || null}, ${JSON.stringify(filters || {})}, ${status || 'READY'})
+        RETURNING *
+      `);
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error creating generated report:", error);
+      res.status(500).json({ error: "Failed to create generated report" });
+    }
+  });
+
+  // Run scheduled report (generate immediately)
+  app.post("/api/reports/scheduled/:id/run", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const scheduleResult = await db.execute(sql`SELECT * FROM scheduled_reports WHERE id = ${id}`);
+      const schedule = scheduleResult.rows[0] as any;
+      
+      if (!schedule) {
+        return res.status(404).json({ error: "Scheduled report not found" });
+      }
+
+      // Create a generated report record
+      const result = await db.execute(sql`
+        INSERT INTO generated_reports (organisation_id, name, scheduled_report_id, format, status, filters)
+        VALUES (${schedule.organisation_id}, ${schedule.name}, ${id}, ${schedule.format}, 'READY', ${JSON.stringify(schedule.filters || {})})
+        RETURNING *
+      `);
+
+      // Update last run time
+      await db.execute(sql`
+        UPDATE scheduled_reports SET last_run_at = NOW(), updated_at = NOW() WHERE id = ${id}
+      `);
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error running scheduled report:", error);
+      res.status(500).json({ error: "Failed to run scheduled report" });
+    }
+  });
   
   return httpServer;
 }
