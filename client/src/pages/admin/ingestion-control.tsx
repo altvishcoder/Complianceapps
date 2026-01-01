@@ -32,7 +32,9 @@ import {
   RotateCcw,
   Timer,
   CalendarClock,
-  Settings
+  Settings,
+  Pencil,
+  Package
 } from "lucide-react";
 import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend } from "recharts";
@@ -110,6 +112,18 @@ interface ScheduledJobInfo {
     createdOn: string;
     completedOn: string | null;
   }>;
+}
+
+interface IngestionBatch {
+  id: string;
+  organisationId: string;
+  name: string | null;
+  totalFiles: number;
+  completedFiles: number;
+  failedFiles: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -200,6 +214,8 @@ export default function IngestionControlRoom() {
   const [editScheduleOpen, setEditScheduleOpen] = useState(false);
   const [newIntervalMinutes, setNewIntervalMinutes] = useState<number>(5);
   const [pipelineFilter, setPipelineFilter] = useState<string | null>(null);
+  const [editBatchId, setEditBatchId] = useState<string | null>(null);
+  const [editBatchName, setEditBatchName] = useState<string>("");
 
   useEffect(() => {
     document.title = "Ingestion Control Room - ComplianceAI";
@@ -270,6 +286,17 @@ export default function IngestionControlRoom() {
     },
     enabled: !!pipelineFilter,
     refetchInterval: pipelineFilter ? 5000 : false,
+  });
+
+  // Fetch ingestion batches
+  const { data: batches, isLoading: batchesLoading, refetch: refetchBatches } = useQuery<IngestionBatch[]>({
+    queryKey: ["/api/batches"],
+    queryFn: async () => {
+      const res = await fetch("/api/batches", { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch batches");
+      return res.json();
+    },
+    refetchInterval: 5000,
   });
 
   const retryMutation = useMutation({
@@ -438,6 +465,31 @@ export default function IngestionControlRoom() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to Toggle Watchdog", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const renameBatchMutation = useMutation({
+    mutationFn: async ({ batchId, name }: { batchId: string; name: string }) => {
+      const res = await fetch(`/api/batches/${batchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to rename batch");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Batch Renamed", description: "The batch has been renamed successfully" });
+      setEditBatchId(null);
+      setEditBatchName("");
+      refetchBatches();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Rename Batch", description: error.message, variant: "destructive" });
     },
   });
 
@@ -701,6 +753,7 @@ export default function IngestionControlRoom() {
             <TabsList>
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
               <TabsTrigger value="jobs" data-testid="tab-jobs">Job Queue</TabsTrigger>
+              <TabsTrigger value="batches" data-testid="tab-batches">Batches</TabsTrigger>
               <TabsTrigger value="errors" data-testid="tab-errors">Error Triage</TabsTrigger>
               <TabsTrigger value="scheduled" data-testid="tab-scheduled">Scheduled Jobs</TabsTrigger>
             </TabsList>
@@ -977,6 +1030,149 @@ export default function IngestionControlRoom() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="batches">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Package className="h-5 w-5 text-blue-500" />
+                        Upload Batches
+                      </CardTitle>
+                      <CardDescription>Group and track certificate uploads by batch</CardDescription>
+                    </div>
+                    <Button
+                      onClick={() => refetchBatches()}
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-refresh-batches"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {batchesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : batches && batches.length > 0 ? (
+                    <ScrollArea className="h-96">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Batch Name</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-center">Files</TableHead>
+                            <TableHead className="text-center">Completed</TableHead>
+                            <TableHead className="text-center">Failed</TableHead>
+                            <TableHead>Created</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {batches.map((batch) => (
+                            <TableRow key={batch.id} data-testid={`batch-row-${batch.id}`}>
+                              <TableCell>
+                                {editBatchId === batch.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={editBatchName}
+                                      onChange={(e) => setEditBatchName(e.target.value)}
+                                      className="h-8 w-48"
+                                      autoFocus
+                                      data-testid={`input-batch-name-${batch.id}`}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          renameBatchMutation.mutate({ batchId: batch.id, name: editBatchName });
+                                        } else if (e.key === 'Escape') {
+                                          setEditBatchId(null);
+                                          setEditBatchName("");
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => renameBatchMutation.mutate({ batchId: batch.id, name: editBatchName })}
+                                      disabled={renameBatchMutation.isPending}
+                                      data-testid={`button-save-batch-name-${batch.id}`}
+                                    >
+                                      {renameBatchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => { setEditBatchId(null); setEditBatchName(""); }}
+                                      data-testid={`button-cancel-batch-name-${batch.id}`}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{batch.name || 'Unnamed Batch'}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => { setEditBatchId(batch.id); setEditBatchName(batch.name || ''); }}
+                                      data-testid={`button-edit-batch-name-${batch.id}`}
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  className={
+                                    batch.status === 'COMPLETED' 
+                                      ? 'bg-emerald-100 text-emerald-800' 
+                                      : batch.status === 'FAILED' 
+                                        ? 'bg-red-100 text-red-800'
+                                        : batch.status === 'PARTIAL'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : batch.status === 'PROCESSING'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                  }
+                                >
+                                  {batch.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">{batch.totalFiles}</TableCell>
+                              <TableCell className="text-center text-emerald-600 font-medium">{batch.completedFiles}</TableCell>
+                              <TableCell className="text-center text-red-600 font-medium">{batch.failedFiles}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {format(new Date(batch.createdAt), 'dd/MM/yyyy HH:mm')}
+                              </TableCell>
+                              <TableCell>
+                                {batch.status === 'PROCESSING' && (
+                                  <div className="w-24">
+                                    <Progress 
+                                      value={(batch.completedFiles + batch.failedFiles) / batch.totalFiles * 100} 
+                                      className="h-2"
+                                    />
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                      <p className="font-medium">No Batches Yet</p>
+                      <p className="text-sm">Upload certificates to create batches</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
