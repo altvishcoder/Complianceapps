@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft, Wrench } from "lucide-react";
-import { Link, useRoute } from "wouter";
+import { Link, useRoute, useSearch } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { propertiesApi } from "@/lib/api";
+import { useMemo } from "react";
 
 function PropertyDetailSkeleton() {
   return (
@@ -71,6 +72,15 @@ function PropertyDetailSkeleton() {
 
 export default function PropertyDetail() {
   const [match, params] = useRoute("/properties/:id");
+  const searchString = useSearch();
+  
+  const returnUrl = useMemo(() => {
+    const urlParams = new URLSearchParams(searchString);
+    const from = urlParams.get('from');
+    return from ? decodeURIComponent(from) : null;
+  }, [searchString]);
+  
+  const isFromCalendar = returnUrl?.startsWith('/calendar');
   
   const { data: property, isLoading } = useQuery({
     queryKey: ["property", params?.id],
@@ -104,11 +114,20 @@ export default function PropertyDetail() {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           
           <div className="flex items-center gap-4">
-             <Link href="/properties">
-               <Button variant="ghost" size="icon">
-                 <ChevronLeft className="h-5 w-5" />
-               </Button>
-             </Link>
+             {isFromCalendar && returnUrl ? (
+               <Link href={returnUrl}>
+                 <Button variant="outline" size="sm" className="gap-2">
+                   <Calendar className="h-4 w-4" />
+                   Back to Calendar
+                 </Button>
+               </Link>
+             ) : (
+               <Link href="/properties">
+                 <Button variant="ghost" size="icon">
+                   <ChevronLeft className="h-5 w-5" />
+                 </Button>
+               </Link>
+             )}
              <div>
                <h1 className="text-2xl font-bold tracking-tight">{property.addressLine1}</h1>
                <div className="flex items-center gap-2 text-muted-foreground text-sm">

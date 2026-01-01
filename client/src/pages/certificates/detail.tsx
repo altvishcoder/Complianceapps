@@ -17,8 +17,8 @@ import {
   User,
   Wrench
 } from "lucide-react";
-import { Link, useParams } from "wouter";
-import { useEffect } from "react";
+import { Link, useParams, useSearch } from "wouter";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { certificatesApi, actionsApi } from "@/lib/api";
 import { DocumentViewer } from "@/components/DocumentViewer";
@@ -32,6 +32,15 @@ export default function CertificateDetailPage() {
   }, []);
 
   const { id } = useParams<{ id: string }>();
+  const searchString = useSearch();
+  
+  const returnUrl = useMemo(() => {
+    const urlParams = new URLSearchParams(searchString);
+    const from = urlParams.get('from');
+    return from ? decodeURIComponent(from) : null;
+  }, [searchString]);
+  
+  const isFromCalendar = returnUrl?.startsWith('/calendar');
   
   const { data: certificate, isLoading } = useQuery({
     queryKey: ["certificates", id],
@@ -122,11 +131,20 @@ export default function CertificateDetailPage() {
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/certificates">
-                <Button variant="ghost" size="icon" data-testid="back-button">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
+              {isFromCalendar && returnUrl ? (
+                <Link href={returnUrl}>
+                  <Button variant="outline" size="sm" className="gap-2" data-testid="back-to-calendar-button">
+                    <Calendar className="h-4 w-4" />
+                    Back to Calendar
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/certificates">
+                  <Button variant="ghost" size="icon" data-testid="back-button">
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
               <div>
                 <h1 className="text-2xl font-bold flex items-center gap-3">
                   <FileText className="h-6 w-6 text-blue-600" />

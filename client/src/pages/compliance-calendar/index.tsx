@@ -20,8 +20,36 @@ import { format, parse, startOfWeek, getDay, differenceInDays, addDays } from "d
 import { enGB } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { cn } from "@/lib/utils";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+
+function parseCalendarParams(search: string) {
+  const params = new URLSearchParams(search);
+  const dateStr = params.get('date');
+  let parsedDate = new Date();
+  if (dateStr) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    parsedDate = new Date(year, month - 1, day);
+  }
+  return {
+    date: parsedDate,
+    view: (params.get('view') as View) || Views.MONTH,
+    filterType: params.get('filterType') || 'all',
+    filterStream: params.get('filterStream') || 'all',
+  };
+}
+
+function buildCalendarParams(date: Date, view: View, filterType: string, filterStream: string) {
+  const params = new URLSearchParams();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  params.set('date', `${year}-${month}-${day}`);
+  params.set('view', view);
+  if (filterType !== 'all') params.set('filterType', filterType);
+  if (filterStream !== 'all') params.set('filterStream', filterStream);
+  return params.toString();
+}
 
 const locales = { 'en-GB': enGB };
 
@@ -94,13 +122,23 @@ export default function ComplianceCalendar() {
   }, []);
 
   const [, navigate] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<View>(Views.MONTH);
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStream, setFilterStream] = useState<string>('all');
+  // Initialize state from URL params
+  const initialParams = useMemo(() => parseCalendarParams(searchString), []);
+  const [currentDate, setCurrentDate] = useState(initialParams.date);
+  const [currentView, setCurrentView] = useState<View>(initialParams.view);
+  const [filterType, setFilterType] = useState<string>(initialParams.filterType);
+  const [filterStream, setFilterStream] = useState<string>(initialParams.filterStream);
+  
+  // Update URL when state changes (without full navigation)
+  useEffect(() => {
+    const newParams = buildCalendarParams(currentDate, currentView, filterType, filterStream);
+    const newUrl = `/calendar?${newParams}`;
+    window.history.replaceState(null, '', newUrl);
+  }, [currentDate, currentView, filterType, filterStream]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -395,15 +433,22 @@ export default function ComplianceCalendar() {
     });
   };
 
+  const getCalendarReturnUrl = useCallback(() => {
+    const params = buildCalendarParams(currentDate, currentView, filterType, filterStream);
+    return `/calendar?${params}`;
+  }, [currentDate, currentView, filterType, filterStream]);
+
   const handleNavigateToProperty = () => {
     if (selectedEvent?.propertyId) {
-      navigate(`/properties/${selectedEvent.propertyId}`);
+      const returnUrl = encodeURIComponent(getCalendarReturnUrl());
+      navigate(`/properties/${selectedEvent.propertyId}?from=${returnUrl}`);
     }
   };
 
   const handleNavigateToCertificate = () => {
     if (selectedEvent?.certificateId) {
-      navigate(`/certificates/${selectedEvent.certificateId}`);
+      const returnUrl = encodeURIComponent(getCalendarReturnUrl());
+      navigate(`/certificates/${selectedEvent.certificateId}?from=${returnUrl}`);
     }
   };
 
