@@ -1,6 +1,6 @@
 import { ChevronRight, Home, ArrowLeft } from "lucide-react";
 import { Link, useSearch } from "wouter";
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 
 export interface BreadcrumbItem {
@@ -15,7 +15,7 @@ interface BreadcrumbProps {
   showHome?: boolean;
 }
 
-export function Breadcrumb({ items, homeHref = "/dashboard", showHome = true }: BreadcrumbProps) {
+function BreadcrumbComponent({ items, homeHref = "/dashboard", showHome = true }: BreadcrumbProps) {
   const searchString = useSearch();
   
   const returnUrl = useMemo(() => {
@@ -105,6 +105,8 @@ export function Breadcrumb({ items, homeHref = "/dashboard", showHome = true }: 
     </div>
   );
 }
+
+export const Breadcrumb = memo(BreadcrumbComponent);
 
 export function useBreadcrumbContext() {
   const searchString = useSearch();

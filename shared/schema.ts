@@ -49,6 +49,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   role: userRoleEnum("role").notNull().default('VIEWER'),
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  keycloakId: text("keycloak_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
