@@ -35,16 +35,26 @@ export default function ComponentsPage() {
     document.title = "Components & Assets - ComplianceAI";
   }, []);
 
-  // Scroll to highlighted component when data loads
+  // Track if we've scrolled to the highlighted component
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [lastHighlightId, setLastHighlightId] = useState<string | null>(null);
+  const [wasLoading, setWasLoading] = useState(false);
+  
+  // Reset scroll state when highlightId changes or when data finishes loading
   useEffect(() => {
-    if (highlightId && highlightRef.current && !hasScrolled) {
-      setTimeout(() => {
-        highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        setHasScrolled(true);
-      }, 100);
+    if (highlightId !== lastHighlightId) {
+      setHasScrolled(false);
+      setLastHighlightId(highlightId);
     }
-  }, [highlightId, hasScrolled]);
+  }, [highlightId, lastHighlightId]);
+  
+  // Track loading transitions to reset scroll state on data refresh
+  useEffect(() => {
+    if (wasLoading && !componentsLoading) {
+      setHasScrolled(false);
+    }
+    setWasLoading(componentsLoading);
+  }, [componentsLoading, wasLoading]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -183,6 +193,19 @@ export default function ComponentsPage() {
       comp.location?.toLowerCase().includes(query)
     );
   });
+  
+  // Scroll to highlighted component when data loads and component is found
+  useEffect(() => {
+    if (highlightId && !hasScrolled && !componentsLoading) {
+      const hasHighlightedComponent = filteredComponents.some(c => c.id === highlightId);
+      if (hasHighlightedComponent) {
+        setTimeout(() => {
+          highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          setHasScrolled(true);
+        }, 100);
+      }
+    }
+  }, [highlightId, hasScrolled, componentsLoading, filteredComponents]);
   
   const handleCreate = () => {
     if (!newComponent.componentTypeId) return;

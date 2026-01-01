@@ -459,7 +459,7 @@ export default function PropertyHierarchy() {
                   name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
                   type: 'component' as const,
                   reference: component.serialNumber || undefined,
-                  data: component,
+                  data: { ...component, propertyId: property.id },
                   children: [],
                 }));
               
@@ -474,7 +474,7 @@ export default function PropertyHierarchy() {
                     name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
                     type: 'component' as const,
                     reference: component.serialNumber || undefined,
-                    data: component,
+                    data: { ...component, propertyId: property.id },
                     children: [],
                   }));
                 
@@ -487,7 +487,7 @@ export default function PropertyHierarchy() {
                       name: component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component'),
                       type: 'component' as const,
                       reference: component.serialNumber || undefined,
-                      data: component,
+                      data: { ...component, propertyId: property.id },
                       children: [],
                     }));
                   
@@ -496,7 +496,7 @@ export default function PropertyHierarchy() {
                     name: space.name,
                     type: 'space' as const,
                     reference: space.reference || undefined,
-                    data: space,
+                    data: { ...space, propertyId: property.id },
                     children: spaceComponents,
                   };
                 });
@@ -506,7 +506,7 @@ export default function PropertyHierarchy() {
                   name: unit.name,
                   type: 'unit' as const,
                   reference: unit.reference || undefined,
-                  data: unit,
+                  data: { ...unit, propertyId: property.id },
                   children: [...spaceNodes, ...unitComponents],
                 };
               });

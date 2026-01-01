@@ -22,7 +22,17 @@ import { ContextBackButton } from "@/components/navigation/ContextBackButton";
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);
-  return params.has('sort') || params.has('from');
+  return params.has('sort') || params.has('from') || params.has('block') || params.has('scheme');
+}
+
+function getInitialBlockFilter(): string {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('block') || 'all';
+}
+
+function getInitialSchemeFilter(): string {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('scheme') || 'all';
 }
 
 export default function Properties() {
@@ -37,8 +47,8 @@ export default function Properties() {
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState("all");
-  const [schemeFilter, setSchemeFilter] = useState("all");
-  const [blockFilter, setBlockFilter] = useState("all");
+  const [schemeFilter, setSchemeFilter] = useState(getInitialSchemeFilter);
+  const [blockFilter, setBlockFilter] = useState(getInitialBlockFilter);
   const [searchQuery, setSearchQuery] = useState("");
   
   const { data: properties = [] } = useQuery({
