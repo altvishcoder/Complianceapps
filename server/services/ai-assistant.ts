@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { logger } from '../logger';
 import { db } from '../db';
 import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes, chatbotConversations, chatbotMessages, chatbotAnalytics, knowledgeEmbeddings } from '@shared/schema';
-import { count, ilike, or, eq, and, isNull, lt, desc, sql } from 'drizzle-orm';
+import { count, ilike, or, eq, and, isNull, isNotNull, lt, desc, sql, gte, lte } from 'drizzle-orm';
 
 // =============================================================================
 // ANALYTICS TRACKING
@@ -2286,7 +2286,7 @@ async function handleCalendarQuery(query: string): Promise<string | null> {
     const overdueActions = await db
       .select({
         id: remedialActions.id,
-        title: remedialActions.title,
+        description: remedialActions.description,
         dueDate: remedialActions.dueDate,
         severity: remedialActions.severity,
         propertyId: remedialActions.propertyId,
@@ -2339,7 +2339,8 @@ async function handleCalendarQuery(query: string): Promise<string | null> {
         const dueStr = action.dueDate ? new Date(action.dueDate).toLocaleDateString('en-GB') : 'No date';
         const severity = action.severity || 'Medium';
         const addr = action.addressLine1 ? `${action.addressLine1}` : 'Unknown property';
-        response += `• **${action.title}** [${severity}] - Due ${dueStr}\n  ${addr} [View](/actions/${action.id})\n`;
+        const actionDesc = action.description.substring(0, 50) + (action.description.length > 50 ? '...' : '');
+        response += `• **${actionDesc}** [${severity}] - Due ${dueStr}\n  ${addr} [View](/actions/${action.id})\n`;
       }
       if (overdueActions.length > 5) {
         response += `  ...and ${overdueActions.length - 5} more\n`;

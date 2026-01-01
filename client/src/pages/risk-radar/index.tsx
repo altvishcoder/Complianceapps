@@ -21,7 +21,8 @@ import {
   Flame,
   Zap,
   FileWarning,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from "lucide-react";
 import { Link } from "wouter";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
@@ -243,14 +244,22 @@ export default function RiskRadarPage() {
           <h1 className="text-3xl font-bold" data-testid="heading-risk-radar">Predictive Compliance Radar</h1>
           <p className="text-muted-foreground">ML-powered risk scoring and early warning system for your property portfolio</p>
         </div>
-        <Button 
-          onClick={() => calculateAllMutation.mutate()} 
-          disabled={calculateAllMutation.isPending}
-          data-testid="button-calculate-all"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${calculateAllMutation.isPending ? 'animate-spin' : ''}`} />
-          Recalculate All Risks
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/calendar">
+            <Button variant="outline" data-testid="button-view-calendar">
+              <Calendar className="h-4 w-4 mr-2" />
+              View Calendar
+            </Button>
+          </Link>
+          <Button 
+            onClick={() => calculateAllMutation.mutate()} 
+            disabled={calculateAllMutation.isPending}
+            data-testid="button-calculate-all"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${calculateAllMutation.isPending ? 'animate-spin' : ''}`} />
+            Recalculate All Risks
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

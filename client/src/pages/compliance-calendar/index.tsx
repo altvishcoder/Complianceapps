@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Calendar as CalendarIcon, 
   AlertTriangle, Clock, CheckCircle, FileText, Building2,
-  Loader2, RefreshCw, Plus, Landmark, Users, Eye
+  Loader2, RefreshCw, Plus, Landmark, Users, Eye, Radar
 } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -127,14 +127,55 @@ export default function ComplianceCalendar() {
     },
   });
 
-  const dateFormat = factorySettings?.regional?.dateFormat || 'DD-MM-YYYY';
-
-  const formatUKDate = useCallback((date: Date) => {
+  const dateFormatSetting = factorySettings?.regional?.dateFormat || 'DD-MM-YYYY';
+  
+  const formatConfiguredDate = useCallback((date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  }, []);
+    
+    switch (dateFormatSetting) {
+      case 'MM-DD-YYYY':
+        return `${month}/${day}/${year}`;
+      case 'YYYY-MM-DD':
+        return `${year}-${month}-${day}`;
+      case 'DD-MM-YYYY':
+      default:
+        return `${day}/${month}/${year}`;
+    }
+  }, [dateFormatSetting]);
+  
+  const getDateFnsFormat = useCallback(() => {
+    switch (dateFormatSetting) {
+      case 'MM-DD-YYYY':
+        return 'MM/dd/yyyy';
+      case 'YYYY-MM-DD':
+        return 'yyyy-MM-dd';
+      case 'DD-MM-YYYY':
+      default:
+        return 'dd/MM/yyyy';
+    }
+  }, [dateFormatSetting]);
+  
+  const getShortDateFormat = useCallback(() => {
+    switch (dateFormatSetting) {
+      case 'MM-DD-YYYY':
+        return 'MM/dd';
+      case 'YYYY-MM-DD':
+        return 'MM-dd';
+      case 'DD-MM-YYYY':
+      default:
+        return 'dd/MM';
+    }
+  }, [dateFormatSetting]);
+  
+  const calendarFormats = useMemo(() => ({
+    dateFormat: 'd',
+    dayFormat: (date: Date) => `${format(date, 'EEE', { locale: enGB })} ${format(date, getShortDateFormat(), { locale: enGB })}`,
+    monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy', { locale: enGB }),
+    dayHeaderFormat: (date: Date) => `${format(date, 'EEEE', { locale: enGB })} ${format(date, getDateFnsFormat(), { locale: enGB })}`,
+    agendaDateFormat: (date: Date) => `${format(date, 'EEE', { locale: enGB })} ${format(date, getDateFnsFormat(), { locale: enGB })}`,
+  }), [getDateFnsFormat, getShortDateFormat]);
 
   const { data: certificates, isLoading: certificatesLoading } = useQuery<any[]>({
     queryKey: ["calendarCertificates"],
@@ -380,6 +421,10 @@ export default function ComplianceCalendar() {
               <p className="text-muted-foreground">Track certificate expirations, legislative deadlines, and compliance events</p>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => navigate('/risk-radar')} data-testid="button-view-radar">
+                <Radar className="h-4 w-4 mr-2" />
+                Risk Radar
+              </Button>
               <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-calendar">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
@@ -511,13 +556,7 @@ export default function ComplianceCalendar() {
                     selectable
                     eventPropGetter={eventStyleGetter}
                     views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
-                    formats={{
-                      dateFormat: 'd',
-                      dayFormat: (date: Date) => format(date, 'EEE dd/MM', { locale: enGB }),
-                      monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy', { locale: enGB }),
-                      dayHeaderFormat: (date: Date) => format(date, 'EEEE dd MMMM yyyy', { locale: enGB }),
-                      agendaDateFormat: (date: Date) => format(date, 'EEE dd/MM/yyyy', { locale: enGB }),
-                    }}
+                    formats={calendarFormats}
                     messages={{
                       today: 'Today',
                       previous: 'Back',
@@ -559,7 +598,7 @@ export default function ComplianceCalendar() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Date:</span>
-                      <span>{formatUKDate(selectedEvent.start)}</span>
+                      <span>{formatConfiguredDate(selectedEvent.start)}</span>
                     </div>
                     
                     {selectedEvent.certificateType && (
