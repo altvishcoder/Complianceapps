@@ -8,6 +8,8 @@ import bcrypt from "bcrypt";
 const SALT_ROUNDS = 12;
 
 export const auth = betterAuth({
+  basePath: "/api/betterauth",
+  
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -64,22 +66,22 @@ export const auth = betterAuth({
     },
   },
 
-  plugins: [
-    genericOAuth({
-      config: [
-        {
-          providerId: "microsoft-entra",
-          discoveryUrl: process.env.AZURE_TENANT_ID
-            ? `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`
-            : undefined,
-          clientId: process.env.AZURE_CLIENT_ID || "",
-          clientSecret: process.env.AZURE_CLIENT_SECRET || "",
-          scopes: ["openid", "profile", "email"],
-          pkce: true,
-        },
-      ],
-    }),
-  ],
+  plugins: process.env.AZURE_TENANT_ID && process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET
+    ? [
+        genericOAuth({
+          config: [
+            {
+              providerId: "microsoft-entra",
+              discoveryUrl: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`,
+              clientId: process.env.AZURE_CLIENT_ID,
+              clientSecret: process.env.AZURE_CLIENT_SECRET,
+              scopes: ["openid", "profile", "email"],
+              pkce: true,
+            },
+          ],
+        }),
+      ]
+    : [],
 
   trustedOrigins: [
     process.env.APP_URL || "http://localhost:5000",

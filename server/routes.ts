@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcrypt";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenAPIDocument } from "./openapi";
+import { auth } from "./auth";
+import { toNodeHandler } from "better-auth/node";
 import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
@@ -159,6 +161,9 @@ export async function registerRoutes(
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
+
+  // BetterAuth handler - mount at /api/betterauth/* for modern auth
+  app.all("/api/betterauth/*", toNodeHandler(auth));
 
   // OpenAPI/Swagger documentation
   const openApiSpec = generateOpenAPIDocument();
