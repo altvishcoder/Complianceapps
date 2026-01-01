@@ -90,11 +90,12 @@ interface AISuggestionsData {
 
 interface TierStatsData {
   summary: {
-    totalExtractions: number;
+    totalExtractionRuns: number;
+    totalCertificates: number;
     totalTierAttempts: number;
-    avgTiersPerExtraction: number;
+    avgTiersPerRun: number;
     totalCost: number;
-    avgCostPerExtraction: number;
+    avgCostPerRun: number;
     totalProcessingTimeMs: number;
     avgProcessingTimeMs: number;
   };
