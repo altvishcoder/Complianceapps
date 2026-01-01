@@ -430,6 +430,7 @@ function formatRAGResponse(query: string, results: RAGResult[]): string | null {
 type IntentCategory = 
   | 'faq'           // General compliance questions → Layer 1
   | 'database'      // Property/certificate lookups → Layer 2  
+  | 'calendar'      // Calendar/schedule queries → Layer 2.5
   | 'navigation'    // Platform how-to questions → Static response
   | 'greeting'      // Hello/thanks → Static response
   | 'off_topic'     // Non-compliance questions → Polite redirect
@@ -460,9 +461,20 @@ const INTENT_PATTERNS: Record<IntentCategory, RegExp[]> = {
     /which (properties|certificates|blocks|schemes)/i,
     /how many (properties|certificates|actions)/i,
     /list (all |my )?(properties|certificates|actions)/i,
-    /(overdue|expiring|pending|non-compliant|compliant)/i,
+    /(overdue|pending|non-compliant|compliant)/i,
     /search for/i,
     /look up/i,
+  ],
+  calendar: [
+    /what('s| is) (due|happening|scheduled|coming up)/i,
+    /(due|expiring|happening|scheduled) (this|next) (week|month)/i,
+    /upcoming (events?|deadlines?|inspections?|renewals?)/i,
+    /calendar|schedule|what do i have/i,
+    /deadlines? (for |this |next )/i,
+    /legislative (deadline|date|requirement)/i,
+    /when (is|are) .+ (due|expiring|happening)/i,
+    /next (inspection|renewal|expiry)/i,
+    /show me (the |my )?(calendar|schedule|upcoming)/i,
   ],
   faq: [
     /(what|when|how often|how long|do i need|is .+ required)/i,
@@ -2221,6 +2233,129 @@ ${p.epcRating ? `- EPC Rating: ${p.epcRating}` : ''}
   }
 }
 
+// =============================================================================
+// LAYER 2.5: CALENDAR QUERY HANDLER
+// Handles "What's due this week?" style queries
+// =============================================================================
+
+async function handleCalendarQuery(query: string): Promise<string | null> {
+  const searchTerms = query.toLowerCase();
+  
+  try {
+    // Determine time window based on query
+    let daysAhead = 7; // Default to this week
+    if (searchTerms.includes('this week') || searchTerms.includes('week')) {
+      daysAhead = 7;
+    } else if (searchTerms.includes('this month') || searchTerms.includes('month')) {
+      daysAhead = 30;
+    } else if (searchTerms.includes('next week')) {
+      daysAhead = 14;
+    } else if (searchTerms.includes('today')) {
+      daysAhead = 1;
+    } else if (searchTerms.includes('tomorrow')) {
+      daysAhead = 2;
+    }
+    
+    const now = new Date();
+    const futureDate = new Date(now);
+    futureDate.setDate(futureDate.getDate() + daysAhead);
+    
+    // Get expiring certificates
+    const expiringCerts = await db
+      .select({
+        id: certificates.id,
+        certificateType: certificates.certificateType,
+        expiryDate: certificates.expiryDate,
+        propertyId: certificates.propertyId,
+        addressLine1: properties.addressLine1,
+        postcode: properties.postcode,
+      })
+      .from(certificates)
+      .leftJoin(properties, eq(certificates.propertyId, properties.id))
+      .where(
+        and(
+          isNotNull(certificates.expiryDate),
+          sql`${certificates.expiryDate} >= ${now.toISOString()}`,
+          sql`${certificates.expiryDate} <= ${futureDate.toISOString()}`
+        )
+      )
+      .orderBy(certificates.expiryDate)
+      .limit(10);
+    
+    // Get overdue remedial actions
+    const overdueActions = await db
+      .select({
+        id: remedialActions.id,
+        title: remedialActions.title,
+        dueDate: remedialActions.dueDate,
+        severity: remedialActions.severity,
+        propertyId: remedialActions.propertyId,
+        addressLine1: properties.addressLine1,
+        postcode: properties.postcode,
+      })
+      .from(remedialActions)
+      .leftJoin(properties, eq(remedialActions.propertyId, properties.id))
+      .where(
+        and(
+          eq(remedialActions.status, 'OPEN'),
+          isNotNull(remedialActions.dueDate),
+          sql`${remedialActions.dueDate} <= ${futureDate.toISOString()}`
+        )
+      )
+      .orderBy(remedialActions.dueDate)
+      .limit(10);
+    
+    const timeframeLabel = daysAhead === 1 ? 'today' : 
+                          daysAhead === 2 ? 'tomorrow' :
+                          daysAhead === 7 ? 'this week' : 
+                          daysAhead === 14 ? 'next two weeks' :
+                          daysAhead === 30 ? 'this month' : `next ${daysAhead} days`;
+    
+    let response = `**Upcoming Compliance Events (${timeframeLabel})**\n\n`;
+    
+    if (expiringCerts.length === 0 && overdueActions.length === 0) {
+      response += `Great news! No certificates expiring or actions due ${timeframeLabel}.\n\n`;
+      response += `[View Calendar](/calendar) | [Certificates](/certificates) | [Actions](/actions)`;
+      return response;
+    }
+    
+    if (expiringCerts.length > 0) {
+      response += `**Certificates Expiring:**\n`;
+      for (const cert of expiringCerts.slice(0, 5)) {
+        const expiryStr = cert.expiryDate ? new Date(cert.expiryDate).toLocaleDateString('en-GB') : 'Unknown';
+        const certType = cert.certificateType?.replace(/_/g, ' ') || 'Certificate';
+        const addr = cert.addressLine1 ? `${cert.addressLine1}, ${cert.postcode}` : 'Unknown property';
+        response += `• **${certType}** - ${expiryStr}\n  ${addr} [View](/certificates/${cert.id})\n`;
+      }
+      if (expiringCerts.length > 5) {
+        response += `  ...and ${expiringCerts.length - 5} more\n`;
+      }
+      response += '\n';
+    }
+    
+    if (overdueActions.length > 0) {
+      response += `**Remedial Actions Due:**\n`;
+      for (const action of overdueActions.slice(0, 5)) {
+        const dueStr = action.dueDate ? new Date(action.dueDate).toLocaleDateString('en-GB') : 'No date';
+        const severity = action.severity || 'Medium';
+        const addr = action.addressLine1 ? `${action.addressLine1}` : 'Unknown property';
+        response += `• **${action.title}** [${severity}] - Due ${dueStr}\n  ${addr} [View](/actions/${action.id})\n`;
+      }
+      if (overdueActions.length > 5) {
+        response += `  ...and ${overdueActions.length - 5} more\n`;
+      }
+      response += '\n';
+    }
+    
+    response += `[View Full Calendar](/calendar) | [All Certificates](/certificates) | [All Actions](/actions)`;
+    
+    return response;
+  } catch (error) {
+    logger.error({ error }, 'Calendar query failed');
+    return `Unable to fetch calendar data. [Check Calendar](/calendar) | [Certificates](/certificates) | [Actions](/actions)`;
+  }
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -2471,6 +2606,36 @@ export async function chatWithAssistant(
           };
         }
         // If database intent but no results found, fall through to LLM
+      }
+      
+      // ==========================================================================
+      // LAYER 2.5: CALENDAR QUERIES (What's due this week?)
+      // Handle calendar and schedule related queries
+      // ==========================================================================
+      if (intent.category === 'calendar') {
+        const calendarResponse = await handleCalendarQuery(query);
+        if (calendarResponse) {
+          logger.info({ query: query.substring(0, 50) }, 'Serving calendar query response');
+          const enhanced = enhanceResponse(calendarResponse, intent, askedQuestions, 'database');
+          
+          // Track analytics - Calendar query
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'database',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: intent.confidence,
+          });
+          
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
+        // If calendar intent but no results found, fall through to LLM
       }
       
       // ==========================================================================
