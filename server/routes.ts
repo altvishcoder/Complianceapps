@@ -6236,6 +6236,76 @@ export async function registerRoutes(
     }
   });
   
+  // Platform-wide ingestion monitoring - Super User only
+  // Intentionally cross-organisation for platform-level oversight
+  app.get("/api/admin/ingestion-stats", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const [queueStats, ingestionStats] = await Promise.all([
+        getQueueStats(),
+        storage.getIngestionStats()
+      ]);
+      
+      res.json({
+        queue: queueStats,
+        ...ingestionStats
+      });
+    } catch (error) {
+      console.error("Error getting ingestion stats:", error);
+      res.status(500).json({ error: "Failed to get ingestion stats" });
+    }
+  });
+  
+  // Platform-wide ingestion job listing - Super User only
+  app.get("/api/admin/ingestion-jobs", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { status, limit = "50", offset = "0" } = req.query;
+      const jobs = await storage.listAllIngestionJobs({
+        status: status as string | undefined,
+        limit: Math.min(parseInt(limit as string) || 50, 200),
+        offset: parseInt(offset as string) || 0,
+      });
+      
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error getting ingestion jobs:", error);
+      res.status(500).json({ error: "Failed to get ingestion jobs" });
+    }
+  });
+  
+  // Retry failed ingestion job - Super User only
+  app.post("/api/admin/ingestion-jobs/:id/retry", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { id } = req.params;
+      const job = await storage.getIngestionJob(id);
+      
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      
+      if (job.status !== 'FAILED') {
+        return res.status(400).json({ error: "Only failed jobs can be retried" });
+      }
+      
+      await storage.updateIngestionJob(id, {
+        status: 'QUEUED',
+        attemptCount: 0,
+        errorDetails: null,
+        statusMessage: 'Manually retried',
+      });
+      
+      res.json({ success: true, message: "Job queued for retry" });
+    } catch (error) {
+      console.error("Error retrying ingestion job:", error);
+      res.status(500).json({ error: "Failed to retry job" });
+    }
+  });
+  
   app.get("/api/admin/logs", async (req, res) => {
     try {
       if (!await requireAdminRole(req, res)) return;

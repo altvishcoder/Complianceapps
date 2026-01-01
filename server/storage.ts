@@ -333,11 +333,20 @@ export interface IStorage {
   
   // Ingestion Jobs
   listIngestionJobs(organisationId: string, filters?: { status?: string; limit?: number; offset?: number }): Promise<IngestionJob[]>;
+  listAllIngestionJobs(filters?: { status?: string; limit?: number; offset?: number }): Promise<IngestionJob[]>;
   getIngestionJob(id: string): Promise<IngestionJob | undefined>;
   getIngestionJobByIdempotencyKey(key: string): Promise<IngestionJob | undefined>;
   createIngestionJob(job: InsertIngestionJob): Promise<IngestionJob>;
   updateIngestionJob(id: string, updates: Partial<IngestionJob>): Promise<IngestionJob | undefined>;
   getNextPendingIngestionJob(): Promise<IngestionJob | undefined>;
+  getIngestionStats(): Promise<{
+    byStatus: Record<string, number>;
+    byType: Record<string, number>;
+    recentErrors: IngestionJob[];
+    throughputByHour: Array<{ hour: string; count: number }>;
+    avgProcessingTime: number;
+    successRate: number;
+  }>;
   
   // Rate Limiting
   checkAndIncrementRateLimit(clientId: string, windowMs: number, limit: number): Promise<{ allowed: boolean; remaining: number; resetAt: Date }>;
@@ -2095,6 +2104,90 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ingestionJobs.createdAt)
       .limit(1);
     return job || undefined;
+  }
+
+  async listAllIngestionJobs(filters?: { status?: string; limit?: number; offset?: number }): Promise<IngestionJob[]> {
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+    
+    if (filters?.status) {
+      return db.select().from(ingestionJobs)
+        .where(eq(ingestionJobs.status, filters.status as any))
+        .orderBy(desc(ingestionJobs.createdAt))
+        .limit(limit)
+        .offset(offset);
+    }
+    return db.select().from(ingestionJobs)
+      .orderBy(desc(ingestionJobs.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getIngestionStats(): Promise<{
+    byStatus: Record<string, number>;
+    byType: Record<string, number>;
+    recentErrors: IngestionJob[];
+    throughputByHour: Array<{ hour: string; count: number }>;
+    avgProcessingTime: number;
+    successRate: number;
+  }> {
+    const allJobs = await db.select().from(ingestionJobs).orderBy(desc(ingestionJobs.createdAt));
+    
+    const byStatus: Record<string, number> = {};
+    const byType: Record<string, number> = {};
+    let totalCompleted = 0;
+    let totalFailed = 0;
+    let totalProcessingTime = 0;
+    let processedCount = 0;
+    
+    for (const job of allJobs) {
+      byStatus[job.status] = (byStatus[job.status] || 0) + 1;
+      byType[job.certificateType] = (byType[job.certificateType] || 0) + 1;
+      
+      if (job.status === 'COMPLETE') {
+        totalCompleted++;
+        if (job.completedAt && job.createdAt) {
+          totalProcessingTime += new Date(job.completedAt).getTime() - new Date(job.createdAt).getTime();
+          processedCount++;
+        }
+      } else if (job.status === 'FAILED') {
+        totalFailed++;
+      }
+    }
+    
+    const recentErrors = allJobs
+      .filter(j => j.status === 'FAILED')
+      .slice(0, 20);
+    
+    const hourCounts: Record<string, number> = {};
+    const now = new Date();
+    for (let i = 23; i >= 0; i--) {
+      const hour = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const hourKey = hour.toISOString().slice(0, 13);
+      hourCounts[hourKey] = 0;
+    }
+    
+    for (const job of allJobs) {
+      const hourKey = new Date(job.createdAt).toISOString().slice(0, 13);
+      if (hourCounts.hasOwnProperty(hourKey)) {
+        hourCounts[hourKey]++;
+      }
+    }
+    
+    const throughputByHour = Object.entries(hourCounts).map(([hour, count]) => ({ hour, count }));
+    
+    const total = totalCompleted + totalFailed;
+    const successRate = total > 0 ? (totalCompleted / total) * 100 : 0;
+    const avgProcessingTime = processedCount > 0 ? totalProcessingTime / processedCount / 1000 : 0;
+    
+    return {
+      byStatus,
+      byType,
+      recentErrors,
+      throughputByHour,
+      avgProcessingTime,
+      successRate,
+    };
   }
 
   async checkAndIncrementRateLimit(clientId: string, windowMs: number, limit: number): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
