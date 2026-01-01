@@ -153,6 +153,7 @@ export interface CertificateUploadData {
   storageKey?: string | null;
   fileBase64?: string;
   mimeType?: string;
+  batchId?: string;
 }
 
 export const certificatesApi = {

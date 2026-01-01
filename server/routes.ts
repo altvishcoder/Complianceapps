@@ -3712,11 +3712,13 @@ export async function registerRoutes(
   app.post("/api/batches", async (req, res) => {
     try {
       const { name, totalFiles } = req.body;
+      const now = new Date();
+      const defaultName = name || `Manual Upload - ${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
       const [batch] = await db.insert(ingestionBatches).values({
         organisationId: ORG_ID,
-        name: name || `Batch ${new Date().toISOString()}`,
+        name: defaultName,
         totalFiles: totalFiles || 0,
-        status: 'PENDING',
+        status: totalFiles > 0 ? 'PROCESSING' : 'PENDING',
       }).returning();
       res.status(201).json(batch);
     } catch (error) {
