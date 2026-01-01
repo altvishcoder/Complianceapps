@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Calendar as CalendarIcon, 
   AlertTriangle, Clock, CheckCircle, FileText, Building2,
-  Loader2, RefreshCw, Plus, Landmark, Users, Eye, Radar
+  Loader2, RefreshCw, Plus, Landmark, Users, Eye, Radar,
+  ToggleLeft, ToggleRight
 } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -142,6 +143,7 @@ export default function ComplianceCalendar() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(true);
   const [newEventDate, setNewEventDate] = useState<Date | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
@@ -390,6 +392,65 @@ export default function ComplianceCalendar() {
     };
   }, []);
 
+  const eventDensityMap = useMemo(() => {
+    const densityMap = new Map<string, { total: number; expired: number; expiringSoon: number }>();
+    const now = new Date();
+    
+    events.forEach(event => {
+      const dateKey = format(event.start, 'yyyy-MM-dd');
+      const existing = densityMap.get(dateKey) || { total: 0, expired: 0, expiringSoon: 0 };
+      const daysUntil = differenceInDays(event.start, now);
+      
+      existing.total += 1;
+      if (daysUntil < 0) {
+        existing.expired += 1;
+      } else if (daysUntil <= 30) {
+        existing.expiringSoon += 1;
+      }
+      
+      densityMap.set(dateKey, existing);
+    });
+    
+    return densityMap;
+  }, [events]);
+
+  const maxDensity = useMemo(() => {
+    let max = 0;
+    eventDensityMap.forEach(({ total }) => {
+      if (total > max) max = total;
+    });
+    return max || 1;
+  }, [eventDensityMap]);
+
+  const dayPropGetter = useCallback((date: Date) => {
+    if (!showHeatmap) return {};
+    
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const density = eventDensityMap.get(dateKey);
+    
+    if (!density || density.total === 0) return {};
+    
+    const intensity = Math.min(density.total / maxDensity, 1);
+    
+    let bgColor: string;
+    if (density.expired > 0) {
+      const alpha = 0.15 + intensity * 0.35;
+      bgColor = `rgba(239, 68, 68, ${alpha})`;
+    } else if (density.expiringSoon > 0) {
+      const alpha = 0.15 + intensity * 0.35;
+      bgColor = `rgba(245, 158, 11, ${alpha})`;
+    } else {
+      const alpha = 0.1 + intensity * 0.25;
+      bgColor = `rgba(34, 197, 94, ${alpha})`;
+    }
+    
+    return {
+      style: {
+        backgroundColor: bgColor,
+      },
+    };
+  }, [showHeatmap, eventDensityMap, maxDensity]);
+
   const handleSelectEvent = useCallback((event: CalendarEvent) => {
     setSelectedEvent(event);
     setIsEventDialogOpen(true);
@@ -466,6 +527,15 @@ export default function ComplianceCalendar() {
               <p className="text-muted-foreground">Track certificate expirations, legislative deadlines, and compliance events</p>
             </div>
             <div className="flex gap-2">
+              <Button 
+                variant={showHeatmap ? "default" : "outline"} 
+                onClick={() => setShowHeatmap(!showHeatmap)} 
+                data-testid="button-toggle-heatmap"
+                className={showHeatmap ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : ""}
+              >
+                {showHeatmap ? <ToggleRight className="h-4 w-4 mr-2" /> : <ToggleLeft className="h-4 w-4 mr-2" />}
+                Heatmap
+              </Button>
               <Button variant="outline" onClick={() => navigate('/risk-radar')} data-testid="button-view-radar">
                 <Radar className="h-4 w-4 mr-2" />
                 Risk Radar
@@ -547,36 +617,55 @@ export default function ComplianceCalendar() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Calendar</CardTitle>
-                <div className="flex gap-2">
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-40" data-testid="select-filter-type">
-                      <SelectValue placeholder="Filter by type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="legislative">Legislative</SelectItem>
-                      <SelectItem value="company_wide">Company Events</SelectItem>
-                      <SelectItem value="certificate_expiry">Certificate Expiry</SelectItem>
-                      <SelectItem value="remedial_due">Remedial Due</SelectItem>
-                      <SelectItem value="inspection">Inspections</SelectItem>
-                      <SelectItem value="expiry">Expired</SelectItem>
-                      <SelectItem value="renewal">Expiring Soon</SelectItem>
-                      <SelectItem value="completed">Compliant</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterStream} onValueChange={setFilterStream}>
-                    <SelectTrigger className="w-40" data-testid="select-filter-stream">
-                      <SelectValue placeholder="Filter by stream" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Streams</SelectItem>
-                      {complianceStreams?.map(stream => (
-                        <SelectItem key={stream.id} value={stream.id}>
-                          {stream.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-2">
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="w-40" data-testid="select-filter-type">
+                        <SelectValue placeholder="Filter by type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="legislative">Legislative</SelectItem>
+                        <SelectItem value="company_wide">Company Events</SelectItem>
+                        <SelectItem value="certificate_expiry">Certificate Expiry</SelectItem>
+                        <SelectItem value="remedial_due">Remedial Due</SelectItem>
+                        <SelectItem value="inspection">Inspections</SelectItem>
+                        <SelectItem value="expiry">Expired</SelectItem>
+                        <SelectItem value="renewal">Expiring Soon</SelectItem>
+                        <SelectItem value="completed">Compliant</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={filterStream} onValueChange={setFilterStream}>
+                      <SelectTrigger className="w-40" data-testid="select-filter-stream">
+                        <SelectValue placeholder="Filter by stream" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Streams</SelectItem>
+                        {complianceStreams?.map(stream => (
+                          <SelectItem key={stream.id} value={stream.id}>
+                            {stream.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {showHeatmap && (
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground border-l pl-4" data-testid="heatmap-legend">
+                      <span className="font-medium">Heatmap:</span>
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 rounded bg-red-400/50" />
+                        <span>Expired</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 rounded bg-amber-400/50" />
+                        <span>Expiring</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 rounded bg-green-400/35" />
+                        <span>Compliant</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -600,6 +689,7 @@ export default function ComplianceCalendar() {
                     onSelectSlot={handleSelectSlot}
                     selectable
                     eventPropGetter={eventStyleGetter}
+                    dayPropGetter={dayPropGetter}
                     views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
                     formats={calendarFormats}
                     messages={{
