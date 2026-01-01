@@ -4097,6 +4097,7 @@ export async function registerRoutes(
       const allCertificates = await storage.listCertificates(ORG_ID);
       const allActions = await storage.listRemedialActions(ORG_ID);
       const allProperties = await storage.listProperties(ORG_ID);
+      const allUnits = await storage.listUnits();
       
       // Calculate compliance rate
       const totalCerts = allCertificates.length;
@@ -4240,6 +4241,7 @@ export async function registerRoutes(
         awaabsLawBreaches: awaabsBreaches,
         pendingCertificates: pendingCerts,
         totalProperties: allProperties.length,
+        totalHomes: allProperties.length + allUnits.length,
         totalCertificates: totalCerts,
         complianceByType,
         hazardDistribution: Object.entries(hazardSeverities).map(([severity, value]) => ({ 

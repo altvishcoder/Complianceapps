@@ -764,14 +764,14 @@ export default function PropertyHierarchy() {
                 </div>
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="text-xs text-blue-800">
-                    <strong>Housing Association Terminology:</strong> What housing associations typically call a "Property" is the <strong>Unit (Dwelling)</strong> level in UKHDS - the individual lettable home (flat, house). 
-                    The UKHDS "Property" layer refers to a structure within a Block. Components attach at any level.
+                    <strong>Terminology Note:</strong> "Homes" combines both <strong>Properties</strong> (structures) and <strong>Units</strong> (dwellings) - what housing associations typically call their "Properties". 
+                    In UKHDS, "Property" refers to a structure within a Block, while "Unit" is the individual lettable home (flat, house). For most operational purposes, these function as the same concept.
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-3 mb-6">
+            <div className="grid grid-cols-6 gap-3 mb-6">
               <Card className="bg-purple-50 border-purple-200">
                 <CardContent className="p-4 text-center">
                   <Building2 className="h-6 w-6 text-purple-600 mx-auto mb-2" />
@@ -795,20 +795,15 @@ export default function PropertyHierarchy() {
                   <div className="text-xs text-amber-400 mt-0.5">Building Layer</div>
                 </CardContent>
               </Card>
-              <Card className="bg-emerald-50 border-emerald-200">
+              <Card className="bg-emerald-50 border-emerald-200 col-span-2">
                 <CardContent className="p-4 text-center">
                   <Home className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-emerald-900">{totalCounts.properties}</div>
-                  <div className="text-sm text-emerald-600">Properties</div>
-                  <div className="text-xs text-emerald-400 mt-0.5">Property Layer</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-purple-50 border-purple-200">
-                <CardContent className="p-3 text-center">
-                  <Layers className="h-5 w-5 text-purple-600 mx-auto mb-1" />
-                  <div className="text-xl font-bold text-purple-900">{totalCounts.units}</div>
-                  <div className="text-xs text-purple-600">Units</div>
-                  <div className="text-xs text-purple-400">Dwelling</div>
+                  <div className="text-2xl font-bold text-emerald-900">{totalCounts.properties + totalCounts.units}</div>
+                  <div className="text-sm text-emerald-600">Homes</div>
+                  <div className="text-xs text-emerald-400 mt-0.5">Properties/Units (Dwellings)</div>
+                  <div className="text-[10px] text-emerald-500 mt-1">
+                    {totalCounts.properties} structures + {totalCounts.units} dwellings
+                  </div>
                 </CardContent>
               </Card>
               <Card className="bg-cyan-50 border-cyan-200">

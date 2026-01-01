@@ -30,6 +30,7 @@ interface DashboardStats {
   awaabsLawBreaches: number;
   pendingCertificates: number;
   totalProperties: number;
+  totalHomes: number;
   totalCertificates: number;
   complianceByType: Array<{ type: string; code: string; compliant: number; nonCompliant: number }>;
   hazardDistribution: Array<{ name: string; value: number; severity: string }>;
@@ -436,11 +437,11 @@ export default function Dashboard() {
                   <Link href="/properties" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-properties">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
-                      Total Properties
-                      <span className="text-xs text-muted-foreground/70">(Structures)</span>
+                      Total Homes
+                      <span className="text-xs text-muted-foreground/70">(Properties/Units)</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{stats?.totalProperties || 0}</span>
+                      <span className="font-semibold">{stats?.totalHomes || 0}</span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
