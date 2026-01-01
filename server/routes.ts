@@ -2262,11 +2262,27 @@ export async function registerRoutes(
     try {
       const { fileBase64, mimeType, batchId, ...certificateData } = req.body;
       
+      // Create batch for manual uploads if not provided
+      let finalBatchId = batchId;
+      if (!batchId) {
+        const now = new Date();
+        const batchName = `Manual Upload - ${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+        const batch = await storage.createIngestionBatch({
+          organisationId: ORG_ID,
+          name: batchName,
+          totalFiles: 1,
+          completedFiles: 0,
+          failedFiles: 0,
+          status: 'PROCESSING',
+        });
+        finalBatchId = batch.id;
+      }
+      
       const data = insertCertificateSchema.parse({
         ...certificateData,
         organisationId: ORG_ID,
         status: "PROCESSING",
-        batchId: batchId || null,
+        batchId: finalBatchId,
       });
       
       const certificate = await storage.createCertificate(data);
@@ -2302,7 +2318,7 @@ export async function registerRoutes(
             pdfBuffer
           );
           
-          // Update batch progress on success
+          // Update batch progress on success and check if batch is complete
           if (data.batchId) {
             await db.update(ingestionBatches)
               .set({ 
@@ -2310,11 +2326,21 @@ export async function registerRoutes(
                 status: 'PROCESSING'
               })
               .where(eq(ingestionBatches.id, data.batchId));
+            
+            // Fetch fresh batch data to check completion
+            const [freshBatch] = await db.select().from(ingestionBatches).where(eq(ingestionBatches.id, data.batchId));
+            
+            // Mark batch as COMPLETED when all files are processed
+            if (freshBatch && freshBatch.completedFiles + freshBatch.failedFiles >= freshBatch.totalFiles) {
+              await db.update(ingestionBatches)
+                .set({ status: freshBatch.failedFiles > 0 ? 'PARTIAL' : 'COMPLETED', updatedAt: new Date() })
+                .where(eq(ingestionBatches.id, data.batchId));
+            }
           }
         } catch (err) {
           console.error("Error in AI extraction:", err);
           
-          // Update batch progress on failure
+          // Update batch progress on failure and check if batch is complete
           if (data.batchId) {
             await db.update(ingestionBatches)
               .set({ 
@@ -2322,6 +2348,17 @@ export async function registerRoutes(
                 status: 'PROCESSING'
               })
               .where(eq(ingestionBatches.id, data.batchId));
+            
+            // Fetch fresh batch data to check completion
+            const [freshBatch] = await db.select().from(ingestionBatches).where(eq(ingestionBatches.id, data.batchId));
+            
+            // Mark batch as FAILED or PARTIAL when all files are processed
+            if (freshBatch && freshBatch.completedFiles + freshBatch.failedFiles >= freshBatch.totalFiles) {
+              const finalStatus = freshBatch.completedFiles === 0 ? 'FAILED' : 'PARTIAL';
+              await db.update(ingestionBatches)
+                .set({ status: finalStatus, updatedAt: new Date() })
+                .where(eq(ingestionBatches.id, data.batchId));
+            }
           }
         }
       })();
@@ -3719,14 +3756,36 @@ export async function registerRoutes(
     }
   });
   
-  // List active batches
+  // List active batches (org-scoped)
   app.get("/api/batches", async (req, res) => {
     try {
-      const batches = await db.select().from(ingestionBatches).orderBy(desc(ingestionBatches.createdAt)).limit(20);
+      const batches = await db.select().from(ingestionBatches)
+        .where(eq(ingestionBatches.organisationId, ORG_ID))
+        .orderBy(desc(ingestionBatches.createdAt))
+        .limit(50);
       res.json(batches);
     } catch (error) {
       console.error("Error listing batches:", error);
       res.status(500).json({ error: "Failed to list batches" });
+    }
+  });
+  
+  // Update batch name/details
+  app.patch("/api/batches/:id", async (req, res) => {
+    try {
+      const { name } = req.body;
+      const batch = await storage.getIngestionBatch(req.params.id);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      if (batch.organisationId !== ORG_ID) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.updateIngestionBatch(req.params.id, { name });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating batch:", error);
+      res.status(500).json({ error: "Failed to update batch" });
     }
   });
   
