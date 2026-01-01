@@ -6527,10 +6527,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "enabled is required and must be a boolean" });
       }
       
-      // Update factory setting
-      await storage.setFactorySetting('CERTIFICATE_WATCHDOG_ENABLED', String(enabled));
-      
-      // Enable/disable the watchdog
+      // Enable/disable the watchdog (schedule is managed by pg-boss)
       const { setWatchdogEnabled } = await import('./job-queue');
       await setWatchdogEnabled(enabled);
       
