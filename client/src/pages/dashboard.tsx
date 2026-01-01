@@ -390,29 +390,29 @@ export default function Dashboard() {
                 <CardDescription>Common tasks and shortcuts</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <Link href="/certificates/upload">
-                    <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-upload-cert">
-                      <Upload className="h-5 w-5" />
-                      <span className="text-xs">Upload Certificate</span>
+                    <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" data-testid="quick-upload-cert">
+                      <Upload className="h-6 w-6" />
+                      <span className="text-sm">Upload Certificate</span>
                     </Button>
                   </Link>
                   <Link href="/actions?status=OPEN&from=/dashboard">
-                    <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-view-actions">
-                      <Wrench className="h-5 w-5" />
-                      <span className="text-xs">Open Actions</span>
+                    <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" data-testid="quick-view-actions">
+                      <Wrench className="h-6 w-6" />
+                      <span className="text-sm">Open Actions</span>
                     </Button>
                   </Link>
                   <Link href="/properties?from=/dashboard">
-                    <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-view-properties">
-                      <Building2 className="h-5 w-5" />
-                      <span className="text-xs">Properties</span>
+                    <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" data-testid="quick-view-properties">
+                      <Building2 className="h-6 w-6" />
+                      <span className="text-sm">Properties</span>
                     </Button>
                   </Link>
                   <Link href="/maps?from=/dashboard">
-                    <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2" data-testid="quick-view-maps">
-                      <MapPin className="h-5 w-5" />
-                      <span className="text-xs">Risk Maps</span>
+                    <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" data-testid="quick-view-maps">
+                      <MapPin className="h-6 w-6" />
+                      <span className="text-sm">Risk Maps</span>
                     </Button>
                   </Link>
                 </div>
@@ -674,8 +674,8 @@ export default function Dashboard() {
     }
   };
   
-  const fullWidthWidgets: WidgetId[] = ['stats', 'charts', 'problem-properties'];
-  const smallWidgets: WidgetId[] = ['quick-actions', 'summary', 'awaabs', 'expiring', 'urgent'];
+  const fullWidthWidgets: WidgetId[] = ['stats', 'charts', 'quick-actions', 'problem-properties'];
+  const smallWidgets: WidgetId[] = ['summary', 'awaabs', 'expiring', 'urgent'];
   
   const renderNormalLayout = () => {
     const result: React.ReactNode[] = [];
