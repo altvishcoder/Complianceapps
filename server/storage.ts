@@ -11,6 +11,7 @@ import {
   systemLogs, auditEvents,
   certificateDetectionPatterns, certificateOutcomeRules,
   contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
+  certificateVersions, auditFieldChanges, ukhdsExports,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -53,7 +54,10 @@ import {
   type SystemLog,
   type AuditEvent, type InsertAuditEvent,
   type DetectionPattern, type InsertDetectionPattern,
-  type OutcomeRule, type InsertOutcomeRule
+  type OutcomeRule, type InsertOutcomeRule,
+  type CertificateVersion, type InsertCertificateVersion,
+  type AuditFieldChange, type InsertAuditFieldChange,
+  type UkhdsExport, type InsertUkhdsExport
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
@@ -147,6 +151,23 @@ export interface IStorage {
   getContractorAssignment(id: string): Promise<ContractorAssignment | undefined>;
   createContractorAssignment(assignment: InsertContractorAssignment): Promise<ContractorAssignment>;
   updateContractorAssignment(id: string, updates: Partial<InsertContractorAssignment>): Promise<ContractorAssignment | undefined>;
+  
+  // Golden Thread - Certificate Versions
+  listCertificateVersions(certificateId: string): Promise<CertificateVersion[]>;
+  getCertificateVersion(id: string): Promise<CertificateVersion | undefined>;
+  createCertificateVersion(version: InsertCertificateVersion): Promise<CertificateVersion>;
+  supersedeCertificateVersion(id: string, supersededById: string, reason?: string): Promise<CertificateVersion | undefined>;
+  
+  // Golden Thread - Audit Field Changes
+  listAuditFieldChanges(auditEventId: string): Promise<AuditFieldChange[]>;
+  createAuditFieldChange(change: InsertAuditFieldChange): Promise<AuditFieldChange>;
+  createAuditFieldChanges(changes: InsertAuditFieldChange[]): Promise<AuditFieldChange[]>;
+  
+  // Golden Thread - UKHDS Exports
+  listUkhdsExports(organisationId: string): Promise<UkhdsExport[]>;
+  getUkhdsExport(id: string): Promise<UkhdsExport | undefined>;
+  createUkhdsExport(exportJob: InsertUkhdsExport): Promise<UkhdsExport>;
+  updateUkhdsExport(id: string, updates: Partial<InsertUkhdsExport>): Promise<UkhdsExport | undefined>;
   
   // Configuration - Compliance Streams
   listComplianceStreams(): Promise<ComplianceStream[]>;
@@ -908,6 +929,65 @@ export class DatabaseStorage implements IStorage {
   
   async updateContractorAssignment(id: string, updates: Partial<InsertContractorAssignment>): Promise<ContractorAssignment | undefined> {
     const [updated] = await db.update(contractorAssignments).set({ ...updates, updatedAt: new Date() }).where(eq(contractorAssignments.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  // Golden Thread - Certificate Versions
+  async listCertificateVersions(certificateId: string): Promise<CertificateVersion[]> {
+    return db.select().from(certificateVersions).where(eq(certificateVersions.certificateId, certificateId)).orderBy(desc(certificateVersions.versionNumber));
+  }
+  
+  async getCertificateVersion(id: string): Promise<CertificateVersion | undefined> {
+    const [version] = await db.select().from(certificateVersions).where(eq(certificateVersions.id, id));
+    return version || undefined;
+  }
+  
+  async createCertificateVersion(version: InsertCertificateVersion): Promise<CertificateVersion> {
+    const [newVersion] = await db.insert(certificateVersions).values(version).returning();
+    return newVersion;
+  }
+  
+  async supersedeCertificateVersion(id: string, supersededById: string, reason?: string): Promise<CertificateVersion | undefined> {
+    const [updated] = await db.update(certificateVersions).set({
+      supersededAt: new Date(),
+      supersededById,
+      supersededReason: reason || null,
+    }).where(eq(certificateVersions.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  // Golden Thread - Audit Field Changes
+  async listAuditFieldChanges(auditEventId: string): Promise<AuditFieldChange[]> {
+    return db.select().from(auditFieldChanges).where(eq(auditFieldChanges.auditEventId, auditEventId)).orderBy(auditFieldChanges.fieldName);
+  }
+  
+  async createAuditFieldChange(change: InsertAuditFieldChange): Promise<AuditFieldChange> {
+    const [newChange] = await db.insert(auditFieldChanges).values(change).returning();
+    return newChange;
+  }
+  
+  async createAuditFieldChanges(changes: InsertAuditFieldChange[]): Promise<AuditFieldChange[]> {
+    if (changes.length === 0) return [];
+    return db.insert(auditFieldChanges).values(changes).returning();
+  }
+  
+  // Golden Thread - UKHDS Exports
+  async listUkhdsExports(organisationId: string): Promise<UkhdsExport[]> {
+    return db.select().from(ukhdsExports).where(eq(ukhdsExports.organisationId, organisationId)).orderBy(desc(ukhdsExports.createdAt));
+  }
+  
+  async getUkhdsExport(id: string): Promise<UkhdsExport | undefined> {
+    const [exportJob] = await db.select().from(ukhdsExports).where(eq(ukhdsExports.id, id));
+    return exportJob || undefined;
+  }
+  
+  async createUkhdsExport(exportJob: InsertUkhdsExport): Promise<UkhdsExport> {
+    const [newExport] = await db.insert(ukhdsExports).values(exportJob).returning();
+    return newExport;
+  }
+  
+  async updateUkhdsExport(id: string, updates: Partial<InsertUkhdsExport>): Promise<UkhdsExport | undefined> {
+    const [updated] = await db.update(ukhdsExports).set(updates).where(eq(ukhdsExports.id, id)).returning();
     return updated || undefined;
   }
   

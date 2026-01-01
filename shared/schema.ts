@@ -38,6 +38,7 @@ export const organisations = pgTable("organisations", {
   settings: json("settings"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const users = pgTable("users", {
@@ -59,6 +60,7 @@ export const schemes = pgTable("schemes", {
   complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const blocks = pgTable("blocks", {
@@ -71,6 +73,7 @@ export const blocks = pgTable("blocks", {
   complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const properties = pgTable("properties", {
@@ -111,6 +114,7 @@ export const properties = pgTable("properties", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // Ingestion batches for server-side batch processing
@@ -146,8 +150,10 @@ export const certificates = pgTable("certificates", {
   uploadedById: varchar("uploaded_by_id").references(() => users.id),
   reviewedById: varchar("reviewed_by_id").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
+  currentVersionId: varchar("current_version_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const extractions = pgTable("extractions", {
@@ -178,6 +184,7 @@ export const remedialActions = pgTable("remedial_actions", {
   costEstimate: text("cost_estimate"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // Contractor Status Enum
@@ -197,6 +204,7 @@ export const contractors = pgTable("contractors", {
   status: contractorStatusEnum("status").notNull().default('PENDING'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // ==========================================
@@ -2129,3 +2137,118 @@ export type InsertContractorAlert = z.infer<typeof insertContractorAlertSchema>;
 
 export type ContractorAssignment = typeof contractorAssignments.$inferSelect;
 export type InsertContractorAssignment = z.infer<typeof insertContractorAssignmentSchema>;
+
+// =====================================================
+// GOLDEN THREAD COMPLIANCE TABLES
+// =====================================================
+
+// Certificate Versions - tracks all document versions when re-uploaded
+export const certificateVersions = pgTable("certificate_versions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  certificateId: varchar("certificate_id").references(() => certificates.id, { onDelete: 'cascade' }).notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  storageKey: text("storage_key"),
+  
+  extractedData: json("extracted_data"),
+  extractionRunId: varchar("extraction_run_id"),
+  
+  uploadedById: varchar("uploaded_by_id").references(() => users.id),
+  uploadReason: text("upload_reason"),
+  
+  supersededAt: timestamp("superseded_at"),
+  supersededById: varchar("superseded_by_id"),
+  supersededReason: text("superseded_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Change Scope Enum - categorizes what type of entity was changed
+export const changeScopeEnum = pgEnum('change_scope', [
+  'PROPERTY', 'COMPONENT', 'BUILDING_FABRIC', 'CERTIFICATE', 
+  'REMEDIAL_ACTION', 'CONTRACTOR', 'USER', 'SETTINGS', 'SCHEME', 'BLOCK'
+]);
+
+// Audit Field Changes - detailed field-level change tracking
+export const auditFieldChanges = pgTable("audit_field_changes", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  auditEventId: varchar("audit_event_id").references(() => auditEvents.id, { onDelete: 'cascade' }).notNull(),
+  
+  tableName: text("table_name").notNull(),
+  recordId: varchar("record_id").notNull(),
+  changeScope: changeScopeEnum("change_scope").notNull(),
+  
+  fieldName: text("field_name").notNull(),
+  fieldLabel: text("field_label"),
+  previousValue: json("previous_value"),
+  newValue: json("new_value"),
+  
+  isSignificant: boolean("is_significant").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// UKHDS Export Jobs - tracks export requests for golden thread handover
+export const ukhdsExportStatusEnum = pgEnum('ukhds_export_status', [
+  'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED'
+]);
+
+export const ukhdsExports = pgTable("ukhds_exports", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  requestedById: varchar("requested_by_id").references(() => users.id).notNull(),
+  
+  exportType: text("export_type").notNull().default('FULL'),
+  exportFormat: text("export_format").notNull().default('JSON'),
+  
+  status: ukhdsExportStatusEnum("status").notNull().default('PENDING'),
+  
+  includeProperties: boolean("include_properties").notNull().default(true),
+  includeComponents: boolean("include_components").notNull().default(true),
+  includeCertificates: boolean("include_certificates").notNull().default(true),
+  includeCertificateVersions: boolean("include_certificate_versions").notNull().default(true),
+  includeAuditTrail: boolean("include_audit_trail").notNull().default(true),
+  includeRemedialActions: boolean("include_remedial_actions").notNull().default(true),
+  
+  dateRangeStart: timestamp("date_range_start"),
+  dateRangeEnd: timestamp("date_range_end"),
+  schemeIds: text("scheme_ids").array(),
+  
+  totalRecords: integer("total_records"),
+  processedRecords: integer("processed_records").default(0),
+  
+  storageKey: text("storage_key"),
+  downloadUrl: text("download_url"),
+  expiresAt: timestamp("expires_at"),
+  
+  errorMessage: text("error_message"),
+  metadata: json("metadata"),
+  
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for Golden Thread tables
+export const insertCertificateVersionSchema = createInsertSchema(certificateVersions).omit({ 
+  id: true, createdAt: true 
+});
+export const insertAuditFieldChangeSchema = createInsertSchema(auditFieldChanges).omit({ 
+  id: true, createdAt: true 
+});
+export const insertUkhdsExportSchema = createInsertSchema(ukhdsExports).omit({ 
+  id: true, createdAt: true, startedAt: true, completedAt: true 
+});
+
+// Types for Golden Thread tables
+export type CertificateVersion = typeof certificateVersions.$inferSelect;
+export type InsertCertificateVersion = z.infer<typeof insertCertificateVersionSchema>;
+
+export type AuditFieldChange = typeof auditFieldChanges.$inferSelect;
+export type InsertAuditFieldChange = z.infer<typeof insertAuditFieldChangeSchema>;
+
+export type UkhdsExport = typeof ukhdsExports.$inferSelect;
+export type InsertUkhdsExport = z.infer<typeof insertUkhdsExportSchema>;
