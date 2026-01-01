@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { 
   Activity, 
   Upload, 
@@ -101,6 +102,7 @@ interface ScheduledJobInfo {
   timezone: string;
   lastRun: string | null;
   nextRun: string | null;
+  isActive: boolean;
   recentJobs: Array<{
     id: string;
     state: string;
@@ -344,6 +346,29 @@ export default function IngestionControlRoom() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to Update Schedule", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleWatchdogMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch('/api/admin/scheduled-jobs/watchdog/enabled', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to toggle watchdog");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: data.enabled ? "Watchdog Enabled" : "Watchdog Disabled", description: data.message });
+      refetchScheduledJobs();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Toggle Watchdog", description: error.message, variant: "destructive" });
     },
   });
 
@@ -854,24 +879,41 @@ export default function IngestionControlRoom() {
                               <h3 className="font-semibold flex items-center gap-2">
                                 <Timer className="h-4 w-4 text-amber-500" />
                                 {job.name === 'certificate-watchdog' ? 'Certificate Watchdog' : job.name}
+                                <Badge variant={job.isActive ? "default" : "secondary"}>
+                                  {job.isActive ? "Active" : "Inactive"}
+                                </Badge>
                               </h3>
                               <p className="text-sm text-muted-foreground mt-1">
                                 Marks certificates stuck in PROCESSING status as FAILED after timeout
                               </p>
                             </div>
-                            <Button
-                              onClick={() => runWatchdogMutation.mutate()}
-                              disabled={runWatchdogMutation.isPending}
-                              size="sm"
-                              data-testid="button-run-watchdog"
-                            >
-                              {runWatchdogMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Play className="h-4 w-4 mr-2" />
-                              )}
-                              Run Now
-                            </Button>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id={`watchdog-enabled-${job.name}`}
+                                  checked={job.isActive}
+                                  onCheckedChange={(checked) => toggleWatchdogMutation.mutate(checked)}
+                                  disabled={toggleWatchdogMutation.isPending}
+                                  data-testid="switch-watchdog-enabled"
+                                />
+                                <Label htmlFor={`watchdog-enabled-${job.name}`} className="text-sm text-muted-foreground">
+                                  {toggleWatchdogMutation.isPending ? "Updating..." : (job.isActive ? "Enabled" : "Disabled")}
+                                </Label>
+                              </div>
+                              <Button
+                                onClick={() => runWatchdogMutation.mutate()}
+                                disabled={runWatchdogMutation.isPending || !job.isActive}
+                                size="sm"
+                                data-testid="button-run-watchdog"
+                              >
+                                {runWatchdogMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Play className="h-4 w-4 mr-2" />
+                                )}
+                                Run Now
+                              </Button>
+                            </div>
                           </div>
                           
                           <div className="grid grid-cols-3 gap-4 mb-4">

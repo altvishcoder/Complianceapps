@@ -6516,6 +6516,35 @@ export async function registerRoutes(
     }
   });
   
+  // Enable/disable certificate watchdog
+  app.put("/api/admin/scheduled-jobs/watchdog/enabled", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { enabled } = req.body;
+      
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: "enabled is required and must be a boolean" });
+      }
+      
+      // Update factory setting
+      await storage.setFactorySetting('CERTIFICATE_WATCHDOG_ENABLED', String(enabled));
+      
+      // Enable/disable the watchdog
+      const { setWatchdogEnabled } = await import('./job-queue');
+      await setWatchdogEnabled(enabled);
+      
+      res.json({ 
+        success: true, 
+        message: enabled ? "Watchdog enabled" : "Watchdog disabled",
+        enabled 
+      });
+    } catch (error) {
+      console.error("Error toggling watchdog:", error);
+      res.status(500).json({ error: "Failed to toggle watchdog" });
+    }
+  });
+  
   app.get("/api/admin/logs", async (req, res) => {
     try {
       if (!await requireAdminRole(req, res)) return;

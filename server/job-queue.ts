@@ -432,6 +432,33 @@ export async function updateWatchdogSchedule(intervalMinutes: number): Promise<v
   jobLogger.info({ cronExpression, intervalMinutes }, "Certificate watchdog schedule updated");
 }
 
+// Enable or disable the watchdog job
+export async function setWatchdogEnabled(enabled: boolean): Promise<void> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  if (enabled) {
+    // Re-enable: get the interval from factory settings and reschedule
+    const { storage } = await import('./storage');
+    const intervalSetting = await storage.getFactorySetting('CERTIFICATE_WATCHDOG_INTERVAL_MINUTES');
+    const intervalMinutes = intervalSetting ? parseInt(intervalSetting.value) : 5;
+    
+    await boss.createQueue(QUEUE_NAMES.CERTIFICATE_WATCHDOG);
+    await boss.schedule(
+      QUEUE_NAMES.CERTIFICATE_WATCHDOG,
+      `*/${intervalMinutes} * * * *`,
+      {},
+      { tz: 'UTC' }
+    );
+    jobLogger.info({ intervalMinutes }, "Certificate watchdog enabled");
+  } else {
+    // Disable: unschedule the job
+    await boss.unschedule(QUEUE_NAMES.CERTIFICATE_WATCHDOG);
+    jobLogger.info("Certificate watchdog disabled");
+  }
+}
+
 // Get scheduled jobs status for monitoring UI
 export interface ScheduledJobInfo {
   name: string;
@@ -439,6 +466,7 @@ export interface ScheduledJobInfo {
   timezone: string;
   lastRun: Date | null;
   nextRun: Date | null;
+  isActive: boolean;
   recentJobs: Array<{
     id: string;
     state: string;
@@ -493,16 +521,18 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         timezone: schedule.timezone || 'UTC',
         lastRun: lastCompletedJob?.completedOn || null,
         nextRun: null, // pg-boss handles this internally
+        isActive: true, // Schedule exists, so it's active
         recentJobs,
       });
     } else {
-      // Schedule might not exist yet, return with empty info
+      // Schedule doesn't exist - job is deactivated
       scheduledJobs.push({
         name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
         cron: '*/5 * * * *',
         timezone: 'UTC',
         lastRun: null,
         nextRun: null,
+        isActive: false,
         recentJobs,
       });
     }
@@ -515,6 +545,7 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
       timezone: 'UTC',
       lastRun: null,
       nextRun: null,
+      isActive: false,
       recentJobs: [],
     });
   }
