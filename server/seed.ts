@@ -1995,6 +1995,24 @@ async function seedFactorySettings() {
       isEditable: true,
       validationRules: { min: 7, max: 365 }
     },
+    {
+      key: "CERTIFICATE_PROCESSING_TIMEOUT_MINUTES",
+      value: "20",
+      category: "JOB_QUEUE",
+      description: "Minutes after which certificates stuck in PROCESSING status are automatically marked as FAILED",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 5, max: 120 }
+    },
+    {
+      key: "CERTIFICATE_WATCHDOG_INTERVAL_MINUTES",
+      value: "5",
+      category: "JOB_QUEUE",
+      description: "Interval in minutes between watchdog checks for stuck certificates",
+      valueType: "number",
+      isEditable: true,
+      validationRules: { min: 1, max: 30 }
+    },
     // Rate Limit Timing Settings
     {
       key: "RATE_LIMIT_WINDOW_MS",

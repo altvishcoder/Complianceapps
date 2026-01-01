@@ -109,6 +109,7 @@ export interface IStorage {
   getCertificate(id: string): Promise<Certificate | undefined>;
   createCertificate(certificate: InsertCertificate): Promise<Certificate>;
   updateCertificate(id: string, updates: Partial<InsertCertificate>): Promise<Certificate | undefined>;
+  findAndFailStuckCertificates(timeoutMinutes: number): Promise<Certificate[]>;
   deleteCertificate(id: string): Promise<boolean>;
   
   // Extractions
@@ -749,6 +750,65 @@ export class DatabaseStorage implements IStorage {
   async updateCertificate(id: string, updates: Partial<InsertCertificate>): Promise<Certificate | undefined> {
     const [updated] = await db.update(certificates).set({ ...updates, updatedAt: new Date() }).where(eq(certificates.id, id)).returning();
     return updated || undefined;
+  }
+  
+  async findAndFailStuckCertificates(timeoutMinutes: number): Promise<Certificate[]> {
+    const cutoffTime = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+    const timeoutMessage = `Processing timeout: Certificate was stuck in PROCESSING status for more than ${timeoutMinutes} minutes and was automatically marked as failed.`;
+    
+    // Find certificates stuck in PROCESSING status for longer than the timeout
+    const stuckCertificates = await db.select()
+      .from(certificates)
+      .where(and(
+        eq(certificates.status, 'PROCESSING' as any),
+        lte(certificates.updatedAt, cutoffTime)
+      ));
+    
+    // Update each stuck certificate and its related jobs atomically using a transaction
+    const updated: Certificate[] = [];
+    for (const cert of stuckCertificates) {
+      try {
+        const failedCert = await db.transaction(async (tx) => {
+          // Update certificate to FAILED only if it's still in PROCESSING status (prevents race condition)
+          const [updatedCert] = await tx.update(certificates)
+            .set({ 
+              status: 'FAILED' as any, 
+              updatedAt: new Date(),
+            })
+            .where(and(
+              eq(certificates.id, cert.id),
+              eq(certificates.status, 'PROCESSING' as any)
+            ))
+            .returning();
+          
+          if (updatedCert) {
+            // Also update any corresponding ingestion job to FAILED status
+            await tx.update(ingestionJobs)
+              .set({
+                status: 'FAILED' as any,
+                statusMessage: timeoutMessage,
+                errorDetails: { reason: 'PROCESSING_TIMEOUT', timeoutMinutes },
+                updatedAt: new Date(),
+                completedAt: new Date(),
+              })
+              .where(and(
+                eq(ingestionJobs.certificateId, cert.id),
+                eq(ingestionJobs.status, 'PROCESSING' as any)
+              ));
+          }
+          
+          return updatedCert;
+        });
+        
+        if (failedCert) {
+          updated.push(failedCert);
+        }
+      } catch (error) {
+        console.error(`Failed to update stuck certificate ${cert.id}:`, error);
+      }
+    }
+    
+    return updated;
   }
   
   async deleteCertificate(id: string): Promise<boolean> {

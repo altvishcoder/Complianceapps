@@ -7,6 +7,12 @@ import { jobLogger } from "./logger";
 
 const objectStorageService = new ObjectStorageService();
 
+// Helper function to parse positive integers with fallback
+const parsePositiveIntOrDefault = (value: string, defaultVal: number): number => {
+  const parsed = parseInt(value);
+  return isNaN(parsed) || parsed <= 0 ? defaultVal : parsed;
+};
+
 let boss: PgBoss | null = null;
 
 export const QUEUE_NAMES = {
@@ -41,16 +47,11 @@ export async function initJobQueue(): Promise<PgBoss> {
     throw new Error("DATABASE_URL environment variable is required for job queue");
   }
 
-  // Load job queue configuration from Factory Settings with NaN fallbacks
-  const parseIntWithDefault = (value: string, defaultVal: number): number => {
-    const parsed = parseInt(value);
-    return isNaN(parsed) ? defaultVal : parsed;
-  };
-  
-  const retryLimit = parseIntWithDefault(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'), 3);
-  const retryDelay = parseIntWithDefault(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'), 30);
-  const archiveFailedAfterDays = parseIntWithDefault(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'), 7);
-  const deleteAfterDays = parseIntWithDefault(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'), 30);
+  // Load job queue configuration from Factory Settings
+  const retryLimit = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'), 3);
+  const retryDelay = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'), 30);
+  const archiveFailedAfterDays = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'), 7);
+  const deleteAfterDays = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'), 30);
 
   boss = new PgBoss({
     connectionString,
@@ -107,6 +108,26 @@ async function registerWorkers(): Promise<void> {
   );
 
   await boss.send(QUEUE_NAMES.RATE_LIMIT_CLEANUP, {}, { singletonKey: 'rate-limit-cleanup' });
+
+  // Certificate processing watchdog - marks stuck certificates as failed
+  // Use setInterval for simple periodic check instead of pg-boss schedule
+  const watchdogIntervalMinutes = parsePositiveIntOrDefault(await storage.getFactorySettingValue('CERTIFICATE_WATCHDOG_INTERVAL_MINUTES', '5'), 5);
+  setInterval(async () => {
+    try {
+      await processCertificateWatchdog();
+    } catch (error) {
+      jobLogger.error({ error }, "Certificate watchdog error");
+    }
+  }, watchdogIntervalMinutes * 60 * 1000);
+  
+  // Run immediately on startup
+  setTimeout(async () => {
+    try {
+      await processCertificateWatchdog();
+    } catch (error) {
+      jobLogger.error({ error }, "Initial certificate watchdog error");
+    }
+  }, 10000); // 10 seconds after startup
 
   jobLogger.info("Workers registered for all queues");
 }
@@ -327,6 +348,21 @@ export async function getQueueStats(): Promise<{
       failed: 0,
     },
   };
+}
+
+async function processCertificateWatchdog(): Promise<void> {
+  const timeoutMinutes = parsePositiveIntOrDefault(await storage.getFactorySettingValue('CERTIFICATE_PROCESSING_TIMEOUT_MINUTES', '20'), 20);
+  
+  jobLogger.info({ timeoutMinutes }, "Running certificate watchdog check");
+  
+  const stuckCertificates = await storage.findAndFailStuckCertificates(timeoutMinutes);
+  
+  if (stuckCertificates.length > 0) {
+    jobLogger.warn({ count: stuckCertificates.length, certificateIds: stuckCertificates.map(c => c.id) }, 
+      "Marked stuck certificates as failed due to processing timeout");
+  } else {
+    jobLogger.debug("No stuck certificates found");
+  }
 }
 
 export async function stopJobQueue(): Promise<void> {

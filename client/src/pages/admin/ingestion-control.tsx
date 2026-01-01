@@ -650,39 +650,59 @@ export default function IngestionControlRoom() {
                   <ScrollArea className="h-96">
                     {stats?.recentErrors && stats.recentErrors.length > 0 ? (
                       <div className="space-y-4">
-                        {stats.recentErrors.map((job) => (
-                          <div key={job.id} className="p-4 border rounded-lg border-red-200 bg-red-50/50" data-testid={`error-job-${job.id}`}>
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className="bg-red-100 text-red-800">{job.certificateType.replace(/_/g, ' ')}</Badge>
-                                  <span className="text-sm text-muted-foreground">{job.fileName}</span>
+                        {stats.recentErrors.map((job) => {
+                          const isTimeout = job.errorDetails?.reason === 'PROCESSING_TIMEOUT' || 
+                                           job.statusMessage?.includes('timeout');
+                          return (
+                            <div 
+                              key={job.id} 
+                              className={`p-4 border rounded-lg ${
+                                isTimeout 
+                                  ? 'border-amber-200 bg-amber-50/50' 
+                                  : 'border-red-200 bg-red-50/50'
+                              }`}
+                              data-testid={`error-job-${job.id}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    {isTimeout && (
+                                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        Timeout
+                                      </Badge>
+                                    )}
+                                    <Badge className={isTimeout ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}>
+                                      {job.certificateType.replace(/_/g, ' ')}
+                                    </Badge>
+                                    <span className="text-sm text-muted-foreground">{job.fileName}</span>
+                                  </div>
+                                  <p className="text-sm mt-2">
+                                    <strong>{isTimeout ? 'Reason:' : 'Error:'}</strong> {job.statusMessage || 'Unknown error'}
+                                  </p>
+                                  {job.errorDetails && !isTimeout && (
+                                    <pre className="text-xs mt-2 p-2 bg-muted rounded overflow-x-auto">
+                                      {typeof job.errorDetails === 'string' ? job.errorDetails : JSON.stringify(job.errorDetails, null, 2)}
+                                    </pre>
+                                  )}
+                                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                                    <span>Attempts: {job.attemptCount}/{job.maxAttempts}</span>
+                                    <span>Failed: {format(new Date(job.updatedAt), 'dd/MM/yyyy HH:mm')}</span>
+                                  </div>
                                 </div>
-                                <p className="text-sm mt-2">
-                                  <strong>Error:</strong> {job.statusMessage || 'Unknown error'}
-                                </p>
-                                {job.errorDetails && (
-                                  <pre className="text-xs mt-2 p-2 bg-muted rounded overflow-x-auto">
-                                    {typeof job.errorDetails === 'string' ? job.errorDetails : JSON.stringify(job.errorDetails, null, 2)}
-                                  </pre>
-                                )}
-                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                  <span>Attempts: {job.attemptCount}/{job.maxAttempts}</span>
-                                  <span>Failed: {format(new Date(job.updatedAt), 'dd/MM/yyyy HH:mm')}</span>
-                                </div>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => retryMutation.mutate(job.id)}
+                                  disabled={retryMutation.isPending}
+                                  data-testid={`button-retry-error-${job.id}`}
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                  Retry
+                                </Button>
                               </div>
-                              <Button 
-                                size="sm" 
-                                onClick={() => retryMutation.mutate(job.id)}
-                                disabled={retryMutation.isPending}
-                                data-testid={`button-retry-error-${job.id}`}
-                              >
-                                <RotateCcw className="h-3 w-3 mr-1" />
-                                Retry
-                              </Button>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
