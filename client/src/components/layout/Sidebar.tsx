@@ -97,11 +97,18 @@ export function Sidebar() {
     items: [
       { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
       { name: "Analytics", href: "/compliance", icon: BarChart3 },
-      { name: "Ingestion", href: "/ingestion", icon: UploadCloud },
       { name: "Reporting", href: "/reports", icon: FileText },
-      { name: "Board Reporting", href: "/reports/board", icon: Briefcase },
-      { name: "Regulatory Evidence", href: "/reports/regulatory", icon: Shield },
+      { name: "Board", href: "/reports/board", icon: Briefcase },
       { name: "Report Builder", href: "/reports/builder", icon: Settings2 },
+    ]
+  };
+
+  const regulatory: NavSection = {
+    title: "Regulatory",
+    icon: Shield,
+    defaultOpen: false,
+    items: [
+      { name: "Regulatory Evidence", href: "/reports/regulatory", icon: Shield },
     ]
   };
 
@@ -121,6 +128,7 @@ export function Sidebar() {
     icon: Briefcase,
     defaultOpen: true,
     items: [
+      { name: "Ingestion", href: "/ingestion", icon: UploadCloud },
       { name: "Certificates", href: "/certificates", icon: Files },
       { name: "Risk Radar", href: "/risk-radar", icon: Radar },
       { name: "Remedial Actions", href: "/actions", icon: Wrench },
@@ -395,6 +403,7 @@ export function Sidebar() {
         
         <div ref={navScrollRef} className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
           {renderSection(commandCentre)}
+          {renderSection(regulatory)}
           {renderSection(assetManagement)}
           {renderSection(operations)}
           {renderSection(contractorManagement)}
