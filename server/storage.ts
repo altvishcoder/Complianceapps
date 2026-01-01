@@ -10,6 +10,7 @@ import {
   factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, rateLimitEntries,
   systemLogs, auditEvents,
   certificateDetectionPatterns, certificateOutcomeRules,
+  contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -19,6 +20,10 @@ import {
   type Extraction, type InsertExtraction,
   type RemedialAction, type InsertRemedialAction,
   type Contractor, type InsertContractor,
+  type ContractorCertification, type InsertContractorCertification,
+  type ContractorVerificationHistory, type InsertContractorVerificationHistory,
+  type ContractorAlert, type InsertContractorAlert,
+  type ContractorAssignment, type InsertContractorAssignment,
   type ComplianceStream, type InsertComplianceStream,
   type CertificateType, type InsertCertificateType,
   type ClassificationCode, type InsertClassificationCode,
@@ -119,6 +124,29 @@ export interface IStorage {
   updateContractorStatus(id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'): Promise<Contractor | undefined>;
   bulkApproveContractors(ids: string[]): Promise<number>;
   bulkRejectContractors(ids: string[]): Promise<number>;
+  
+  // Contractor Certifications
+  listContractorCertifications(organisationId: string, contractorId?: string): Promise<ContractorCertification[]>;
+  getContractorCertification(id: string): Promise<ContractorCertification | undefined>;
+  createContractorCertification(certification: InsertContractorCertification): Promise<ContractorCertification>;
+  updateContractorCertification(id: string, updates: Partial<InsertContractorCertification>): Promise<ContractorCertification | undefined>;
+  deleteContractorCertification(id: string): Promise<boolean>;
+  
+  // Contractor Verification History
+  listContractorVerificationHistory(contractorId: string): Promise<ContractorVerificationHistory[]>;
+  createContractorVerificationHistory(history: InsertContractorVerificationHistory): Promise<ContractorVerificationHistory>;
+  
+  // Contractor Alerts
+  listContractorAlerts(organisationId: string, filters?: { contractorId?: string; status?: string }): Promise<ContractorAlert[]>;
+  getContractorAlert(id: string): Promise<ContractorAlert | undefined>;
+  createContractorAlert(alert: InsertContractorAlert): Promise<ContractorAlert>;
+  updateContractorAlert(id: string, updates: Partial<InsertContractorAlert>): Promise<ContractorAlert | undefined>;
+  
+  // Contractor Assignments
+  listContractorAssignments(organisationId: string, filters?: { contractorId?: string; propertyId?: string; status?: string }): Promise<ContractorAssignment[]>;
+  getContractorAssignment(id: string): Promise<ContractorAssignment | undefined>;
+  createContractorAssignment(assignment: InsertContractorAssignment): Promise<ContractorAssignment>;
+  updateContractorAssignment(id: string, updates: Partial<InsertContractorAssignment>): Promise<ContractorAssignment | undefined>;
   
   // Configuration - Compliance Streams
   listComplianceStreams(): Promise<ComplianceStream[]>;
@@ -785,6 +813,102 @@ export class DatabaseStorage implements IStorage {
       if (result.rowCount && result.rowCount > 0) rejected++;
     }
     return rejected;
+  }
+  
+  // Contractor Certifications
+  async listContractorCertifications(organisationId: string, contractorId?: string): Promise<ContractorCertification[]> {
+    const conditions = [eq(contractorCertifications.organisationId, organisationId)];
+    if (contractorId) {
+      conditions.push(eq(contractorCertifications.contractorId, contractorId));
+    }
+    return db.select().from(contractorCertifications).where(and(...conditions)).orderBy(desc(contractorCertifications.createdAt));
+  }
+  
+  async getContractorCertification(id: string): Promise<ContractorCertification | undefined> {
+    const [cert] = await db.select().from(contractorCertifications).where(eq(contractorCertifications.id, id));
+    return cert || undefined;
+  }
+  
+  async createContractorCertification(certification: InsertContractorCertification): Promise<ContractorCertification> {
+    const [newCert] = await db.insert(contractorCertifications).values(certification).returning();
+    return newCert;
+  }
+  
+  async updateContractorCertification(id: string, updates: Partial<InsertContractorCertification>): Promise<ContractorCertification | undefined> {
+    const [updated] = await db.update(contractorCertifications).set({ ...updates, updatedAt: new Date() }).where(eq(contractorCertifications.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  async deleteContractorCertification(id: string): Promise<boolean> {
+    const result = await db.delete(contractorCertifications).where(eq(contractorCertifications.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+  
+  // Contractor Verification History
+  async listContractorVerificationHistory(contractorId: string): Promise<ContractorVerificationHistory[]> {
+    return db.select().from(contractorVerificationHistory).where(eq(contractorVerificationHistory.contractorId, contractorId)).orderBy(desc(contractorVerificationHistory.createdAt));
+  }
+  
+  async createContractorVerificationHistory(history: InsertContractorVerificationHistory): Promise<ContractorVerificationHistory> {
+    const [newHistory] = await db.insert(contractorVerificationHistory).values(history).returning();
+    return newHistory;
+  }
+  
+  // Contractor Alerts
+  async listContractorAlerts(organisationId: string, filters?: { contractorId?: string; status?: string }): Promise<ContractorAlert[]> {
+    const conditions = [eq(contractorAlerts.organisationId, organisationId)];
+    if (filters?.contractorId) {
+      conditions.push(eq(contractorAlerts.contractorId, filters.contractorId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(contractorAlerts.status, filters.status as any));
+    }
+    return db.select().from(contractorAlerts).where(and(...conditions)).orderBy(desc(contractorAlerts.createdAt));
+  }
+  
+  async getContractorAlert(id: string): Promise<ContractorAlert | undefined> {
+    const [alert] = await db.select().from(contractorAlerts).where(eq(contractorAlerts.id, id));
+    return alert || undefined;
+  }
+  
+  async createContractorAlert(alert: InsertContractorAlert): Promise<ContractorAlert> {
+    const [newAlert] = await db.insert(contractorAlerts).values(alert).returning();
+    return newAlert;
+  }
+  
+  async updateContractorAlert(id: string, updates: Partial<InsertContractorAlert>): Promise<ContractorAlert | undefined> {
+    const [updated] = await db.update(contractorAlerts).set({ ...updates, updatedAt: new Date() }).where(eq(contractorAlerts.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  // Contractor Assignments
+  async listContractorAssignments(organisationId: string, filters?: { contractorId?: string; propertyId?: string; status?: string }): Promise<ContractorAssignment[]> {
+    const conditions = [eq(contractorAssignments.organisationId, organisationId)];
+    if (filters?.contractorId) {
+      conditions.push(eq(contractorAssignments.contractorId, filters.contractorId));
+    }
+    if (filters?.propertyId) {
+      conditions.push(eq(contractorAssignments.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(contractorAssignments.status, filters.status as any));
+    }
+    return db.select().from(contractorAssignments).where(and(...conditions)).orderBy(desc(contractorAssignments.createdAt));
+  }
+  
+  async getContractorAssignment(id: string): Promise<ContractorAssignment | undefined> {
+    const [assignment] = await db.select().from(contractorAssignments).where(eq(contractorAssignments.id, id));
+    return assignment || undefined;
+  }
+  
+  async createContractorAssignment(assignment: InsertContractorAssignment): Promise<ContractorAssignment> {
+    const [newAssignment] = await db.insert(contractorAssignments).values(assignment).returning();
+    return newAssignment;
+  }
+  
+  async updateContractorAssignment(id: string, updates: Partial<InsertContractorAssignment>): Promise<ContractorAssignment | undefined> {
+    const [updated] = await db.update(contractorAssignments).set({ ...updates, updatedAt: new Date() }).where(eq(contractorAssignments.id, id)).returning();
+    return updated || undefined;
   }
   
   // Admin / Demo Data Management
