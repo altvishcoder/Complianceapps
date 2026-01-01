@@ -8430,6 +8430,120 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to run scheduled report" });
     }
   });
+
+  // Navigation Configuration API - Database-driven navigation
+  app.get("/api/navigation", async (req, res) => {
+    try {
+      const navigation = await storage.getNavigationWithItems();
+      res.json(navigation);
+    } catch (error) {
+      console.error("Error fetching navigation:", error);
+      res.status(500).json({ error: "Failed to fetch navigation configuration" });
+    }
+  });
+
+  app.get("/api/navigation/sections", async (req, res) => {
+    try {
+      const sections = await storage.listNavigationSections();
+      res.json(sections);
+    } catch (error) {
+      console.error("Error fetching navigation sections:", error);
+      res.status(500).json({ error: "Failed to fetch navigation sections" });
+    }
+  });
+
+  app.post("/api/navigation/sections", async (req, res) => {
+    try {
+      const section = await storage.createNavigationSection(req.body);
+      res.status(201).json(section);
+    } catch (error) {
+      console.error("Error creating navigation section:", error);
+      res.status(500).json({ error: "Failed to create navigation section" });
+    }
+  });
+
+  app.patch("/api/navigation/sections/:id", async (req, res) => {
+    try {
+      const section = await storage.updateNavigationSection(req.params.id, req.body);
+      if (!section) {
+        return res.status(404).json({ error: "Navigation section not found" });
+      }
+      res.json(section);
+    } catch (error) {
+      console.error("Error updating navigation section:", error);
+      res.status(500).json({ error: "Failed to update navigation section" });
+    }
+  });
+
+  app.delete("/api/navigation/sections/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteNavigationSection(req.params.id);
+      if (!deleted) {
+        return res.status(400).json({ error: "Cannot delete system navigation section" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting navigation section:", error);
+      res.status(500).json({ error: "Failed to delete navigation section" });
+    }
+  });
+
+  app.get("/api/navigation/items", async (req, res) => {
+    try {
+      const sectionId = req.query.sectionId as string | undefined;
+      const items = await storage.listNavigationItems(sectionId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching navigation items:", error);
+      res.status(500).json({ error: "Failed to fetch navigation items" });
+    }
+  });
+
+  app.post("/api/navigation/items", async (req, res) => {
+    try {
+      const item = await storage.createNavigationItem(req.body);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating navigation item:", error);
+      res.status(500).json({ error: "Failed to create navigation item" });
+    }
+  });
+
+  app.patch("/api/navigation/items/:id", async (req, res) => {
+    try {
+      const item = await storage.updateNavigationItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ error: "Navigation item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating navigation item:", error);
+      res.status(500).json({ error: "Failed to update navigation item" });
+    }
+  });
+
+  app.delete("/api/navigation/items/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteNavigationItem(req.params.id);
+      if (!deleted) {
+        return res.status(400).json({ error: "Cannot delete system navigation item" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting navigation item:", error);
+      res.status(500).json({ error: "Failed to delete navigation item" });
+    }
+  });
+
+  app.get("/api/navigation/icons", async (req, res) => {
+    try {
+      const icons = await storage.listIconRegistry();
+      res.json(icons);
+    } catch (error) {
+      console.error("Error fetching icons:", error);
+      res.status(500).json({ error: "Failed to fetch icon registry" });
+    }
+  });
   
   return httpServer;
 }
