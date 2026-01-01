@@ -184,6 +184,30 @@ export default function IngestionControlRoom() {
     },
   });
 
+  const createTestJobsMutation = useMutation({
+    mutationFn: async (count: number) => {
+      const res = await fetch('/api/admin/create-test-queue-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ count }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to create test jobs");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Test Jobs Created", description: data.message });
+      refetchJobs();
+      refetchStats();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Create Test Jobs", description: error.message, variant: "destructive" });
+    },
+  });
+
   const certThroughputData = stats?.certificates?.throughputByHour?.map(item => ({
     hour: new Date(item.hour + ':00:00Z').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     count: item.count,
@@ -380,9 +404,24 @@ export default function IngestionControlRoom() {
               </Card>
 
               <Card data-testid="card-queue-health">
-                <CardHeader>
-                  <CardTitle>Job Queue Health (pg-boss)</CardTitle>
-                  <CardDescription>Active jobs from External Ingestion API (/api/v1/ingestions) - UI uploads process synchronously</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Job Queue Health (pg-boss)</CardTitle>
+                    <CardDescription>Active jobs from External Ingestion API (/api/v1/ingestions) - UI uploads process synchronously</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => createTestJobsMutation.mutate(5)}
+                    disabled={createTestJobsMutation.isPending}
+                    data-testid="button-create-test-jobs"
+                  >
+                    {createTestJobsMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
+                    ) : (
+                      <><Activity className="h-4 w-4 mr-2" /> Create 5 Test Jobs</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-2">

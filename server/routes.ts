@@ -6312,6 +6312,61 @@ export async function registerRoutes(
     }
   });
   
+  // Create test pg-boss jobs for demonstration - Admin only
+  app.post("/api/admin/create-test-queue-jobs", async (req, res) => {
+    try {
+      if (!await requireAdminRole(req, res)) return;
+      
+      const { count = 5 } = req.body;
+      const jobCount = Math.min(parseInt(count) || 5, 20);
+      
+      const certTypes = ['GAS_SAFETY', 'EICR', 'EPC', 'FIRE_RISK_ASSESSMENT', 'LEGIONELLA_ASSESSMENT'];
+      const properties = await storage.listProperties(ORG_ID);
+      
+      if (properties.length === 0) {
+        return res.status(400).json({ error: "No properties available for test jobs" });
+      }
+      
+      const createdJobs = [];
+      for (let i = 0; i < jobCount; i++) {
+        const property = properties[Math.floor(Math.random() * properties.length)];
+        const certType = certTypes[Math.floor(Math.random() * certTypes.length)];
+        
+        // Create an ingestion job record
+        const job = await storage.createIngestionJob({
+          organisationId: ORG_ID,
+          propertyId: property.id,
+          certificateType: certType,
+          fileName: `test_${certType.toLowerCase()}_${Date.now()}_${i}.pdf`,
+          objectPath: null,
+          webhookUrl: null,
+          idempotencyKey: `test-${Date.now()}-${i}`,
+          apiClientId: null
+        });
+        
+        // Enqueue to pg-boss
+        await enqueueIngestionJob({
+          jobId: job.id,
+          propertyId: property.id,
+          certificateType: certType,
+          fileName: job.fileName || 'test.pdf',
+          objectPath: null,
+          webhookUrl: null,
+        });
+        
+        createdJobs.push({ id: job.id, type: certType, property: property.address });
+      }
+      
+      res.json({ 
+        message: `Created ${createdJobs.length} test jobs in pg-boss queue`,
+        jobs: createdJobs
+      });
+    } catch (error) {
+      console.error("Error creating test queue jobs:", error);
+      res.status(500).json({ error: "Failed to create test queue jobs" });
+    }
+  });
+  
   // Platform-wide ingestion job listing - Super User only
   app.get("/api/admin/ingestion-jobs", async (req, res) => {
     try {
