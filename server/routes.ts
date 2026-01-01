@@ -8220,9 +8220,12 @@ export async function registerRoutes(
   app.post("/api/reports/templates", async (req, res) => {
     try {
       const { name, description, sections } = req.body;
+      const sectionsLiteral = sections && sections.length > 0 
+        ? `{${sections.map((s: string) => `"${s.replace(/"/g, '\\"')}"`).join(',')}}`
+        : null;
       const result = await db.execute(sql`
         INSERT INTO report_templates (name, description, sections, is_system, is_active)
-        VALUES (${name}, ${description}, ${sections || []}, false, true)
+        VALUES (${name}, ${description}, ${sectionsLiteral}::text[], false, true)
         RETURNING *
       `);
       res.json(result.rows[0]);
@@ -8257,9 +8260,10 @@ export async function registerRoutes(
       else if (frequency === 'QUARTERLY') { nextRunAt.setMonth(nextRunAt.getMonth() + 3); nextRunAt.setDate(1); }
       else nextRunAt.setDate(nextRunAt.getDate() + 1);
 
+      const recipientsArray = recipients && recipients.length > 0 ? recipients : null;
       const result = await db.execute(sql`
         INSERT INTO scheduled_reports (organisation_id, name, template_name, frequency, format, recipients, filters, is_active, next_run_at)
-        VALUES ((SELECT id FROM organisations LIMIT 1), ${name}, ${templateName}, ${frequency}, ${format || 'PDF'}, ${recipients || []}, ${JSON.stringify(filters || {})}, ${isActive !== false}, ${nextRunAt})
+        VALUES ((SELECT id FROM organisations LIMIT 1), ${name}, ${templateName}, ${frequency}, ${format || 'PDF'}, ${recipientsArray}, ${JSON.stringify(filters || {})}, ${isActive !== false}, ${nextRunAt})
         RETURNING *
       `);
       
@@ -8326,7 +8330,7 @@ export async function registerRoutes(
     }
   });
 
-  // Delete scheduled report - removes pg-boss schedule
+  // Delete scheduled report - removes pg-boss schedule and handles foreign keys
   app.delete("/api/reports/scheduled/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -8338,6 +8342,9 @@ export async function registerRoutes(
       } catch (scheduleError) {
         console.error("Failed to remove pg-boss schedule:", scheduleError);
       }
+      
+      // Set foreign key to NULL in generated_reports before deleting
+      await db.execute(sql`UPDATE generated_reports SET scheduled_report_id = NULL WHERE scheduled_report_id = ${id}`);
       
       await db.execute(sql`DELETE FROM scheduled_reports WHERE id = ${id}`);
       res.json({ success: true });
