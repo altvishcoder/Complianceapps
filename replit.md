@@ -53,7 +53,14 @@ Preferred communication style: Simple, everyday language.
 
 ### Security
 -   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
--   **Authentication**: Session-based authentication with bcrypt password hashing and secure cookies.
+-   **Authentication**: Dual authentication system during migration:
+    - **Legacy Auth**: Express session-based authentication at `/api/auth/*` (login, logout, me)
+    - **BetterAuth**: Modern TypeScript-native authentication at `/api/betterauth/*` with:
+      - Email/password authentication with bcrypt (12 rounds)
+      - 7-day session expiry with daily refresh
+      - Microsoft Entra ID SSO via Generic OAuth plugin (optional, requires AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)
+      - PostgreSQL-backed sessions, accounts, and verifications tables
+    - **Frontend Client**: `client/src/lib/auth-client.ts` for BetterAuth React integration
 -   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
 -   **Rate Limiting**: PostgreSQL-backed rate limiting.
 
