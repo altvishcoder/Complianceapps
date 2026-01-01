@@ -29,6 +29,8 @@ import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, 
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 
 type RiskTier = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
@@ -238,29 +240,33 @@ export default function RiskRadarPage() {
   ];
 
   return (
-    <div className="container mx-auto py-6 space-y-6" data-testid="page-risk-radar">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="heading-risk-radar">Predictive Compliance Radar</h1>
-          <p className="text-muted-foreground">ML-powered risk scoring and early warning system for your property portfolio</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/calendar">
-            <Button variant="outline" data-testid="button-view-calendar">
-              <Calendar className="h-4 w-4 mr-2" />
-              View Calendar
-            </Button>
-          </Link>
-          <Button 
-            onClick={() => calculateAllMutation.mutate()} 
-            disabled={calculateAllMutation.isPending}
-            data-testid="button-calculate-all"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${calculateAllMutation.isPending ? 'animate-spin' : ''}`} />
-            Recalculate All Risks
-          </Button>
-        </div>
-      </div>
+    <div className="flex h-screen bg-muted/30" data-testid="page-risk-radar">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Predictive Compliance Radar" />
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold" data-testid="heading-risk-radar">Predictive Compliance Radar</h1>
+              <p className="text-muted-foreground">ML-powered risk scoring and early warning system for your property portfolio</p>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/calendar">
+                <Button variant="outline" data-testid="button-view-calendar">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  View Calendar
+                </Button>
+              </Link>
+              <Button 
+                onClick={() => calculateAllMutation.mutate()} 
+                disabled={calculateAllMutation.isPending}
+                data-testid="button-calculate-all"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${calculateAllMutation.isPending ? 'animate-spin' : ''}`} />
+                Recalculate All Risks
+              </Button>
+            </div>
+          </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card data-testid="card-total-properties">
@@ -643,6 +649,8 @@ export default function RiskRadarPage() {
           )}
         </TabsContent>
       </Tabs>
+        </main>
+      </div>
     </div>
   );
 }

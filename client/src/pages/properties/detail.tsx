@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft, Wrench } from "lucide-react";
-import { Link, useRoute, useSearch } from "wouter";
+import { Link, useRoute } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { propertiesApi } from "@/lib/api";
-import { useMemo } from "react";
+import { Breadcrumb, useBreadcrumbContext } from "@/components/Breadcrumb";
 
 function PropertyDetailSkeleton() {
   return (
@@ -72,15 +72,7 @@ function PropertyDetailSkeleton() {
 
 export default function PropertyDetail() {
   const [match, params] = useRoute("/properties/:id");
-  const searchString = useSearch();
-  
-  const returnUrl = useMemo(() => {
-    const urlParams = new URLSearchParams(searchString);
-    const from = urlParams.get('from');
-    return from ? decodeURIComponent(from) : null;
-  }, [searchString]);
-  
-  const isFromCalendar = returnUrl?.startsWith('/calendar');
+  const { buildContextUrl } = useBreadcrumbContext();
   
   const { data: property, isLoading } = useQuery({
     queryKey: ["property", params?.id],
@@ -113,21 +105,16 @@ export default function PropertyDetail() {
         <Header title="Property Details" />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           
+          <div className="mb-4">
+            <Breadcrumb 
+              items={[
+                { label: "Properties", href: "/properties" },
+                { label: property.addressLine1 || "Property" }
+              ]}
+            />
+          </div>
+          
           <div className="flex items-center gap-4">
-             {isFromCalendar && returnUrl ? (
-               <Link href={returnUrl}>
-                 <Button variant="outline" size="sm" className="gap-2">
-                   <Calendar className="h-4 w-4" />
-                   Back to Calendar
-                 </Button>
-               </Link>
-             ) : (
-               <Link href="/properties">
-                 <Button variant="ghost" size="icon">
-                   <ChevronLeft className="h-5 w-5" />
-                 </Button>
-               </Link>
-             )}
              <div>
                <h1 className="text-2xl font-bold tracking-tight">{property.addressLine1}</h1>
                <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -138,7 +125,7 @@ export default function PropertyDetail() {
              </div>
              <div className="ml-auto flex items-center gap-2">
                 {getStatusBadge(property.complianceStatus)}
-                <Link href="/certificates/upload">
+                <Link href={buildContextUrl("/certificates/upload")}>
                    <Button variant="outline" className="gap-2">
                       <UploadCloud className="h-4 w-4" /> Upload Certificate
                    </Button>
@@ -221,7 +208,9 @@ export default function PropertyDetail() {
                                          <Badge variant={cert.outcome === 'SATISFACTORY' || cert.outcome === 'PASS' ? 'outline' : 'destructive'}>
                                             {cert.outcome}
                                          </Badge>
-                                         <Button size="sm" variant="ghost">View</Button>
+                                         <Link href={buildContextUrl(`/certificates/${cert.id}`)}>
+                                           <Button size="sm" variant="ghost">View</Button>
+                                         </Link>
                                       </div>
                                    </div>
                                 ))
@@ -263,7 +252,7 @@ export default function PropertyDetail() {
                                          ) : (
                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Verified</Badge>
                                          )}
-                                         <Link href="/components">
+                                         <Link href={buildContextUrl("/components")}>
                                            <Button size="sm" variant="ghost">View All</Button>
                                          </Link>
                                       </div>

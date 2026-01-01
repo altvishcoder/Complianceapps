@@ -245,7 +245,7 @@ export default function ComplianceCalendar() {
   const { data: complianceStreams } = useQuery<any[]>({
     queryKey: ["complianceStreams"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance-streams", { credentials: 'include' });
+      const res = await fetch("/api/config/compliance-streams", { credentials: 'include' });
       if (!res.ok) return [];
       return res.json();
     },

@@ -13,6 +13,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { propertiesApi, certificatesApi, certificateTypesApi } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
+import { Breadcrumb, useBreadcrumbContext } from "@/components/Breadcrumb";
 
 export default function CertificateUpload() {
   const [file, setFile] = useState<File | null>(null);
@@ -153,12 +154,23 @@ export default function CertificateUpload() {
     }
   };
 
+  const { buildContextUrl } = useBreadcrumbContext();
+  
   return (
     <div className="flex h-screen bg-muted/30">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Upload Certificate" />
         <main className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full">
+          
+          <div className="mb-4">
+            <Breadcrumb 
+              items={[
+                { label: "Certificates", href: "/certificates" },
+                { label: "Upload Certificate" }
+              ]}
+            />
+          </div>
           
           <Card>
             <CardHeader>

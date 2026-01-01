@@ -17,14 +17,15 @@ import {
   User,
   Wrench
 } from "lucide-react";
-import { Link, useParams, useSearch } from "wouter";
-import { useEffect, useMemo } from "react";
+import { Link, useParams } from "wouter";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { certificatesApi, actionsApi } from "@/lib/api";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CertificateAuditTimeline } from "@/components/AuditTimeline";
 import { History } from "lucide-react";
+import { Breadcrumb, useBreadcrumbContext } from "@/components/Breadcrumb";
 
 export default function CertificateDetailPage() {
   useEffect(() => {
@@ -32,15 +33,7 @@ export default function CertificateDetailPage() {
   }, []);
 
   const { id } = useParams<{ id: string }>();
-  const searchString = useSearch();
-  
-  const returnUrl = useMemo(() => {
-    const urlParams = new URLSearchParams(searchString);
-    const from = urlParams.get('from');
-    return from ? decodeURIComponent(from) : null;
-  }, [searchString]);
-  
-  const isFromCalendar = returnUrl?.startsWith('/calendar');
+  const { buildContextUrl } = useBreadcrumbContext();
   
   const { data: certificate, isLoading } = useQuery({
     queryKey: ["certificates", id],
@@ -129,22 +122,17 @@ export default function CertificateDetailPage() {
         <Header title="Certificate Details" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificate details content">
           
+          <div className="mb-4">
+            <Breadcrumb 
+              items={[
+                { label: "Certificates", href: "/certificates" },
+                { label: certificate.certificateType?.replace(/_/g, ' ') || "Certificate" }
+              ]}
+            />
+          </div>
+          
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {isFromCalendar && returnUrl ? (
-                <Link href={returnUrl}>
-                  <Button variant="outline" size="sm" className="gap-2" data-testid="back-to-calendar-button">
-                    <Calendar className="h-4 w-4" />
-                    Back to Calendar
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/certificates">
-                  <Button variant="ghost" size="icon" data-testid="back-button">
-                    <ArrowLeft className="h-5 w-5" />
-                  </Button>
-                </Link>
-              )}
               <div>
                 <h1 className="text-2xl font-bold flex items-center gap-3">
                   <FileText className="h-6 w-6 text-blue-600" />
