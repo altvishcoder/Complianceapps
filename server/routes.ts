@@ -6312,7 +6312,8 @@ export async function registerRoutes(
     }
   });
   
-  // Create test pg-boss jobs for demonstration - Admin only
+  // Create test ingestion jobs for demonstration - Admin only
+  // These simulate API ingestion jobs with various statuses
   app.post("/api/admin/create-test-queue-jobs", async (req, res) => {
     try {
       if (!await requireAdminRole(req, res)) return;
@@ -6321,6 +6322,7 @@ export async function registerRoutes(
       const jobCount = Math.min(parseInt(count) || 5, 20);
       
       const certTypes = ['GAS_SAFETY', 'EICR', 'EPC', 'FIRE_RISK_ASSESSMENT', 'LEGIONELLA_ASSESSMENT'];
+      const statuses = ['QUEUED', 'PROCESSING', 'COMPLETE', 'FAILED'];
       const properties = await storage.listProperties(ORG_ID);
       
       if (properties.length === 0) {
@@ -6331,8 +6333,9 @@ export async function registerRoutes(
       for (let i = 0; i < jobCount; i++) {
         const property = properties[Math.floor(Math.random() * properties.length)];
         const certType = certTypes[Math.floor(Math.random() * certTypes.length)];
+        const status = statuses[i % statuses.length]; // Cycle through statuses
         
-        // Create an ingestion job record
+        // Create an ingestion job record with varying statuses for demo
         const job = await storage.createIngestionJob({
           organisationId: ORG_ID,
           propertyId: property.id,
@@ -6344,21 +6347,22 @@ export async function registerRoutes(
           apiClientId: null
         });
         
-        // Enqueue to pg-boss
-        await enqueueIngestionJob({
-          jobId: job.id,
-          propertyId: property.id,
-          certificateType: certType,
-          fileName: job.fileName || 'test.pdf',
-          objectPath: null,
-          webhookUrl: null,
-        });
+        // Update to target status for demo purposes
+        if (status !== 'QUEUED') {
+          await storage.updateIngestionJob(job.id, {
+            status,
+            statusMessage: status === 'COMPLETE' ? 'Demo: completed successfully' : 
+                          status === 'FAILED' ? 'Demo: no file content (test job)' :
+                          status === 'PROCESSING' ? 'Demo: currently processing' : undefined,
+            completedAt: status === 'COMPLETE' || status === 'FAILED' ? new Date() : undefined,
+          });
+        }
         
-        createdJobs.push({ id: job.id, type: certType, property: property.address });
+        createdJobs.push({ id: job.id, type: certType, status, property: property.address });
       }
       
       res.json({ 
-        message: `Created ${createdJobs.length} test jobs in pg-boss queue`,
+        message: `Created ${createdJobs.length} demo ingestion jobs with various statuses`,
         jobs: createdJobs
       });
     } catch (error) {

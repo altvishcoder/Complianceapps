@@ -404,45 +404,31 @@ export default function IngestionControlRoom() {
               </Card>
 
               <Card data-testid="card-queue-health">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Ingestion Job Queue (pg-boss)</CardTitle>
-                    <CardDescription>Jobs from External Ingestion API (/api/v1/ingestions) - Click button to create test jobs</CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => createTestJobsMutation.mutate(5)}
-                    disabled={createTestJobsMutation.isPending}
-                    data-testid="button-create-test-jobs"
-                  >
-                    {createTestJobsMutation.isPending ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
-                    ) : (
-                      <><Activity className="h-4 w-4 mr-2" /> Create 5 Test Jobs</>
-                    )}
-                  </Button>
+                <CardHeader>
+                  <CardTitle>API Ingestion Jobs</CardTitle>
+                  <CardDescription>Jobs submitted via External Ingestion API (/api/v1/ingestions) - processed asynchronously by background workers</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-medium mb-3">Ingestion Jobs (Database)</h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex justify-between"><span>Queued:</span><Badge variant="secondary">{stats?.byStatus?.QUEUED || 0}</Badge></div>
-                        <div className="flex justify-between"><span>Processing:</span><Badge className="bg-blue-100 text-blue-800">{stats?.byStatus?.PROCESSING || 0}</Badge></div>
-                        <div className="flex justify-between"><span>Completed:</span><Badge className="bg-emerald-100 text-emerald-800">{stats?.byStatus?.COMPLETE || 0}</Badge></div>
-                        <div className="flex justify-between"><span>Failed:</span><Badge className="bg-red-100 text-red-800">{stats?.byStatus?.FAILED || 0}</Badge></div>
-                      </div>
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <div className="p-4 border rounded-lg text-center">
+                      <div className="text-2xl font-bold text-amber-600">{stats?.byStatus?.QUEUED || 0}</div>
+                      <div className="text-sm text-muted-foreground">Queued</div>
                     </div>
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-medium mb-3">pg-boss Queue (Real-time)</h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex justify-between"><span>Ingestion Queued:</span><Badge variant="secondary">{stats?.queue?.ingestion?.queued || 0}</Badge></div>
-                        <div className="flex justify-between"><span>Ingestion Active:</span><Badge className="bg-blue-100 text-blue-800">{stats?.queue?.ingestion?.active || 0}</Badge></div>
-                        <div className="flex justify-between"><span>Webhook Queued:</span><Badge variant="secondary">{stats?.queue?.webhook?.queued || 0}</Badge></div>
-                        <div className="flex justify-between"><span>Webhook Active:</span><Badge className="bg-blue-100 text-blue-800">{stats?.queue?.webhook?.active || 0}</Badge></div>
-                      </div>
+                    <div className="p-4 border rounded-lg text-center">
+                      <div className="text-2xl font-bold text-blue-600">{stats?.byStatus?.PROCESSING || 0}</div>
+                      <div className="text-sm text-muted-foreground">Processing</div>
                     </div>
+                    <div className="p-4 border rounded-lg text-center">
+                      <div className="text-2xl font-bold text-emerald-600">{stats?.byStatus?.COMPLETE || 0}</div>
+                      <div className="text-sm text-muted-foreground">Completed</div>
+                    </div>
+                    <div className="p-4 border rounded-lg text-center">
+                      <div className="text-2xl font-bold text-red-600">{stats?.byStatus?.FAILED || 0}</div>
+                      <div className="text-sm text-muted-foreground">Failed</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                    <strong>Note:</strong> API ingestion jobs are processed by background workers. Manual uploads via the UI are processed immediately and appear in the Certificate Status section above.
                   </div>
                 </CardContent>
               </Card>
@@ -453,22 +439,37 @@ export default function IngestionControlRoom() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Job Queue</CardTitle>
-                      <CardDescription>All ingestion jobs with current status</CardDescription>
+                      <CardTitle>API Ingestion Jobs</CardTitle>
+                      <CardDescription>Jobs submitted via External API (/api/v1/ingestions)</CardDescription>
                     </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-40" data-testid="select-status-filter">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="QUEUED">Queued</SelectItem>
-                        <SelectItem value="PROCESSING">Processing</SelectItem>
-                        <SelectItem value="EXTRACTING">Extracting</SelectItem>
-                        <SelectItem value="COMPLETE">Complete</SelectItem>
-                        <SelectItem value="FAILED">Failed</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => createTestJobsMutation.mutate(4)}
+                        disabled={createTestJobsMutation.isPending}
+                        data-testid="button-create-demo-jobs"
+                      >
+                        {createTestJobsMutation.isPending ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
+                        ) : (
+                          <><Activity className="h-4 w-4 mr-2" /> Create Demo Jobs</>
+                        )}
+                      </Button>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-40" data-testid="select-status-filter">
+                          <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="QUEUED">Queued</SelectItem>
+                          <SelectItem value="PROCESSING">Processing</SelectItem>
+                          <SelectItem value="EXTRACTING">Extracting</SelectItem>
+                          <SelectItem value="COMPLETE">Complete</SelectItem>
+                          <SelectItem value="FAILED">Failed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
