@@ -11,7 +11,7 @@ import {
   systemLogs, auditEvents,
   certificateDetectionPatterns, certificateOutcomeRules,
   contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
-  certificateVersions, auditFieldChanges, ukhdsExports,
+  certificateVersions, auditFieldChanges, ukhdsExports, complianceCalendarEvents,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -57,7 +57,8 @@ import {
   type OutcomeRule, type InsertOutcomeRule,
   type CertificateVersion, type InsertCertificateVersion,
   type AuditFieldChange, type InsertAuditFieldChange,
-  type UkhdsExport, type InsertUkhdsExport
+  type UkhdsExport, type InsertUkhdsExport,
+  type ComplianceCalendarEvent, type InsertComplianceCalendarEvent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
@@ -168,6 +169,14 @@ export interface IStorage {
   getUkhdsExport(id: string): Promise<UkhdsExport | undefined>;
   createUkhdsExport(exportJob: InsertUkhdsExport): Promise<UkhdsExport>;
   updateUkhdsExport(id: string, updates: Partial<InsertUkhdsExport>): Promise<UkhdsExport | undefined>;
+  
+  // Compliance Calendar Events
+  listCalendarEvents(organisationId: string, filters?: { startDate?: Date; endDate?: Date; eventType?: string; complianceStreamId?: string }): Promise<ComplianceCalendarEvent[]>;
+  getCalendarEvent(id: string): Promise<ComplianceCalendarEvent | undefined>;
+  createCalendarEvent(event: InsertComplianceCalendarEvent): Promise<ComplianceCalendarEvent>;
+  updateCalendarEvent(id: string, updates: Partial<InsertComplianceCalendarEvent>): Promise<ComplianceCalendarEvent | undefined>;
+  deleteCalendarEvent(id: string): Promise<boolean>;
+  getUpcomingEvents(organisationId: string, daysAhead: number): Promise<ComplianceCalendarEvent[]>;
   
   // Configuration - Compliance Streams
   listComplianceStreams(): Promise<ComplianceStream[]>;
@@ -989,6 +998,67 @@ export class DatabaseStorage implements IStorage {
   async updateUkhdsExport(id: string, updates: Partial<InsertUkhdsExport>): Promise<UkhdsExport | undefined> {
     const [updated] = await db.update(ukhdsExports).set(updates).where(eq(ukhdsExports.id, id)).returning();
     return updated || undefined;
+  }
+  
+  // Compliance Calendar Events
+  async listCalendarEvents(organisationId: string, filters?: { startDate?: Date; endDate?: Date; eventType?: string; complianceStreamId?: string }): Promise<ComplianceCalendarEvent[]> {
+    let conditions = [eq(complianceCalendarEvents.organisationId, organisationId)];
+    
+    if (filters?.startDate) {
+      conditions.push(gte(complianceCalendarEvents.startDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(complianceCalendarEvents.startDate, filters.endDate));
+    }
+    if (filters?.eventType) {
+      conditions.push(sql`${complianceCalendarEvents.eventType} = ${filters.eventType}`);
+    }
+    if (filters?.complianceStreamId) {
+      conditions.push(eq(complianceCalendarEvents.complianceStreamId, filters.complianceStreamId));
+    }
+    
+    return db.select().from(complianceCalendarEvents)
+      .where(and(...conditions))
+      .orderBy(complianceCalendarEvents.startDate);
+  }
+  
+  async getCalendarEvent(id: string): Promise<ComplianceCalendarEvent | undefined> {
+    const [event] = await db.select().from(complianceCalendarEvents).where(eq(complianceCalendarEvents.id, id));
+    return event || undefined;
+  }
+  
+  async createCalendarEvent(event: InsertComplianceCalendarEvent): Promise<ComplianceCalendarEvent> {
+    const [newEvent] = await db.insert(complianceCalendarEvents).values(event).returning();
+    return newEvent;
+  }
+  
+  async updateCalendarEvent(id: string, updates: Partial<InsertComplianceCalendarEvent>): Promise<ComplianceCalendarEvent | undefined> {
+    const [updated] = await db.update(complianceCalendarEvents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(complianceCalendarEvents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteCalendarEvent(id: string): Promise<boolean> {
+    const result = await db.delete(complianceCalendarEvents).where(eq(complianceCalendarEvents.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+  
+  async getUpcomingEvents(organisationId: string, daysAhead: number): Promise<ComplianceCalendarEvent[]> {
+    const now = new Date();
+    const futureDate = new Date(now);
+    futureDate.setDate(futureDate.getDate() + daysAhead);
+    
+    return db.select().from(complianceCalendarEvents)
+      .where(
+        and(
+          eq(complianceCalendarEvents.organisationId, organisationId),
+          gte(complianceCalendarEvents.startDate, now),
+          lte(complianceCalendarEvents.startDate, futureDate)
+        )
+      )
+      .orderBy(complianceCalendarEvents.startDate);
   }
   
   // Admin / Demo Data Management
