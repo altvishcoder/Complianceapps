@@ -111,8 +111,8 @@ export function Sidebar() {
     ]
   };
 
-  const complianceOperations: NavSection = {
-    title: "Compliance Operations",
+  const operations: NavSection = {
+    title: "Operations",
     icon: Briefcase,
     defaultOpen: true,
     items: [
@@ -120,11 +120,19 @@ export function Sidebar() {
       { name: "Risk Radar", href: "/risk-radar", icon: Radar },
       { name: "Remedial Actions", href: "/actions", icon: Wrench },
       { name: "Calendar", href: "/calendar", icon: Calendar },
-      { name: "Contractors", href: "/contractors", icon: Users },
       { name: "Risk Maps", href: "/maps", icon: Map },
       { name: "Asset Health", href: "/admin/asset-health", icon: HeartPulse, requiresFactorySettings: true },
       { name: "Remedial Kanban", href: "/admin/remedial-kanban", icon: ClipboardCheck, requiresFactorySettings: true },
       { name: "Human Review", href: "/human-review", icon: Eye, requiresAITools: true },
+    ]
+  };
+
+  const contractorManagement: NavSection = {
+    title: "Contractor Management",
+    icon: Users,
+    defaultOpen: false,
+    items: [
+      { name: "Contractors", href: "/contractors", icon: Users },
     ]
   };
 
@@ -368,7 +376,8 @@ export function Sidebar() {
         <div ref={navScrollRef} className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
           {renderSection(commandCentre)}
           {renderSection(assetManagement)}
-          {renderSection(complianceOperations)}
+          {renderSection(operations)}
+          {renderSection(contractorManagement)}
           {renderSection(monitoring)}
           {renderSection(administration)}
           {renderSection(resources)}
