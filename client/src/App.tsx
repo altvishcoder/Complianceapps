@@ -80,6 +80,7 @@ import ComplianceCalendar from "@/pages/compliance-calendar";
 import RiskRadarPage from "@/pages/risk-radar";
 import BoardReportingPage from "@/pages/reports/board";
 import RegulatoryEvidencePage from "@/pages/reports/regulatory";
+import ReportBuilderPage from "@/pages/reports/builder";
 
 import LandingPage from "@/pages/landing";
 import HelpPage from "@/pages/help";
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/reports">{() => <ProtectedRoute component={Reports} />}</Route>
       <Route path="/reports/board">{() => <ProtectedRoute component={BoardReportingPage} />}</Route>
       <Route path="/reports/regulatory">{() => <ProtectedRoute component={RegulatoryEvidencePage} />}</Route>
+      <Route path="/reports/builder">{() => <ProtectedRoute component={ReportBuilderPage} />}</Route>
       <Route path="/calendar">{() => <ProtectedRoute component={ComplianceCalendar} />}</Route>
       <Route path="/admin/setup">{() => <ProtectedRoute component={AdminSetup} />}</Route>
       <Route path="/admin/users">{() => <ProtectedRoute component={AdminUsersPage} />}</Route>
