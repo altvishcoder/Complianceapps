@@ -542,7 +542,7 @@ export default function ComplianceCalendar() {
                 </div>
               ) : (
                 <div className="h-[600px]" data-testid="calendar-container">
-                  <Calendar<CalendarEvent>
+                  <Calendar
                     localizer={localizer}
                     events={events}
                     startAccessor="start"
