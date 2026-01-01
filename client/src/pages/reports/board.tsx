@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,7 +29,8 @@ import {
   Wind,
   ThermometerSun,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  LucideIcon
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -36,70 +38,34 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";
 
-const overallRiskScore = 78;
-const previousRiskScore = 72;
+interface BoardReportStats {
+  overallRiskScore: number;
+  previousRiskScore: number;
+  complianceStreams: Array<{ name: string; code: string; score: number; trend: string; total: number }>;
+  portfolioHealth: Array<{ name: string; value: number; color: string }>;
+  keyMetrics: Array<{ label: string; value: string; change: string; trend: string; sublabel?: string }>;
+  criticalAlerts: Array<{ title: string; location: string; urgency: string; daysOverdue: number; impact: string }>;
+  quarterlyHighlights: Array<{ metric: string; current: string; target: string; status: string }>;
+  riskTrend: Array<{ month: string; score: number }>;
+}
 
-const complianceStreams = [
-  { name: "Gas Safety", score: 94, trend: "up", icon: Flame, color: "#f97316" },
-  { name: "Electrical", score: 89, trend: "up", icon: Zap, color: "#eab308" },
-  { name: "Fire Safety", score: 76, trend: "down", icon: AlertTriangle, color: "#ef4444" },
-  { name: "Water/Legionella", score: 82, trend: "stable", icon: Droplets, color: "#3b82f6" },
-  { name: "Asbestos", score: 91, trend: "up", icon: Wind, color: "#8b5cf6" },
-  { name: "Energy (EPC)", score: 67, trend: "stable", icon: ThermometerSun, color: "#10b981" },
-];
+const streamIcons: Record<string, { icon: LucideIcon; color: string }> = {
+  "GAS_HEATING": { icon: Flame, color: "#f97316" },
+  "ELECTRICAL": { icon: Zap, color: "#eab308" },
+  "FIRE_SAFETY": { icon: AlertTriangle, color: "#ef4444" },
+  "WATER_SAFETY": { icon: Droplets, color: "#3b82f6" },
+  "ASBESTOS": { icon: Wind, color: "#8b5cf6" },
+  "ENERGY": { icon: ThermometerSun, color: "#10b981" },
+  "LIFTING": { icon: Building2, color: "#6366f1" },
+  "BUILDING_SAFETY": { icon: Shield, color: "#0ea5e9" },
+};
 
-const riskTrend = [
-  { month: "Jul", score: 68 },
-  { month: "Aug", score: 71 },
-  { month: "Sep", score: 69 },
-  { month: "Oct", score: 72 },
-  { month: "Nov", score: 75 },
-  { month: "Dec", score: 78 },
-];
-
-const portfolioHealth = [
-  { name: "Fully Compliant", value: 847, color: "#22c55e" },
-  { name: "Minor Issues", value: 156, color: "#f59e0b" },
-  { name: "Attention Required", value: 42, color: "#ef4444" },
-];
-
-const keyMetrics = [
-  { label: "Total Properties", value: "1,045", icon: Building2, change: "+12", trend: "up", sublabel: "(Structures)" },
-  { label: "Active Certificates", value: "4,892", icon: Shield, change: "+156", trend: "up" },
-  { label: "Open Actions", value: "89", icon: Clock, change: "-23", trend: "down" },
-  { label: "Contractors Active", value: "24", icon: Users, change: "0", trend: "stable" },
-];
-
-const criticalAlerts = [
-  { 
-    title: "Fire Safety Assessment Overdue", 
-    location: "Elm Court Block A",
-    urgency: "High",
-    daysOverdue: 14,
-    impact: "32 units affected"
-  },
-  { 
-    title: "Gas Certificate Expiring Soon", 
-    location: "Oak House",
-    urgency: "Medium",
-    daysOverdue: 0,
-    impact: "12 units affected"
-  },
-  { 
-    title: "Legionella Risk Assessment Due", 
-    location: "Riverside Complex",
-    urgency: "Medium",
-    daysOverdue: 0,
-    impact: "48 units affected"
-  },
-];
-
-const quarterlyHighlights = [
-  { metric: "Compliance Rate", current: "92%", target: "95%", status: "approaching" },
-  { metric: "Certificate Renewals", current: "156", target: "150", status: "achieved" },
-  { metric: "Actions Closed", current: "234", target: "200", status: "achieved" },
-  { metric: "Response Time (avg)", current: "4.2 days", target: "3 days", status: "behind" },
-];
+const metricIcons: Record<string, LucideIcon> = {
+  "Total Properties": Building2,
+  "Active Certificates": Shield,
+  "Open Actions": Clock,
+  "Contractors Active": Users,
+};
 
 function getScoreColor(score: number): string {
   if (score >= 90) return "text-green-600";
@@ -174,10 +140,24 @@ function RiskGauge({ score, previousScore }: { score: number; previousScore: num
 
 export default function BoardReporting() {
   const { toast } = useToast();
-  const totalProperties = portfolioHealth.reduce((sum, item) => sum + item.value, 0);
   const [isExporting, setIsExporting] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleFrequency, setScheduleFrequency] = useState("weekly");
+  
+  const { data: stats, isLoading, error } = useQuery<BoardReportStats>({
+    queryKey: ['/api/board-report/stats'],
+    refetchInterval: 60000,
+  });
+  
+  const overallRiskScore = stats?.overallRiskScore ?? 0;
+  const previousRiskScore = stats?.previousRiskScore ?? 0;
+  const complianceStreams = stats?.complianceStreams ?? [];
+  const portfolioHealth = stats?.portfolioHealth ?? [];
+  const keyMetrics = stats?.keyMetrics ?? [];
+  const criticalAlerts = stats?.criticalAlerts ?? [];
+  const quarterlyHighlights = stats?.quarterlyHighlights ?? [];
+  const riskTrend = stats?.riskTrend ?? [];
+  const totalProperties = portfolioHealth.reduce((sum, item) => sum + item.value, 0);
   
   const handleExportPdf = async () => {
     setIsExporting(true);
@@ -394,6 +374,24 @@ export default function BoardReporting() {
               </DialogContent>
             </Dialog>
 
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading board report data...</span>
+              </div>
+            )}
+            
+            {error && (
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="p-6 text-center text-red-600">
+                  Failed to load board report data. Please try again.
+                </CardContent>
+              </Card>
+            )}
+
+            {!isLoading && !error && (
+              <>
             {/* Key Metrics Row */}
             <div className="grid gap-4 md:grid-cols-4">
               {keyMetrics.map((metric, index) => {
@@ -404,13 +402,14 @@ export default function BoardReporting() {
                   "Contractors Active": "/contractors"
                 };
                 const href = metricLinks[metric.label] || "#";
+                const MetricIcon = metricIcons[metric.label] || Shield;
                 return (
                   <Link key={index} href={href}>
                     <Card className="cursor-pointer hover:shadow-md transition-shadow" data-testid={`card-metric-${index}`}>
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div className="p-2 rounded-lg bg-primary/10">
-                            <metric.icon className="h-5 w-5 text-primary" />
+                            <MetricIcon className="h-5 w-5 text-primary" />
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1">
@@ -430,7 +429,7 @@ export default function BoardReporting() {
                           <p className="text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
                           <p className="text-sm text-muted-foreground">
                             {metric.label}
-                            {(metric as any).sublabel && <span className="text-xs ml-1">{(metric as any).sublabel}</span>}
+                            {metric.sublabel && <span className="text-xs ml-1">{metric.sublabel}</span>}
                           </p>
                         </div>
                       </CardContent>
@@ -492,7 +491,7 @@ export default function BoardReporting() {
                   </div>
                   <div className="mt-4 text-center">
                     <p className="text-2xl font-bold text-green-600" data-testid="text-compliant-percentage">
-                      {Math.round((portfolioHealth[0].value / totalProperties) * 100)}%
+                      {totalProperties > 0 && portfolioHealth[0] ? Math.round((portfolioHealth[0].value / totalProperties) * 100) : 0}%
                     </p>
                     <p className="text-sm text-muted-foreground">Properties fully compliant</p>
                   </div>
@@ -541,15 +540,10 @@ export default function BoardReporting() {
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {complianceStreams.map((stream, index) => {
-                      const streamCodeMap: Record<string, string> = {
-                        "Gas Safety": "GAS_HEATING",
-                        "Electrical": "ELECTRICAL",
-                        "Fire Safety": "FIRE_SAFETY",
-                        "Water/Legionella": "WATER_SAFETY",
-                        "Asbestos": "ASBESTOS",
-                        "Energy (EPC)": "ENERGY"
-                      };
-                      const streamCode = streamCodeMap[stream.name] || "";
+                      const streamCode = stream.code || "";
+                      const streamStyle = streamIcons[streamCode] || { icon: Shield, color: "#6b7280" };
+                      const StreamIcon = streamStyle.icon;
+                      const streamColor = streamStyle.color;
                       return (
                         <Link 
                           key={stream.name}
@@ -561,9 +555,9 @@ export default function BoardReporting() {
                           >
                             <div 
                               className="p-3 rounded-lg" 
-                              style={{ backgroundColor: `${stream.color}20` }}
+                              style={{ backgroundColor: `${streamColor}20` }}
                             >
-                              <stream.icon className="h-5 w-5" style={{ color: stream.color }} />
+                              <StreamIcon className="h-5 w-5" style={{ color: streamColor }} />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
@@ -715,9 +709,9 @@ export default function BoardReporting() {
                       <h4 className="font-semibold text-green-800 dark:text-green-200">Achievements</h4>
                     </div>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                      <li data-testid="text-achievement-0">• Risk score improved by 6 points</li>
-                      <li data-testid="text-achievement-1">• Gas safety compliance at 94%</li>
-                      <li data-testid="text-achievement-2">• Certificate renewals exceed target</li>
+                      <li data-testid="text-achievement-0">• Risk score: {overallRiskScore}% ({overallRiskScore >= previousRiskScore ? `+${overallRiskScore - previousRiskScore}` : `${overallRiskScore - previousRiskScore}`} points)</li>
+                      <li data-testid="text-achievement-1">• {complianceStreams.length > 0 ? `${complianceStreams[0].name} compliance at ${complianceStreams[0].score}%` : 'No compliance data yet'}</li>
+                      <li data-testid="text-achievement-2">• {quarterlyHighlights.filter(h => h.status === 'achieved').length} target{quarterlyHighlights.filter(h => h.status === 'achieved').length !== 1 ? 's' : ''} achieved</li>
                     </ul>
                   </div>
                   <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" data-testid="summary-in-progress">
@@ -726,9 +720,9 @@ export default function BoardReporting() {
                       <h4 className="font-semibold text-amber-800 dark:text-amber-200">In Progress</h4>
                     </div>
                     <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
-                      <li data-testid="text-progress-0">• Fire safety improvements underway</li>
-                      <li data-testid="text-progress-1">• 89 remedial actions being addressed</li>
-                      <li data-testid="text-progress-2">• EPC upgrade program ongoing</li>
+                      <li data-testid="text-progress-0">• {keyMetrics.find(m => m.label === 'Open Actions')?.value || '0'} remedial actions being addressed</li>
+                      <li data-testid="text-progress-1">• {portfolioHealth.find(h => h.name === 'Minor Issues')?.value || 0} properties with minor issues</li>
+                      <li data-testid="text-progress-2">• {quarterlyHighlights.filter(h => h.status === 'approaching').length} targets on track</li>
                     </ul>
                   </div>
                   <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" data-testid="summary-attention">
@@ -737,14 +731,16 @@ export default function BoardReporting() {
                       <h4 className="font-semibold text-red-800 dark:text-red-200">Attention Required</h4>
                     </div>
                     <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-                      <li data-testid="text-attention-0">• 1 fire safety assessment overdue</li>
-                      <li data-testid="text-attention-1">• Response time below target</li>
-                      <li data-testid="text-attention-2">• 42 properties need intervention</li>
+                      <li data-testid="text-attention-0">• {criticalAlerts.length} critical alert{criticalAlerts.length !== 1 ? 's' : ''}</li>
+                      <li data-testid="text-attention-1">• {quarterlyHighlights.filter(h => h.status === 'behind').length} target{quarterlyHighlights.filter(h => h.status === 'behind').length !== 1 ? 's' : ''} behind</li>
+                      <li data-testid="text-attention-2">• {portfolioHealth.find(h => h.name === 'Attention Required')?.value || 0} properties need intervention</li>
                     </ul>
                   </div>
                 </div>
               </CardContent>
             </Card>
+              </>
+            )}
           </div>
         </main>
       </div>
