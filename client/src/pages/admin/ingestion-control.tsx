@@ -350,7 +350,7 @@ export default function IngestionControlRoom() {
                 </Card>
               </div>
 
-              <Card data-testid="card-queue-health">
+              <Card data-testid="card-cert-status">
                 <CardHeader>
                   <CardTitle>Certificate Status Summary</CardTitle>
                   <CardDescription>Current certificate counts by processing status</CardDescription>
@@ -373,6 +373,35 @@ export default function IngestionControlRoom() {
                         <div className="flex justify-between"><span>Rejected:</span><Badge className="bg-orange-100 text-orange-800">{stats?.certificates?.byStatus?.REJECTED || 0}</Badge></div>
                         <div className="flex justify-between"><span>Failed:</span><Badge className="bg-red-100 text-red-800">{stats?.certificates?.byStatus?.FAILED || 0}</Badge></div>
                         <div className="flex justify-between"><span>Total:</span><Badge variant="outline">{stats?.certificates?.total || 0}</Badge></div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-queue-health">
+                <CardHeader>
+                  <CardTitle>Job Queue Health (pg-boss)</CardTitle>
+                  <CardDescription>Active jobs from External Ingestion API (/api/v1/ingestions) - UI uploads process synchronously</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="p-4 border rounded-lg">
+                      <h4 className="font-medium mb-3">Certificate Ingestion Queue</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between"><span>Queued:</span><Badge variant="secondary">{stats?.queue?.ingestion?.queued || 0}</Badge></div>
+                        <div className="flex justify-between"><span>Active:</span><Badge className="bg-blue-100 text-blue-800">{stats?.queue?.ingestion?.active || 0}</Badge></div>
+                        <div className="flex justify-between"><span>Completed:</span><Badge className="bg-emerald-100 text-emerald-800">{stats?.queue?.ingestion?.completed || 0}</Badge></div>
+                        <div className="flex justify-between"><span>Failed:</span><Badge className="bg-red-100 text-red-800">{stats?.queue?.ingestion?.failed || 0}</Badge></div>
+                      </div>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <h4 className="font-medium mb-3">Webhook Delivery Queue</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between"><span>Queued:</span><Badge variant="secondary">{stats?.queue?.webhook?.queued || 0}</Badge></div>
+                        <div className="flex justify-between"><span>Active:</span><Badge className="bg-blue-100 text-blue-800">{stats?.queue?.webhook?.active || 0}</Badge></div>
+                        <div className="flex justify-between"><span>Completed:</span><Badge className="bg-emerald-100 text-emerald-800">{stats?.queue?.webhook?.completed || 0}</Badge></div>
+                        <div className="flex justify-between"><span>Failed:</span><Badge className="bg-red-100 text-red-800">{stats?.queue?.webhook?.failed || 0}</Badge></div>
                       </div>
                     </div>
                   </div>
