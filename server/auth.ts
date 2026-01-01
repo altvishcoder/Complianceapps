@@ -8,7 +8,7 @@ import bcrypt from "bcrypt";
 const SALT_ROUNDS = 12;
 
 export const auth = betterAuth({
-  basePath: "/api/betterauth",
+  basePath: "/api/auth",
   
   database: drizzleAdapter(db, {
     provider: "pg",

@@ -162,9 +162,6 @@ export async function registerRoutes(
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
 
-  // BetterAuth handler - mount at /api/betterauth/* for modern auth
-  app.all("/api/betterauth/*", toNodeHandler(auth));
-
   // OpenAPI/Swagger documentation
   const openApiSpec = generateOpenAPIDocument();
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
@@ -397,6 +394,10 @@ export async function registerRoutes(
       requirements: getPasswordPolicyDescription(),
     });
   });
+  
+  // Modern authentication handler (session management, OAuth providers)
+  // Handles: /api/auth/session, /api/auth/sign-in/*, /api/auth/sign-up/*, /api/auth/sign-out, /api/auth/callback/*
+  app.all("/api/auth/*splat", toNodeHandler(auth));
   
   // Hard-coded organisation ID for demo (in production this would come from auth)
   const ORG_ID = "default-org";
