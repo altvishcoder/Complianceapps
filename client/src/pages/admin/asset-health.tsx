@@ -552,8 +552,9 @@ export default function AssetHealth() {
         navigate(`/properties/${data.nodeId}`);
         break;
       case 'scheme':
-        // Navigate to properties page with scheme filter
+        // Drill down to blocks in this scheme, resetting block filter
         setSelectedScheme(data.nodeId);
+        setSelectedBlock('all');
         setViewLevel('block');
         break;
       case 'block':
