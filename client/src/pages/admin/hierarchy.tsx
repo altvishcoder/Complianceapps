@@ -789,7 +789,7 @@ export default function PropertyHierarchy() {
                 <div className="flex items-start gap-2">
                   <Info className="h-5 w-5 text-emerald-600 mt-0.5" />
                   <div className="text-sm text-emerald-800">
-                    <strong>UKHDS Asset Hierarchy:</strong> Organisation → Scheme (Site/Estate) → Block (Building) → Property → Unit (Dwelling) → Space (Room) → Component (Asset)
+                    <strong>UKHDS Asset Hierarchy:</strong> Organisation → Scheme (Site/Estate) → Block (Building) → Property/Unit (Dwelling/Home) → Space (Room) → Component (Asset)
                   </div>
                 </div>
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -1194,14 +1194,15 @@ export default function PropertyHierarchy() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {components.map((component: Component) => {
+                          {components.map((component: EnrichedComponent) => {
                             const property = properties.find((p: Property) => p.id === component.propertyId);
-                            const componentName = component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || 'Component');
+                            const componentTypeName = component.componentType?.name || component.componentTypeId || '-';
+                            const componentName = component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || componentTypeName);
                             return (
                               <TableRow key={component.id} data-testid={`row-component-${component.id}`}>
                                 <TableCell className="font-medium">{componentName}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline">{component.componentTypeId || '-'}</Badge>
+                                  <Badge variant="outline">{componentTypeName}</Badge>
                                 </TableCell>
                                 <TableCell>{component.serialNumber || '-'}</TableCell>
                                 <TableCell>{property ? `${property.addressLine1}, ${property.postcode}` : '-'}</TableCell>
