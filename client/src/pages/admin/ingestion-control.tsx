@@ -94,6 +94,7 @@ interface IngestionJob {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+  batchId: string | null;
 }
 
 interface ScheduledJobInfo {
@@ -155,10 +156,32 @@ const PIPELINE_STAGES = [
 
 const PIE_COLORS = ["#3b82f6", "#6366f1", "#f59e0b", "#8b5cf6", "#10b981", "#ef4444", "#6b7280"];
 
-function PipelineStage({ stage, count, isActive }: { stage: typeof PIPELINE_STAGES[0]; count: number; isActive: boolean }) {
+function PipelineStage({ 
+  stage, 
+  count, 
+  isActive, 
+  isSelected,
+  onClick 
+}: { 
+  stage: typeof PIPELINE_STAGES[0]; 
+  count: number; 
+  isActive: boolean;
+  isSelected?: boolean;
+  onClick?: () => void;
+}) {
   const Icon = stage.icon;
   return (
-    <div className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${isActive ? 'border-primary bg-primary/5' : 'border-muted'}`}>
+    <div 
+      className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all cursor-pointer hover:shadow-md ${
+        isSelected 
+          ? 'border-primary bg-primary/10 ring-2 ring-primary ring-offset-2' 
+          : isActive 
+            ? 'border-primary bg-primary/5' 
+            : 'border-muted hover:border-muted-foreground/50'
+      }`}
+      onClick={onClick}
+      data-testid={`pipeline-stage-${stage.id}`}
+    >
       <div className={`p-3 rounded-full ${isActive ? 'bg-primary/10' : 'bg-muted'}`}>
         <Icon className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-muted-foreground'} ${stage.id === 'PROCESSING' || stage.id === 'EXTRACTING' ? 'animate-spin' : ''}`} />
       </div>
@@ -176,6 +199,7 @@ export default function IngestionControlRoom() {
   const [scheduledJobDateFilter, setScheduledJobDateFilter] = useState<string>("all");
   const [editScheduleOpen, setEditScheduleOpen] = useState(false);
   const [newIntervalMinutes, setNewIntervalMinutes] = useState<number>(5);
+  const [pipelineFilter, setPipelineFilter] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Ingestion Control Room - ComplianceAI";
@@ -226,6 +250,28 @@ export default function IngestionControlRoom() {
     refetchInterval: 5000,
   });
 
+  // Fetch certificates filtered by pipeline status
+  const { data: filteredCertificates, isLoading: filteredCertsLoading, refetch: refetchFilteredCerts } = useQuery<Array<{
+    id: number;
+    certificateType: string;
+    status: string;
+    propertyId: number;
+    createdAt: string;
+    extractedData: unknown;
+    batchId?: string;
+  }>>({
+    queryKey: ["/api/certificates", pipelineFilter],
+    queryFn: async () => {
+      if (!pipelineFilter) return [];
+      const params = new URLSearchParams({ status: pipelineFilter, limit: "50" });
+      const res = await fetch(`/api/certificates?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch certificates");
+      return res.json();
+    },
+    enabled: !!pipelineFilter,
+    refetchInterval: pipelineFilter ? 5000 : false,
+  });
+
   const retryMutation = useMutation({
     mutationFn: async (jobId: string) => {
       const res = await fetch(`/api/admin/ingestion-jobs/${jobId}/retry`, {
@@ -245,6 +291,29 @@ export default function IngestionControlRoom() {
     },
     onError: (error: Error) => {
       toast({ title: "Retry Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Retry certificate processing
+  const retryCertificateMutation = useMutation({
+    mutationFn: async (certificateId: number) => {
+      const res = await fetch(`/api/certificates/${certificateId}/reprocess`, {
+        method: "POST",
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to reprocess certificate");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Certificate Queued", description: "The certificate has been queued for reprocessing" });
+      refetchFilteredCerts();
+      refetchStats();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Reprocess Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -450,13 +519,31 @@ export default function IngestionControlRoom() {
 
           <Card className="mb-6" data-testid="card-pipeline">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Certificate Pipeline Status
-              </CardTitle>
-              <CardDescription>
-                All certificates from any source (manual uploads, API submissions, bulk imports) - shows processing stages after upload
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Certificate Pipeline Status
+                  </CardTitle>
+                  <CardDescription>
+                    Click on any stage to filter certificates. {pipelineFilter && (
+                      <Button 
+                        variant="link" 
+                        size="sm" 
+                        className="p-0 h-auto text-xs"
+                        onClick={() => setPipelineFilter(null)}
+                      >
+                        Clear filter
+                      </Button>
+                    )}
+                  </CardDescription>
+                </div>
+                {pipelineFilter && (
+                  <Badge variant="outline" className="text-sm">
+                    Showing: {pipelineFilter.replace('_', ' ')}
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
@@ -466,6 +553,8 @@ export default function IngestionControlRoom() {
                       stage={stage} 
                       count={stats?.certificates?.byStatus?.[stage.id] || 0}
                       isActive={(stats?.certificates?.byStatus?.[stage.id] || 0) > 0}
+                      isSelected={pipelineFilter === stage.id}
+                      onClick={() => setPipelineFilter(pipelineFilter === stage.id ? null : stage.id)}
                     />
                     {index < PIPELINE_STAGES.length - 1 && (
                       <ArrowRight className="h-6 w-6 text-muted-foreground mx-2" />
@@ -474,7 +563,15 @@ export default function IngestionControlRoom() {
                 ))}
                 <div className="flex items-center flex-1">
                   <ArrowRight className="h-6 w-6 text-muted-foreground mx-2" />
-                  <div className="flex flex-col items-center p-4 rounded-lg border-2 border-red-200 bg-red-50">
+                  <div 
+                    className={`flex flex-col items-center p-4 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
+                      pipelineFilter === 'FAILED' 
+                        ? 'border-red-500 bg-red-100 ring-2 ring-red-500 ring-offset-2' 
+                        : 'border-red-200 bg-red-50 hover:border-red-300'
+                    }`}
+                    onClick={() => setPipelineFilter(pipelineFilter === 'FAILED' ? null : 'FAILED')}
+                    data-testid="pipeline-stage-FAILED"
+                  >
                     <div className="p-3 rounded-full bg-red-100">
                       <XCircle className="h-6 w-6 text-red-600" />
                     </div>
@@ -485,6 +582,120 @@ export default function IngestionControlRoom() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Filtered Certificates View - appears when a pipeline stage is selected */}
+          {pipelineFilter && (
+            <Card className="mb-6" data-testid="card-filtered-certificates">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileCheck className="h-5 w-5" />
+                      {pipelineFilter === 'FAILED' ? 'Failed Certificates' : `${pipelineFilter.replace('_', ' ')} Certificates`}
+                    </CardTitle>
+                    <CardDescription>
+                      {filteredCertificates?.length || 0} certificate(s) in this stage
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {pipelineFilter === 'FAILED' && filteredCertificates && filteredCertificates.length > 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          filteredCertificates.forEach(cert => retryCertificateMutation.mutate(cert.id));
+                        }}
+                        disabled={retryCertificateMutation.isPending}
+                        data-testid="button-retry-all-failed"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Retry All
+                      </Button>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setPipelineFilter(null)}
+                      data-testid="button-close-filtered"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredCertsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredCertificates && filteredCertificates.length > 0 ? (
+                  <div className="space-y-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Certificate Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Property</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Batch ID</TableHead>
+                          {pipelineFilter === 'FAILED' && <TableHead>Actions</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredCertificates.map((cert) => (
+                          <TableRow key={cert.id} data-testid={`row-certificate-${cert.id}`}>
+                            <TableCell className="font-mono text-sm">{cert.id}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {cert.certificateType?.replace(/_/g, ' ') || 'Unknown'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={
+                                cert.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                                cert.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                                cert.status === 'NEEDS_REVIEW' ? 'bg-amber-100 text-amber-800' :
+                                cert.status === 'PROCESSING' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }>
+                                {cert.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{cert.propertyId || '-'}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {cert.createdAt ? new Date(cert.createdAt).toLocaleString('en-GB') : '-'}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {cert.batchId ? cert.batchId.slice(0, 8) : '-'}
+                            </TableCell>
+                            {pipelineFilter === 'FAILED' && (
+                              <TableCell>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => retryCertificateMutation.mutate(cert.id)}
+                                  disabled={retryCertificateMutation.isPending}
+                                  data-testid={`button-retry-cert-${cert.id}`}
+                                >
+                                  <RefreshCw className="mr-1 h-3 w-3" />
+                                  Retry
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No certificates in this stage
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
@@ -697,6 +908,7 @@ export default function IngestionControlRoom() {
                           <TableHead>Channel</TableHead>
                           <TableHead>Certificate Type</TableHead>
                           <TableHead>File</TableHead>
+                          <TableHead>Batch ID</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Progress</TableHead>
                           <TableHead>Attempts</TableHead>
@@ -717,6 +929,11 @@ export default function IngestionControlRoom() {
                               </TableCell>
                               <TableCell className="font-medium">{job.certificateType.replace(/_/g, ' ')}</TableCell>
                               <TableCell className="max-w-48 truncate" title={job.fileName}>{job.fileName}</TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {job.batchId ? (
+                                  <span title={job.batchId}>{job.batchId.slice(0, 8)}</span>
+                                ) : '-'}
+                              </TableCell>
                               <TableCell>
                                 <Badge className={STATUS_COLORS[job.status]}>
                                   <StatusIcon className={`h-3 w-3 mr-1 ${job.status === 'PROCESSING' || job.status === 'EXTRACTING' ? 'animate-spin' : ''}`} />
@@ -752,7 +969,7 @@ export default function IngestionControlRoom() {
                         })}
                         {(!jobs || jobs.length === 0) && (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                               No jobs found
                             </TableCell>
                           </TableRow>

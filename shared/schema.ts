@@ -1137,6 +1137,7 @@ export const ingestionJobs = pgTable("ingestion_jobs", {
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
   apiClientId: varchar("api_client_id").references(() => apiClients.id),
   uploadSessionId: varchar("upload_session_id").references(() => uploadSessions.id),
+  batchId: varchar("batch_id").references(() => ingestionBatches.id),
   
   // Ingestion channel (source)
   channel: ingestionChannelEnum("channel").notNull().default('MANUAL_UPLOAD'),

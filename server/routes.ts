@@ -2405,6 +2405,97 @@ export async function registerRoutes(
     }
   });
   
+  // Reprocess a failed certificate
+  app.post("/api/certificates/:id/reprocess", async (req, res) => {
+    try {
+      const certificate = await storage.getCertificate(req.params.id);
+      if (!certificate) {
+        return res.status(404).json({ error: "Certificate not found" });
+      }
+      
+      // Verify certificate belongs to current organisation
+      if (certificate.organisationId !== ORG_ID) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Only allow reprocessing of failed or needs_review certificates
+      if (certificate.status !== 'FAILED' && certificate.status !== 'REJECTED' && certificate.status !== 'NEEDS_REVIEW') {
+        return res.status(400).json({ error: "Only failed, rejected, or needs review certificates can be reprocessed" });
+      }
+      
+      // Verify file is retrievable BEFORE changing status
+      let fileBuffer: Buffer | undefined;
+      
+      if (certificate.storageKey) {
+        try {
+          const file = await objectStorageService.getObjectEntityFile(certificate.storageKey);
+          if (file) {
+            const chunks: Buffer[] = [];
+            const stream = file.createReadStream();
+            
+            await new Promise<void>((resolve, reject) => {
+              stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+              stream.on('end', () => resolve());
+              stream.on('error', reject);
+            });
+            
+            fileBuffer = Buffer.concat(chunks);
+          }
+        } catch (error) {
+          console.error("Error retrieving file for reprocessing:", error);
+        }
+      }
+      
+      if (!fileBuffer) {
+        return res.status(400).json({ error: "Could not retrieve file for reprocessing" });
+      }
+      
+      // Now safe to change status - file is verified
+      await storage.updateCertificate(certificate.id, { status: 'PROCESSING' });
+      
+      // Trigger extraction asynchronously (orchestrator handles tier audit records)
+      (async () => {
+        try {
+          const { extractCertificate } = await import('./services/extraction/orchestrator');
+          const result = await extractCertificate(
+            String(certificate.id),
+            fileBuffer!,
+            certificate.fileType || 'application/pdf',
+            certificate.fileName || 'document.pdf',
+            { forceAI: true }
+          );
+          
+          if (result.success) {
+            await storage.updateCertificate(certificate.id, {
+              status: result.requiresReview ? 'NEEDS_REVIEW' : 'EXTRACTED',
+              statusMessage: `Reprocessed with ${result.finalTier} (confidence: ${(result.confidence * 100).toFixed(1)}%)`,
+            });
+          } else {
+            await storage.updateCertificate(certificate.id, { 
+              status: 'FAILED', 
+              statusMessage: 'Reprocessing failed - extraction unsuccessful' 
+            });
+          }
+        } catch (error) {
+          console.error("Error during certificate reprocessing:", error);
+          await storage.updateCertificate(certificate.id, { 
+            status: 'FAILED', 
+            statusMessage: `Reprocessing error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+          });
+        }
+      })();
+      
+      res.json({ 
+        success: true, 
+        message: "Certificate reprocessing started", 
+        certificateId: certificate.id
+      });
+    } catch (error) {
+      console.error("Error reprocessing certificate:", error);
+      res.status(500).json({ error: "Failed to start certificate reprocessing" });
+    }
+  });
+  
   // ===== REMEDIAL ACTIONS =====
   app.get("/api/actions", async (req, res) => {
     try {
@@ -6497,9 +6588,6 @@ export async function registerRoutes(
       if (intervalMinutes < 1 || intervalMinutes > 60) {
         return res.status(400).json({ error: "intervalMinutes must be between 1 and 60" });
       }
-      
-      // Update factory setting
-      await storage.setFactorySetting('CERTIFICATE_WATCHDOG_INTERVAL_MINUTES', String(intervalMinutes));
       
       // Reschedule the watchdog with new interval
       const { updateWatchdogSchedule } = await import('./job-queue');
