@@ -1,52 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
+import * as LucideIcons from "lucide-react";
 import { 
-  LayoutDashboard, 
-  Building2, 
-  UploadCloud, 
-  FileText, 
   ShieldCheck,
   AlertTriangle,
   LogOut,
-  Files,
-  ClipboardCheck,
-  Wrench,
-  Users,
-  UserCog,
-  Brain,
-  Eye,
-  Settings2,
   ChevronRight,
   ChevronDown,
-  Sparkles,
-  Package,
-  Database,
-  FlaskConical,
-  Shield,
-  Webhook,
-  Film,
   Menu,
   X,
-  Key,
-  Activity,
-  Map,
-  HelpCircle,
-  ClipboardList,
-  BookOpen,
-  MessageSquare,
-  Calendar,
-  Radar,
-  Gauge,
-  FolderTree,
-  Briefcase,
-  MonitorCheck,
-  Cog,
-  Library,
-  TreePine,
-  BarChart3,
-  HeartPulse,
-  Target,
-  Timer
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -54,25 +17,41 @@ import { actionsApi, certificatesApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface NavItem {
+interface NavigationItem {
+  id: string;
+  sectionId: string;
+  slug: string;
   name: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  iconKey: string;
+  displayOrder: number;
+  isActive: boolean;
+  isSystem: boolean;
   requiresAdmin?: boolean;
   requiresFactorySettings?: boolean;
   requiresAITools?: boolean;
 }
 
-interface NavSection {
+interface NavigationSection {
+  id: string;
+  slug: string;
   title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  items: NavItem[];
-  defaultOpen?: boolean;
-  requiresRole?: 'admin' | 'adminOrManager' | 'factorySettings';
+  iconKey: string;
+  displayOrder: number;
+  defaultOpen: boolean;
+  isActive: boolean;
+  isSystem: boolean;
+  requiresRole?: string;
+  items: NavigationItem[];
 }
 
 const SIDEBAR_SCROLL_KEY = 'sidebar_scroll_position';
 const SIDEBAR_SECTIONS_KEY = 'sidebar_sections_state';
+
+const getIconComponent = (iconKey: string): React.ComponentType<{ className?: string }> => {
+  const icons = LucideIcons as Record<string, React.ComponentType<{ className?: string }>>;
+  return icons[iconKey] || HelpCircle;
+};
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -90,121 +69,16 @@ export function Sidebar() {
   const canAccessAdminPanel = isAdmin || isComplianceManager;
   const canAccessFactorySettings = isLashanSuperUser || isSuperAdmin;
 
-  const commandCentre: NavSection = {
-    title: "Command Centre",
-    icon: Gauge,
-    defaultOpen: true,
-    items: [
-      { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Analytics", href: "/compliance", icon: BarChart3 },
-      { name: "Reporting", href: "/reports", icon: FileText },
-      { name: "Board", href: "/reports/board", icon: Briefcase },
-      { name: "Report Builder", href: "/reports/builder", icon: Settings2 },
-    ]
-  };
-
-  const regulatory: NavSection = {
-    title: "Regulatory",
-    icon: Shield,
-    defaultOpen: false,
-    items: [
-      { name: "Regulatory Evidence", href: "/reports/regulatory", icon: Shield },
-    ]
-  };
-
-  const assetManagement: NavSection = {
-    title: "Asset Management",
-    icon: FolderTree,
-    defaultOpen: false,
-    items: [
-      { name: "Property Hierarchy", href: "/admin/hierarchy", icon: TreePine, requiresAITools: true },
-      { name: "Properties", href: "/properties", icon: Building2 },
-      { name: "Components", href: "/components", icon: Package },
-    ]
-  };
-
-  const operations: NavSection = {
-    title: "Operations",
-    icon: Briefcase,
-    defaultOpen: true,
-    items: [
-      { name: "Ingestion", href: "/ingestion", icon: UploadCloud },
-      { name: "Certificates", href: "/certificates", icon: Files },
-      { name: "Risk Radar", href: "/risk-radar", icon: Radar },
-      { name: "Remedial Actions", href: "/actions", icon: Wrench },
-      { name: "Calendar", href: "/calendar", icon: Calendar },
-      { name: "Risk Maps", href: "/maps", icon: Map },
-      { name: "Asset Health", href: "/admin/asset-health", icon: HeartPulse, requiresFactorySettings: true },
-      { name: "Remedial Kanban", href: "/admin/remedial-kanban", icon: ClipboardCheck, requiresFactorySettings: true },
-      { name: "Human Review", href: "/human-review", icon: Eye, requiresAITools: true },
-    ]
-  };
-
-  const contractorManagement: NavSection = {
-    title: "Contractor Management",
-    icon: Users,
-    defaultOpen: false,
-    items: [
-      { name: "Performance", href: "/contractors/dashboard", icon: BarChart3 },
-      { name: "SLA Tracking", href: "/contractors/sla", icon: Target },
-      { name: "Contractors", href: "/contractors", icon: Users },
-      { name: "Reports", href: "/contractors/reports", icon: FileText },
-    ]
-  };
-
-  const staffManagement: NavSection = {
-    title: "Staff & DLO",
-    icon: Briefcase,
-    defaultOpen: false,
-    items: [
-      { name: "Performance", href: "/staff/dashboard", icon: BarChart3 },
-      { name: "SLA Tracking", href: "/staff/sla", icon: Target },
-      { name: "Staff Directory", href: "/staff", icon: Users },
-      { name: "Reports", href: "/staff/reports", icon: FileText },
-    ]
-  };
-
-  const monitoring: NavSection = {
-    title: "Monitoring",
-    icon: MonitorCheck,
-    defaultOpen: false,
-    requiresRole: 'adminOrManager',
-    items: [
-      { name: "System Health", href: "/admin/system-health", icon: Activity, requiresFactorySettings: true },
-      { name: "Ingestion Control", href: "/admin/ingestion-control", icon: Sparkles, requiresFactorySettings: true },
-      { name: "Chatbot Analytics", href: "/admin/chatbot-analytics", icon: MessageSquare, requiresFactorySettings: true },
-      { name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList, requiresAdmin: true },
-      { name: "Test Suite", href: "/admin/tests", icon: FlaskConical, requiresAdmin: true },
-      { name: "Model Insights", href: "/model-insights", icon: Brain, requiresAITools: true },
-    ]
-  };
-
-  const administration: NavSection = {
-    title: "Administration",
-    icon: Cog,
-    defaultOpen: false,
-    requiresRole: 'admin',
-    items: [
-      { name: "User Management", href: "/admin/users", icon: UserCog },
-      { name: "Configuration", href: "/admin/configuration", icon: Settings2 },
-      { name: "Factory Settings", href: "/admin/factory-settings", icon: Shield, requiresFactorySettings: true },
-      { name: "Knowledge Training", href: "/admin/knowledge-training", icon: BookOpen, requiresFactorySettings: true },
-      { name: "Integrations", href: "/admin/integrations", icon: Webhook },
-      { name: "API Integration", href: "/admin/api-integration", icon: Key },
-      { name: "API Documentation", href: "/admin/api-docs", icon: BookOpen },
-    ]
-  };
-
-  const resources: NavSection = {
-    title: "Resources",
-    icon: Library,
-    defaultOpen: false,
-    items: [
-      { name: "Data Import", href: "/admin/imports", icon: Database },
-      { name: "Video Library", href: "/video-library", icon: Film },
-      { name: "Help Guide", href: "/help", icon: HelpCircle },
-    ]
-  };
+  const { data: navigationSections = [], isLoading: navLoading, isError: navError } = useQuery<NavigationSection[]>({
+    queryKey: ["navigation"],
+    queryFn: async () => {
+      const response = await fetch("/api/navigation");
+      if (!response.ok) throw new Error("Failed to fetch navigation");
+      return response.json();
+    },
+    staleTime: 60000,
+    retry: 2,
+  });
   
   const getInitialSectionState = () => {
     const saved = sessionStorage.getItem(SIDEBAR_SECTIONS_KEY);
@@ -215,14 +89,7 @@ export function Sidebar() {
         return {};
       }
     }
-    return {
-      "Command Centre": true,
-      "Asset Management": false,
-      "Compliance Operations": true,
-      "Monitoring": false,
-      "Administration": false,
-      "Resources": false,
-    };
+    return {};
   };
   
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(getInitialSectionState);
@@ -231,8 +98,8 @@ export function Sidebar() {
     sessionStorage.setItem(SIDEBAR_SECTIONS_KEY, JSON.stringify(openSections));
   }, [openSections]);
   
-  const toggleSection = (title: string) => {
-    setOpenSections(prev => ({ ...prev, [title]: !prev[title] }));
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
   
   useEffect(() => {
@@ -272,7 +139,8 @@ export function Sidebar() {
     return new Date(c.expiryDate) < new Date();
   }).length;
 
-  const shouldShowSection = (section: NavSection): boolean => {
+  const shouldShowSection = (section: NavigationSection): boolean => {
+    if (!section.isActive) return false;
     if (!section.requiresRole) return true;
     if (section.requiresRole === 'admin') return isAdmin;
     if (section.requiresRole === 'adminOrManager') return canAccessAdminPanel;
@@ -280,8 +148,9 @@ export function Sidebar() {
     return true;
   };
 
-  const filterItemsByRole = (items: NavItem[]): NavItem[] => {
+  const filterItemsByRole = (items: NavigationItem[]): NavigationItem[] => {
     return items.filter(item => {
+      if (!item.isActive) return false;
       if (item.requiresFactorySettings && !canAccessFactorySettings) return false;
       if (item.requiresAdmin && !isAdmin) return false;
       if (item.requiresAITools && !canAccessAITools) return false;
@@ -289,28 +158,31 @@ export function Sidebar() {
     });
   };
 
-  const renderSection = (section: NavSection) => {
+  const renderSection = (section: NavigationSection) => {
     if (!shouldShowSection(section)) return null;
     
-    const items = filterItemsByRole(section.items);
+    const items = filterItemsByRole(section.items)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
     if (items.length === 0) return null;
     
-    const isOpen = openSections[section.title] ?? section.defaultOpen ?? false;
+    const isOpen = openSections[section.id] ?? section.defaultOpen ?? false;
     const hasActiveItem = items.some(item => location === item.href);
     
+    const SectionIcon = getIconComponent(section.iconKey);
+    
     return (
-      <div key={section.title} className="mb-2">
+      <div key={section.id} className="mb-2">
         <button
-          onClick={() => toggleSection(section.title)}
+          onClick={() => toggleSection(section.id)}
           className={cn(
             "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all",
             hasActiveItem ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
           )}
           aria-expanded={isOpen}
-          data-testid={`section-toggle-${section.title.toLowerCase().replace(/\s+/g, '-')}`}
+          data-testid={`section-toggle-${section.slug}`}
         >
           <div className="flex items-center gap-2">
-            <section.icon className="h-3.5 w-3.5" aria-hidden="true" />
+            <SectionIcon className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{section.title}</span>
           </div>
           {isOpen ? (
@@ -324,8 +196,9 @@ export function Sidebar() {
           <nav className="mt-1 space-y-0.5 pl-2" aria-label={section.title}>
             {items.map((item) => {
               const isActive = location === item.href;
+              const ItemIcon = getIconComponent(item.iconKey);
               return (
-                <Link key={item.name} href={item.href} aria-current={isActive ? "page" : undefined} onClick={handleNavClick}>
+                <Link key={item.id} href={item.href} aria-current={isActive ? "page" : undefined} onClick={handleNavClick}>
                   <div
                     className={cn(
                       "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
@@ -333,10 +206,10 @@ export function Sidebar() {
                         ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
                         : "text-slate-400 hover:text-white hover:bg-white/5"
                     )}
-                    data-testid={`nav-item-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                    data-testid={`nav-item-${item.slug}`}
                   >
                     <div className="flex items-center">
-                      <item.icon
+                      <ItemIcon
                         className={cn(
                           "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
                           isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
@@ -402,15 +275,25 @@ export function Sidebar() {
         </div>
         
         <div ref={navScrollRef} className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
-          {renderSection(commandCentre)}
-          {renderSection(regulatory)}
-          {renderSection(assetManagement)}
-          {renderSection(operations)}
-          {renderSection(contractorManagement)}
-          {renderSection(staffManagement)}
-          {renderSection(monitoring)}
-          {renderSection(administration)}
-          {renderSection(resources)}
+          {navLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
+            </div>
+          ) : navError ? (
+            <div className="px-3 py-4 text-center">
+              <AlertTriangle className="h-6 w-6 text-amber-400 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">Navigation unavailable</p>
+              <Link href="/dashboard">
+                <div className="mt-2 px-3 py-2 text-sm text-emerald-400 hover:text-emerald-300 cursor-pointer">
+                  Go to Dashboard
+                </div>
+              </Link>
+            </div>
+          ) : (
+            [...navigationSections]
+              .sort((a, b) => a.displayOrder - b.displayOrder)
+              .map(section => renderSection(section))
+          )}
           
           <div className="mt-4 pt-4 border-t border-white/5">
             <div className="mb-2 px-3">
