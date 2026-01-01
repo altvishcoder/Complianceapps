@@ -33,7 +33,7 @@ export function Header({ title }: { title: string }) {
   const { user } = useAuth();
   
   return (
-    <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50 sticky top-0 z-10">
+    <header className="h-20 flex items-center justify-between px-3 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50 sticky top-0 z-10">
       <div className="flex items-center gap-2 md:gap-4 pl-12 md:pl-0">
         <h1 className="text-lg md:text-2xl font-display font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent truncate max-w-[180px] md:max-w-none">{title}</h1>
       </div>
