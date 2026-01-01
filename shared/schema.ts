@@ -2232,6 +2232,51 @@ export const ukhdsExports = pgTable("ukhds_exports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Compliance Calendar Events - legislative dates, company-wide events, and compliance stream tasks
+export const calendarEventTypeEnum = pgEnum('calendar_event_type', [
+  'LEGISLATIVE', 'COMPANY_WIDE', 'STREAM_TASK', 'CERTIFICATE_EXPIRY', 'REMEDIAL_DUE', 'INSPECTION'
+]);
+
+export const calendarEventRecurrenceEnum = pgEnum('calendar_event_recurrence', [
+  'NONE', 'DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY'
+]);
+
+export const complianceCalendarEvents = pgTable("compliance_calendar_events", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  eventType: calendarEventTypeEnum("event_type").notNull(),
+  complianceStreamId: varchar("compliance_stream_id").references(() => complianceStreams.id),
+  
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  allDay: boolean("all_day").notNull().default(true),
+  
+  recurrence: calendarEventRecurrenceEnum("recurrence").notNull().default('NONE'),
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  
+  propertyId: varchar("property_id").references(() => properties.id),
+  certificateId: varchar("certificate_id").references(() => certificates.id),
+  remedialActionId: varchar("remedial_action_id").references(() => remedialActions.id),
+  
+  reminderDaysBefore: integer("reminder_days_before").default(7),
+  reminderSent: boolean("reminder_sent").notNull().default(false),
+  
+  legislationReference: text("legislation_reference"),
+  priority: text("priority").notNull().default('MEDIUM'),
+  
+  colour: text("colour").default('#3B82F6'),
+  
+  createdById: varchar("created_by_id").references(() => users.id),
+  isSystemGenerated: boolean("is_system_generated").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas for Golden Thread tables
 export const insertCertificateVersionSchema = createInsertSchema(certificateVersions).omit({ 
   id: true, createdAt: true 
@@ -2243,6 +2288,10 @@ export const insertUkhdsExportSchema = createInsertSchema(ukhdsExports).omit({
   id: true, createdAt: true, startedAt: true, completedAt: true 
 });
 
+export const insertComplianceCalendarEventSchema = createInsertSchema(complianceCalendarEvents).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+
 // Types for Golden Thread tables
 export type CertificateVersion = typeof certificateVersions.$inferSelect;
 export type InsertCertificateVersion = z.infer<typeof insertCertificateVersionSchema>;
@@ -2252,3 +2301,6 @@ export type InsertAuditFieldChange = z.infer<typeof insertAuditFieldChangeSchema
 
 export type UkhdsExport = typeof ukhdsExports.$inferSelect;
 export type InsertUkhdsExport = z.infer<typeof insertUkhdsExportSchema>;
+
+export type ComplianceCalendarEvent = typeof complianceCalendarEvents.$inferSelect;
+export type InsertComplianceCalendarEvent = z.infer<typeof insertComplianceCalendarEventSchema>;
