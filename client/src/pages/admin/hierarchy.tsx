@@ -723,18 +723,42 @@ export default function PropertyHierarchy() {
         setLocation(`/properties/${node.id}`);
         break;
       case 'component':
-        toast({ 
-          title: "Component Selected", 
-          description: `${node.name} - Click to view component details` 
-        });
+        setLocation(`/components?highlight=${node.id}`);
+        break;
+      case 'unit':
+        // Navigate to properties page filtered by this unit's property
+        if (node.data?.propertyId) {
+          setLocation(`/properties/${node.data.propertyId}?tab=units&unit=${node.id}`);
+        } else {
+          toast({ 
+            title: "Unit Selected", 
+            description: node.name 
+          });
+        }
         break;
       case 'scheme':
+        // Filter blocks by this scheme
+        setLocation(`/admin/hierarchy?scheme=${node.id}`);
+        toast({ 
+          title: "Scheme Selected", 
+          description: `Showing blocks in ${node.name}` 
+        });
+        break;
       case 'block':
-      case 'unit':
+        // Navigate to properties filtered by this block
+        if (node.data?.id) {
+          setLocation(`/properties?block=${node.id}`);
+        } else {
+          toast({ 
+            title: "Block Selected", 
+            description: node.name 
+          });
+        }
+        break;
       case 'space':
         toast({ 
-          title: `${node.type.charAt(0).toUpperCase() + node.type.slice(1)} Selected`, 
-          description: node.name 
+          title: "Space Selected", 
+          description: `${node.name} - Space details coming soon` 
         });
         break;
     }

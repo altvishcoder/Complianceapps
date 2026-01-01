@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -15,8 +15,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { componentsApi, componentTypesApi, propertiesApi, type EnrichedComponent } from "@/lib/api";
 import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import type { InsertComponent } from "@shared/schema";
+import { cn } from "@/lib/utils";
 
 const CONDITION_COLORS: Record<string, string> = {
   GOOD: "bg-green-100 text-green-800",
@@ -26,9 +27,24 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 export default function ComponentsPage() {
+  const searchString = useSearch();
+  const highlightId = new URLSearchParams(searchString).get("highlight");
+  const highlightRef = useRef<HTMLTableRowElement>(null);
+  
   useEffect(() => {
     document.title = "Components & Assets - ComplianceAI";
   }, []);
+
+  // Scroll to highlighted component when data loads
+  const [hasScrolled, setHasScrolled] = useState(false);
+  useEffect(() => {
+    if (highlightId && highlightRef.current && !hasScrolled) {
+      setTimeout(() => {
+        highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHasScrolled(true);
+      }, 100);
+    }
+  }, [highlightId, hasScrolled]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -468,7 +484,14 @@ export default function ComponentsPage() {
               </TableHeader>
               <TableBody>
                 {filteredComponents.map((comp) => (
-                  <TableRow key={comp.id} data-testid={`component-row-${comp.id}`}>
+                  <TableRow 
+                    key={comp.id} 
+                    ref={comp.id === highlightId ? highlightRef : undefined}
+                    className={cn(
+                      comp.id === highlightId && "bg-emerald-50 ring-2 ring-emerald-500 ring-inset"
+                    )}
+                    data-testid={`component-row-${comp.id}`}
+                  >
                     <TableCell>
                       <Checkbox
                         checked={selectedIds.has(comp.id)}
