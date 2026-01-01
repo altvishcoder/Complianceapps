@@ -99,6 +99,7 @@ export function Sidebar() {
       { name: "Analytics", href: "/compliance", icon: BarChart3 },
       { name: "Ingestion", href: "/ingestion", icon: UploadCloud },
       { name: "Reporting", href: "/reports", icon: FileText },
+      { name: "Board Reporting", href: "/reports/board", icon: Briefcase },
     ]
   };
 
