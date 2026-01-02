@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { 
-  schemes, blocks, properties, units, spaces, components, componentTypes,
+  schemes, blocks, properties, spaces, components, componentTypes,
   certificates, remedialActions, contractors, staffMembers,
   contractorSLAProfiles, complianceStreams
 } from "@shared/schema";
@@ -10,8 +10,8 @@ const SCALE_CONFIG = {
   SCHEMES: 50,           // Number of schemes
   BLOCKS_PER_SCHEME: 4,  // 200 blocks total
   PROPERTIES_PER_BLOCK: 10, // 2000 properties total
-  UNITS_PER_PROPERTY: 3,
-  SPACES_PER_UNIT: 4,
+  SPACES_PER_PROPERTY: 4, // Rooms within each dwelling
+  BLOCK_SPACES_PER_BLOCK: 3, // Communal spaces per block (Stairwell, Plant Room, etc.)
   COMPONENTS_PER_PROPERTY: 4,
   CERTS_PER_PROPERTY: 3,
   BATCH_SIZE: 200,        // Insert batch size for performance
@@ -22,6 +22,15 @@ const SCALE_CONFIG = {
 const SPACE_NAMES = [
   "Living Room", "Kitchen", "Bathroom", "Bedroom 1", "Bedroom 2",
   "Hallway", "Boiler Cupboard", "Under Stairs", "Utility Room", "Dining Area"
+];
+
+// Block-level communal spaces (attached to blocks, not properties)
+const BLOCK_SPACE_NAMES = [
+  { name: "Main Stairwell", spaceType: "CIRCULATION" as const },
+  { name: "Plant Room", spaceType: "UTILITY" as const },
+  { name: "Communal Hallway", spaceType: "COMMUNAL_AREA" as const },
+  { name: "Bin Store", spaceType: "STORAGE" as const },
+  { name: "Entrance Lobby", spaceType: "CIRCULATION" as const },
 ];
 
 const UK_CITIES = [
@@ -92,14 +101,11 @@ export async function seedComprehensiveDemoData(orgId: string) {
   const propertyIds = await seedProperties(blockIds);
   console.log(`✓ Created ${propertyIds.length} properties`);
   
-  const unitIds = await seedUnits(propertyIds);
-  console.log(`✓ Created ${unitIds.length} units (block-level only)`);
+  const { propertySpaceIds, blockSpaceIds, blockSpaceMap } = await seedSpaces(propertyIds, blockIds);
+  console.log(`✓ Created ${propertySpaceIds.length} property spaces (rooms) + ${blockSpaceIds.length} block spaces (communal areas)`);
   
-  const spaceIds = await seedSpaces(propertyIds);
-  console.log(`✓ Created ${spaceIds.length} spaces (rooms within dwellings)`);
-  
-  const componentIds = await seedComponents(propertyIds, allComponentTypes);
-  console.log(`✓ Created ${componentIds.length} components`);
+  const componentIds = await seedComponents(propertyIds, propertySpaceIds, blockSpaceMap, allComponentTypes);
+  console.log(`✓ Created ${componentIds.length} components (linked to properties, some also to spaces)`);
   
   const contractorIds = await seedContractors(orgId, streamCodeToId);
   console.log(`✓ Created ${contractorIds.length} contractors`);
@@ -116,13 +122,14 @@ export async function seedComprehensiveDemoData(orgId: string) {
   await seedRemedialActions(certIds, propertyIds);
   console.log("✓ Created remedial actions");
   
+  const totalSpaces = propertySpaceIds.length + blockSpaceIds.length;
   const totalRecords = schemeIds.length + blockIds.length + propertyIds.length + 
-    unitIds.length + spaceIds.length + componentIds.length + contractorIds.length + 
+    totalSpaces + componentIds.length + contractorIds.length + 
     staffIds.length + certIds.length;
   
   console.log("🎉 Comprehensive demo data seeding complete!");
   console.log(`📊 Total records created: ${totalRecords.toLocaleString()}`);
-  console.log(`   Hierarchy: ${schemeIds.length} schemes → ${blockIds.length} blocks → ${propertyIds.length} properties → ${unitIds.length} units → ${spaceIds.length} spaces`);
+  console.log(`   Hierarchy: ${schemeIds.length} schemes → ${blockIds.length} blocks → ${propertyIds.length} properties → ${totalSpaces} spaces`);
   console.log(`   Assets: ${componentIds.length} components`);
   console.log(`   People: ${contractorIds.length} contractors, ${staffIds.length} staff`);
   console.log(`   Compliance: ${certIds.length} certificates`);
@@ -238,82 +245,83 @@ async function seedProperties(blockIds: string[]): Promise<string[]> {
   return propertyIds;
 }
 
-async function seedUnits(propertyIds: string[]): Promise<string[]> {
-  const unitIds: string[] = [];
-  // In UKHDS, properties ARE dwellings - we only create block-level units (communal areas)
-  type UnitType = "DWELLING" | "COMMUNAL_AREA" | "PLANT_ROOM" | "ROOF_SPACE" | "BASEMENT" | "EXTERNAL" | "GARAGE" | "COMMERCIAL" | "OTHER";
-  const blockLevelTypes: UnitType[] = ["COMMUNAL_AREA", "PLANT_ROOM", "ROOF_SPACE"];
+async function seedSpaces(propertyIds: string[], blockIds: string[]): Promise<{ 
+  propertySpaceIds: string[]; 
+  blockSpaceIds: string[];
+  blockSpaceMap: Map<string, string[]>;
+}> {
+  const propertySpaceIds: string[] = [];
+  const blockSpaceIds: string[] = [];
+  const blockSpaceMap = new Map<string, string[]>();
   
-  // Pre-fetch all properties with their blockIds in one query for efficiency
-  const allProperties = await db.query.properties.findMany({
-    columns: { id: true, blockId: true }
-  });
-  const propertyBlockMap = new Map(allProperties.map(p => [p.id, p.blockId]));
-  
-  const allBatchValues: { propertyId: string; name: string; unitType: UnitType; floor: string }[] = [];
-  const seenBlockIds = new Set<string>();
-  
+  // 1. Create property-level spaces (rooms within dwellings)
+  const propertyBatchValues = [];
   for (let i = 0; i < propertyIds.length; i++) {
-    const blockId = propertyBlockMap.get(propertyIds[i]);
-    
-    // Create block-level units only ONCE per block (not per property)
-    // Properties ARE dwellings in UKHDS - no separate DWELLING units needed
-    if (blockId && !seenBlockIds.has(blockId)) {
-      seenBlockIds.add(blockId);
-      for (let b = 0; b < blockLevelTypes.length; b++) {
-        allBatchValues.push({
-          propertyId: propertyIds[i], // Link to first property in block for reference
-          name: `${blockLevelTypes[b].replace('_', ' ')}`,
-          unitType: blockLevelTypes[b],
-          floor: b === 2 ? "Roof" : "Ground", // Roof space on roof, others on ground
-        });
-      }
-    }
-  }
-  
-  // Insert in batches
-  for (let i = 0; i < allBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
-    const batch = allBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
-    const inserted = await db.insert(units).values(batch).returning();
-    unitIds.push(...inserted.map(u => u.id));
-    if ((i / SCALE_CONFIG.BATCH_SIZE) % 10 === 0) {
-      console.log(`   Units: ${unitIds.length}/${allBatchValues.length} inserted`);
-    }
-  }
-  
-  return unitIds;
-}
-
-async function seedSpaces(propertyIds: string[]): Promise<string[]> {
-  const spaceIds: string[] = [];
-  
-  // In UKHDS, spaces attach to properties (dwellings) - rooms within a home
-  const allBatchValues = [];
-  for (let i = 0; i < propertyIds.length; i++) {
-    for (let s = 0; s < SCALE_CONFIG.SPACES_PER_UNIT; s++) {
-      allBatchValues.push({
+    for (let s = 0; s < SCALE_CONFIG.SPACES_PER_PROPERTY; s++) {
+      propertyBatchValues.push({
         propertyId: propertyIds[i],
         name: SPACE_NAMES[s % SPACE_NAMES.length],
-        reference: `SPACE-${i}-${s}`,
+        reference: `ROOM-${i}-${s}`,
         spaceType: 'ROOM' as const,
       });
     }
   }
   
-  // Insert in batches
-  for (let i = 0; i < allBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
-    const batch = allBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+  // Insert property spaces in batches
+  for (let i = 0; i < propertyBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = propertyBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
     const inserted = await db.insert(spaces).values(batch).returning();
-    spaceIds.push(...inserted.map(sp => sp.id));
+    propertySpaceIds.push(...inserted.map(sp => sp.id));
     if ((i / SCALE_CONFIG.BATCH_SIZE) % 20 === 0) {
-      console.log(`   Spaces: ${spaceIds.length}/${allBatchValues.length} inserted`);
+      console.log(`   Property Spaces: ${propertySpaceIds.length}/${propertyBatchValues.length} inserted`);
     }
   }
   
-  return spaceIds;
+  // 2. Create block-level spaces (communal areas like stairwells, plant rooms)
+  // Track which block each space belongs to for component linking
+  const blockBatchValues: { blockId: string; name: string; reference: string; spaceType: typeof BLOCK_SPACE_NAMES[number]["spaceType"]; }[] = [];
+  const blockIndexMap: number[] = []; // Track which blockId index each batch item belongs to
+  
+  for (let i = 0; i < blockIds.length; i++) {
+    blockSpaceMap.set(blockIds[i], []);
+    for (let s = 0; s < Math.min(SCALE_CONFIG.BLOCK_SPACES_PER_BLOCK, BLOCK_SPACE_NAMES.length); s++) {
+      const spaceTemplate = BLOCK_SPACE_NAMES[s];
+      blockBatchValues.push({
+        blockId: blockIds[i],
+        name: spaceTemplate.name,
+        reference: `COMM-${i}-${s}`,
+        spaceType: spaceTemplate.spaceType,
+      });
+      blockIndexMap.push(i);
+    }
+  }
+  
+  // Insert block spaces in batches and populate blockSpaceMap
+  let insertedCount = 0;
+  for (let i = 0; i < blockBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = blockBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(spaces).values(batch).returning();
+    
+    for (let j = 0; j < inserted.length; j++) {
+      const blockIdx = blockIndexMap[i + j];
+      const blockId = blockIds[blockIdx];
+      blockSpaceIds.push(inserted[j].id);
+      blockSpaceMap.get(blockId)!.push(inserted[j].id);
+    }
+    insertedCount += inserted.length;
+  }
+  
+  console.log(`   Block Spaces: ${blockSpaceIds.length} communal areas created`);
+  
+  return { propertySpaceIds, blockSpaceIds, blockSpaceMap };
 }
 
-async function seedComponents(propertyIds: string[], componentTypesList: any[]): Promise<string[]> {
+async function seedComponents(
+  propertyIds: string[], 
+  propertySpaceIds: string[], 
+  blockSpaceMap: Map<string, string[]>,
+  componentTypesList: any[]
+): Promise<string[]> {
   const componentIds: string[] = [];
   
   if (componentTypesList.length === 0) {
@@ -324,12 +332,57 @@ async function seedComponents(propertyIds: string[], componentTypesList: any[]):
   const manufacturers = ["Worcester", "Vaillant", "Baxi", "Ideal", "Glow-worm", "Honeywell", "Kidde", "Aico", "BG", "MK"];
   const conditions = ["GOOD", "FAIR", "POOR"] as const;
   
-  const allBatchValues = [];
+  // Build a map of propertyId -> spaceIds for linking some components to property spaces
+  const propertyToSpaces = new Map<string, string[]>();
+  const spacesPerProperty = SCALE_CONFIG.SPACES_PER_PROPERTY;
   for (let i = 0; i < propertyIds.length; i++) {
+    const startIdx = i * spacesPerProperty;
+    const endIdx = Math.min(startIdx + spacesPerProperty, propertySpaceIds.length);
+    if (startIdx < propertySpaceIds.length) {
+      propertyToSpaces.set(propertyIds[i], propertySpaceIds.slice(startIdx, endIdx));
+    }
+  }
+  
+  // Get property -> blockId mapping for block space linking
+  const allProperties = await db.query.properties.findMany({
+    columns: { id: true, blockId: true }
+  });
+  const propertyToBlock = new Map(allProperties.map(p => [p.id, p.blockId]));
+  
+  const allBatchValues = [];
+  let propertySpaceLinkCount = 0;
+  let blockSpaceLinkCount = 0;
+  
+  for (let i = 0; i < propertyIds.length; i++) {
+    const propertySpaces = propertyToSpaces.get(propertyIds[i]) || [];
+    const blockId = propertyToBlock.get(propertyIds[i]);
+    const blockSpaces = blockId ? (blockSpaceMap.get(blockId) || []) : [];
+    
     for (let c = 0; c < SCALE_CONFIG.COMPONENTS_PER_PROPERTY; c++) {
       const compType = componentTypesList[(i + c) % componentTypesList.length];
+      
+      // Determine space linking strategy:
+      // - ~40% link to property space (rooms)
+      // - ~20% link to block space (communal areas)  
+      // - ~40% no space link (property-only)
+      // Components ALWAYS have propertyId (required), optionally have spaceId
+      let spaceId: string | null = null;
+      const linkType = (i + c) % 5;
+      
+      if (linkType < 2 && propertySpaces.length > 0) {
+        // Link to property space (room)
+        spaceId = propertySpaces[c % propertySpaces.length];
+        propertySpaceLinkCount++;
+      } else if (linkType === 2 && blockSpaces.length > 0) {
+        // Link to block space (communal area)
+        spaceId = blockSpaces[c % blockSpaces.length];
+        blockSpaceLinkCount++;
+      }
+      // else: no space link (property-only)
+      
       allBatchValues.push({
-        propertyId: propertyIds[i],
+        propertyId: propertyIds[i], // Always required
+        spaceId, // Optional - demonstrates space-level component linking
         componentTypeId: compType.id,
         name: `${compType.name} - ${i + 1}.${c + 1}`,
         manufacturer: manufacturers[(i + c) % manufacturers.length],
@@ -350,6 +403,8 @@ async function seedComponents(propertyIds: string[], componentTypesList: any[]):
       console.log(`   Components: ${componentIds.length}/${allBatchValues.length} inserted`);
     }
   }
+  
+  console.log(`   (${propertySpaceLinkCount} linked to property spaces, ${blockSpaceLinkCount} linked to block spaces)`);
   
   return componentIds;
 }
