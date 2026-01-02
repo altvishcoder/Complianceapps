@@ -398,7 +398,7 @@ export default function BoardReporting() {
                 const metricLinks: Record<string, string> = {
                   "Total Properties": "/properties",
                   "Active Certificates": "/certificates",
-                  "Open Actions": "/remedial-actions",
+                  "Open Actions": "/actions",
                   "Contractors Active": "/contractors"
                 };
                 const href = metricLinks[metric.label] || "#";
@@ -599,7 +599,7 @@ export default function BoardReporting() {
                       </CardTitle>
                       <CardDescription>Priority matters for board awareness - click to view actions</CardDescription>
                     </div>
-                    <Link href="/remedial-actions?status=OPEN">
+                    <Link href="/actions?status=OPEN">
                       <Badge variant="outline" className="text-amber-600 border-amber-600 cursor-pointer hover:bg-amber-50" data-testid="badge-alert-count">
                         {criticalAlerts.length} items
                         <ChevronRight className="h-3 w-3 ml-1" />
@@ -610,7 +610,7 @@ export default function BoardReporting() {
                 <CardContent>
                   <div className="space-y-4">
                     {criticalAlerts.map((alert, index) => (
-                      <Link key={index} href="/remedial-actions?status=OPEN">
+                      <Link key={index} href="/actions?status=OPEN">
                         <div 
                           className="flex items-start gap-4 p-4 rounded-lg border bg-card cursor-pointer hover:shadow-md transition-shadow"
                           data-testid={`alert-item-${index}`}
