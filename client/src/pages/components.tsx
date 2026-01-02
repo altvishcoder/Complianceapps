@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -101,6 +101,16 @@ export default function ComponentsPage() {
     queryKey: ["component-types"],
     queryFn: componentTypesApi.list,
   });
+  
+  // Deduplicate component types by name (database may have duplicates)
+  const uniqueComponentTypes = useMemo(() => {
+    const seen = new Set<string>();
+    return componentTypes.filter(type => {
+      if (seen.has(type.name)) return false;
+      seen.add(type.name);
+      return true;
+    });
+  }, [componentTypes]);
   
   const { data: propertiesResponse } = useQuery({
     queryKey: ["properties"],
@@ -295,7 +305,7 @@ export default function ComponentsPage() {
                     <SelectValue placeholder="Select type..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {componentTypes.map((type) => (
+                    {uniqueComponentTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name} ({type.category})
                       </SelectItem>
@@ -454,7 +464,7 @@ export default function ComponentsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {componentTypes.map((type) => (
+                  {uniqueComponentTypes.map((type) => (
                     <SelectItem key={type.id} value={type.id}>
                       {type.name}
                     </SelectItem>
