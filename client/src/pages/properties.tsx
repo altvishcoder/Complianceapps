@@ -16,7 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { propertiesApi, schemesApi, blocksApi } from "@/lib/api";
 import type { InsertProperty } from "@shared/schema";
 import { ContextBackButton } from "@/components/navigation/ContextBackButton";
@@ -61,8 +61,8 @@ export default function Properties() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
   
-  // Server-side pagination query
-  const { data: propertiesResponse, isLoading } = useQuery({
+  // Server-side pagination query with keepPreviousData for smooth transitions
+  const { data: propertiesResponse, isLoading, isFetching } = useQuery({
     queryKey: ["properties", currentPage, pageSize, schemeFilter, blockFilter, debouncedSearch],
     queryFn: () => propertiesApi.list({ 
       page: currentPage, 
@@ -71,6 +71,7 @@ export default function Properties() {
       blockId: blockFilter !== "all" ? blockFilter : undefined,
       search: debouncedSearch || undefined,
     }),
+    placeholderData: keepPreviousData,
   });
   const properties = propertiesResponse?.data ?? [];
   const totalProperties = propertiesResponse?.total ?? 0;
@@ -621,7 +622,7 @@ export default function Properties() {
           </div>
 
           <Card>
-            <CardContent className="p-0 space-y-4">
+            <CardContent className={`p-0 space-y-4 transition-opacity duration-200 ${isFetching ? 'opacity-60' : 'opacity-100'}`}>
               {/* Top Pagination */}
               <div className="p-4 pb-0">
                 <TablePagination

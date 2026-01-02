@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,7 +74,7 @@ export default function ComponentsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  const { data: componentsResponse, isLoading: componentsLoading } = useQuery({
+  const { data: componentsResponse, isLoading: componentsLoading, isFetching: componentsFetching } = useQuery({
     queryKey: ["components", propertyFilter, typeFilter, currentPage, pageSize, debouncedSearch],
     queryFn: () => componentsApi.list({
       propertyId: propertyFilter !== "all" ? propertyFilter : undefined,
@@ -83,6 +83,7 @@ export default function ComponentsPage() {
       limit: pageSize,
       search: debouncedSearch || undefined,
     }),
+    placeholderData: keepPreviousData,
   });
   
   const components = componentsResponse?.data || [];
@@ -493,8 +494,8 @@ export default function ComponentsPage() {
             </div>
           )}
         </CardHeader>
-        <CardContent>
-          {componentsLoading ? (
+        <CardContent className={`transition-opacity duration-200 ${componentsFetching ? 'opacity-60' : 'opacity-100'}`}>
+          {componentsLoading && !componentsResponse ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
               <span className="sr-only">Loading components</span>
