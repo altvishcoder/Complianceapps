@@ -18,6 +18,7 @@ import {
   Boxes, Eye, FolderTree
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { organisationsApi, schemesApi, blocksApi, propertiesApi, spacesApi, componentsApi, type EnrichedComponent } from "@/lib/api";
 import type { Scheme, Block, Property, Space, Component } from "@shared/schema";
@@ -540,6 +541,10 @@ export default function PropertyHierarchy() {
   const [viewMode, setViewMode] = useState<ViewMode>(savedState?.viewMode || 'tree');
   const [showVisualView, setShowVisualView] = useState(true);
   
+  // Assets tab pagination
+  const [assetsPage, setAssetsPage] = useState(1);
+  const [assetsPageSize, setAssetsPageSize] = useState(25);
+  
   // Save view mode changes
   useEffect(() => {
     localStorage.setItem(HIERARCHY_STATE_KEY, JSON.stringify({ 
@@ -588,13 +593,14 @@ export default function PropertyHierarchy() {
   const properties = propertiesResponse?.data ?? [];
 
   // Components for tree view are loaded on-demand per property/space via LazyComponentsLoader
-  // This query is for the Assets tab and dashboard count
+  // This query is for the Assets tab with pagination
   const { data: assetsResponse, isLoading: assetsLoading } = useQuery({
-    queryKey: ["components", "assets-tab"],
-    queryFn: () => componentsApi.list({ limit: 50 }), // First page for list view
+    queryKey: ["components", "assets-tab", assetsPage, assetsPageSize],
+    queryFn: () => componentsApi.list({ page: assetsPage, limit: assetsPageSize }),
   });
   const assetsList = assetsResponse?.data ?? [];
   const assetsTotalCount = assetsResponse?.total ?? assetsList.length;
+  const assetsTotalPages = Math.ceil(assetsTotalCount / assetsPageSize);
 
   const { data: allSpaces = [], isLoading: spacesLoading } = useQuery({
     queryKey: ["spaces"],
@@ -1320,13 +1326,23 @@ export default function PropertyHierarchy() {
                       Assets (Components)
                     </CardTitle>
                     <CardDescription className="flex items-center justify-between">
-                      <span>Showing recent components. View the full list on the Components page.</span>
+                      <span>Browse all components in your portfolio</span>
                       <Button variant="link" size="sm" onClick={() => setLocation('/components')}>
-                        View All ({assetsTotalCount.toLocaleString()})
+                        Open Full Registry
                       </Button>
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
+                    {/* Top Pagination */}
+                    <TablePagination
+                      currentPage={assetsPage}
+                      totalPages={assetsTotalPages}
+                      totalItems={assetsTotalCount}
+                      pageSize={assetsPageSize}
+                      onPageChange={(page) => setAssetsPage(page)}
+                      onPageSizeChange={(size) => { setAssetsPageSize(size); setAssetsPage(1); }}
+                    />
+                    
                     {assetsLoading ? (
                       <div className="flex justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -1381,6 +1397,16 @@ export default function PropertyHierarchy() {
                         </TableBody>
                       </Table>
                     )}
+                    
+                    {/* Bottom Pagination */}
+                    <TablePagination
+                      currentPage={assetsPage}
+                      totalPages={assetsTotalPages}
+                      totalItems={assetsTotalCount}
+                      pageSize={assetsPageSize}
+                      onPageChange={(page) => setAssetsPage(page)}
+                      onPageSizeChange={(size) => { setAssetsPageSize(size); setAssetsPage(1); }}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>

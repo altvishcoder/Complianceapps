@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { componentsApi, componentTypesApi, propertiesApi, type EnrichedComponent } from "@/lib/api";
 import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -49,8 +50,8 @@ export default function ComponentsPage() {
   const [editingComponent, setEditingComponent] = useState<EnrichedComponent | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<InsertComponent>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const pageSize = 50;
   
   // Debounce search query
   useEffect(() => {
@@ -58,16 +59,23 @@ export default function ComponentsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
   
-  // Reset page when filters change
+  // Reset page and selection when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [propertyFilter, typeFilter, debouncedSearch]);
+    setSelectedIds(new Set());
+  }, [propertyFilter, typeFilter, debouncedSearch, pageSize]);
+  
+  // Handle page change with selection clearing
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSelectedIds(new Set());
+  };
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
   const { data: componentsResponse, isLoading: componentsLoading } = useQuery({
-    queryKey: ["components", propertyFilter, typeFilter, currentPage, debouncedSearch],
+    queryKey: ["components", propertyFilter, typeFilter, currentPage, pageSize, debouncedSearch],
     queryFn: () => componentsApi.list({
       propertyId: propertyFilter !== "all" ? propertyFilter : undefined,
       componentTypeId: typeFilter !== "all" ? typeFilter : undefined,
@@ -497,7 +505,17 @@ export default function ComponentsPage() {
               <p>No components found. Add your first component or import from CSV.</p>
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
+            {/* Top Pagination */}
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalComponents}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={setPageSize}
+            />
+            
             <Table>
               <TableHeader>
                 <TableRow>
@@ -609,53 +627,16 @@ export default function ComponentsPage() {
               </TableBody>
             </Table>
             
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages} ({totalComponents.toLocaleString()} total)
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    data-testid="pagination-first"
-                  >
-                    First
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    data-testid="pagination-prev"
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    data-testid="pagination-next"
-                  >
-                    Next
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    data-testid="pagination-last"
-                  >
-                    Last
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
+            {/* Bottom Pagination */}
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalComponents}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
           )}
         </CardContent>
       </Card>

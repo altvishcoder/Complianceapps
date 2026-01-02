@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { 
@@ -50,6 +51,8 @@ export default function Properties() {
   const [schemeFilter, setSchemeFilter] = useState(getInitialSchemeFilter);
   const [blockFilter, setBlockFilter] = useState(getInitialBlockFilter);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   
   const { data: propertiesResponse } = useQuery({
     queryKey: ["properties"],
@@ -232,10 +235,10 @@ export default function Properties() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredProperties.length) {
+    if (selectedIds.size === paginatedProperties.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredProperties.map(p => p.id)));
+      setSelectedIds(new Set(paginatedProperties.map(p => p.id)));
     }
   };
 
@@ -258,7 +261,7 @@ export default function Properties() {
     ? blocks.filter(b => b.schemeId === schemeFilter)
     : blocks;
   
-  const filteredProperties = properties.filter(p => {
+  const filteredProperties = useMemo(() => properties.filter(p => {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -284,7 +287,26 @@ export default function Properties() {
     if (statusFilter === "non-compliant") return p.complianceStatus === "NON_COMPLIANT" || p.complianceStatus === "OVERDUE";
     
     return true;
-  });
+  }), [properties, searchQuery, schemeFilter, blockFilter, statusFilter, blockToScheme]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProperties.length / pageSize);
+  const paginatedProperties = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredProperties.slice(start, start + pageSize);
+  }, [filteredProperties, currentPage, pageSize]);
+  
+  // Reset page and selection when filters or page size change
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, [searchQuery, schemeFilter, blockFilter, statusFilter, pageSize]);
+  
+  // Handle page change with selection clearing
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSelectedIds(new Set());
+  };
 
   const unverifiedCount = properties.filter(p => p.needsVerification).length;
 
@@ -610,15 +632,27 @@ export default function Properties() {
           </div>
 
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 space-y-4">
+              {/* Top Pagination */}
+              <div className="p-4 pb-0">
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredProperties.length}
+                  pageSize={pageSize}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={setPageSize}
+                />
+              </div>
+              
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border">
-                {filteredProperties.length === 0 ? (
+                {paginatedProperties.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     No properties found. Add a property or load demo data.
                   </div>
                 ) : (
-                  filteredProperties.map((prop) => (
+                  paginatedProperties.map((prop) => (
                     <div 
                       key={prop.id}
                       className={`p-4 active:bg-muted/30 ${selectedIds.has(prop.id) ? 'bg-muted/30' : ''}`}
@@ -666,7 +700,7 @@ export default function Properties() {
                     <tr>
                       <th className="p-4 pl-4 w-10">
                         <Checkbox 
-                          checked={selectedIds.size === filteredProperties.length && filteredProperties.length > 0}
+                          checked={selectedIds.size === paginatedProperties.length && paginatedProperties.length > 0}
                           onCheckedChange={toggleSelectAll}
                           data-testid="checkbox-select-all"
                         />
@@ -679,14 +713,14 @@ export default function Properties() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredProperties.length === 0 ? (
+                    {paginatedProperties.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-muted-foreground">
                           No properties found. Add a property or load demo data.
                         </td>
                       </tr>
                     ) : (
-                      filteredProperties.map((prop) => (
+                      paginatedProperties.map((prop) => (
                         <tr 
                           key={prop.id} 
                           className={`group hover:bg-muted/20 transition-colors cursor-pointer ${selectedIds.has(prop.id) ? 'bg-muted/30' : ''}`}
@@ -746,6 +780,18 @@ export default function Properties() {
                     )}
                   </tbody>
                 </table>
+              </div>
+              
+              {/* Bottom Pagination */}
+              <div className="p-4 pt-0">
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredProperties.length}
+                  pageSize={pageSize}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={setPageSize}
+                />
               </div>
             </CardContent>
           </Card>

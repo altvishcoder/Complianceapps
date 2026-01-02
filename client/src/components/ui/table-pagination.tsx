@@ -28,6 +28,12 @@ export function TablePagination({
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
+  // Safe page navigation with bounds checking
+  const goToPage = (target: number) => {
+    const safePage = Math.min(Math.max(1, target), Math.max(1, totalPages));
+    onPageChange(safePage);
+  };
+
   if (totalPages <= 1 && !showPageSizeSelector) {
     return null;
   }
@@ -71,7 +77,7 @@ export function TablePagination({
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onPageChange(1)}
+            onClick={() => goToPage(1)}
             disabled={currentPage === 1}
             data-testid="pagination-first"
           >
@@ -81,7 +87,7 @@ export function TablePagination({
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onPageChange(currentPage - 1)}
+            onClick={() => goToPage(currentPage - 1)}
             disabled={currentPage === 1}
             data-testid="pagination-prev"
           >
@@ -96,7 +102,7 @@ export function TablePagination({
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onPageChange(currentPage + 1)}
+            onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage === totalPages}
             data-testid="pagination-next"
           >
@@ -106,7 +112,7 @@ export function TablePagination({
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onPageChange(totalPages)}
+            onClick={() => goToPage(totalPages)}
             disabled={currentPage === totalPages}
             data-testid="pagination-last"
           >
