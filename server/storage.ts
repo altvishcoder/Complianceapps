@@ -63,9 +63,10 @@ import {
   type UkhdsExport, type InsertUkhdsExport,
   type ComplianceCalendarEvent, type InsertComplianceCalendarEvent,
   type StaffMember, type InsertStaffMember,
-  navigationSections, navigationItems, iconRegistry,
+  navigationSections, navigationItems, iconRegistry, navigationItemRoles,
   type NavigationSection, type InsertNavigationSection,
   type NavigationItem, type InsertNavigationItem,
+  type NavigationItemRole, type NavigationItemWithRoles,
   type IconRegistryEntry, type InsertIconRegistryEntry
 } from "@shared/schema";
 import { db } from "./db";
@@ -2849,6 +2850,56 @@ export class DatabaseStorage implements IStorage {
   async createIconRegistryEntry(entry: InsertIconRegistryEntry): Promise<IconRegistryEntry> {
     const [created] = await db.insert(iconRegistry).values(entry).returning();
     return created;
+  }
+
+  // Navigation Item Roles
+  async getNavigationItemRoles(itemId: string): Promise<string[]> {
+    const roles = await db.select()
+      .from(navigationItemRoles)
+      .where(eq(navigationItemRoles.navigationItemId, itemId));
+    return roles.map(r => r.role);
+  }
+
+  async setNavigationItemRoles(itemId: string, roles: string[]): Promise<void> {
+    await db.delete(navigationItemRoles)
+      .where(eq(navigationItemRoles.navigationItemId, itemId));
+    
+    if (roles.length > 0) {
+      await db.insert(navigationItemRoles)
+        .values(roles.map(role => ({ navigationItemId: itemId, role })));
+    }
+  }
+
+  async getAllNavigationItemRoles(): Promise<Record<string, string[]>> {
+    const allRoles = await db.select().from(navigationItemRoles);
+    const roleMap: Record<string, string[]> = {};
+    for (const r of allRoles) {
+      if (!roleMap[r.navigationItemId]) {
+        roleMap[r.navigationItemId] = [];
+      }
+      roleMap[r.navigationItemId].push(r.role);
+    }
+    return roleMap;
+  }
+
+  async listNavigationItemsWithRoles(sectionId?: string): Promise<NavigationItemWithRoles[]> {
+    const items = await this.listNavigationItems(sectionId);
+    const roleMap = await this.getAllNavigationItemRoles();
+    
+    return items.map(item => ({
+      ...item,
+      allowedRoles: roleMap[item.id] || []
+    }));
+  }
+
+  async getNavigationWithItemsAndRoles(organisationId?: string): Promise<Array<NavigationSection & { items: NavigationItemWithRoles[] }>> {
+    const sections = await this.listNavigationSections(organisationId);
+    const allItems = await this.listNavigationItemsWithRoles();
+    
+    return sections.map(section => ({
+      ...section,
+      items: allItems.filter(item => item.sectionId === section.id)
+    }));
   }
 }
 
