@@ -165,14 +165,49 @@ export async function registerRoutes(
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
 
-  // OpenAPI/Swagger documentation
-  const openApiSpec = generateOpenAPIDocument();
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'ComplianceAI API Documentation',
-  }));
+  // OpenAPI/Swagger documentation - generate fresh on each request for live updates
+  let cachedOpenApiSpec = generateOpenAPIDocument();
+  let lastSpecGeneration = new Date();
+  
+  const getOpenApiSpec = () => {
+    // Regenerate spec if it's older than 60 seconds or if explicitly refreshed
+    const now = new Date();
+    if (now.getTime() - lastSpecGeneration.getTime() > 60000) {
+      cachedOpenApiSpec = generateOpenAPIDocument();
+      lastSpecGeneration = now;
+    }
+    return cachedOpenApiSpec;
+  };
+  
+  app.use('/api/docs', swaggerUi.serve, (req, res, next) => {
+    swaggerUi.setup(getOpenApiSpec(), {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'ComplianceAI API Documentation',
+    })(req, res, next);
+  });
+  
   app.get('/api/openapi.json', (_req, res) => {
-    res.json(openApiSpec);
+    res.json(getOpenApiSpec());
+  });
+  
+  // Endpoint to force refresh the OpenAPI spec
+  app.post('/api/openapi/refresh', (_req, res) => {
+    cachedOpenApiSpec = generateOpenAPIDocument();
+    lastSpecGeneration = new Date();
+    res.json({ 
+      success: true, 
+      message: 'OpenAPI specification refreshed',
+      generatedAt: lastSpecGeneration.toISOString()
+    });
+  });
+  
+  // Get spec metadata
+  app.get('/api/openapi/status', (_req, res) => {
+    res.json({
+      lastGenerated: lastSpecGeneration.toISOString(),
+      endpointCount: Object.keys(cachedOpenApiSpec.paths || {}).length,
+      version: cachedOpenApiSpec.info?.version || '1.0.0'
+    });
   });
 
   // ===== AUTHENTICATION ENDPOINTS =====
@@ -2611,13 +2646,25 @@ export async function registerRoutes(
       const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
-      const certificates = await storage.listCertificates(ORG_ID, { propertyId, status });
+      
+      // Handle special PENDING status - maps to UPLOADED, PROCESSING, NEEDS_REVIEW
+      const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
+      const isPendingFilter = status === 'PENDING';
+      
+      const certificates = await storage.listCertificates(ORG_ID, { 
+        propertyId, 
+        status: isPendingFilter ? undefined : status 
+      });
+      
+      // Apply PENDING filter if needed
+      let filtered = isPendingFilter 
+        ? certificates.filter(c => PENDING_STATUSES.includes(c.status))
+        : certificates;
       
       // Apply search filter
-      let filtered = certificates;
       if (search) {
         const searchLower = search.toLowerCase();
-        filtered = certificates.filter(c => 
+        filtered = filtered.filter(c => 
           c.certificateNumber?.toLowerCase().includes(searchLower) ||
           c.fileName?.toLowerCase().includes(searchLower) ||
           c.type?.toLowerCase().includes(searchLower)
