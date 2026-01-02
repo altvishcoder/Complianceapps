@@ -326,16 +326,16 @@ export default function BoardReporting() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Board Reporting" />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Header Actions */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <p className="text-muted-foreground" data-testid="text-last-updated">
                   Last updated: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" onClick={handleExportPdf} disabled={isExporting} data-testid="button-export-pdf">
                   {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
                   {isExporting ? "Exporting..." : "Export PDF"}
@@ -397,6 +397,51 @@ export default function BoardReporting() {
 
             {!isLoading && !error && (
               <>
+            {/* Executive Summary - Top of page for quick overview */}
+            <Card data-testid="card-executive-summary">
+              <CardHeader>
+                <CardTitle>Executive Summary</CardTitle>
+                <CardDescription>Key takeaways for this reporting period</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" data-testid="summary-achievements">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <h4 className="font-semibold text-green-800 dark:text-green-200">Achievements</h4>
+                    </div>
+                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                      <li data-testid="text-achievement-0">• Risk score: {overallRiskScore}% ({overallRiskScore >= previousRiskScore ? `+${overallRiskScore - previousRiskScore}` : `${overallRiskScore - previousRiskScore}`} points)</li>
+                      <li data-testid="text-achievement-1">• {complianceStreams.length > 0 ? `${complianceStreams[0].name} compliance at ${complianceStreams[0].score}%` : 'No compliance data yet'}</li>
+                      <li data-testid="text-achievement-2">• {quarterlyHighlights.filter(h => h.status === 'achieved').length} target{quarterlyHighlights.filter(h => h.status === 'achieved').length !== 1 ? 's' : ''} achieved</li>
+                    </ul>
+                  </div>
+                  <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" data-testid="summary-in-progress">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-5 w-5 text-amber-600" />
+                      <h4 className="font-semibold text-amber-800 dark:text-amber-200">In Progress</h4>
+                    </div>
+                    <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                      <li data-testid="text-progress-0">• {keyMetrics.find(m => m.label === 'Open Actions')?.value || '0'} remedial actions being addressed</li>
+                      <li data-testid="text-progress-1">• {portfolioHealth.find(h => h.name === 'Minor Issues')?.value || 0} properties with minor issues</li>
+                      <li data-testid="text-progress-2">• {quarterlyHighlights.filter(h => h.status === 'approaching').length} targets on track</li>
+                    </ul>
+                  </div>
+                  <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" data-testid="summary-attention">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">Attention Required</h4>
+                    </div>
+                    <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                      <li data-testid="text-attention-0">• {criticalAlerts.length} critical alert{criticalAlerts.length !== 1 ? 's' : ''}</li>
+                      <li data-testid="text-attention-1">• {quarterlyHighlights.filter(h => h.status === 'behind').length} target{quarterlyHighlights.filter(h => h.status === 'behind').length !== 1 ? 's' : ''} behind</li>
+                      <li data-testid="text-attention-2">• {portfolioHealth.find(h => h.name === 'Attention Required')?.value || 0} properties need intervention</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Key Metrics Row */}
             <div className="grid gap-4 md:grid-cols-4">
               {keyMetrics.map((metric, index) => {
@@ -699,51 +744,6 @@ export default function BoardReporting() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* Summary Section */}
-            <Card data-testid="card-executive-summary">
-              <CardHeader>
-                <CardTitle>Executive Summary</CardTitle>
-                <CardDescription>Key takeaways for this reporting period</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" data-testid="summary-achievements">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <h4 className="font-semibold text-green-800 dark:text-green-200">Achievements</h4>
-                    </div>
-                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                      <li data-testid="text-achievement-0">• Risk score: {overallRiskScore}% ({overallRiskScore >= previousRiskScore ? `+${overallRiskScore - previousRiskScore}` : `${overallRiskScore - previousRiskScore}`} points)</li>
-                      <li data-testid="text-achievement-1">• {complianceStreams.length > 0 ? `${complianceStreams[0].name} compliance at ${complianceStreams[0].score}%` : 'No compliance data yet'}</li>
-                      <li data-testid="text-achievement-2">• {quarterlyHighlights.filter(h => h.status === 'achieved').length} target{quarterlyHighlights.filter(h => h.status === 'achieved').length !== 1 ? 's' : ''} achieved</li>
-                    </ul>
-                  </div>
-                  <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" data-testid="summary-in-progress">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-5 w-5 text-amber-600" />
-                      <h4 className="font-semibold text-amber-800 dark:text-amber-200">In Progress</h4>
-                    </div>
-                    <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
-                      <li data-testid="text-progress-0">• {keyMetrics.find(m => m.label === 'Open Actions')?.value || '0'} remedial actions being addressed</li>
-                      <li data-testid="text-progress-1">• {portfolioHealth.find(h => h.name === 'Minor Issues')?.value || 0} properties with minor issues</li>
-                      <li data-testid="text-progress-2">• {quarterlyHighlights.filter(h => h.status === 'approaching').length} targets on track</li>
-                    </ul>
-                  </div>
-                  <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" data-testid="summary-attention">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                      <h4 className="font-semibold text-red-800 dark:text-red-200">Attention Required</h4>
-                    </div>
-                    <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-                      <li data-testid="text-attention-0">• {criticalAlerts.length} critical alert{criticalAlerts.length !== 1 ? 's' : ''}</li>
-                      <li data-testid="text-attention-1">• {quarterlyHighlights.filter(h => h.status === 'behind').length} target{quarterlyHighlights.filter(h => h.status === 'behind').length !== 1 ? 's' : ''} behind</li>
-                      <li data-testid="text-attention-2">• {portfolioHealth.find(h => h.name === 'Attention Required')?.value || 0} properties need intervention</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
               </>
             )}
           </div>
