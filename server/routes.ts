@@ -8,7 +8,7 @@ import { toNodeHandler } from "better-auth/node";
 import { storage } from "./storage";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
-  insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema,
+  insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema, insertStaffMemberSchema,
   insertComplianceStreamSchema, insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
   insertComponentTypeSchema, insertUnitSchema, insertSpaceSchema, insertComponentSchema, insertDataImportSchema,
@@ -1550,6 +1550,160 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error bulk rejecting contractors:", error);
       res.status(500).json({ error: "Failed to reject contractors" });
+    }
+  });
+  
+  // ===== STAFF MEMBERS - requires authentication =====
+  app.get("/api/staff", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const filters: { status?: string; department?: string } = {};
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.department) filters.department = req.query.department as string;
+      const staffList = await storage.listStaffMembers(user.organisationId, filters);
+      res.json(staffList);
+    } catch (error) {
+      console.error("Error fetching staff members:", error);
+      res.status(500).json({ error: "Failed to fetch staff members" });
+    }
+  });
+  
+  app.get("/api/staff/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const staff = await storage.getStaffMember(req.params.id);
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      if (staff.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(staff);
+    } catch (error) {
+      console.error("Error fetching staff member:", error);
+      res.status(500).json({ error: "Failed to fetch staff member" });
+    }
+  });
+  
+  app.post("/api/staff", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const data = insertStaffMemberSchema.parse({ ...req.body, organisationId: user.organisationId });
+      const staff = await storage.createStaffMember(data);
+      res.status(201).json(staff);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error creating staff member:", error);
+      res.status(500).json({ error: "Failed to create staff member" });
+    }
+  });
+  
+  app.patch("/api/staff/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const existing = await storage.getStaffMember(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      if (existing.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const updateData = insertStaffMemberSchema.partial().parse(req.body);
+      const staff = await storage.updateStaffMember(req.params.id, updateData);
+      res.json(staff);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error updating staff member:", error);
+      res.status(500).json({ error: "Failed to update staff member" });
+    }
+  });
+  
+  app.delete("/api/staff/:id", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const existing = await storage.getStaffMember(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      if (existing.organisationId !== user.organisationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const deleted = await storage.deleteStaffMember(req.params.id);
+      if (deleted) {
+        res.json({ success: true });
+      } else {
+        res.status(500).json({ error: "Failed to delete staff member" });
+      }
+    } catch (error) {
+      console.error("Error deleting staff member:", error);
+      res.status(500).json({ error: "Failed to delete staff member" });
+    }
+  });
+  
+  app.post("/api/staff/bulk-import", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user || !user.organisationId) {
+        return res.status(401).json({ error: "Invalid user or no organisation" });
+      }
+      const { staffList } = req.body;
+      if (!Array.isArray(staffList) || staffList.length === 0) {
+        return res.status(400).json({ error: "No staff data provided" });
+      }
+      const validatedList = staffList.map(item => 
+        insertStaffMemberSchema.parse({ ...item, organisationId: user.organisationId })
+      );
+      const created = await storage.bulkCreateStaffMembers(validatedList);
+      res.status(201).json({ success: true, created: created.length, staff: created });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error bulk importing staff members:", error);
+      res.status(500).json({ error: "Failed to import staff members" });
     }
   });
   
