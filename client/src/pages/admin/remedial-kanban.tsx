@@ -204,7 +204,8 @@ export default function RemedialKanban() {
     queryFn: async () => {
       const res = await fetch('/api/actions');
       if (!res.ok) throw new Error('Failed to fetch remedial actions');
-      return res.json();
+      const json = await res.json();
+      return Array.isArray(json) ? json : (json.data || []);
     },
   });
 
