@@ -51,14 +51,30 @@ export default function Properties() {
   const [schemeFilter, setSchemeFilter] = useState(getInitialSchemeFilter);
   const [blockFilter, setBlockFilter] = useState(getInitialBlockFilter);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   
-  const { data: propertiesResponse } = useQuery({
-    queryKey: ["properties"],
-    queryFn: () => propertiesApi.list({ limit: 200 }),
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Server-side pagination query
+  const { data: propertiesResponse, isLoading } = useQuery({
+    queryKey: ["properties", currentPage, pageSize, schemeFilter, blockFilter, debouncedSearch],
+    queryFn: () => propertiesApi.list({ 
+      page: currentPage, 
+      limit: pageSize,
+      schemeId: schemeFilter !== "all" ? schemeFilter : undefined,
+      blockId: blockFilter !== "all" ? blockFilter : undefined,
+      search: debouncedSearch || undefined,
+    }),
   });
   const properties = propertiesResponse?.data ?? [];
+  const totalProperties = propertiesResponse?.total ?? 0;
+  const totalPages = propertiesResponse?.totalPages ?? 1;
   
   const { data: schemes = [] } = useQuery({
     queryKey: ["schemes"],
@@ -235,10 +251,10 @@ export default function Properties() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedProperties.length) {
+    if (selectedIds.size === filteredProperties.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(paginatedProperties.map(p => p.id)));
+      setSelectedIds(new Set(filteredProperties.map(p => p.id)));
     }
   };
 
@@ -261,54 +277,28 @@ export default function Properties() {
     ? blocks.filter(b => b.schemeId === schemeFilter)
     : blocks;
   
-  const filteredProperties = useMemo(() => properties.filter(p => {
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      if (!p.addressLine1.toLowerCase().includes(query) && 
-          !p.postcode.toLowerCase().includes(query) &&
-          !p.uprn.toLowerCase().includes(query)) {
-        return false;
-      }
-    }
-    
-    // Scheme filter (through block)
-    if (schemeFilter !== "all") {
-      const blockScheme = p.blockId ? blockToScheme.get(p.blockId) : null;
-      if (blockScheme !== schemeFilter) return false;
-    }
-    
-    // Block filter
-    if (blockFilter !== "all" && p.blockId !== blockFilter) return false;
-    
-    // Status filter
-    if (statusFilter === "unverified") return p.needsVerification;
-    if (statusFilter === "compliant") return p.complianceStatus === "COMPLIANT" && !p.needsVerification;
-    if (statusFilter === "non-compliant") return p.complianceStatus === "NON_COMPLIANT" || p.complianceStatus === "OVERDUE";
-    
-    return true;
-  }), [properties, searchQuery, schemeFilter, blockFilter, statusFilter, blockToScheme]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProperties.length / pageSize);
-  const paginatedProperties = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredProperties.slice(start, start + pageSize);
-  }, [filteredProperties, currentPage, pageSize]);
+  // Client-side status filter (server handles search, scheme, block filters)
+  const filteredProperties = useMemo(() => {
+    if (statusFilter === "all") return properties;
+    return properties.filter(p => {
+      if (statusFilter === "unverified") return p.needsVerification;
+      if (statusFilter === "compliant") return p.complianceStatus === "COMPLIANT" && !p.needsVerification;
+      if (statusFilter === "non-compliant") return p.complianceStatus === "NON_COMPLIANT" || p.complianceStatus === "OVERDUE";
+      return true;
+    });
+  }, [properties, statusFilter]);
   
-  // Reset page and selection when filters or page size change
+  // Reset page and selection when filters change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [searchQuery, schemeFilter, blockFilter, statusFilter, pageSize]);
+  }, [debouncedSearch, schemeFilter, blockFilter, statusFilter, pageSize]);
   
   // Handle page change with selection clearing
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setSelectedIds(new Set());
   };
-
-  const unverifiedCount = properties.filter(p => p.needsVerification).length;
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -325,7 +315,7 @@ export default function Properties() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
             <StatsCard 
               title="Total Properties" 
-              value={String(properties.length)}
+              value={totalProperties.toLocaleString()}
               description="Across all schemes"
               icon={Home}
               data-testid="card-total-properties"
@@ -345,12 +335,11 @@ export default function Properties() {
               data-testid="card-schemes"
             />
             <StatsCard 
-              title="Needs Verification" 
-              value={String(unverifiedCount)}
-              description={unverifiedCount > 0 ? "Properties to review" : "All properties verified"}
+              title="Showing" 
+              value={String(filteredProperties.length)}
+              description={isLoading ? "Loading..." : `of ${totalProperties.toLocaleString()} on this page`}
               icon={AlertCircle}
-              status={unverifiedCount > 0 ? "warning" : "success"}
-              data-testid="card-needs-verification"
+              data-testid="card-showing-count"
             />
           </div>
 
@@ -638,7 +627,7 @@ export default function Properties() {
                 <TablePagination
                   currentPage={currentPage}
                   totalPages={totalPages}
-                  totalItems={filteredProperties.length}
+                  totalItems={totalProperties}
                   pageSize={pageSize}
                   onPageChange={handlePageChange}
                   onPageSizeChange={setPageSize}
@@ -647,12 +636,12 @@ export default function Properties() {
               
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border">
-                {paginatedProperties.length === 0 ? (
+                {filteredProperties.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     No properties found. Add a property or load demo data.
                   </div>
                 ) : (
-                  paginatedProperties.map((prop) => (
+                  filteredProperties.map((prop) => (
                     <div 
                       key={prop.id}
                       className={`p-4 active:bg-muted/30 ${selectedIds.has(prop.id) ? 'bg-muted/30' : ''}`}
@@ -700,7 +689,7 @@ export default function Properties() {
                     <tr>
                       <th className="p-4 pl-4 w-10">
                         <Checkbox 
-                          checked={selectedIds.size === paginatedProperties.length && paginatedProperties.length > 0}
+                          checked={selectedIds.size === filteredProperties.length && filteredProperties.length > 0}
                           onCheckedChange={toggleSelectAll}
                           data-testid="checkbox-select-all"
                         />
@@ -713,14 +702,14 @@ export default function Properties() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {paginatedProperties.length === 0 ? (
+                    {filteredProperties.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-muted-foreground">
                           No properties found. Add a property or load demo data.
                         </td>
                       </tr>
                     ) : (
-                      paginatedProperties.map((prop) => (
+                      filteredProperties.map((prop) => (
                         <tr 
                           key={prop.id} 
                           className={`group hover:bg-muted/20 transition-colors cursor-pointer ${selectedIds.has(prop.id) ? 'bg-muted/30' : ''}`}
@@ -787,7 +776,7 @@ export default function Properties() {
                 <TablePagination
                   currentPage={currentPage}
                   totalPages={totalPages}
-                  totalItems={filteredProperties.length}
+                  totalItems={totalProperties}
                   pageSize={pageSize}
                   onPageChange={handlePageChange}
                   onPageSizeChange={setPageSize}
