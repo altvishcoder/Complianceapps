@@ -9591,16 +9591,19 @@ export async function registerRoutes(
         .limit(Math.min(parseInt(limit as string), 100));
       
       const propertyIds = rawPredictions.map(p => p.propertyId).filter(Boolean) as string[];
-      const propertiesData = propertyIds.length > 0 
-        ? await db.select({
-            id: properties.id,
-            uprn: properties.uprn,
-            address: properties.address,
-            postcode: properties.postcode,
-          }).from(properties).where(inArray(properties.id, propertyIds))
-        : [];
+      let propertyMap = new Map<string, { id: string; uprn: string | null; address: string | null; postcode: string | null }>();
       
-      const propertyMap = new Map(propertiesData.map(p => [p.id, p]));
+      if (propertyIds.length > 0) {
+        const propertiesData = await db.select()
+          .from(properties)
+          .where(inArray(properties.id, propertyIds));
+        propertyMap = new Map(propertiesData.map(p => [p.id, { 
+          id: p.id, 
+          uprn: p.uprn, 
+          address: p.address, 
+          postcode: p.postcode 
+        }]));
+      }
       
       const predictions = rawPredictions.map(p => {
         const hasML = p.mlScore !== null && p.mlConfidence !== null;
