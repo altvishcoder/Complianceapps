@@ -13,14 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
-  Building2, Home, Layers, Plus, Pencil, Trash2, Loader2, Info, Building, MapPin,
+  Building2, Home, Plus, Pencil, Trash2, Loader2, Info, Building, MapPin,
   ChevronRight, ChevronDown, TreePine, Package, List, LayoutGrid, Network,
   Boxes, Eye, FolderTree
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { organisationsApi, schemesApi, blocksApi, propertiesApi, unitsApi, spacesApi, componentsApi, type EnrichedComponent } from "@/lib/api";
-import type { Scheme, Block, Property, Unit, Space, Component } from "@shared/schema";
+import { organisationsApi, schemesApi, blocksApi, propertiesApi, spacesApi, componentsApi, type EnrichedComponent } from "@/lib/api";
+import type { Scheme, Block, Property, Space, Component } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -36,19 +36,6 @@ type Organisation = {
 
 type ViewMode = 'tree' | 'list' | 'grid';
 
-// UKHDS-compliant unit type labels
-const UNIT_TYPE_LABELS: Record<string, string> = {
-  DWELLING: 'Unit (Dwelling)',
-  COMMUNAL_AREA: 'Communal Area',
-  PLANT_ROOM: 'Plant Room',
-  ROOF_SPACE: 'Roof Space',
-  BASEMENT: 'Basement',
-  EXTERNAL: 'External Area',
-  GARAGE: 'Garage/Parking',
-  COMMERCIAL: 'Commercial Unit',
-  OTHER: 'Other Area',
-};
-
 // UKHDS-compliant space type labels
 const SPACE_TYPE_LABELS: Record<string, string> = {
   ROOM: 'Space (Room)',
@@ -60,11 +47,6 @@ const SPACE_TYPE_LABELS: Record<string, string> = {
   OTHER: 'Other Space',
 };
 
-function getUnitTypeLabel(unitType?: string): string {
-  if (!unitType) return 'Unit (Dwelling)';
-  return UNIT_TYPE_LABELS[unitType] || 'Unit (Dwelling)';
-}
-
 function getSpaceTypeLabel(spaceType?: string): string {
   if (!spaceType) return 'Space (Room)';
   return SPACE_TYPE_LABELS[spaceType] || 'Space (Room)';
@@ -73,7 +55,7 @@ function getSpaceTypeLabel(spaceType?: string): string {
 interface HierarchyNode {
   id: string;
   name: string;
-  type: 'scheme' | 'block' | 'property' | 'unit' | 'space' | 'component';
+  type: 'scheme' | 'block' | 'property' | 'space' | 'component';
   reference?: string;
   status?: string;
   linkStatus?: 'VERIFIED' | 'UNVERIFIED';
@@ -115,7 +97,6 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
     scheme: 'bg-blue-100 text-blue-800 border-blue-200',
     block: 'bg-amber-100 text-amber-800 border-amber-200',
     property: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    unit: 'bg-purple-100 text-purple-800 border-purple-200',
     space: 'bg-cyan-100 text-cyan-800 border-cyan-200',
     component: 'bg-slate-100 text-slate-800 border-slate-200',
   };
@@ -124,7 +105,6 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
     scheme: <MapPin className="h-4 w-4" />,
     block: <Building className="h-4 w-4" />,
     property: <Home className="h-4 w-4" />,
-    unit: <Layers className="h-4 w-4" />,
     space: <FolderTree className="h-4 w-4" />,
     component: <Package className="h-4 w-4" />,
   };
@@ -196,7 +176,6 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
             {node.type === 'scheme' && 'Scheme (Site)'}
             {node.type === 'block' && 'Block (Building)'}
             {node.type === 'property' && 'Dwelling (Property)'}
-            {node.type === 'unit' && getUnitTypeLabel(node.data?.unitType)}
             {node.type === 'space' && getSpaceTypeLabel(node.data?.spaceType)}
             {node.type === 'component' && 'Component (Asset)'}
           </Badge>
@@ -227,7 +206,6 @@ function GridCard({ node }: { node: HierarchyNode }) {
     scheme: 'border-l-blue-500 bg-blue-50/50',
     block: 'border-l-amber-500 bg-amber-50/50',
     property: 'border-l-emerald-500 bg-emerald-50/50',
-    unit: 'border-l-purple-500 bg-purple-50/50',
     space: 'border-l-cyan-500 bg-cyan-50/50',
     component: 'border-l-slate-500 bg-slate-50/50',
   };
@@ -236,7 +214,6 @@ function GridCard({ node }: { node: HierarchyNode }) {
     scheme: <MapPin className="h-5 w-5 text-blue-600" />,
     block: <Building className="h-5 w-5 text-amber-600" />,
     property: <Home className="h-5 w-5 text-emerald-600" />,
-    unit: <Layers className="h-5 w-5 text-purple-600" />,
     space: <FolderTree className="h-5 w-5 text-cyan-600" />,
     component: <Package className="h-5 w-5 text-slate-600" />,
   };
@@ -305,15 +282,12 @@ function VisualHierarchy({ hierarchyData, viewMode, onNodeClick }: { hierarchyDa
   
   if (viewMode === 'list') {
     // UKHDS hierarchy labels with housing association friendly terms
-    // Note: Housing associations typically call "Unit" as "Property" (the lettable dwelling)
-    // UKHDS "Property" actually means Building/Block level
     const getTypeLabel = (node: HierarchyNode & { depth: number }): string => {
-      if (node.type === 'unit') return getUnitTypeLabel(node.data?.unitType);
       if (node.type === 'space') return getSpaceTypeLabel(node.data?.spaceType);
       const baseLabels: Record<string, string> = {
         scheme: 'Scheme (Site)',
         block: 'Block (Building)',
-        property: 'Property (Structure)',
+        property: 'Dwelling (Property)',
         component: 'Component (Asset)',
       };
       return baseLabels[node.type] || node.type;
@@ -465,18 +439,11 @@ export default function PropertyHierarchy() {
   });
   const components = componentsResponse?.data ?? [];
 
-  const { data: allUnits = [], isLoading: unitsLoading } = useQuery({
-    queryKey: ["units"],
-    queryFn: () => unitsApi.list(),
-  });
-
   const { data: allSpaces = [], isLoading: spacesLoading } = useQuery({
     queryKey: ["spaces"],
     queryFn: () => spacesApi.list(),
   });
 
-  // Block-level unit types that should appear under Block, not Property (Housing Ops view)
-  const BLOCK_LEVEL_UNIT_TYPES = new Set(['COMMUNAL_AREA', 'PLANT_ROOM', 'BASEMENT', 'EXTERNAL', 'GARAGE']);
 
   const hierarchyData = useMemo((): HierarchyNode[] => {
     // Helper to get component display name
@@ -487,10 +454,10 @@ export default function PropertyHierarchy() {
     };
     
     // Helper to build space node with its components
-    // Determines the hierarchy level from space data and provides contextual info
+    // Spaces can attach to: properties (dwelling rooms), blocks (communal), or schemes (estate-wide)
     const buildSpaceNode = (space: Space, context: { propertyId?: string; blockId?: string; schemeId?: string } = {}): HierarchyNode => {
       // Determine hierarchy level based on which ID is set
-      const hierarchyLevel = space.unitId ? 'unit' : (space as any).blockId ? 'block' : (space as any).schemeId ? 'scheme' : 'unknown';
+      const hierarchyLevel = (space as any).propertyId ? 'property' : (space as any).blockId ? 'block' : (space as any).schemeId ? 'scheme' : 'unknown';
       
       const spaceComponents = components
         .filter((c: EnrichedComponent) => c.spaceId === space.id)
@@ -508,7 +475,6 @@ export default function PropertyHierarchy() {
         name: space.name,
         type: 'space' as const,
         reference: space.reference || undefined,
-        // Include full context: spaceType, hierarchyLevel, and parent IDs
         data: { 
           ...space, 
           spaceType: space.spaceType, 
@@ -518,44 +484,13 @@ export default function PropertyHierarchy() {
         children: spaceComponents,
       };
     };
-    
-    // Helper to build unit node with its children
-    const buildUnitNode = (unit: Unit, propertyId: string): HierarchyNode => {
-      // Only get unit-level spaces (those with unitId set)
-      const unitSpaces = allSpaces.filter((s: Space) => s.unitId === unit.id);
-      
-      const unitComponents = components
-        .filter((c: EnrichedComponent) => c.unitId === unit.id && !c.spaceId)
-        .map((component: EnrichedComponent) => ({
-          id: component.id,
-          name: getComponentName(component),
-          type: 'component' as const,
-          reference: component.serialNumber || undefined,
-          data: { ...component, propertyId },
-          children: [],
-        }));
-      
-      const spaceNodes: HierarchyNode[] = unitSpaces.map((space: Space) => 
-        buildSpaceNode(space, { propertyId })
-      );
-      
-      return {
-        id: unit.id,
-        name: unit.name,
-        type: 'unit' as const,
-        reference: unit.reference || undefined,
-        data: { ...unit, unitType: unit.unitType, propertyId },
-        children: [...spaceNodes, ...unitComponents],
-      };
-    };
 
-    // UKHDS 5-level hierarchy with Housing Ops view support
-    // Block-level units and spaces (communal areas, plant rooms) appear under Block, not Property
-    // Scheme-level spaces (estate-wide communal areas) appear under Scheme
+    // UKHDS 5-level hierarchy: Scheme → Block → Property (Dwelling) → Space → Component
+    // Spaces attach directly to properties, blocks, or schemes (no units table)
     return schemes.map((scheme) => {
-      // Scheme-level spaces: spaces with schemeId set but no blockId or unitId
+      // Scheme-level spaces: spaces with schemeId set (estate-wide communal areas)
       const schemeLevelSpaces: HierarchyNode[] = allSpaces
-        .filter((s: Space) => (s as any).schemeId === scheme.id && !(s as any).blockId && !s.unitId)
+        .filter((s: Space) => (s as any).schemeId === scheme.id && !(s as any).blockId && !(s as any).propertyId)
         .map((space: Space) => buildSpaceNode(space, { schemeId: scheme.id }));
       
       const blockNodes = blocks
@@ -563,42 +498,22 @@ export default function PropertyHierarchy() {
         .map((block) => {
           const blockProperties = properties.filter((p: Property) => p.blockId === block.id);
           
-          // Block-level spaces: spaces with blockId set but no unitId
+          // Block-level spaces: communal areas, plant rooms, stairwells, etc.
           const blockLevelSpaces: HierarchyNode[] = allSpaces
-            .filter((s: Space) => (s as any).blockId === block.id && !s.unitId)
+            .filter((s: Space) => (s as any).blockId === block.id && !(s as any).propertyId)
             .map((space: Space) => buildSpaceNode(space, { blockId: block.id }));
           
-          // Collect block-level units from all properties in this block (deduplicated)
-          const blockLevelUnits: HierarchyNode[] = [];
-          const seenUnitIds = new Set<string>();
-          
           // Build dwelling (property) nodes - in UKHDS, Property and Dwelling are the SAME entity
-          // The properties table represents Dwelling (Property) - the tenancy-level home
-          // Units table is only for non-dwelling types (COMMUNAL_AREA, PLANT_ROOM, etc.)
-          const dwellingNodes: HierarchyNode[] = [];
-          
-          blockProperties.forEach((property: Property) => {
-            const propertyUnits = allUnits.filter((u: Unit) => u.propertyId === property.id);
-            
-            // Only block-level units go to block children - DWELLING units are ignored (properties ARE dwellings)
-            const blockUnits = propertyUnits.filter((u: Unit) => BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
-            
-            // Add block-level units (COMMUNAL_AREA, PLANT_ROOM, etc.) to block's children (deduplicate by ID)
-            blockUnits.forEach((unit: Unit) => {
-              if (!seenUnitIds.has(unit.id)) {
-                seenUnitIds.add(unit.id);
-                blockLevelUnits.push(buildUnitNode(unit, property.id));
-              }
-            });
-            
+          const dwellingNodes: HierarchyNode[] = blockProperties.map((property: Property) => {
             // Get property-level spaces (rooms within this dwelling)
-            const propertySpaces = allSpaces.filter((s: Space) => (s as any).propertyId === property.id && !s.unitId);
+            const propertySpaces = allSpaces.filter((s: Space) => (s as any).propertyId === property.id);
             const propertySpaceNodes: HierarchyNode[] = propertySpaces.map((space: Space) => 
               buildSpaceNode(space, { propertyId: property.id })
             );
             
+            // Direct components on property (not in a space)
             const directComponents = components
-              .filter((c: EnrichedComponent) => c.propertyId === property.id && !c.unitId && !c.spaceId)
+              .filter((c: EnrichedComponent) => c.propertyId === property.id && !c.spaceId)
               .map((component: EnrichedComponent) => ({
                 id: component.id,
                 name: getComponentName(component),
@@ -608,9 +523,7 @@ export default function PropertyHierarchy() {
                 children: [],
               }));
             
-            // Property IS the Dwelling - they are the same entity in UKHDS
-            // Display as "Dwelling (Property)" with spaces and components as children
-            dwellingNodes.push({
+            return {
               id: property.id,
               name: `${property.addressLine1}, ${property.postcode}`,
               type: 'property' as const,
@@ -619,7 +532,7 @@ export default function PropertyHierarchy() {
               linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
               data: property,
               children: [...propertySpaceNodes, ...directComponents],
-            });
+            };
           });
           
           return {
@@ -630,8 +543,8 @@ export default function PropertyHierarchy() {
             status: block.complianceStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
             data: block,
-            // Block children: spaces, block-level units (communal areas), then dwellings (properties)
-            children: [...blockLevelSpaces, ...blockLevelUnits, ...dwellingNodes],
+            // Block children: communal spaces, then dwellings (properties)
+            children: [...blockLevelSpaces, ...dwellingNodes],
           };
         });
       
@@ -643,11 +556,10 @@ export default function PropertyHierarchy() {
         status: scheme.complianceStatus,
         linkStatus: (scheme as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
         data: scheme,
-        // Scheme-level spaces appear before blocks
         children: [...schemeLevelSpaces, ...blockNodes],
       };
     });
-  }, [schemes, blocks, properties, allUnits, allSpaces, components]);
+  }, [schemes, blocks, properties, allSpaces, components]);
 
   const createOrgMutation = useMutation({
     mutationFn: organisationsApi.create,
@@ -827,14 +739,13 @@ export default function PropertyHierarchy() {
     return schemes.find(s => s.id === schemeId);
   };
 
-  const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || componentsLoading || unitsLoading || spacesLoading;
+  const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || componentsLoading || spacesLoading;
 
   const totalCounts = {
     organisations: organisations.length,
     schemes: schemes.length,
     blocks: blocks.length,
     properties: properties.length,
-    units: allUnits.length,
     spaces: allSpaces.length,
     components: components.length,
   };
@@ -847,17 +758,6 @@ export default function PropertyHierarchy() {
         break;
       case 'component':
         setLocation(`/components?highlight=${node.id}`);
-        break;
-      case 'unit':
-        // Navigate to properties page filtered by this unit's property
-        if (node.data?.propertyId) {
-          setLocation(`/properties/${node.data.propertyId}?tab=units&unit=${node.id}`);
-        } else {
-          toast({ 
-            title: "Unit Selected", 
-            description: node.name 
-          });
-        }
         break;
       case 'scheme':
         // Filter blocks by this scheme
@@ -906,13 +806,12 @@ export default function PropertyHierarchy() {
                 <div className="flex items-start gap-2">
                   <Info className="h-5 w-5 text-emerald-600 mt-0.5" />
                   <div className="text-sm text-emerald-800">
-                    <strong>UKHDS Asset Hierarchy:</strong> Organisation → Scheme (Site/Estate) → Block (Building) → Property/Unit (Dwelling/Home) → Space (Room) → Component (Asset)
+                    <strong>UKHDS Asset Hierarchy:</strong> Organisation → Scheme (Site/Estate) → Block (Building) → Property (Dwelling/Home) → Space (Room) → Component (Asset)
                   </div>
                 </div>
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="text-xs text-blue-800">
-                    <strong>Terminology Note:</strong> "Homes" combines both <strong>Properties</strong> (structures) and <strong>Units</strong> (dwellings) - what housing associations typically call their "Properties". 
-                    In UKHDS, "Property" refers to a structure within a Block, while "Unit" is the individual lettable home (flat, house). For most operational purposes, these function as the same concept.
+                    <strong>Terminology Note:</strong> In UKHDS, "Property" represents the Dwelling layer - the individual lettable home (flat, house). Spaces can attach to properties (rooms like Kitchen, Bedroom), blocks (communal areas like Stairwell), or schemes (estate-wide spaces).
                   </div>
                 </div>
               </div>

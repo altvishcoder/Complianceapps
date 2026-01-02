@@ -1264,7 +1264,7 @@ export const propertyRelations = relations(properties, ({ one, many }) => ({
   }),
   certificates: many(certificates),
   remedialActions: many(remedialActions),
-  units: many(units),
+  spaces: many(spaces),
   components: many(components),
 }));
 
@@ -1384,22 +1384,14 @@ export const componentTypeRelations = relations(componentTypes, ({ many }) => ({
   components: many(components),
 }));
 
-export const unitRelations = relations(units, ({ one, many }) => ({
-  property: one(properties, {
-    fields: [units.propertyId],
-    references: [properties.id],
-  }),
-  components: many(components),
-}));
-
 export const componentRelations = relations(components, ({ one, many }) => ({
   property: one(properties, {
     fields: [components.propertyId],
     references: [properties.id],
   }),
-  unit: one(units, {
-    fields: [components.unitId],
-    references: [units.id],
+  space: one(spaces, {
+    fields: [components.spaceId],
+    references: [spaces.id],
   }),
   block: one(blocks, {
     fields: [components.blockId],

@@ -12,10 +12,10 @@ import {
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema, insertStaffMemberSchema,
   insertComplianceStreamSchema, insertCertificateTypeSchema, insertClassificationCodeSchema, insertExtractionSchemaSchema,
   insertComplianceRuleSchema, insertNormalisationRuleSchema,
-  insertComponentTypeSchema, insertUnitSchema, insertSpaceSchema, insertComponentSchema, insertDataImportSchema,
+  insertComponentTypeSchema, insertSpaceSchema, insertComponentSchema, insertDataImportSchema,
   insertDetectionPatternSchema, insertOutcomeRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
-  componentTypes, components, units, spaces, componentCertificates, users, extractionTierAudits,
+  componentTypes, components, spaces, componentCertificates, users, extractionTierAudits,
   propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes, remedialActions, contractors,
   contractorSLAProfiles, contractorJobPerformance, contractorRatings,
   type ApiClient
@@ -32,7 +32,7 @@ import {
   parseCSV, 
   validateImportData, 
   processPropertyImport, 
-  processUnitImport, 
+  
   processComponentImport,
   generateCSVTemplate
 } from "./import-parser";
@@ -5372,82 +5372,11 @@ export async function registerRoutes(
     }
   });
   
-  // ===== HACT ARCHITECTURE - UNITS =====
-  app.get("/api/units", async (req, res) => {
-    try {
-      const propertyId = req.query.propertyId as string | undefined;
-      const unitsList = await storage.listUnits(propertyId);
-      res.json(unitsList);
-    } catch (error) {
-      console.error("Error fetching units:", error);
-      res.status(500).json({ error: "Failed to fetch units" });
-    }
-  });
-  
-  app.get("/api/units/:id", async (req, res) => {
-    try {
-      const unit = await storage.getUnit(req.params.id);
-      if (!unit) {
-        return res.status(404).json({ error: "Unit not found" });
-      }
-      res.json(unit);
-    } catch (error) {
-      console.error("Error fetching unit:", error);
-      res.status(500).json({ error: "Failed to fetch unit" });
-    }
-  });
-  
-  app.post("/api/units", async (req, res) => {
-    try {
-      const data = insertUnitSchema.parse(req.body);
-      const unit = await storage.createUnit(data);
-      res.status(201).json(unit);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Validation failed", details: error.errors });
-      } else {
-        console.error("Error creating unit:", error);
-        res.status(500).json({ error: "Failed to create unit" });
-      }
-    }
-  });
-  
-  app.patch("/api/units/:id", async (req, res) => {
-    try {
-      const updateData = insertUnitSchema.partial().parse(req.body);
-      const updated = await storage.updateUnit(req.params.id, updateData);
-      if (!updated) {
-        return res.status(404).json({ error: "Unit not found" });
-      }
-      res.json(updated);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Validation failed", details: error.errors });
-      } else {
-        console.error("Error updating unit:", error);
-        res.status(500).json({ error: "Failed to update unit" });
-      }
-    }
-  });
-  
-  app.delete("/api/units/:id", async (req, res) => {
-    try {
-      const deleted = await storage.deleteUnit(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "Unit not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting unit:", error);
-      res.status(500).json({ error: "Failed to delete unit" });
-    }
-  });
-  
-  // ===== HACT ARCHITECTURE - SPACES (can attach to units, blocks, or schemes for communal areas) =====
+  // ===== HACT ARCHITECTURE - SPACES (can attach to properties, blocks, or schemes) =====
   app.get("/api/spaces", async (req, res) => {
     try {
       const filters = {
-        unitId: req.query.unitId as string | undefined,
+        propertyId: req.query.propertyId as string | undefined,
         blockId: req.query.blockId as string | undefined,
         schemeId: req.query.schemeId as string | undefined,
       };
@@ -5494,7 +5423,7 @@ export async function registerRoutes(
       const updateData = baseSpaceSchema.partial().parse(req.body);
       
       // If hierarchy IDs are being updated, validate that exactly one is set
-      const isUpdatingHierarchy = 'unitId' in req.body || 'blockId' in req.body || 'schemeId' in req.body;
+      const isUpdatingHierarchy = 'propertyId' in req.body || 'blockId' in req.body || 'schemeId' in req.body;
       if (isUpdatingHierarchy) {
         // Get current space to merge with updates
         const currentSpace = await storage.getSpace(req.params.id);
@@ -5502,15 +5431,15 @@ export async function registerRoutes(
           return res.status(404).json({ error: "Space not found" });
         }
         
-        const mergedUnitId = 'unitId' in updateData ? updateData.unitId : currentSpace.unitId;
-        const mergedBlockId = 'blockId' in updateData ? updateData.blockId : (currentSpace as any).blockId;
-        const mergedSchemeId = 'schemeId' in updateData ? updateData.schemeId : (currentSpace as any).schemeId;
+        const mergedPropertyId = 'propertyId' in updateData ? updateData.propertyId : currentSpace.propertyId;
+        const mergedBlockId = 'blockId' in updateData ? updateData.blockId : currentSpace.blockId;
+        const mergedSchemeId = 'schemeId' in updateData ? updateData.schemeId : currentSpace.schemeId;
         
-        const attachments = [mergedUnitId, mergedBlockId, mergedSchemeId].filter(Boolean);
+        const attachments = [mergedPropertyId, mergedBlockId, mergedSchemeId].filter(Boolean);
         if (attachments.length !== 1) {
           return res.status(400).json({ 
             error: "Validation failed", 
-            details: [{ message: "Space must attach to exactly one level: unitId, blockId, or schemeId" }] 
+            details: [{ message: "Space must attach to exactly one level: propertyId, blockId, or schemeId" }] 
           });
         }
       }
@@ -5551,7 +5480,7 @@ export async function registerRoutes(
       const search = req.query.search as string | undefined;
       const filters = {
         propertyId: req.query.propertyId as string | undefined,
-        unitId: req.query.unitId as string | undefined,
+        spaceId: req.query.spaceId as string | undefined,
         blockId: req.query.blockId as string | undefined,
         componentTypeId: req.query.componentTypeId as string | undefined,
       };
@@ -5950,21 +5879,6 @@ export async function registerRoutes(
             { name: "blockReference", required: true, description: "Block reference code to link property" },
           ]
         },
-        units: {
-          columns: [
-            { name: "propertyUprn", required: true, description: "UPRN of parent property" },
-            { name: "name", required: true, description: "Unit name (e.g., Kitchen, Communal Hall)" },
-            { name: "reference", required: false, description: "Unit reference code" },
-            { name: "unitType", required: true, description: "DWELLING, COMMUNAL_AREA, PLANT_ROOM, etc." },
-            { name: "floor", required: false, description: "Floor level (Ground, 1st, etc.)" },
-            { name: "description", required: false, description: "Description of the unit" },
-            { name: "areaSqMeters", required: false, description: "Area of room/unit in square meters" },
-            { name: "isAccessible", required: false, description: "true/false - wheelchair accessible" },
-            { name: "fireCompartment", required: false, description: "Fire compartmentation zone identifier" },
-            { name: "asbestosPresent", required: false, description: "true/false - asbestos present in unit" },
-            { name: "hactLocationCode", required: false, description: "HACT/UKHDS location code" },
-          ]
-        },
         components: {
           columns: [
             { name: "propertyUprn", required: false, description: "UPRN of property (optional if unitReference provided)" },
@@ -6035,7 +5949,6 @@ export async function registerRoutes(
       
       const sampleFiles: Record<string, string> = {
         properties: 'properties-sample.csv',
-        units: 'units-sample.csv',
         components: 'components-sample.csv',
         geocoding: 'geocoding-sample.csv'
       };
@@ -6141,9 +6054,6 @@ export async function registerRoutes(
       switch (dataImport.importType.toUpperCase()) {
         case 'PROPERTIES':
           result = await processPropertyImport(importId, validRows, dataImport.upsertMode);
-          break;
-        case 'UNITS':
-          result = await processUnitImport(importId, validRows, dataImport.upsertMode);
           break;
         case 'COMPONENTS':
           result = await processComponentImport(importId, validRows, dataImport.upsertMode);

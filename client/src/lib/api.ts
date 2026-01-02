@@ -6,7 +6,7 @@ import type {
   CertificateType, InsertCertificateType, ClassificationCode, InsertClassificationCode,
   ExtractionSchema, InsertExtractionSchema, ComplianceRule, InsertComplianceRule,
   NormalisationRule, InsertNormalisationRule,
-  ComponentType, InsertComponentType, Unit, InsertUnit, Space, InsertSpace, Component, InsertComponent, DataImport, InsertDataImport,
+  ComponentType, InsertComponentType, Space, InsertSpace, Component, InsertComponent, DataImport, InsertDataImport,
   StaffMember, InsertStaffMember
 } from "@shared/schema";
 
@@ -498,35 +498,15 @@ export const componentTypesApi = {
   }),
 };
 
-// HACT Architecture - Units
-export const unitsApi = {
-  list: (propertyId?: string) => {
-    const params = propertyId ? `?propertyId=${propertyId}` : "";
-    return fetchJSON<Unit[]>(`${API_BASE}/units${params}`);
-  },
-  
-  get: (id: string) => fetchJSON<Unit>(`${API_BASE}/units/${id}`),
-  
-  create: (data: InsertUnit) => fetchJSON<Unit>(`${API_BASE}/units`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  }),
-  
-  update: (id: string, data: Partial<InsertUnit>) => fetchJSON<Unit>(`${API_BASE}/units/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  }),
-  
-  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/units/${id}`, {
-    method: "DELETE",
-  }),
-};
-
-// HACT Architecture - Spaces (Rooms)
+// HACT Architecture - Spaces (can attach to properties, blocks, or schemes)
 export const spacesApi = {
-  list: (unitId?: string) => {
-    const params = unitId ? `?unitId=${unitId}` : "";
-    return fetchJSON<Space[]>(`${API_BASE}/spaces${params}`);
+  list: (filters?: { propertyId?: string; blockId?: string; schemeId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.propertyId) params.append("propertyId", filters.propertyId);
+    if (filters?.blockId) params.append("blockId", filters.blockId);
+    if (filters?.schemeId) params.append("schemeId", filters.schemeId);
+    const query = params.toString() ? `?${params}` : "";
+    return fetchJSON<Space[]>(`${API_BASE}/spaces${query}`);
   },
   
   get: (id: string) => fetchJSON<Space>(`${API_BASE}/spaces/${id}`),
@@ -553,10 +533,10 @@ export interface EnrichedComponent extends Component {
 }
 
 export const componentsApi = {
-  list: (filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string; page?: number; limit?: number; search?: string }) => {
+  list: (filters?: { propertyId?: string; spaceId?: string; blockId?: string; componentTypeId?: string; page?: number; limit?: number; search?: string }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);
-    if (filters?.unitId) params.append("unitId", filters.unitId);
+    if (filters?.spaceId) params.append("spaceId", filters.spaceId);
     if (filters?.blockId) params.append("blockId", filters.blockId);
     if (filters?.componentTypeId) params.append("componentTypeId", filters.componentTypeId);
     if (filters?.page) params.append("page", filters.page.toString());

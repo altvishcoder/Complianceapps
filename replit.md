@@ -25,19 +25,17 @@ Preferred communication style: Simple, everyday language.
 -   **ORM**: Drizzle ORM with PostgreSQL dialect.
 -   **Database**: PostgreSQL.
 -   **Migrations**: Drizzle Kit.
--   **Data Model**: Follows UKHDS 5-level asset hierarchy with optional linking and verification status. Organisation is implicit. Components attach at any hierarchy level.
+-   **Data Model**: Follows UKHDS 5-level asset hierarchy with optional linking and verification status. Organisation is implicit.
     - **UKHDS Hierarchy Terminology** (aligned with Housing Association usage):
       - **Scheme (Site Layer)**: Portfolio, Estate, Development - `schemes` table
       - **Block (Building Layer)**: Physical building structure - `blocks` table (what UKHDS calls "Property")
       - **Dwelling (Property Layer)**: The lettable home (flat, house) - `properties` table. UI displays as "Dwelling (Property)"
-      - **Space (Room Layer)**: Individual rooms (Kitchen, Bedroom, Bathroom) - `spaces` table with `propertyId`
-      - **Component (Asset Layer)**: Equipment and assets (Boiler, Smoke Alarm, Consumer Unit) - `components` table with `propertyId`
-      - **Unit (Communal Areas Only)**: Used ONLY for block-level communal spaces (COMMUNAL_AREA, PLANT_ROOM, ROOF_SPACE) - `units` table
-    - **Key Design Decision**: The `properties` table represents the Dwelling layer. No separate DWELLING units are created - properties ARE dwellings.
-    - **Flexible Space Hierarchy**: Spaces can attach at four levels:
+      - **Space (Room Layer)**: Rooms and communal areas - `spaces` table. Spaces attach to properties, blocks, or schemes.
+      - **Component (Asset Layer)**: Equipment and assets (Boiler, Smoke Alarm, Consumer Unit) - `components` table with `propertyId` or `spaceId`
+    - **Key Design Decision**: Properties ARE Dwellings (single entity). Units table was eliminated - spaces now attach directly to properties (rooms), blocks (communal areas), or schemes (estate-wide spaces).
+    - **Flexible Space Hierarchy**: Spaces can attach at three levels:
       - **Property-level**: Rooms within a dwelling (Kitchen, Bedroom) - via `spaces.propertyId`
-      - **Unit-level**: Areas within communal units - via `spaces.unitId`
-      - **Block-level**: Communal areas within a building (Stairwell) - via `spaces.blockId`
+      - **Block-level**: Communal areas within a building (Stairwell, Plant Room) - via `spaces.blockId`
       - **Scheme-level**: Estate-wide communal spaces (Community Hall) - via `spaces.schemeId`
 -   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 compliance streams aligned with UK social housing regulations.
 -   **Compliance Streams**: 16 high-level compliance categories (Gas & Heating, Electrical, Energy, Fire Safety, Asbestos, Water Safety, Lifting Equipment, Building Safety, External Areas, Security, HRB-specific, Housing Health, Accessibility, Pest Control, Waste, Communal) with system protection (isSystem streams cannot be deleted, only disabled).
@@ -63,7 +61,7 @@ Preferred communication style: Simple, everyday language.
 ### Key Features
 -   **AI-powered Document Extraction**: Processes uploaded compliance certificates using AI, covering 45 extraction schemas.
 -   **Configuration-Driven Remedial Actions**: Generates remedial actions based on configurable classification codes and UK legislation references.
--   **CSV Import**: Supports importing properties, units, and components via CSV templates.
+-   **CSV Import**: Supports importing properties and components via CSV templates.
 -   **Seeding & Demo Data**: Option to seed demo data for testing and development.
 -   **External Ingestion API**: Machine-to-machine API for external systems to submit compliance certificates with Bearer token authentication and async processing via pg-boss job queue.
 -   **AI Assistant Chatbot**: 5-layer cost-optimized architecture for compliance guidance:

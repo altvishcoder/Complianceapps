@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import type { InsertProperty, InsertUnit, InsertComponent, InsertDataImportRow } from "@shared/schema";
+import type { InsertProperty, InsertComponent, InsertDataImportRow } from "@shared/schema";
 
 interface ParsedRow {
   rowNumber: number;
@@ -19,7 +19,6 @@ interface ImportResult {
 
 const PROPERTY_TYPES = ['HOUSE', 'FLAT', 'BUNGALOW', 'MAISONETTE', 'BEDSIT', 'STUDIO'];
 const TENURE_TYPES = ['SOCIAL_RENT', 'AFFORDABLE_RENT', 'SHARED_OWNERSHIP', 'LEASEHOLD', 'TEMPORARY'];
-const UNIT_TYPES = ['DWELLING', 'COMMUNAL_AREA', 'PLANT_ROOM', 'ROOF_SPACE', 'BASEMENT', 'EXTERNAL', 'GARAGE', 'COMMERCIAL', 'OTHER'];
 const CONDITIONS = ['GOOD', 'FAIR', 'POOR', 'CRITICAL'];
 
 export function parseCSV(content: string): Record<string, string>[] {
@@ -284,59 +283,6 @@ export async function processPropertyImport(
       errors.push({
         rowNumber: row.rowNumber,
         errors: [{ field: 'database', error: error.message || 'Failed to create property', value: null }]
-      });
-    }
-  }
-  
-  return {
-    success: errors.length === 0,
-    totalRows: rows.length,
-    validRows: rows.length,
-    invalidRows: 0,
-    importedRows,
-    errors
-  };
-}
-
-export async function processUnitImport(
-  importId: string,
-  rows: ParsedRow[],
-  upsertMode: boolean = false
-): Promise<ImportResult> {
-  let importedRows = 0;
-  const errors: Array<{ rowNumber: number; errors: Array<{ field: string; error: string; value: any }> }> = [];
-  
-  const properties = await storage.listProperties('default-org');
-  const propertyMap = new Map(properties.map(p => [p.uprn, p.id]));
-  
-  for (const row of rows) {
-    try {
-      const propertyId = propertyMap.get(row.data.propertyUprn);
-      
-      if (!propertyId) {
-        errors.push({
-          rowNumber: row.rowNumber,
-          errors: [{ field: 'propertyUprn', error: `Property not found: ${row.data.propertyUprn}`, value: row.data.propertyUprn }]
-        });
-        continue;
-      }
-      
-      const unitData: InsertUnit = {
-        propertyId,
-        name: row.data.name.trim(),
-        reference: row.data.reference?.trim() || null,
-        unitType: row.data.unitType.toUpperCase() as any,
-        floor: row.data.floor?.trim() || null,
-        description: row.data.description?.trim() || null,
-      };
-      
-      await storage.createUnit(unitData);
-      importedRows++;
-      
-    } catch (error: any) {
-      errors.push({
-        rowNumber: row.rowNumber,
-        errors: [{ field: 'database', error: error.message || 'Failed to create unit', value: null }]
       });
     }
   }
