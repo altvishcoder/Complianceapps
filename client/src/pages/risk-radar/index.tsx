@@ -246,11 +246,13 @@ function SourceBadge({ sourceLabel }: { sourceLabel: string }) {
   }
 }
 
-function ConfidenceBar({ confidence, sourceLabel }: { confidence: number; sourceLabel: string }) {
+function ConfidenceBar({ confidence, sourceLabel }: { confidence?: number | null; sourceLabel: string }) {
+  const safeConfidence = confidence ?? 0;
+  
   const getColor = () => {
     if (sourceLabel === 'Statistical') return 'bg-blue-500';
-    if (confidence >= 80) return 'bg-green-500';
-    if (confidence >= 60) return 'bg-yellow-500';
+    if (safeConfidence >= 80) return 'bg-green-500';
+    if (safeConfidence >= 60) return 'bg-yellow-500';
     return 'bg-orange-500';
   };
 
@@ -258,12 +260,12 @@ function ConfidenceBar({ confidence, sourceLabel }: { confidence: number; source
     <div className="w-full" data-testid="confidence-bar">
       <div className="flex justify-between text-xs mb-1">
         <span className="text-muted-foreground">Confidence</span>
-        <span className="font-medium">{confidence.toFixed(0)}%</span>
+        <span className="font-medium">{safeConfidence.toFixed(0)}%</span>
       </div>
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div 
           className={cn("h-full transition-all", getColor())}
-          style={{ width: `${confidence}%` }}
+          style={{ width: `${safeConfidence}%` }}
         />
       </div>
     </div>
