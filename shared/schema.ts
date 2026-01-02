@@ -776,12 +776,13 @@ export const units = pgTable("units", {
 export const spaceTypeEnum = pgEnum('space_type', ['ROOM', 'COMMUNAL_AREA', 'EXTERNAL', 'CIRCULATION', 'UTILITY', 'STORAGE', 'OTHER']);
 
 // Spaces (specific locations - UKHDS hierarchy level 5)
-// Can attach to units (individual rooms), blocks (communal areas), or schemes (estate-level spaces)
+// Can attach to properties (dwellings), units (communal areas), blocks, or schemes
 export const spaces = pgTable("spaces", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   
-  // Hierarchical attachment - spaces can link to units, blocks, or schemes
+  // Hierarchical attachment - spaces can link to properties (dwellings), units, blocks, or schemes
   // At least one should be set; if multiple are set, the most specific takes precedence
+  propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
   unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
   blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
   schemeId: varchar("scheme_id").references(() => schemes.id, { onDelete: 'cascade' }),

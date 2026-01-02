@@ -93,10 +93,10 @@ export async function seedComprehensiveDemoData(orgId: string) {
   console.log(`✓ Created ${propertyIds.length} properties`);
   
   const unitIds = await seedUnits(propertyIds);
-  console.log(`✓ Created ${unitIds.length} units`);
+  console.log(`✓ Created ${unitIds.length} units (block-level only)`);
   
-  const spaceIds = await seedSpaces(unitIds);
-  console.log(`✓ Created ${spaceIds.length} spaces (rooms)`);
+  const spaceIds = await seedSpaces(propertyIds);
+  console.log(`✓ Created ${spaceIds.length} spaces (rooms within dwellings)`);
   
   const componentIds = await seedComponents(propertyIds, allComponentTypes);
   console.log(`✓ Created ${componentIds.length} components`);
@@ -240,7 +240,7 @@ async function seedProperties(blockIds: string[]): Promise<string[]> {
 
 async function seedUnits(propertyIds: string[]): Promise<string[]> {
   const unitIds: string[] = [];
-  // Dwelling units are created per property, block-level units only once per block
+  // In UKHDS, properties ARE dwellings - we only create block-level units (communal areas)
   type UnitType = "DWELLING" | "COMMUNAL_AREA" | "PLANT_ROOM" | "ROOF_SPACE" | "BASEMENT" | "EXTERNAL" | "GARAGE" | "COMMERCIAL" | "OTHER";
   const blockLevelTypes: UnitType[] = ["COMMUNAL_AREA", "PLANT_ROOM", "ROOF_SPACE"];
   
@@ -256,17 +256,8 @@ async function seedUnits(propertyIds: string[]): Promise<string[]> {
   for (let i = 0; i < propertyIds.length; i++) {
     const blockId = propertyBlockMap.get(propertyIds[i]);
     
-    // Create dwelling units for each property
-    for (let u = 0; u < SCALE_CONFIG.UNITS_PER_PROPERTY; u++) {
-      allBatchValues.push({
-        propertyId: propertyIds[i],
-        name: `Unit ${u + 1}`,
-        unitType: "DWELLING" as UnitType,
-        floor: String(Math.floor(u / 2)),
-      });
-    }
-    
     // Create block-level units only ONCE per block (not per property)
+    // Properties ARE dwellings in UKHDS - no separate DWELLING units needed
     if (blockId && !seenBlockIds.has(blockId)) {
       seenBlockIds.add(blockId);
       for (let b = 0; b < blockLevelTypes.length; b++) {
@@ -293,16 +284,18 @@ async function seedUnits(propertyIds: string[]): Promise<string[]> {
   return unitIds;
 }
 
-async function seedSpaces(unitIds: string[]): Promise<string[]> {
+async function seedSpaces(propertyIds: string[]): Promise<string[]> {
   const spaceIds: string[] = [];
   
+  // In UKHDS, spaces attach to properties (dwellings) - rooms within a home
   const allBatchValues = [];
-  for (let i = 0; i < unitIds.length; i++) {
+  for (let i = 0; i < propertyIds.length; i++) {
     for (let s = 0; s < SCALE_CONFIG.SPACES_PER_UNIT; s++) {
       allBatchValues.push({
-        unitId: unitIds[i],
+        propertyId: propertyIds[i],
         name: SPACE_NAMES[s % SPACE_NAMES.length],
         reference: `SPACE-${i}-${s}`,
+        spaceType: 'ROOM' as const,
       });
     }
   }
