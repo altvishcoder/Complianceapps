@@ -30,6 +30,7 @@ export const chatIntentEnum = pgEnum('chat_intent', [
 export const chatResponseSourceEnum = pgEnum('chat_response_source', [
   'static', 'faq_cache', 'faq_tfidf', 'database', 'rag', 'llm'
 ]);
+export const staffStatusEnum = pgEnum('staff_status', ['ACTIVE', 'PENDING', 'SUSPENDED', 'INACTIVE']);
 
 // Tables
 export const organisations = pgTable("organisations", {
@@ -52,6 +53,26 @@ export const users = pgTable("users", {
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const staffMembers = pgTable("staff_members", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  department: text("department"),
+  roleTitle: text("role_title"),
+  employeeId: text("employee_id"),
+  status: staffStatusEnum("status").notNull().default('ACTIVE'),
+  tradeSpecialism: text("trade_specialism"),
+  gasSafeNumber: text("gas_safe_number"),
+  nicEicNumber: text("niceic_number"),
+  notes: text("notes"),
+  userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1457,6 +1478,7 @@ export const dataImportRowRelations = relations(dataImportRows, ({ one }) => ({
 // Zod Schemas
 export const insertOrganisationSchema = createInsertSchema(organisations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSchemeSchema = createInsertSchema(schemes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPropertySchema = createInsertSchema(properties).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1499,6 +1521,9 @@ export type InsertOrganisation = z.infer<typeof insertOrganisationSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type StaffMember = typeof staffMembers.$inferSelect;
+export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;
 
 export type Scheme = typeof schemes.$inferSelect;
 export type InsertScheme = z.infer<typeof insertSchemeSchema>;
