@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { actionsApi, certificatesApi } from "@/lib/api";
+import { sidebarApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -119,25 +119,15 @@ export function Sidebar() {
     setIsMobileOpen(false);
   }, [location]);
   
-  const { data: actions = [], isError: actionsError } = useQuery({
-    queryKey: ["actions"],
-    queryFn: () => actionsApi.list(),
+  const { data: sidebarCounts, isError: countsError } = useQuery({
+    queryKey: ["sidebar-counts"],
+    queryFn: () => sidebarApi.getCounts(),
     staleTime: 30000,
     retry: false,
   });
   
-  const { data: certificates = [], isError: certsError } = useQuery({
-    queryKey: ["certificates"],
-    queryFn: () => certificatesApi.list(),
-    staleTime: 30000,
-    retry: false,
-  });
-  
-  const emergencyHazards = actionsError ? 0 : actions.filter(a => a.severity === 'IMMEDIATE' && a.status === 'OPEN').length;
-  const overdueCerts = certsError ? 0 : certificates.filter(c => {
-    if (!c.expiryDate) return false;
-    return new Date(c.expiryDate) < new Date();
-  }).length;
+  const emergencyHazards = countsError ? 0 : (sidebarCounts?.emergencyHazards || 0);
+  const overdueCerts = countsError ? 0 : (sidebarCounts?.overdueCertificates || 0);
 
   const shouldShowSection = (section: NavigationSection): boolean => {
     if (!section.isActive) return false;

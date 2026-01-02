@@ -222,6 +222,20 @@ export const actionsApi = {
   }),
 };
 
+// Sidebar Counts API - efficient counts for navigation badges
+export interface SidebarCounts {
+  emergencyHazards: number;
+  overdueCertificates: number;
+  pendingReview: number;
+  totalProperties: number;
+  totalCertificates: number;
+  openActions: number;
+}
+
+export const sidebarApi = {
+  getCounts: () => fetchJSON<SidebarCounts>(`${API_BASE}/sidebar/counts`),
+};
+
 // Admin / Demo Data Management
 export const adminApi = {
   wipeData: (includeProperties: boolean = false) => 

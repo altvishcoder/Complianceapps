@@ -8795,6 +8795,51 @@ export async function registerRoutes(
     }
   });
 
+  // Efficient sidebar counts using SQL COUNT queries (no full data load)
+  app.get("/api/sidebar/counts", async (req, res) => {
+    try {
+      const now = new Date().toISOString();
+      
+      // Use optimized COUNT queries instead of loading all data
+      const [emergencyResult] = await db.select({ count: count() })
+        .from(remedialActions)
+        .where(and(
+          eq(remedialActions.severity, 'IMMEDIATE'),
+          eq(remedialActions.status, 'OPEN')
+        ));
+      
+      const [overdueResult] = await db.select({ count: count() })
+        .from(certificates)
+        .where(lt(certificates.expiryDate, now));
+      
+      const [pendingReviewResult] = await db.select({ count: count() })
+        .from(certificates)
+        .where(eq(certificates.status, 'NEEDS_REVIEW'));
+      
+      const [totalPropertiesResult] = await db.select({ count: count() })
+        .from(properties);
+      
+      const [totalCertsResult] = await db.select({ count: count() })
+        .from(certificates);
+      
+      const [openActionsResult] = await db.select({ count: count() })
+        .from(remedialActions)
+        .where(eq(remedialActions.status, 'OPEN'));
+      
+      res.json({
+        emergencyHazards: emergencyResult?.count || 0,
+        overdueCertificates: overdueResult?.count || 0,
+        pendingReview: pendingReviewResult?.count || 0,
+        totalProperties: totalPropertiesResult?.count || 0,
+        totalCertificates: totalCertsResult?.count || 0,
+        openActions: openActionsResult?.count || 0
+      });
+    } catch (error) {
+      console.error("Error fetching sidebar counts:", error);
+      res.status(500).json({ error: "Failed to fetch sidebar counts" });
+    }
+  });
+
   // Navigation Configuration API - Database-driven navigation
   // Public endpoint - returns navigation with role information
   app.get("/api/navigation", async (req, res) => {
