@@ -19,6 +19,22 @@ import { sidebarApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const SECTION_DESCRIPTIONS: Record<string, string> = {
+  'operate': 'Day-to-Day Operations',
+  'assure': 'Compliance & Proof',
+  'understand': 'Insights & Trends',
+  'assets': 'Property & Component Management',
+  'people-suppliers': 'Contractors & Staff',
+  'manage-system': 'Admin/IT Configuration',
+  'resources': 'Help & Training Materials',
+};
 
 interface NavigationItem {
   id: string;
@@ -171,25 +187,36 @@ export function Sidebar() {
     
     return (
       <div key={section.id} className="mb-2">
-        <button
-          onClick={() => toggleSection(section.id)}
-          className={cn(
-            "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all",
-            hasActiveItem ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-          )}
-          aria-expanded={isOpen}
-          data-testid={`section-toggle-${section.slug}`}
-        >
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <SectionIcon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
-            <span className="truncate">{section.title}</span>
-          </div>
-          {isOpen ? (
-            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => toggleSection(section.id)}
+                className={cn(
+                  "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all",
+                  hasActiveItem ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+                aria-expanded={isOpen}
+                data-testid={`section-toggle-${section.slug}`}
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <SectionIcon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                  <span className="truncate">{section.title}</span>
+                </div>
+                {isOpen ? (
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+              </button>
+            </TooltipTrigger>
+            {SECTION_DESCRIPTIONS[section.slug] && (
+              <TooltipContent side="right" className="text-xs">
+                {SECTION_DESCRIPTIONS[section.slug]}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
         
         {isOpen && (
           <nav className="mt-1 space-y-0.5 pl-2" aria-label={section.title}>
