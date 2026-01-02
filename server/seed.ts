@@ -2234,9 +2234,9 @@ async function seedNavigation() {
     // Command Centre
     { sectionId: "sec-command", slug: "overview", name: "Overview", href: "/dashboard", iconKey: "LayoutDashboard", displayOrder: 1, isSystem: true },
     { sectionId: "sec-command", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-command", slug: "reporting", name: "Reporting", href: "/reports", iconKey: "FileText", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-command", slug: "reporting", name: "Regulatory", href: "/reports", iconKey: "FileText", displayOrder: 3, isSystem: true },
     { sectionId: "sec-command", slug: "board", name: "Board", href: "/reports/board", iconKey: "Briefcase", displayOrder: 4, isSystem: true },
-    { sectionId: "sec-command", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-command", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
     
     // Regulatory
     { sectionId: "sec-regulatory", slug: "regulatory-evidence", name: "Regulatory Evidence", href: "/reports/regulatory", iconKey: "Shield", displayOrder: 1, isSystem: true },
@@ -2253,7 +2253,7 @@ async function seedNavigation() {
     { sectionId: "sec-ops", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
     { sectionId: "sec-ops", slug: "calendar", name: "Calendar", href: "/calendar", iconKey: "Calendar", displayOrder: 5, isSystem: true },
     { sectionId: "sec-ops", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 6, isSystem: true },
-    { sectionId: "sec-ops", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-ops", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 7, isSystem: true },
     { sectionId: "sec-ops", slug: "remedial-kanban", name: "Remedial Kanban", href: "/admin/remedial-kanban", iconKey: "ClipboardCheck", displayOrder: 8, requiresFactorySettings: true, isSystem: true },
     { sectionId: "sec-ops", slug: "human-review", name: "Human Review", href: "/human-review", iconKey: "Eye", displayOrder: 9, requiresAITools: true, isSystem: true },
     
@@ -2275,7 +2275,7 @@ async function seedNavigation() {
     { sectionId: "sec-monitoring", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
     { sectionId: "sec-monitoring", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
     { sectionId: "sec-monitoring", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, requiresAdmin: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "model-insights", name: "Extraction Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 6, requiresAITools: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "ingestion-insights", name: "Ingestion Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 6, requiresAITools: true, isSystem: true },
     { sectionId: "sec-monitoring", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
     
     // Administration

@@ -289,25 +289,47 @@ export default function AssetHealth() {
     },
   });
 
-  const { data: propertiesResponse, isLoading: propertiesLoading } = useQuery<{ data: Property[], total: number } | Property[]>({
-    queryKey: ['properties'],
+  const { data: properties = [], isLoading: propertiesLoading } = useQuery<Property[]>({
+    queryKey: ['properties-all-asset-health'],
     queryFn: async () => {
-      const res = await fetch('/api/properties', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch properties');
-      return res.json();
+      const allProperties: Property[] = [];
+      let page = 1;
+      const limit = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const res = await fetch(`/api/properties?limit=${limit}&page=${page}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to fetch properties');
+        const data = await res.json();
+        const pageData = Array.isArray(data) ? data : (data.data || []);
+        allProperties.push(...pageData);
+        hasMore = pageData.length === limit;
+        page++;
+      }
+      return allProperties;
     },
   });
-  const properties: Property[] = Array.isArray(propertiesResponse) ? propertiesResponse : (propertiesResponse?.data || []);
 
-  const { data: certificatesResponse, isLoading: certificatesLoading, refetch } = useQuery<{ data: Certificate[], total: number } | Certificate[]>({
-    queryKey: ['certificates'],
+  const { data: certificates = [], isLoading: certificatesLoading, refetch } = useQuery<Certificate[]>({
+    queryKey: ['certificates-all-asset-health'],
     queryFn: async () => {
-      const res = await fetch('/api/certificates', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch certificates');
-      return res.json();
+      const allCerts: Certificate[] = [];
+      let page = 1;
+      const limit = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const res = await fetch(`/api/certificates?limit=${limit}&page=${page}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to fetch certificates');
+        const data = await res.json();
+        const pageData = Array.isArray(data) ? data : (data.data || []);
+        allCerts.push(...pageData);
+        hasMore = pageData.length === limit;
+        page++;
+      }
+      return allCerts;
     },
   });
-  const certificates: Certificate[] = Array.isArray(certificatesResponse) ? certificatesResponse : (certificatesResponse?.data || []);
 
   const isLoading = schemesLoading || blocksLoading || propertiesLoading || certificatesLoading;
 
