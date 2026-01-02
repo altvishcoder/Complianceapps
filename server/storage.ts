@@ -12,6 +12,7 @@ import {
   certificateDetectionPatterns, certificateOutcomeRules,
   contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
   certificateVersions, auditFieldChanges, ukhdsExports, complianceCalendarEvents,
+  staffMembers,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -61,6 +62,7 @@ import {
   type AuditFieldChange, type InsertAuditFieldChange,
   type UkhdsExport, type InsertUkhdsExport,
   type ComplianceCalendarEvent, type InsertComplianceCalendarEvent,
+  type StaffMember, type InsertStaffMember,
   navigationSections, navigationItems, iconRegistry,
   type NavigationSection, type InsertNavigationSection,
   type NavigationItem, type InsertNavigationItem,
@@ -165,6 +167,14 @@ export interface IStorage {
   getContractorAssignment(id: string): Promise<ContractorAssignment | undefined>;
   createContractorAssignment(assignment: InsertContractorAssignment): Promise<ContractorAssignment>;
   updateContractorAssignment(id: string, updates: Partial<InsertContractorAssignment>): Promise<ContractorAssignment | undefined>;
+  
+  // Staff Members
+  listStaffMembers(organisationId: string, filters?: { status?: string; department?: string }): Promise<StaffMember[]>;
+  getStaffMember(id: string): Promise<StaffMember | undefined>;
+  createStaffMember(staff: InsertStaffMember): Promise<StaffMember>;
+  updateStaffMember(id: string, updates: Partial<InsertStaffMember>): Promise<StaffMember | undefined>;
+  deleteStaffMember(id: string): Promise<boolean>;
+  bulkCreateStaffMembers(staffList: InsertStaffMember[]): Promise<StaffMember[]>;
   
   // Golden Thread - Certificate Versions
   listCertificateVersions(certificateId: string): Promise<CertificateVersion[]>;
@@ -1076,6 +1086,44 @@ export class DatabaseStorage implements IStorage {
   async updateContractorAssignment(id: string, updates: Partial<InsertContractorAssignment>): Promise<ContractorAssignment | undefined> {
     const [updated] = await db.update(contractorAssignments).set({ ...updates, updatedAt: new Date() }).where(eq(contractorAssignments.id, id)).returning();
     return updated || undefined;
+  }
+  
+  // Staff Members
+  async listStaffMembers(organisationId: string, filters?: { status?: string; department?: string }): Promise<StaffMember[]> {
+    const conditions = [eq(staffMembers.organisationId, organisationId)];
+    if (filters?.status) {
+      conditions.push(eq(staffMembers.status, filters.status as 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'INACTIVE'));
+    }
+    if (filters?.department) {
+      conditions.push(eq(staffMembers.department, filters.department));
+    }
+    return db.select().from(staffMembers).where(and(...conditions)).orderBy(desc(staffMembers.createdAt));
+  }
+  
+  async getStaffMember(id: string): Promise<StaffMember | undefined> {
+    const [staff] = await db.select().from(staffMembers).where(eq(staffMembers.id, id));
+    return staff || undefined;
+  }
+  
+  async createStaffMember(staff: InsertStaffMember): Promise<StaffMember> {
+    const [created] = await db.insert(staffMembers).values(staff).returning();
+    return created;
+  }
+  
+  async updateStaffMember(id: string, updates: Partial<InsertStaffMember>): Promise<StaffMember | undefined> {
+    const [updated] = await db.update(staffMembers).set({ ...updates, updatedAt: new Date() }).where(eq(staffMembers.id, id)).returning();
+    return updated || undefined;
+  }
+  
+  async deleteStaffMember(id: string): Promise<boolean> {
+    const result = await db.delete(staffMembers).where(eq(staffMembers.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+  
+  async bulkCreateStaffMembers(staffList: InsertStaffMember[]): Promise<StaffMember[]> {
+    if (staffList.length === 0) return [];
+    const created = await db.insert(staffMembers).values(staffList).returning();
+    return created;
   }
   
   // Golden Thread - Certificate Versions
