@@ -175,7 +175,7 @@ export function Sidebar() {
           onClick={() => toggleSection(section.id)}
           className={cn(
             "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all",
-            hasActiveItem ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
+            hasActiveItem ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
           )}
           aria-expanded={isOpen}
           data-testid={`section-toggle-${section.slug}`}
@@ -203,7 +203,7 @@ export function Sidebar() {
                       "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
                       isActive
                         ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
-                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
                     )}
                     data-testid={`nav-item-${item.slug}`}
                   >
@@ -211,7 +211,7 @@ export function Sidebar() {
                       <ItemIcon
                         className={cn(
                           "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                          isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-400"
+                          isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
                         )}
                         aria-hidden="true"
                       />
@@ -235,7 +235,7 @@ export function Sidebar() {
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden bg-slate-900 text-white hover:bg-slate-800 shadow-lg"
+        className="fixed top-4 left-4 z-50 md:hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 shadow-lg border border-slate-200 dark:border-transparent"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         aria-label={isMobileOpen ? "Close menu" : "Open menu"}
         data-testid="button-mobile-menu"
@@ -253,12 +253,12 @@ export function Sidebar() {
       
       <aside 
         className={cn(
-          "fixed md:relative z-40 flex h-screen w-72 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white border-r border-white/5 transition-transform duration-300 ease-in-out",
+          "fixed md:relative z-40 flex h-screen w-72 flex-col bg-white dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-white border-r border-slate-200 dark:border-white/5 transition-transform duration-300 ease-in-out",
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
         aria-label="Main navigation"
       >
-        <div className="flex h-20 items-center px-6 border-b border-white/5">
+        <div className="flex h-20 items-center px-6 border-b border-slate-200 dark:border-white/5">
           <div className="flex items-center gap-3">
             <div className="relative" aria-hidden="true">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl blur-lg opacity-60"></div>
@@ -267,7 +267,7 @@ export function Sidebar() {
               </div>
             </div>
             <div>
-              <span className="text-xl font-display font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">ComplianceAI</span>
+              <span className="text-xl font-display font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">ComplianceAI</span>
               <p className="text-xs text-slate-500 font-medium">Enterprise Platform</p>
             </div>
           </div>
@@ -294,7 +294,7 @@ export function Sidebar() {
               .map(section => renderSection(section))
           )}
           
-          <div className="mt-4 pt-4 border-t border-white/5">
+          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5">
             <div className="mb-2 px-3">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Status</span>
             </div>
@@ -340,21 +340,21 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="p-4 border-t border-white/5 dark:border-white/5">
-          <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-white/5 dark:bg-white/5">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-sm font-bold">
+        <div className="p-4 border-t border-slate-200 dark:border-white/5">
+          <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-slate-100 dark:bg-white/5">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-sm font-bold text-white">
               {(user?.name || "User").charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white dark:text-white truncate">{user?.name || "Guest User"}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 truncate">{user?.email || "Not logged in"}</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.name || "Guest User"}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.email || "Not logged in"}</p>
             </div>
           </div>
           {mounted && (
             <div className="flex items-center gap-2 mb-3">
               <button 
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="flex flex-1 items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                className="flex flex-1 items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
                 aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
                 data-testid="button-theme-toggle"
               >
@@ -374,7 +374,7 @@ export function Sidebar() {
           )}
           <button 
             onClick={logout}
-            className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
             aria-label="Sign out of your account"
             data-testid="button-sign-out"
           >
