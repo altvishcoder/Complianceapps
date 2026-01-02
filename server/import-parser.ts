@@ -437,6 +437,10 @@ export function generateCSVTemplate(importType: string): string {
     geocoding: [
       'propertyId,latitude,longitude',
       'example-property-id,51.5074,-0.1278'
+    ],
+    staff: [
+      'firstName,lastName,email,phone,department,roleTitle,employeeId,status,tradeSpecialism,gasSafeNumber,niceicNumber,notes',
+      'John,Smith,john.smith@example.org,07700900123,Maintenance,Compliance Officer,EMP001,ACTIVE,Gas & Heating,123456,,,Example staff member'
     ]
   };
   
