@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery, keepPreviousData } from "@tanstack/react-query";
 import { organisationsApi, schemesApi, blocksApi, propertiesApi, spacesApi, componentsApi, type EnrichedComponent } from "@/lib/api";
 import type { Scheme, Block, Property, Space, Component } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -594,9 +594,10 @@ export default function PropertyHierarchy() {
 
   // Components for tree view are loaded on-demand per property/space via LazyComponentsLoader
   // This query is for the Assets tab with pagination
-  const { data: assetsResponse, isLoading: assetsLoading } = useQuery({
+  const { data: assetsResponse, isLoading: assetsLoading, isFetching: assetsFetching } = useQuery({
     queryKey: ["components", "assets-tab", assetsPage, assetsPageSize],
     queryFn: () => componentsApi.list({ page: assetsPage, limit: assetsPageSize }),
+    placeholderData: keepPreviousData,
   });
   const assetsList = assetsResponse?.data ?? [];
   const assetsTotalCount = assetsResponse?.total ?? assetsList.length;
@@ -1332,7 +1333,7 @@ export default function PropertyHierarchy() {
                       </Button>
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className={`space-y-4 transition-opacity duration-200 ${assetsFetching ? 'opacity-60' : 'opacity-100'}`}>
                     {/* Top Pagination */}
                     <TablePagination
                       currentPage={assetsPage}
@@ -1343,7 +1344,7 @@ export default function PropertyHierarchy() {
                       onPageSizeChange={(size) => { setAssetsPageSize(size); setAssetsPage(1); }}
                     />
                     
-                    {assetsLoading ? (
+                    {assetsLoading && !assetsResponse ? (
                       <div className="flex justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin" />
                       </div>
