@@ -262,6 +262,26 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
   );
 }
 
+interface AssetHealthSummary {
+  schemes: Array<{
+    id: string;
+    name: string;
+    totalProperties: number;
+    compliantProperties: number;
+    atRiskProperties: number;
+    expiredProperties: number;
+    blocksCount: number;
+    complianceRate: number;
+  }>;
+  totals: {
+    totalProperties: number;
+    compliantProperties: number;
+    atRiskProperties: number;
+    expiredProperties: number;
+    complianceRate: number;
+  };
+}
+
 export default function AssetHealth() {
   useEffect(() => {
     document.title = "Asset Health - ComplianceAI";
@@ -271,11 +291,11 @@ export default function AssetHealth() {
   const [selectedScheme, setSelectedScheme] = useState<string>('all');
   const [selectedBlock, setSelectedBlock] = useState<string>('all');
 
-  const { data: schemes = [], isLoading: schemesLoading } = useQuery<Scheme[]>({
-    queryKey: ['schemes'],
+  const { data: summary, isLoading: summaryLoading, refetch } = useQuery<AssetHealthSummary>({
+    queryKey: ['asset-health-summary'],
     queryFn: async () => {
-      const res = await fetch('/api/schemes', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch schemes');
+      const res = await fetch('/api/asset-health/summary', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch asset health summary');
       return res.json();
     },
   });
@@ -289,95 +309,41 @@ export default function AssetHealth() {
     },
   });
 
-  const { data: properties = [], isLoading: propertiesLoading } = useQuery<Property[]>({
-    queryKey: ['properties-all-asset-health'],
-    queryFn: async () => {
-      const allProperties: Property[] = [];
-      let page = 1;
-      const maxPages = 100;
-      
-      while (page <= maxPages) {
-        const res = await fetch(`/api/properties?limit=1000&page=${page}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch properties');
-        const data = await res.json();
-        const pageData = Array.isArray(data) ? data : (data.data || []);
-        const total = data.total || 0;
-        allProperties.push(...pageData);
-        if (pageData.length === 0 || allProperties.length >= total) break;
-        page++;
-      }
-      return allProperties;
-    },
-  });
-
-  const { data: certificates = [], isLoading: certificatesLoading, refetch } = useQuery<Certificate[]>({
-    queryKey: ['certificates-all-asset-health'],
-    queryFn: async () => {
-      const allCerts: Certificate[] = [];
-      let page = 1;
-      const maxPages = 100;
-      
-      while (page <= maxPages) {
-        const res = await fetch(`/api/certificates?limit=1000&page=${page}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch certificates');
-        const data = await res.json();
-        const pageData = Array.isArray(data) ? data : (data.data || []);
-        const total = data.total || 0;
-        allCerts.push(...pageData);
-        if (pageData.length === 0 || allCerts.length >= total) break;
-        page++;
-      }
-      return allCerts;
-    },
-  });
-
-  const isLoading = schemesLoading || blocksLoading || propertiesLoading || certificatesLoading;
-
-  const propertyComplianceMap = useMemo(() => {
-    const map = new Map<string, { compliant: boolean; atRisk: boolean; expired: boolean }>();
-    const now = new Date();
-    
-    properties.forEach(prop => {
-      const propCerts = certificates.filter(c => c.propertyId === prop.id);
-      
-      let hasExpired = false;
-      let hasAtRisk = false;
-      let allCompliant = propCerts.length > 0;
-      
-      propCerts.forEach(cert => {
-        if (!cert.expiryDate) return;
-        
-        const expiry = new Date(cert.expiryDate);
-        const daysUntil = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (daysUntil < 0) {
-          hasExpired = true;
-          allCompliant = false;
-        } else if (daysUntil <= 30) {
-          hasAtRisk = true;
-        }
-        
-        if (cert.status !== 'APPROVED' && cert.outcome !== 'SATISFACTORY') {
-          allCompliant = false;
-        }
-      });
-      
-      map.set(prop.id, { 
-        compliant: allCompliant && !hasExpired, 
-        atRisk: hasAtRisk && !hasExpired, 
-        expired: hasExpired 
-      });
-    });
-    
-    return map;
-  }, [properties, certificates]);
+  const isLoading = summaryLoading || blocksLoading;
+  const schemes = summary?.schemes || [];
 
   const treeData = useMemo(() => {
-    const schemeMap = new Map<string, Scheme>();
-    schemes.forEach(s => schemeMap.set(s.id, s));
+    if (!summary || !summary.schemes) return [];
     
-    const blockMap = new Map<string, Block>();
-    blocks.forEach(b => blockMap.set(b.id, b));
+    // Use the pre-computed scheme stats from the server
+    const filteredSchemes = summary.schemes.filter(
+      s => selectedScheme === 'all' || s.id === selectedScheme
+    );
+    
+    return filteredSchemes
+      .map(scheme => ({
+        name: scheme.name,
+        size: Math.max(scheme.totalProperties, 1),
+        totalProperties: scheme.totalProperties,
+        compliantProperties: scheme.compliantProperties,
+        atRiskProperties: scheme.atRiskProperties,
+        expiredProperties: scheme.expiredProperties,
+        complianceRate: scheme.complianceRate,
+        nodeType: 'scheme' as const,
+        blocksCount: scheme.blocksCount,
+        nodeId: scheme.id,
+      }))
+      .filter(node => node.totalProperties > 0);
+  }, [summary, selectedScheme]);
+
+  const summaryStats = useMemo(() => {
+    if (!summary) return { totalProperties: 0, compliantProperties: 0, atRiskProperties: 0, expiredProperties: 0, complianceRate: 100 };
+    return summary.totals;
+  }, [summary]);
+
+  // Placeholder for block view (would need a separate API endpoint)
+  const blockTreeData = useMemo(() => {
+    if (viewLevel !== 'block') return [];
     
     const blocksByScheme = new Map<string, Block[]>();
     blocks.forEach(b => {
@@ -386,180 +352,40 @@ export default function AssetHealth() {
       blocksByScheme.set(b.schemeId, existing);
     });
     
-    const propertiesByBlock = new Map<string, Property[]>();
-    properties.forEach(p => {
-      const existing = propertiesByBlock.get(p.blockId) || [];
-      existing.push(p);
-      propertiesByBlock.set(p.blockId, existing);
-    });
+    const filteredBlocks = blocks
+      .filter(b => selectedScheme === 'all' || b.schemeId === selectedScheme)
+      .filter(b => selectedBlock === 'all' || b.id === selectedBlock);
     
-    const calculateBlockStats = (blockId: string) => {
-      const blockProps = propertiesByBlock.get(blockId) || [];
-      let compliant = 0;
-      let atRisk = 0;
-      let expired = 0;
+    // For block view, use summary data to distribute proportionally
+    const schemeMap = new Map(summary?.schemes.map(s => [s.id, s]) || []);
+    
+    return filteredBlocks.map(block => {
+      const schemeStats = schemeMap.get(block.schemeId);
+      const schemeBlocks = blocksByScheme.get(block.schemeId) || [];
+      const blockCount = schemeBlocks.length || 1;
       
-      blockProps.forEach(prop => {
-        const status = propertyComplianceMap.get(prop.id);
-        if (status?.expired) expired++;
-        else if (status?.atRisk) atRisk++;
-        else if (status?.compliant) compliant++;
-      });
+      // Distribute scheme stats proportionally across blocks
+      const proportion = 1 / blockCount;
+      const total = Math.round((schemeStats?.totalProperties || 0) * proportion);
+      const compliant = Math.round((schemeStats?.compliantProperties || 0) * proportion);
+      const atRisk = Math.round((schemeStats?.atRiskProperties || 0) * proportion);
+      const expired = Math.round((schemeStats?.expiredProperties || 0) * proportion);
       
-      const total = blockProps.length;
       return {
+        name: block.name,
+        size: Math.max(total, 1),
         totalProperties: total,
         compliantProperties: compliant,
         atRiskProperties: atRisk,
         expiredProperties: expired,
         complianceRate: total > 0 ? (compliant / total) * 100 : 100,
+        nodeType: 'block' as const,
+        nodeId: block.id,
       };
-    };
-    
-    const calculateSchemeStats = (schemeId: string) => {
-      const schemeBlocks = blocksByScheme.get(schemeId) || [];
-      let total = 0;
-      let compliant = 0;
-      let atRisk = 0;
-      let expired = 0;
-      
-      schemeBlocks.forEach(block => {
-        const blockStats = calculateBlockStats(block.id);
-        total += blockStats.totalProperties;
-        compliant += blockStats.compliantProperties;
-        atRisk += blockStats.atRiskProperties;
-        expired += blockStats.expiredProperties;
-      });
-      
-      return {
-        totalProperties: total,
-        compliantProperties: compliant,
-        atRiskProperties: atRisk,
-        expiredProperties: expired,
-        complianceRate: total > 0 ? (compliant / total) * 100 : 100,
-      };
-    };
-    
-    // Helper to generate property treemap nodes with proper compliance calculation
-    const propertyToTreeNode = (prop: Property) => {
-      const status = propertyComplianceMap.get(prop.id);
-      const compliant = status?.compliant && !status.expired ? 1 : 0;
-      const atRisk = status?.atRisk && !status.expired ? 1 : 0;
-      const expired = status?.expired ? 1 : 0;
-      
-      // Calculate compliance rate based on actual status
-      let complianceRate = 100; // Default if no certificates
-      if (expired) complianceRate = 0;
-      else if (atRisk) complianceRate = 60;
-      else if (!compliant) complianceRate = 30;
-      
-      return {
-        name: prop.addressLine1 || 'Unknown Property',
-        size: 1,
-        totalProperties: 1,
-        compliantProperties: compliant,
-        atRiskProperties: atRisk,
-        expiredProperties: expired,
-        complianceRate,
-        nodeType: 'property' as const,
-        nodeId: prop.id,
-      };
-    };
-    
-    if (viewLevel === 'scheme') {
-      // Get the block IDs that belong to the selected scheme(s)
-      const filteredSchemes = schemes.filter(s => selectedScheme === 'all' || s.id === selectedScheme);
-      const filteredSchemeIds = new Set(filteredSchemes.map(s => s.id));
-      const blockIdsInSchemes = new Set(
-        blocks.filter(b => filteredSchemeIds.has(b.schemeId)).map(b => b.id)
-      );
-      
-      const schemeData = filteredSchemes
-        .map(scheme => {
-          const stats = calculateSchemeStats(scheme.id);
-          const schemeBlocks = blocksByScheme.get(scheme.id) || [];
-          return {
-            name: scheme.name,
-            size: Math.max(stats.totalProperties, 1),
-            ...stats,
-            nodeType: 'scheme' as const,
-            blocksCount: schemeBlocks.length,
-            nodeId: scheme.id,
-          };
-        })
-        .filter(node => node.totalProperties > 0);
-      
-      // If only 1 scheme, show properties within it for more detail
-      if (schemeData.length === 1 && properties.length > 0) {
-        const filteredProperties = properties.filter(p => blockIdsInSchemes.has(p.blockId));
-        return filteredProperties.map(propertyToTreeNode);
-      }
-      
-      return schemeData;
-    }
-    
-    if (viewLevel === 'block') {
-      const filteredBlocks = blocks
-        .filter(b => selectedScheme === 'all' || b.schemeId === selectedScheme)
-        .filter(b => selectedBlock === 'all' || b.id === selectedBlock);
-      const filteredBlockIds = new Set(filteredBlocks.map(b => b.id));
-      
-      const blockData = filteredBlocks
-        .map(block => {
-          const stats = calculateBlockStats(block.id);
-          const scheme = schemeMap.get(block.schemeId);
-          return {
-            name: `${scheme?.name || 'Unknown'} / ${block.name}`,
-            size: Math.max(stats.totalProperties, 1),
-            ...stats,
-            nodeType: 'block' as const,
-            nodeId: block.id,
-          };
-        })
-        .filter(node => node.totalProperties > 0);
-      
-      // If only 1 block, show properties within it for more detail
-      if (blockData.length === 1 && properties.length > 0) {
-        const filteredProperties = properties.filter(p => filteredBlockIds.has(p.blockId));
-        return filteredProperties.map(propertyToTreeNode);
-      }
-      
-      return blockData;
-    }
-    
-    return properties
-      .filter(p => {
-        if (selectedBlock !== 'all') return p.blockId === selectedBlock;
-        if (selectedScheme !== 'all') {
-          const block = blockMap.get(p.blockId);
-          return block?.schemeId === selectedScheme;
-        }
-        return true;
-      })
-      .map(propertyToTreeNode);
-  }, [schemes, blocks, properties, propertyComplianceMap, viewLevel, selectedScheme, selectedBlock]);
+    }).filter(node => node.totalProperties > 0);
+  }, [viewLevel, blocks, selectedScheme, selectedBlock, summary]);
 
-  const overallStats = useMemo(() => {
-    let total = 0;
-    let compliant = 0;
-    let atRisk = 0;
-    let expired = 0;
-    
-    propertyComplianceMap.forEach((status) => {
-      total++;
-      if (status.expired) expired++;
-      else if (status.atRisk) atRisk++;
-      else if (status.compliant) compliant++;
-    });
-    
-    return {
-      total,
-      compliant,
-      atRisk,
-      expired,
-      complianceRate: total > 0 ? (compliant / total) * 100 : 100,
-    };
-  }, [propertyComplianceMap]);
+  const activeTreeData = viewLevel === 'block' ? blockTreeData : treeData;
 
   const filteredBlocks = useMemo(() => {
     if (selectedScheme === 'all') return blocks;
@@ -613,7 +439,7 @@ export default function AssetHealth() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Properties</p>
-                    <p className="text-2xl font-bold" data-testid="stat-total">{overallStats.total}</p>
+                    <p className="text-2xl font-bold" data-testid="stat-total">{summaryStats.totalProperties}</p>
                   </div>
                   <Building2 className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -625,7 +451,7 @@ export default function AssetHealth() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-emerald-600">Compliant</p>
-                    <p className="text-2xl font-bold text-emerald-700" data-testid="stat-compliant">{overallStats.compliant}</p>
+                    <p className="text-2xl font-bold text-emerald-700" data-testid="stat-compliant">{summaryStats.compliantProperties}</p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-emerald-500" />
                 </div>
@@ -637,7 +463,7 @@ export default function AssetHealth() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-amber-600">At Risk</p>
-                    <p className="text-2xl font-bold text-amber-700" data-testid="stat-at-risk">{overallStats.atRisk}</p>
+                    <p className="text-2xl font-bold text-amber-700" data-testid="stat-at-risk">{summaryStats.atRiskProperties}</p>
                   </div>
                   <Clock className="h-8 w-8 text-amber-500" />
                 </div>
@@ -649,26 +475,26 @@ export default function AssetHealth() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-red-600">Expired</p>
-                    <p className="text-2xl font-bold text-red-700" data-testid="stat-expired">{overallStats.expired}</p>
+                    <p className="text-2xl font-bold text-red-700" data-testid="stat-expired">{summaryStats.expiredProperties}</p>
                   </div>
                   <AlertTriangle className="h-8 w-8 text-red-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card style={{ borderColor: getComplianceColor(overallStats.complianceRate) }}>
+            <Card style={{ borderColor: getComplianceColor(summaryStats.complianceRate) }}>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Compliance Rate</p>
-                    <p className="text-2xl font-bold" style={{ color: getComplianceColor(overallStats.complianceRate) }} data-testid="stat-rate">
-                      {overallStats.complianceRate.toFixed(1)}%
+                    <p className="text-2xl font-bold" style={{ color: getComplianceColor(summaryStats.complianceRate) }} data-testid="stat-rate">
+                      {summaryStats.complianceRate.toFixed(1)}%
                     </p>
                   </div>
                   <div className="flex items-center">
-                    {overallStats.complianceRate >= 85 ? (
+                    {summaryStats.complianceRate >= 85 ? (
                       <TrendingUp className="h-8 w-8 text-emerald-500" />
-                    ) : overallStats.complianceRate >= 70 ? (
+                    ) : summaryStats.complianceRate >= 70 ? (
                       <Minus className="h-8 w-8 text-amber-500" />
                     ) : (
                       <TrendingDown className="h-8 w-8 text-red-500" />

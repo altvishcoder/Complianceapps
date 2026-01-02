@@ -856,6 +856,117 @@ export async function registerRoutes(
     });
   });
   
+  // ===== ASSET HEALTH SUMMARY (Optimized aggregation) =====
+  app.get("/api/asset-health/summary", async (req, res) => {
+    try {
+      const organisationId = req.session?.organisationId || ORG_ID;
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const result = await db.execute(sql`
+        WITH property_compliance AS (
+          SELECT 
+            p.id as property_id,
+            p.address_line1,
+            p.block_id,
+            COALESCE(
+              (SELECT COUNT(*) FROM certificates c 
+               WHERE c.property_id = p.id 
+               AND c.status = 'VALID' 
+               AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
+            ) as compliant_certs,
+            COALESCE(
+              (SELECT COUNT(*) FROM certificates c 
+               WHERE c.property_id = p.id 
+               AND c.expiry_date IS NOT NULL 
+               AND c.expiry_date <= ${now}), 0
+            ) as expired_certs,
+            COALESCE(
+              (SELECT COUNT(*) FROM certificates c 
+               WHERE c.property_id = p.id 
+               AND c.expiry_date IS NOT NULL 
+               AND c.expiry_date > ${now} 
+               AND c.expiry_date <= ${thirtyDaysFromNow}), 0
+            ) as expiring_certs
+          FROM properties p
+          WHERE p.organisation_id = ${organisationId}
+        ),
+        block_stats AS (
+          SELECT 
+            b.id as block_id,
+            b.name as block_name,
+            b.scheme_id,
+            COUNT(DISTINCT pc.property_id) as total_properties,
+            COUNT(DISTINCT CASE WHEN pc.expired_certs = 0 AND pc.compliant_certs > 0 THEN pc.property_id END) as compliant_properties,
+            COUNT(DISTINCT CASE WHEN pc.expiring_certs > 0 AND pc.expired_certs = 0 THEN pc.property_id END) as at_risk_properties,
+            COUNT(DISTINCT CASE WHEN pc.expired_certs > 0 THEN pc.property_id END) as expired_properties
+          FROM blocks b
+          LEFT JOIN property_compliance pc ON pc.block_id = b.id
+          GROUP BY b.id, b.name, b.scheme_id
+        ),
+        scheme_stats AS (
+          SELECT 
+            s.id as scheme_id,
+            s.name as scheme_name,
+            COALESCE(SUM(bs.total_properties), 0)::int as total_properties,
+            COALESCE(SUM(bs.compliant_properties), 0)::int as compliant_properties,
+            COALESCE(SUM(bs.at_risk_properties), 0)::int as at_risk_properties,
+            COALESCE(SUM(bs.expired_properties), 0)::int as expired_properties,
+            COUNT(DISTINCT bs.block_id)::int as blocks_count
+          FROM schemes s
+          LEFT JOIN block_stats bs ON bs.scheme_id = s.id
+          WHERE s.organisation_id = ${organisationId}
+          GROUP BY s.id, s.name
+        )
+        SELECT 
+          scheme_id,
+          scheme_name,
+          total_properties,
+          compliant_properties,
+          at_risk_properties,
+          expired_properties,
+          blocks_count,
+          CASE 
+            WHEN total_properties = 0 THEN 100
+            ELSE ROUND((compliant_properties::decimal / NULLIF(total_properties, 0)) * 100, 1)
+          END as compliance_rate
+        FROM scheme_stats
+        ORDER BY scheme_name
+      `);
+
+      const schemes = result.rows.map((row: any) => ({
+        id: row.scheme_id,
+        name: row.scheme_name,
+        totalProperties: parseInt(row.total_properties) || 0,
+        compliantProperties: parseInt(row.compliant_properties) || 0,
+        atRiskProperties: parseInt(row.at_risk_properties) || 0,
+        expiredProperties: parseInt(row.expired_properties) || 0,
+        blocksCount: parseInt(row.blocks_count) || 0,
+        complianceRate: parseFloat(row.compliance_rate) || 100,
+      }));
+
+      const totals = schemes.reduce((acc, s) => ({
+        totalProperties: acc.totalProperties + s.totalProperties,
+        compliantProperties: acc.compliantProperties + s.compliantProperties,
+        atRiskProperties: acc.atRiskProperties + s.atRiskProperties,
+        expiredProperties: acc.expiredProperties + s.expiredProperties,
+      }), { totalProperties: 0, compliantProperties: 0, atRiskProperties: 0, expiredProperties: 0 });
+
+      res.json({
+        schemes,
+        totals: {
+          ...totals,
+          complianceRate: totals.totalProperties > 0 
+            ? Math.round((totals.compliantProperties / totals.totalProperties) * 1000) / 10 
+            : 100
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching asset health summary:", error);
+      res.status(500).json({ error: "Failed to fetch asset health summary" });
+    }
+  });
+
   // ===== SCHEMES =====
   app.get("/api/schemes", async (req, res) => {
     try {
