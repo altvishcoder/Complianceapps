@@ -77,6 +77,13 @@ export default function Properties() {
   const totalProperties = propertiesResponse?.total ?? 0;
   const totalPages = propertiesResponse?.totalPages ?? 1;
   
+  // Auto-adjust page if current page exceeds total pages (e.g., after deletion)
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+  
   const { data: schemes = [] } = useQuery({
     queryKey: ["schemes"],
     queryFn: () => schemesApi.list(),

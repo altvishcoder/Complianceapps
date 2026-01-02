@@ -90,6 +90,13 @@ export default function ComponentsPage() {
   const totalComponents = componentsResponse?.total || 0;
   const totalPages = componentsResponse?.totalPages || 1;
   
+  // Auto-adjust page if current page exceeds total pages (e.g., after deletion)
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+  
   const { data: componentTypes = [] } = useQuery({
     queryKey: ["component-types"],
     queryFn: componentTypesApi.list,

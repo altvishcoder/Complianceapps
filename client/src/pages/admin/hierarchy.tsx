@@ -601,7 +601,14 @@ export default function PropertyHierarchy() {
   });
   const assetsList = assetsResponse?.data ?? [];
   const assetsTotalCount = assetsResponse?.total ?? assetsList.length;
-  const assetsTotalPages = Math.ceil(assetsTotalCount / assetsPageSize);
+  const assetsTotalPages = assetsResponse?.totalPages ?? Math.max(1, Math.ceil(assetsTotalCount / assetsPageSize));
+  
+  // Auto-adjust page if current page exceeds total pages (e.g., after deletion)
+  useEffect(() => {
+    if (assetsTotalPages > 0 && assetsPage > assetsTotalPages) {
+      setAssetsPage(assetsTotalPages);
+    }
+  }, [assetsTotalPages, assetsPage]);
 
   const { data: allSpaces = [], isLoading: spacesLoading } = useQuery({
     queryKey: ["spaces"],
