@@ -61,6 +61,10 @@ interface HierarchyNode {
   linkStatus?: 'VERIFIED' | 'UNVERIFIED';
   children: HierarchyNode[];
   data?: any;
+  // For lazy loading components
+  propertyId?: string;
+  spaceId?: string;
+  hasComponents?: boolean; // Flag to indicate this node can have components loaded on-demand
 }
 
 function HactBadge({ label }: { label: string }) {
@@ -80,6 +84,115 @@ function HactBadge({ label }: { label: string }) {
 
 const INITIAL_COMPONENT_DISPLAY = 5; // Show first 5 components, then paginate
 
+// Lazy loader for components - fetches on-demand when parent is expanded
+function LazyComponentsLoader({ 
+  propertyId, 
+  spaceId, 
+  level, 
+  onNodeClick 
+}: { 
+  propertyId?: string; 
+  spaceId?: string; 
+  level: number; 
+  onNodeClick?: (node: HierarchyNode) => void;
+}) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_COMPONENT_DISPLAY);
+  
+  // Fetch components for this property/space on-demand
+  const { data: componentsResponse, isLoading, isError } = useQuery({
+    queryKey: ["components", "hierarchy", propertyId, spaceId],
+    queryFn: () => componentsApi.list({ 
+      propertyId: propertyId || undefined,
+      spaceId: spaceId || undefined,
+      limit: 100 
+    }),
+    enabled: !!(propertyId || spaceId),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+  
+  const components = componentsResponse?.data ?? [];
+  
+  // Filter by spaceId if provided, otherwise show components without spaceId (direct property components)
+  const filteredComponents = spaceId 
+    ? components.filter(c => c.spaceId === spaceId)
+    : components.filter(c => !c.spaceId);
+  
+  const visibleComponents = filteredComponents.slice(0, visibleCount);
+  const hasMore = filteredComponents.length > visibleCount;
+  
+  const getComponentName = (comp: EnrichedComponent) => {
+    if (comp.componentType?.name) return comp.componentType.name;
+    if (comp.manufacturer) return `${comp.manufacturer} ${comp.model || ''}`.trim();
+    return comp.assetTag || comp.serialNumber || 'Component';
+  };
+  
+  if (isLoading) {
+    return (
+      <div 
+        className="py-2 px-3 text-sm text-slate-500 flex items-center gap-2"
+        style={{ marginLeft: `${level * 24}px` }}
+      >
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading components...</span>
+      </div>
+    );
+  }
+  
+  if (isError || filteredComponents.length === 0) {
+    return null; // No components to show
+  }
+  
+  return (
+    <>
+      {visibleComponents.map((component) => (
+        <div
+          key={component.id}
+          className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer"
+          style={{ marginLeft: `${level * 24}px` }}
+          onClick={() => onNodeClick?.({
+            id: component.id,
+            name: getComponentName(component),
+            type: 'component',
+            reference: component.serialNumber || undefined,
+            data: component,
+            children: [],
+          })}
+          data-testid={`tree-node-component-${component.id}`}
+        >
+          <div className="w-6" />
+          <div className="p-1.5 rounded-md bg-slate-100 text-slate-800 border-slate-200">
+            <Package className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-slate-900 truncate hover:underline">
+                {getComponentName(component)}
+              </span>
+              {component.serialNumber && (
+                <span className="text-xs text-slate-500">({component.serialNumber})</span>
+              )}
+            </div>
+          </div>
+          <Badge variant="secondary" className="text-xs">Component (Asset)</Badge>
+        </div>
+      ))}
+      
+      {hasMore && (
+        <div 
+          className="py-2 px-3 text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+          style={{ marginLeft: `${level * 24}px` }}
+          onClick={() => setVisibleCount(prev => prev + 10)}
+          data-testid={`load-more-components-${propertyId || spaceId}`}
+        >
+          <Package className="h-4 w-4" />
+          <span>Show {Math.min(10, filteredComponents.length - visibleCount)} more components</span>
+          <span className="text-slate-400">({filteredComponents.length - visibleCount} remaining)</span>
+        </div>
+      )}
+    </>
+  );
+}
+
 function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: HierarchyNode; level?: number; defaultOpen?: boolean; onNodeClick?: (node: HierarchyNode) => void }) {
   // Performance optimization: only expand first 2 levels by default
   // and render children lazily (only when expanded)
@@ -93,7 +206,8 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
   const hasMoreComponents = componentChildren.length > visibleComponentCount;
   const visibleComponents = componentChildren.slice(0, visibleComponentCount);
   
-  const hasChildren = node.children.length > 0;
+  // A node is expandable if it has children OR if it has components that will load on-demand
+  const hasChildren = node.children.length > 0 || node.hasComponents;
   
   // Lazy render children - only mount when first opened
   const handleOpenChange = (open: boolean) => {
@@ -205,12 +319,12 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
                 <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={false} onNodeClick={onNodeClick} />
               ))}
               
-              {/* Render components with progressive loading */}
+              {/* Render inline component children with progressive loading */}
               {visibleComponents.map((child) => (
                 <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={false} onNodeClick={onNodeClick} />
               ))}
               
-              {/* Load more components button */}
+              {/* Load more inline components button */}
               {hasMoreComponents && (
                 <div 
                   className="py-2 px-3 ml-6 text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
@@ -222,6 +336,16 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
                   <span>Show {Math.min(10, componentChildren.length - visibleComponentCount)} more components</span>
                   <span className="text-slate-400">({componentChildren.length - visibleComponentCount} remaining)</span>
                 </div>
+              )}
+              
+              {/* Lazy load components for properties and spaces */}
+              {(node.type === 'property' || node.type === 'space') && node.hasComponents && (
+                <LazyComponentsLoader
+                  propertyId={node.propertyId || (node.type === 'property' ? node.id : undefined)}
+                  spaceId={node.type === 'space' ? node.id : undefined}
+                  level={level + 1}
+                  onNodeClick={onNodeClick}
+                />
               )}
             </div>
           </CollapsibleContent>
@@ -463,11 +587,14 @@ export default function PropertyHierarchy() {
   });
   const properties = propertiesResponse?.data ?? [];
 
-  const { data: componentsResponse, isLoading: componentsLoading } = useQuery({
-    queryKey: ["components"],
-    queryFn: () => componentsApi.list({ limit: 2000 }),
+  // Components for tree view are loaded on-demand per property/space via LazyComponentsLoader
+  // This query is for the Assets tab and dashboard count
+  const { data: assetsResponse, isLoading: assetsLoading } = useQuery({
+    queryKey: ["components", "assets-tab"],
+    queryFn: () => componentsApi.list({ limit: 50 }), // First page for list view
   });
-  const components = componentsResponse?.data ?? [];
+  const assetsList = assetsResponse?.data ?? [];
+  const assetsTotalCount = assetsResponse?.total ?? assetsList.length;
 
   const { data: allSpaces = [], isLoading: spacesLoading } = useQuery({
     queryKey: ["spaces"],
@@ -483,22 +610,11 @@ export default function PropertyHierarchy() {
       return comp.assetTag || comp.serialNumber || 'Component';
     };
     
-    // Helper to build space node with its components
+    // Helper to build space node - components are loaded on-demand via LazyComponentsLoader
     // Spaces can attach to: properties (dwelling rooms), blocks (communal), or schemes (estate-wide)
     const buildSpaceNode = (space: Space, context: { propertyId?: string; blockId?: string; schemeId?: string } = {}): HierarchyNode => {
       // Determine hierarchy level based on which ID is set
       const hierarchyLevel = (space as any).propertyId ? 'property' : (space as any).blockId ? 'block' : (space as any).schemeId ? 'scheme' : 'unknown';
-      
-      const spaceComponents = components
-        .filter((c: EnrichedComponent) => c.spaceId === space.id)
-        .map((component: EnrichedComponent) => ({
-          id: component.id,
-          name: getComponentName(component),
-          type: 'component' as const,
-          reference: component.serialNumber || undefined,
-          data: { ...component, ...context },
-          children: [],
-        }));
       
       return {
         id: space.id,
@@ -511,7 +627,9 @@ export default function PropertyHierarchy() {
           hierarchyLevel,
           ...context 
         },
-        children: spaceComponents,
+        children: [], // Components loaded on-demand
+        propertyId: context.propertyId, // For component loading
+        hasComponents: true, // Enable lazy component loading
       };
     };
 
@@ -534,24 +652,13 @@ export default function PropertyHierarchy() {
             .map((space: Space) => buildSpaceNode(space, { blockId: block.id }));
           
           // Build dwelling (property) nodes - in UKHDS, Property and Dwelling are the SAME entity
+          // Components are loaded on-demand via LazyComponentsLoader for performance
           const dwellingNodes: HierarchyNode[] = blockProperties.map((property: Property) => {
             // Get property-level spaces (rooms within this dwelling)
             const propertySpaces = allSpaces.filter((s: Space) => (s as any).propertyId === property.id);
             const propertySpaceNodes: HierarchyNode[] = propertySpaces.map((space: Space) => 
               buildSpaceNode(space, { propertyId: property.id })
             );
-            
-            // Direct components on property (not in a space)
-            const directComponents = components
-              .filter((c: EnrichedComponent) => c.propertyId === property.id && !c.spaceId)
-              .map((component: EnrichedComponent) => ({
-                id: component.id,
-                name: getComponentName(component),
-                type: 'component' as const,
-                reference: component.serialNumber || undefined,
-                data: { ...component, propertyId: property.id },
-                children: [],
-              }));
             
             return {
               id: property.id,
@@ -561,7 +668,8 @@ export default function PropertyHierarchy() {
               status: property.complianceStatus,
               linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
               data: property,
-              children: [...propertySpaceNodes, ...directComponents],
+              children: propertySpaceNodes, // Components loaded on-demand
+              hasComponents: true, // Enable lazy component loading
             };
           });
           
@@ -589,7 +697,7 @@ export default function PropertyHierarchy() {
         children: [...schemeLevelSpaces, ...blockNodes],
       };
     });
-  }, [schemes, blocks, properties, allSpaces, components]);
+  }, [schemes, blocks, properties, allSpaces]);
 
   const createOrgMutation = useMutation({
     mutationFn: organisationsApi.create,
@@ -769,7 +877,7 @@ export default function PropertyHierarchy() {
     return schemes.find(s => s.id === schemeId);
   };
 
-  const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || componentsLoading || spacesLoading;
+  const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || assetsLoading || spacesLoading;
 
   const totalCounts = {
     organisations: organisations.length,
@@ -777,7 +885,7 @@ export default function PropertyHierarchy() {
     blocks: blocks.length,
     properties: properties.length,
     spaces: allSpaces.length,
-    components: components.length,
+    components: assetsTotalCount, // Use pagination total for accurate count
   };
 
   const handleNodeClick = (node: HierarchyNode) => {
@@ -1211,12 +1319,15 @@ export default function PropertyHierarchy() {
                       <Boxes className="h-5 w-5 text-slate-600" />
                       Assets (Components)
                     </CardTitle>
-                    <CardDescription>
-                      All components and assets across your property portfolio
+                    <CardDescription className="flex items-center justify-between">
+                      <span>Showing recent components. View the full list on the Components page.</span>
+                      <Button variant="link" size="sm" onClick={() => setLocation('/components')}>
+                        View All ({assetsTotalCount.toLocaleString()})
+                      </Button>
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {componentsLoading ? (
+                    {assetsLoading ? (
                       <div className="flex justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin" />
                       </div>
@@ -1232,7 +1343,7 @@ export default function PropertyHierarchy() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {components.map((component: EnrichedComponent) => {
+                          {assetsList.map((component: EnrichedComponent) => {
                             const property = properties.find((p: Property) => p.id === component.propertyId);
                             const componentTypeName = component.componentType?.name || component.componentTypeId || '-';
                             const componentName = component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || componentTypeName);
@@ -1250,7 +1361,7 @@ export default function PropertyHierarchy() {
                               </TableRow>
                             );
                           })}
-                          {components.length === 0 && (
+                          {assetsList.length === 0 && (
                             <TableRow>
                               <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                                 No components found. Add components via the Components page.
