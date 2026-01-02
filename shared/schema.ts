@@ -2865,3 +2865,151 @@ export type IconRegistryEntry = typeof iconRegistry.$inferSelect;
 export type InsertIconRegistryEntry = z.infer<typeof insertIconRegistrySchema>;
 
 export type NavigationItemWithRoles = NavigationItem & { allowedRoles: string[] };
+
+// Cache Management Enums
+export const cacheLayerEnum = pgEnum('cache_layer', [
+  'CLIENT',      // React Query client-side cache
+  'API',         // Server-side API response cache
+  'DATABASE',    // Database query cache
+  'MEMORY',      // In-memory application cache
+  'SESSION'      // Session storage cache
+]);
+
+export const cacheClearScopeEnum = pgEnum('cache_clear_scope', [
+  'REGION',      // Single cache region
+  'CATEGORY',    // Category of regions (e.g., all risk-related)
+  'LAYER',       // Entire cache layer
+  'ALL'          // All caches (requires confirmation)
+]);
+
+export const cacheClearStatusEnum = pgEnum('cache_clear_status', [
+  'SUCCESS',
+  'PARTIAL',
+  'FAILED',
+  'DRY_RUN'
+]);
+
+// Cache Regions - Catalogue of managed cache areas
+export const cacheRegions = pgTable("cache_regions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  layer: cacheLayerEnum("layer").notNull(),
+  category: text("category").notNull(), // e.g., 'risk', 'property', 'certificate', 'config'
+  
+  queryKeyPattern: text("query_key_pattern"), // For React Query - e.g., '/api/risk/*'
+  cacheKeyPattern: text("cache_key_pattern"), // For server-side - e.g., 'risk:*'
+  
+  autoRefreshSeconds: integer("auto_refresh_seconds"), // TTL if applicable
+  isAutoCleared: boolean("is_auto_cleared").notNull().default(false),
+  isProtected: boolean("is_protected").notNull().default(false), // Requires extra confirmation
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  metadata: json("metadata").$type<{
+    estimatedEntries?: number;
+    maxSizeBytes?: number;
+    dependentRegions?: string[];
+    refreshStrategy?: 'manual' | 'ttl' | 'event';
+  }>(),
+  
+  lastClearedAt: timestamp("last_cleared_at"),
+  lastClearedBy: varchar("last_cleared_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Cache Statistics - Aggregated metrics per region
+export const cacheStats = pgTable("cache_stats", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  regionId: varchar("region_id").references(() => cacheRegions.id, { onDelete: 'cascade' }).notNull(),
+  
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  
+  hitCount: integer("hit_count").notNull().default(0),
+  missCount: integer("miss_count").notNull().default(0),
+  evictionCount: integer("eviction_count").notNull().default(0),
+  
+  estimatedEntries: integer("estimated_entries").notNull().default(0),
+  estimatedSizeBytes: integer("estimated_size_bytes").notNull().default(0),
+  
+  avgResponseTimeMs: real("avg_response_time_ms"),
+  
+  source: text("source").notNull().default('system'), // 'system' | 'manual_sample'
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Cache Clear Audit Log - Complete history of cache operations
+export const cacheClearAudit = pgTable("cache_clear_audit", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  scope: cacheClearScopeEnum("scope").notNull(),
+  scopeIdentifier: text("scope_identifier"), // Region ID, category name, layer name
+  
+  initiatedBy: varchar("initiated_by").references(() => users.id).notNull(),
+  initiatorRole: text("initiator_role").notNull(),
+  initiatorIp: text("initiator_ip"),
+  
+  reason: text("reason").notNull(),
+  confirmationToken: text("confirmation_token"), // For 'ALL' scope
+  
+  isDryRun: boolean("is_dry_run").notNull().default(false),
+  status: cacheClearStatusEnum("status").notNull(),
+  
+  affectedRegions: json("affected_regions").$type<{
+    regionId: string;
+    regionName: string;
+    layer: string;
+    status: string;
+    entriesCleared?: number;
+    error?: string;
+  }[]>(),
+  
+  totalEntriesCleared: integer("total_entries_cleared").notNull().default(0),
+  executionTimeMs: integer("execution_time_ms"),
+  
+  beforeState: json("before_state").$type<{
+    totalEntries: number;
+    totalSizeBytes: number;
+    byLayer: Record<string, number>;
+  }>(),
+  afterState: json("after_state").$type<{
+    totalEntries: number;
+    totalSizeBytes: number;
+    byLayer: Record<string, number>;
+  }>(),
+  
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for cache tables
+export const insertCacheRegionSchema = createInsertSchema(cacheRegions).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertCacheStatsSchema = createInsertSchema(cacheStats).omit({ 
+  id: true, createdAt: true 
+});
+export const insertCacheClearAuditSchema = createInsertSchema(cacheClearAudit).omit({ 
+  id: true, createdAt: true 
+});
+
+// Types for cache tables
+export type CacheRegion = typeof cacheRegions.$inferSelect;
+export type InsertCacheRegion = z.infer<typeof insertCacheRegionSchema>;
+
+export type CacheStats = typeof cacheStats.$inferSelect;
+export type InsertCacheStats = z.infer<typeof insertCacheStatsSchema>;
+
+export type CacheClearAudit = typeof cacheClearAudit.$inferSelect;
+export type InsertCacheClearAudit = z.infer<typeof insertCacheClearAuditSchema>;
+
+export type CacheLayer = 'CLIENT' | 'API' | 'DATABASE' | 'MEMORY' | 'SESSION';
+export type CacheClearScope = 'REGION' | 'CATEGORY' | 'LAYER' | 'ALL';

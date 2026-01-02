@@ -28,7 +28,7 @@ import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { db } from "./db";
 import { eq, desc, and, count, sql, isNotNull, lt, gte } from "drizzle-orm";
-import { addSSEClient, removeSSEClient } from "./events";
+import { addSSEClient, removeSSEClient, getSSEClientCount } from "./events";
 import { 
   parseCSV, 
   validateImportData, 
@@ -48,6 +48,8 @@ import {
   clearLoginAttempts,
   getPasswordPolicyDescription 
 } from "./services/password-policy";
+import * as cacheAdminService from "./services/cache-admin";
+import { cacheRegions, cacheClearAudit } from "@shared/schema";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -9592,6 +9594,166 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching ML predictions:", error);
       res.status(500).json({ error: "Failed to fetch ML predictions" });
+    }
+  });
+
+  // ==================== Cache Administration API ====================
+
+  // Seed cache regions on startup
+  cacheAdminService.seedCacheRegions().catch(err => {
+    console.error('Failed to seed cache regions:', err);
+  });
+
+  // Get cache overview with stats per layer/category
+  app.get("/api/admin/cache/overview", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const overview = await cacheAdminService.getCacheOverview();
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching cache overview:", error);
+      res.status(500).json({ error: "Failed to fetch cache overview" });
+    }
+  });
+
+  // Get all cache regions
+  app.get("/api/admin/cache/regions", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { layer, category, activeOnly } = req.query;
+      const regions = await cacheAdminService.getCacheRegions({
+        layer: layer as cacheAdminService.CacheLayer | undefined,
+        category: category as string | undefined,
+        activeOnly: activeOnly !== 'false',
+      });
+      res.json(regions);
+    } catch (error) {
+      console.error("Error fetching cache regions:", error);
+      res.status(500).json({ error: "Failed to fetch cache regions" });
+    }
+  });
+
+  // Get confirmation token for cache clear (required for 'ALL' scope)
+  app.post("/api/admin/cache/confirmation-token", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const token = cacheAdminService.generateConfirmationToken();
+      res.json({ token, expiresIn: 300 });
+    } catch (error) {
+      console.error("Error generating confirmation token:", error);
+      res.status(500).json({ error: "Failed to generate confirmation token" });
+    }
+  });
+
+  // Preview cache clear (dry run)
+  app.post("/api/admin/cache/preview", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { scope, identifier, identifiers, reason } = req.body;
+      
+      if (!scope || !reason) {
+        return res.status(400).json({ error: "Scope and reason are required" });
+      }
+
+      const result = await cacheAdminService.clearCache({
+        scope,
+        identifier,
+        identifiers,
+        reason,
+        dryRun: true,
+        userId: req.session.userId!,
+        userRole: req.user?.role || 'UNKNOWN',
+        userIp: req.ip,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error previewing cache clear:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to preview cache clear" });
+    }
+  });
+
+  // Execute cache clear
+  app.post("/api/admin/cache/clear", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { scope, identifier, identifiers, reason, confirmationToken } = req.body;
+      
+      if (!scope || !reason) {
+        return res.status(400).json({ error: "Scope and reason are required" });
+      }
+
+      if (scope === 'ALL') {
+        if (!confirmationToken) {
+          return res.status(400).json({ error: "Confirmation token required for clearing all caches" });
+        }
+        if (!cacheAdminService.validateConfirmationToken(confirmationToken)) {
+          return res.status(400).json({ error: "Invalid or expired confirmation token" });
+        }
+      }
+
+      const result = await cacheAdminService.clearCache({
+        scope,
+        identifier,
+        identifiers,
+        reason,
+        confirmationToken,
+        dryRun: false,
+        userId: req.session.userId!,
+        userRole: req.user?.role || 'UNKNOWN',
+        userIp: req.ip,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error clearing cache:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to clear cache" });
+    }
+  });
+
+  // Get cache clear audit history
+  app.get("/api/admin/cache/audit", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { limit, userId } = req.query;
+      const history = await cacheAdminService.getCacheClearHistory({
+        limit: limit ? parseInt(limit as string) : 50,
+        userId: userId as string | undefined,
+      });
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching cache audit history:", error);
+      res.status(500).json({ error: "Failed to fetch cache audit history" });
+    }
+  });
+
+  // Trigger client cache invalidation via SSE
+  app.post("/api/admin/cache/notify-clients", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { regions } = req.body;
+      
+      if (!regions || !Array.isArray(regions)) {
+        return res.status(400).json({ error: "Regions array required" });
+      }
+
+      // Use the cache admin service to broadcast via SSE
+      cacheAdminService.broadcastCacheInvalidation(regions);
+      
+      const clientCount = getSSEClientCount();
+
+      res.json({ 
+        success: true, 
+        message: `Cache invalidation notification sent for ${regions.length} regions`,
+        clientsNotified: clientCount,
+      });
+    } catch (error) {
+      console.error("Error notifying clients:", error);
+      res.status(500).json({ error: "Failed to notify clients" });
+    }
+  });
+
+  // Get memory cache stats
+  app.get("/api/admin/cache/memory-stats", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const stats = cacheAdminService.memoryCache.getStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching memory stats:", error);
+      res.status(500).json({ error: "Failed to fetch memory stats" });
     }
   });
 

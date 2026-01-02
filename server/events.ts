@@ -29,3 +29,23 @@ export function broadcastExtractionEvent(event: {
     }
   });
 }
+
+export function broadcastCacheInvalidation(regions: string[]) {
+  const event = {
+    type: 'cache_invalidation' as const,
+    regions,
+    timestamp: Date.now(),
+  };
+  const data = JSON.stringify(event);
+  sseClients.forEach(client => {
+    try {
+      client.res.write(`data: ${data}\n\n`);
+    } catch (e) {
+      // Client disconnected, will be cleaned up
+    }
+  });
+}
+
+export function getSSEClientCount(): number {
+  return sseClients.length;
+}
