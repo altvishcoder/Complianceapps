@@ -670,18 +670,6 @@ export const certificateOutcomeRules = pgTable("certificate_outcome_rules", {
 // HACT-ALIGNED EXTENDED ARCHITECTURE
 // ==========================================
 
-// Unit Types (rooms/areas within a property)
-export const unitTypeEnum = pgEnum('unit_type', [
-  'DWELLING',        // Primary living space
-  'COMMUNAL_AREA',   // Shared hallway, lobby, etc.
-  'PLANT_ROOM',      // Mechanical/electrical room
-  'ROOF_SPACE',      // Roof/attic area
-  'BASEMENT',        // Basement/cellar
-  'EXTERNAL',        // External grounds
-  'GARAGE',          // Garage or parking
-  'COMMERCIAL',      // Commercial unit
-  'OTHER'
-]);
 
 // Component Categories (HACT asset hierarchy)
 export const componentCategoryEnum = pgEnum('component_category', [
@@ -745,45 +733,18 @@ export const componentTypes = pgTable("component_types", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Units (rooms/areas within a property - UKHDS hierarchy level 4)
-export const units = pgTable("units", {
-  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
-  
-  name: text("name").notNull(),                       // "Kitchen", "Communal Hall", etc.
-  reference: text("reference"),                        // Unit reference code
-  unitType: unitTypeEnum("unit_type").notNull(),
-  floor: text("floor"),                               // "Ground", "1st", "Basement"
-  
-  description: text("description"),
-  
-  // HACT reference
-  hactLocationCode: text("hact_location_code"),
-  
-  // Compliance fields
-  areaSqMeters: real("area_sq_meters"),               // Room/unit area
-  isAccessible: boolean("is_accessible").notNull().default(false),
-  fireCompartment: text("fire_compartment"),          // Fire compartmentation zone
-  asbestosPresent: boolean("asbestos_present").notNull().default(false),
-  
-  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 // Space type enum for UKHDS
 export const spaceTypeEnum = pgEnum('space_type', ['ROOM', 'COMMUNAL_AREA', 'EXTERNAL', 'CIRCULATION', 'UTILITY', 'STORAGE', 'OTHER']);
 
 // Spaces (specific locations - UKHDS hierarchy level 5)
-// Can attach to properties (dwellings), units (communal areas), blocks, or schemes
+// Can attach to properties (dwellings), blocks (communal areas), or schemes (estate-wide)
 export const spaces = pgTable("spaces", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   
-  // Hierarchical attachment - spaces can link to properties (dwellings), units, blocks, or schemes
+  // Hierarchical attachment - spaces can link to properties (dwellings), blocks, or schemes
   // At least one should be set; if multiple are set, the most specific takes precedence
   propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
-  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
   blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
   schemeId: varchar("scheme_id").references(() => schemes.id, { onDelete: 'cascade' }),
   
@@ -814,7 +775,6 @@ export const components = pgTable("components", {
   
   // Hierarchical location (all optional for UKHDS flexibility)
   propertyId: varchar("property_id").references(() => properties.id, { onDelete: 'cascade' }),
-  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
   spaceId: varchar("space_id").references(() => spaces.id, { onDelete: 'cascade' }),
   blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
   
@@ -1515,16 +1475,15 @@ export const insertOutcomeRuleSchema = createInsertSchema(certificateOutcomeRule
 
 // HACT Architecture Insert Schemas
 export const insertComponentTypeSchema = createInsertSchema(componentTypes).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertUnitSchema = createInsertSchema(units).omit({ id: true, createdAt: true, updatedAt: true });
-// Space schema with validation: spaces must attach to exactly one hierarchy level (unit, block, or scheme)
+// Space schema with validation: spaces attach to exactly one hierarchy level (property, block, or scheme)
 export const insertSpaceSchema = createInsertSchema(spaces)
   .omit({ id: true, createdAt: true, updatedAt: true })
   .refine(
     (data) => {
-      const attachments = [data.unitId, data.blockId, data.schemeId].filter(Boolean);
+      const attachments = [data.propertyId, data.blockId, data.schemeId].filter(Boolean);
       return attachments.length === 1;
     },
-    { message: "Space must attach to exactly one level: unitId, blockId, or schemeId" }
+    { message: "Space must attach to exactly one level: propertyId (dwelling), blockId (communal), or schemeId (estate)" }
   );
 export const insertComponentSchema = createInsertSchema(components).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertComponentCertificateSchema = createInsertSchema(componentCertificates).omit({ id: true, createdAt: true });
@@ -1609,9 +1568,6 @@ export type InsertOutcomeRule = z.infer<typeof insertOutcomeRuleSchema>;
 // HACT Architecture Types
 export type ComponentType = typeof componentTypes.$inferSelect;
 export type InsertComponentType = z.infer<typeof insertComponentTypeSchema>;
-
-export type Unit = typeof units.$inferSelect;
-export type InsertUnit = z.infer<typeof insertUnitSchema>;
 
 export type Space = typeof spaces.$inferSelect;
 export type InsertSpace = z.infer<typeof insertSpaceSchema>;
