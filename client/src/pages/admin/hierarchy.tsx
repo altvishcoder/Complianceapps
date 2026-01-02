@@ -195,7 +195,7 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
           <Badge variant="secondary" className="text-xs">
             {node.type === 'scheme' && 'Scheme (Site)'}
             {node.type === 'block' && 'Block (Building)'}
-            {node.type === 'property' && 'Property (Structure)'}
+            {node.type === 'property' && 'Dwelling (Property)'}
             {node.type === 'unit' && getUnitTypeLabel(node.data?.unitType)}
             {node.type === 'space' && getSpaceTypeLabel(node.data?.spaceType)}
             {node.type === 'component' && 'Component (Asset)'}
@@ -572,14 +572,15 @@ export default function PropertyHierarchy() {
           const blockLevelUnits: HierarchyNode[] = [];
           const seenUnitIds = new Set<string>();
           
-          // Build property and unit nodes interleaved (each property followed by its dwelling units)
-          const propertyAndUnitNodes: HierarchyNode[] = [];
+          // Build dwelling (property) nodes - in UKHDS, Property and Dwelling are the SAME entity
+          // The properties table represents Dwelling (Property) - the tenancy-level home
+          // Units table is only for non-dwelling types (COMMUNAL_AREA, PLANT_ROOM, etc.)
+          const dwellingNodes: HierarchyNode[] = [];
           
           blockProperties.forEach((property: Property) => {
             const propertyUnits = allUnits.filter((u: Unit) => u.propertyId === property.id);
             
-            // Separate dwelling units from block-level units
-            const dwellingUnits = propertyUnits.filter((u: Unit) => !BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
+            // Only block-level units go to block children - DWELLING units are ignored (properties ARE dwellings)
             const blockUnits = propertyUnits.filter((u: Unit) => BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
             
             // Add block-level units (COMMUNAL_AREA, PLANT_ROOM, etc.) to block's children (deduplicate by ID)
@@ -589,6 +590,12 @@ export default function PropertyHierarchy() {
                 blockLevelUnits.push(buildUnitNode(unit, property.id));
               }
             });
+            
+            // Get property-level spaces (rooms within this dwelling)
+            const propertySpaces = allSpaces.filter((s: Space) => (s as any).propertyId === property.id && !s.unitId);
+            const propertySpaceNodes: HierarchyNode[] = propertySpaces.map((space: Space) => 
+              buildSpaceNode(space, { propertyId: property.id })
+            );
             
             const directComponents = components
               .filter((c: EnrichedComponent) => c.propertyId === property.id && !c.unitId && !c.spaceId)
@@ -601,8 +608,9 @@ export default function PropertyHierarchy() {
                 children: [],
               }));
             
-            // Add property node (contains only direct components)
-            propertyAndUnitNodes.push({
+            // Property IS the Dwelling - they are the same entity in UKHDS
+            // Display as "Dwelling (Property)" with spaces and components as children
+            dwellingNodes.push({
               id: property.id,
               name: `${property.addressLine1}, ${property.postcode}`,
               type: 'property' as const,
@@ -610,12 +618,7 @@ export default function PropertyHierarchy() {
               status: property.complianceStatus,
               linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
               data: property,
-              children: directComponents,
-            });
-            
-            // Add dwelling units IMMEDIATELY after their property (interleaved, same level)
-            dwellingUnits.forEach((unit: Unit) => {
-              propertyAndUnitNodes.push(buildUnitNode(unit, property.id));
+              children: [...propertySpaceNodes, ...directComponents],
             });
           });
           
@@ -627,8 +630,8 @@ export default function PropertyHierarchy() {
             status: block.complianceStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
             data: block,
-            // Block children: spaces, block-level units, then interleaved properties and their dwelling units
-            children: [...blockLevelSpaces, ...blockLevelUnits, ...propertyAndUnitNodes],
+            // Block children: spaces, block-level units (communal areas), then dwellings (properties)
+            children: [...blockLevelSpaces, ...blockLevelUnits, ...dwellingNodes],
           };
         });
       
