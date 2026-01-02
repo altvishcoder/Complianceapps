@@ -1,9 +1,23 @@
 import { db } from "../db";
 import { 
   schemes, blocks, properties, units, spaces, components, componentTypes,
-  certificates, remedialActions, contractors, 
+  certificates, remedialActions, contractors, staffMembers,
   contractorSLAProfiles, complianceStreams
 } from "@shared/schema";
+
+// Scaling configuration - adjust these for larger datasets
+const SCALE_CONFIG = {
+  SCHEMES: 50,           // Number of schemes
+  BLOCKS_PER_SCHEME: 4,  // 200 blocks total
+  PROPERTIES_PER_BLOCK: 10, // 2000 properties total
+  UNITS_PER_PROPERTY: 3,
+  SPACES_PER_UNIT: 4,
+  COMPONENTS_PER_PROPERTY: 4,
+  CERTS_PER_PROPERTY: 3,
+  BATCH_SIZE: 200,        // Insert batch size for performance
+  CONTRACTORS: 150,
+  STAFF_MEMBERS: 50,
+};
 
 const SPACE_NAMES = [
   "Living Room", "Kitchen", "Bathroom", "Bedroom 1", "Bedroom 2",
@@ -90,6 +104,9 @@ export async function seedComprehensiveDemoData(orgId: string) {
   const contractorIds = await seedContractors(orgId, streamCodeToId);
   console.log(`✓ Created ${contractorIds.length} contractors`);
   
+  const staffIds = await seedStaffMembers(orgId);
+  console.log(`✓ Created ${staffIds.length} staff members`);
+  
   await seedSLAProfiles(orgId);
   console.log("✓ Created SLA profiles");
   
@@ -99,24 +116,41 @@ export async function seedComprehensiveDemoData(orgId: string) {
   await seedRemedialActions(certIds, propertyIds);
   console.log("✓ Created remedial actions");
   
+  const totalRecords = schemeIds.length + blockIds.length + propertyIds.length + 
+    unitIds.length + spaceIds.length + componentIds.length + contractorIds.length + 
+    staffIds.length + certIds.length;
+  
   console.log("🎉 Comprehensive demo data seeding complete!");
+  console.log(`📊 Total records created: ${totalRecords.toLocaleString()}`);
+  console.log(`   Hierarchy: ${schemeIds.length} schemes → ${blockIds.length} blocks → ${propertyIds.length} properties → ${unitIds.length} units → ${spaceIds.length} spaces`);
+  console.log(`   Assets: ${componentIds.length} components`);
+  console.log(`   People: ${contractorIds.length} contractors, ${staffIds.length} staff`);
+  console.log(`   Compliance: ${certIds.length} certificates`);
 }
 
 async function seedSchemes(orgId: string): Promise<string[]> {
   const schemeIds: string[] = [];
   const statuses = ["COMPLIANT", "EXPIRING_SOON", "COMPLIANT", "NON_COMPLIANT", "COMPLIANT"] as const;
   
-  for (let i = 0; i < 5; i++) {
+  const batchValues = [];
+  for (let i = 0; i < SCALE_CONFIG.SCHEMES; i++) {
     const city = UK_CITIES[i % UK_CITIES.length];
+    const baseScheme = SCHEME_NAMES[i % SCHEME_NAMES.length];
+    const schemeNum = Math.floor(i / SCHEME_NAMES.length) + 1;
     
-    const [scheme] = await db.insert(schemes).values({
+    batchValues.push({
       organisationId: orgId,
-      name: SCHEME_NAMES[i],
+      name: schemeNum > 1 ? `${baseScheme} ${schemeNum}` : baseScheme,
       reference: `SCH${String(i + 1).padStart(3, '0')}`,
-      complianceStatus: statuses[i],
-    }).returning();
-    
-    schemeIds.push(scheme.id);
+      complianceStatus: statuses[i % statuses.length],
+    });
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < batchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = batchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(schemes).values(batch).returning();
+    schemeIds.push(...inserted.map(s => s.id));
   }
   
   return schemeIds;
@@ -126,24 +160,28 @@ async function seedBlocks(schemeIds: string[]): Promise<string[]> {
   const blockIds: string[] = [];
   const statuses = ["COMPLIANT", "EXPIRING_SOON", "NON_COMPLIANT", "COMPLIANT", "OVERDUE"] as const;
   
+  const batchValues = [];
   for (let schemeIndex = 0; schemeIndex < schemeIds.length; schemeIndex++) {
-    const blocksPerScheme = 5;
-    
-    for (let b = 0; b < blocksPerScheme; b++) {
+    for (let b = 0; b < SCALE_CONFIG.BLOCKS_PER_SCHEME; b++) {
       const template = BLOCK_TEMPLATES[b % BLOCK_TEMPLATES.length];
-      const blockNum = schemeIndex * blocksPerScheme + b + 1;
+      const blockNum = schemeIndex * SCALE_CONFIG.BLOCKS_PER_SCHEME + b + 1;
       
-      const [block] = await db.insert(blocks).values({
+      batchValues.push({
         schemeId: schemeIds[schemeIndex],
-        name: `${template.prefix} ${String.fromCharCode(65 + b)}`,
-        reference: `BLK${String(blockNum).padStart(3, '0')}`,
+        name: `${template.prefix} ${String.fromCharCode(65 + (b % 26))}`,
+        reference: `BLK${String(blockNum).padStart(4, '0')}`,
         hasLift: template.hasLift,
         hasCommunalBoiler: template.hasCommunalBoiler,
         complianceStatus: statuses[b % statuses.length],
-      }).returning();
-      
-      blockIds.push(block.id);
+      });
     }
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < batchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = batchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(blocks).values(batch).returning();
+    blockIds.push(...inserted.map(b => b.id));
   }
   
   return blockIds;
@@ -151,24 +189,22 @@ async function seedBlocks(schemeIds: string[]): Promise<string[]> {
 
 async function seedProperties(blockIds: string[]): Promise<string[]> {
   const propertyIds: string[] = [];
-  const propertiesPerBlock = 40;
   const statuses = ["COMPLIANT", "EXPIRING_SOON", "NON_COMPLIANT", "COMPLIANT", "OVERDUE"] as const;
   const tenures = ["SOCIAL_RENT", "AFFORDABLE_RENT", "SHARED_OWNERSHIP", "LEASEHOLD", "TEMPORARY"] as const;
   const propertyTypes = ["FLAT", "HOUSE", "MAISONETTE", "BUNGALOW", "STUDIO"] as const;
   
   let uprn = 10001001;
+  const allBatchValues = [];
   
   for (let blockIndex = 0; blockIndex < blockIds.length; blockIndex++) {
-    const city = UK_CITIES[Math.floor(blockIndex / 5) % UK_CITIES.length];
+    const city = UK_CITIES[Math.floor(blockIndex / SCALE_CONFIG.BLOCKS_PER_SCHEME) % UK_CITIES.length];
     const street = STREET_NAMES[blockIndex % STREET_NAMES.length];
     
-    const batchValues = [];
-    
-    for (let p = 0; p < propertiesPerBlock; p++) {
+    for (let p = 0; p < SCALE_CONFIG.PROPERTIES_PER_BLOCK; p++) {
       const flat = p + 1;
       const floor = Math.floor(p / 4) + 1;
       
-      batchValues.push({
+      allBatchValues.push({
         blockId: blockIds[blockIndex],
         uprn: String(uprn++),
         addressLine1: `Flat ${flat}, ${street}`,
@@ -187,9 +223,16 @@ async function seedProperties(blockIds: string[]): Promise<string[]> {
         geocodedAt: new Date(),
       });
     }
-    
-    const inserted = await db.insert(properties).values(batchValues).returning();
+  }
+  
+  // Insert in batches for performance
+  for (let i = 0; i < allBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = allBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(properties).values(batch).returning();
     propertyIds.push(...inserted.map(p => p.id));
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 5 === 0) {
+      console.log(`   Properties: ${propertyIds.length}/${allBatchValues.length} inserted`);
+    }
   }
   
   return propertyIds;
@@ -199,21 +242,26 @@ async function seedUnits(propertyIds: string[]): Promise<string[]> {
   const unitIds: string[] = [];
   const unitTypes = ["DWELLING", "COMMUNAL_AREA", "PLANT_ROOM", "ROOF_SPACE", "EXTERNAL"] as const;
   
-  for (let i = 0; i < Math.min(propertyIds.length, 500); i++) {
-    const unitsPerProperty = Math.floor(Math.random() * 3) + 2;
-    
-    const batchValues = [];
-    for (let u = 0; u < unitsPerProperty; u++) {
-      batchValues.push({
+  const allBatchValues = [];
+  for (let i = 0; i < propertyIds.length; i++) {
+    for (let u = 0; u < SCALE_CONFIG.UNITS_PER_PROPERTY; u++) {
+      allBatchValues.push({
         propertyId: propertyIds[i],
         name: `${unitTypes[u % unitTypes.length]} ${u + 1}`,
         unitType: unitTypes[u % unitTypes.length],
-        floor: String(Math.floor(Math.random() * 3)),
+        floor: String(Math.floor(u / 2)),
       });
     }
-    
-    const inserted = await db.insert(units).values(batchValues).returning();
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < allBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = allBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(units).values(batch).returning();
     unitIds.push(...inserted.map(u => u.id));
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 10 === 0) {
+      console.log(`   Units: ${unitIds.length}/${allBatchValues.length} inserted`);
+    }
   }
   
   return unitIds;
@@ -222,20 +270,25 @@ async function seedUnits(propertyIds: string[]): Promise<string[]> {
 async function seedSpaces(unitIds: string[]): Promise<string[]> {
   const spaceIds: string[] = [];
   
-  for (let i = 0; i < Math.min(unitIds.length, 400); i++) {
-    const spacesPerUnit = Math.floor(Math.random() * 4) + 2;
-    
-    const batchValues = [];
-    for (let s = 0; s < spacesPerUnit; s++) {
-      batchValues.push({
+  const allBatchValues = [];
+  for (let i = 0; i < unitIds.length; i++) {
+    for (let s = 0; s < SCALE_CONFIG.SPACES_PER_UNIT; s++) {
+      allBatchValues.push({
         unitId: unitIds[i],
         name: SPACE_NAMES[s % SPACE_NAMES.length],
         reference: `SPACE-${i}-${s}`,
       });
     }
-    
-    const inserted = await db.insert(spaces).values(batchValues).returning();
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < allBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = allBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(spaces).values(batch).returning();
     spaceIds.push(...inserted.map(sp => sp.id));
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 20 === 0) {
+      console.log(`   Spaces: ${spaceIds.length}/${allBatchValues.length} inserted`);
+    }
   }
   
   return spaceIds;
@@ -249,26 +302,34 @@ async function seedComponents(propertyIds: string[], componentTypesList: any[]):
     return componentIds;
   }
   
-  for (let i = 0; i < Math.min(propertyIds.length, 500); i++) {
-    const componentsPerProperty = Math.floor(Math.random() * 3) + 2;
-    
-    const batchValues = [];
-    for (let c = 0; c < componentsPerProperty; c++) {
-      const compType = componentTypesList[c % componentTypesList.length];
-      batchValues.push({
+  const manufacturers = ["Worcester", "Vaillant", "Baxi", "Ideal", "Glow-worm", "Honeywell", "Kidde", "Aico", "BG", "MK"];
+  const conditions = ["GOOD", "FAIR", "POOR"] as const;
+  
+  const allBatchValues = [];
+  for (let i = 0; i < propertyIds.length; i++) {
+    for (let c = 0; c < SCALE_CONFIG.COMPONENTS_PER_PROPERTY; c++) {
+      const compType = componentTypesList[(i + c) % componentTypesList.length];
+      allBatchValues.push({
         propertyId: propertyIds[i],
         componentTypeId: compType.id,
         name: `${compType.name} - ${i + 1}.${c + 1}`,
-        manufacturer: ["Worcester", "Vaillant", "Baxi", "Ideal", "Glow-worm"][c % 5],
+        manufacturer: manufacturers[(i + c) % manufacturers.length],
         modelNumber: `MOD-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
         installDate: new Date(Date.now() - Math.random() * 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        condition: (["GOOD", "FAIR", "POOR"] as const)[c % 3],
+        condition: conditions[(i + c) % conditions.length],
         isActive: true,
       });
     }
-    
-    const inserted = await db.insert(components).values(batchValues).returning();
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < allBatchValues.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = allBatchValues.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(components).values(batch).returning();
     componentIds.push(...inserted.map(c => c.id));
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 10 === 0) {
+      console.log(`   Components: ${componentIds.length}/${allBatchValues.length} inserted`);
+    }
   }
   
   return componentIds;
@@ -288,14 +349,15 @@ async function seedContractors(orgId: string, streamCodeToId: Record<string, str
   const contractorIds: string[] = [];
   const statuses = ["APPROVED", "PENDING", "APPROVED", "APPROVED", "SUSPENDED"] as const;
   
-  for (let i = 0; i < 100; i++) {
+  const contractorBatch = [];
+  for (let i = 0; i < SCALE_CONFIG.CONTRACTORS; i++) {
     const prefix = CONTRACTOR_COMPANY_PREFIXES[i % CONTRACTOR_COMPANY_PREFIXES.length];
     const suffix = CONTRACTOR_COMPANY_SUFFIXES[i % CONTRACTOR_COMPANY_SUFFIXES.length];
     const tradeType = TRADE_TYPES[i % TRADE_TYPES.length];
     
-    const [contractor] = await db.insert(contractors).values({
+    contractorBatch.push({
       organisationId: orgId,
-      companyName: `${prefix} ${suffix}`,
+      companyName: `${prefix} ${suffix} ${Math.floor(i / CONTRACTOR_COMPANY_PREFIXES.length) + 1}`,
       tradeType,
       registrationNumber: `REG${String(i + 1).padStart(5, '0')}`,
       contactEmail: `contact${i + 1}@${prefix.toLowerCase()}services.co.uk`,
@@ -304,34 +366,56 @@ async function seedContractors(orgId: string, streamCodeToId: Record<string, str
       gasRegistration: tradeType === "GAS_ENGINEER" ? `${Math.floor(Math.random() * 999999)}` : null,
       electricalRegistration: tradeType === "ELECTRICIAN" ? `NICEIC${String(i).padStart(6, '0')}` : null,
       isInternal: false,
-    }).returning();
-    
-    contractorIds.push(contractor.id);
+    });
   }
   
-  for (let i = 0; i < 25; i++) {
-    const staffName = DLO_STAFF_NAMES[i % DLO_STAFF_NAMES.length];
-    const department = DLO_DEPARTMENTS[i % DLO_DEPARTMENTS.length];
-    const tradeType = TRADE_TYPES[i % TRADE_TYPES.length];
-    
-    const [staff] = await db.insert(contractors).values({
-      organisationId: orgId,
-      companyName: staffName,
-      tradeType,
-      contactEmail: `${staffName.toLowerCase().replace(' ', '.')}@housing.org.uk`,
-      contactPhone: `07${String(Math.floor(Math.random() * 999999999)).padStart(9, '0')}`,
-      status: "APPROVED",
-      gasRegistration: tradeType === "GAS_ENGINEER" ? `${Math.floor(Math.random() * 999999)}` : null,
-      electricalRegistration: tradeType === "ELECTRICIAN" ? `NICEIC${String(i).padStart(6, '0')}` : null,
-      isInternal: true,
-      employeeId: `EMP-${String(i + 1).padStart(4, '0')}`,
-      department,
-    }).returning();
-    
-    contractorIds.push(staff.id);
+  // Insert contractors in batches
+  for (let i = 0; i < contractorBatch.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = contractorBatch.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(contractors).values(batch).returning();
+    contractorIds.push(...inserted.map(c => c.id));
   }
   
   return contractorIds;
+}
+
+async function seedStaffMembers(orgId: string): Promise<string[]> {
+  const staffIds: string[] = [];
+  const statuses = ["ACTIVE", "ACTIVE", "ACTIVE", "PENDING", "SUSPENDED"] as const;
+  
+  const staffBatch = [];
+  for (let i = 0; i < SCALE_CONFIG.STAFF_MEMBERS; i++) {
+    const staffName = DLO_STAFF_NAMES[i % DLO_STAFF_NAMES.length];
+    const nameParts = staffName.split(' ');
+    const department = DLO_DEPARTMENTS[i % DLO_DEPARTMENTS.length];
+    const tradeType = TRADE_TYPES[i % TRADE_TYPES.length];
+    const isGas = tradeType === "GAS_ENGINEER";
+    const isElectric = tradeType === "ELECTRICIAN";
+    
+    staffBatch.push({
+      organisationId: orgId,
+      firstName: nameParts[0],
+      lastName: nameParts[1] + (Math.floor(i / DLO_STAFF_NAMES.length) > 0 ? ` ${Math.floor(i / DLO_STAFF_NAMES.length) + 1}` : ''),
+      email: `${nameParts[0].toLowerCase()}.${nameParts[1].toLowerCase()}${i}@housing.org.uk`,
+      phone: `07${String(Math.floor(Math.random() * 999999999)).padStart(9, '0')}`,
+      department,
+      roleTitle: department + " Technician",
+      employeeId: `EMP-${String(i + 1).padStart(4, '0')}`,
+      status: statuses[i % statuses.length],
+      tradeSpecialism: tradeType,
+      gasSafeNumber: isGas ? `${Math.floor(Math.random() * 999999)}` : null,
+      nicEicNumber: isElectric ? `NICEIC${String(i).padStart(6, '0')}` : null,
+    });
+  }
+  
+  // Insert staff in batches
+  for (let i = 0; i < staffBatch.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = staffBatch.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(staffMembers).values(batch).returning();
+    staffIds.push(...inserted.map(s => s.id));
+  }
+  
+  return staffIds;
 }
 
 async function seedSLAProfiles(orgId: string) {
@@ -374,10 +458,9 @@ async function seedCertificates(
     "EPC": "ENERGY",
   };
   
-  for (let i = 0; i < Math.min(propertyIds.length, 800); i++) {
-    const certsPerProperty = Math.floor(Math.random() * 3) + 2;
-    
-    for (let c = 0; c < certsPerProperty; c++) {
+  const allCertBatch = [];
+  for (let i = 0; i < propertyIds.length; i++) {
+    for (let c = 0; c < SCALE_CONFIG.CERTS_PER_PROPERTY; c++) {
       const certType = certTypes[(i + c) % certTypes.length];
       const streamCode = certTypeToStream[certType];
       const status = statuses[(i + c) % statuses.length];
@@ -385,7 +468,7 @@ async function seedCertificates(
       const issueDate = new Date(Date.now() - Math.random() * 300 * 24 * 60 * 60 * 1000);
       const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000);
       
-      const [cert] = await db.insert(certificates).values({
+      allCertBatch.push({
         organisationId: orgId,
         propertyId: propertyIds[i],
         certificateType: certType,
@@ -397,9 +480,17 @@ async function seedCertificates(
         issueDate: issueDate.toISOString().split('T')[0],
         expiryDate: expiryDate.toISOString().split('T')[0],
         certificateNumber: `CERT-${String(i * 10 + c).padStart(6, '0')}`,
-      } as any).returning();
-      
-      certIds.push(cert.id);
+      });
+    }
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < allCertBatch.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = allCertBatch.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    const inserted = await db.insert(certificates).values(batch as any).returning();
+    certIds.push(...inserted.map(c => c.id));
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 10 === 0) {
+      console.log(`   Certificates: ${certIds.length}/${allCertBatch.length} inserted`);
     }
   }
   
@@ -412,13 +503,14 @@ async function seedRemedialActions(certIds: string[], propertyIds: string[]) {
   
   const actionsToCreate = Math.floor(certIds.length * 0.3);
   
+  const actionBatch = [];
   for (let i = 0; i < actionsToCreate; i++) {
     const certId = certIds[i % certIds.length];
     const propertyId = propertyIds[i % propertyIds.length];
     const severity = severities[i % severities.length];
     const status = statuses[i % statuses.length];
     
-    await db.insert(remedialActions).values({
+    actionBatch.push({
       certificateId: certId,
       propertyId,
       description: `Remedial action ${i + 1} - ${severity} priority work required`,
@@ -428,5 +520,14 @@ async function seedRemedialActions(certIds: string[], propertyIds: string[]) {
       resolvedAt: status === "COMPLETED" ? new Date() : null,
       costEstimate: String(Math.floor(Math.random() * 5000) + 100),
     });
+  }
+  
+  // Insert in batches
+  for (let i = 0; i < actionBatch.length; i += SCALE_CONFIG.BATCH_SIZE) {
+    const batch = actionBatch.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
+    await db.insert(remedialActions).values(batch);
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 5 === 0) {
+      console.log(`   Remedial actions: ${Math.min(i + SCALE_CONFIG.BATCH_SIZE, actionBatch.length)}/${actionBatch.length} inserted`);
+    }
   }
 }
