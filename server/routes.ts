@@ -6,6 +6,7 @@ import { generateOpenAPIDocument } from "./openapi";
 import { auth } from "./auth";
 import { toNodeHandler } from "better-auth/node";
 import { storage } from "./storage";
+import { requireAuth, requireRole, type AuthenticatedRequest } from "./session";
 import { 
   insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema,
   insertCertificateSchema, insertExtractionSchema, insertRemedialActionSchema, insertContractorSchema, insertStaffMemberSchema,
@@ -8737,9 +8738,10 @@ export async function registerRoutes(
   });
 
   // Navigation Configuration API - Database-driven navigation
+  // Public endpoint - returns navigation with role information
   app.get("/api/navigation", async (req, res) => {
     try {
-      const navigation = await storage.getNavigationWithItems();
+      const navigation = await storage.getNavigationWithItemsAndRoles();
       res.json(navigation);
     } catch (error) {
       console.error("Error fetching navigation:", error);
@@ -8747,7 +8749,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/navigation/sections", async (req, res) => {
+  // Admin-only navigation management endpoints
+  const ADMIN_ROLES = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'ADMIN'];
+
+  app.get("/api/navigation/sections", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const sections = await storage.listNavigationSections();
       res.json(sections);
@@ -8757,7 +8762,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/navigation/sections", async (req, res) => {
+  app.post("/api/navigation/sections", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const section = await storage.createNavigationSection(req.body);
       res.status(201).json(section);
@@ -8767,7 +8772,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/navigation/sections/:id", async (req, res) => {
+  app.patch("/api/navigation/sections/:id", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const section = await storage.updateNavigationSection(req.params.id, req.body);
       if (!section) {
@@ -8780,7 +8785,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/navigation/sections/:id", async (req, res) => {
+  app.delete("/api/navigation/sections/:id", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteNavigationSection(req.params.id);
       if (!deleted) {
@@ -8793,10 +8798,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/navigation/items", async (req, res) => {
+  app.get("/api/navigation/items", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const sectionId = req.query.sectionId as string | undefined;
-      const items = await storage.listNavigationItems(sectionId);
+      const items = await storage.listNavigationItemsWithRoles(sectionId);
       res.json(items);
     } catch (error) {
       console.error("Error fetching navigation items:", error);
@@ -8804,7 +8809,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/navigation/items", async (req, res) => {
+  app.post("/api/navigation/items", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const item = await storage.createNavigationItem(req.body);
       res.status(201).json(item);
@@ -8814,7 +8819,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/navigation/items/:id", async (req, res) => {
+  app.patch("/api/navigation/items/:id", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const item = await storage.updateNavigationItem(req.params.id, req.body);
       if (!item) {
@@ -8827,7 +8832,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/navigation/items/:id", async (req, res) => {
+  app.delete("/api/navigation/items/:id", requireRole(...ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteNavigationItem(req.params.id);
       if (!deleted) {
@@ -8837,6 +8842,72 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting navigation item:", error);
       res.status(500).json({ error: "Failed to delete navigation item" });
+    }
+  });
+
+  // Navigation item role management
+  app.get("/api/navigation/items/:id/roles", requireRole(...ADMIN_ROLES), async (req, res) => {
+    try {
+      const roles = await storage.getNavigationItemRoles(req.params.id);
+      res.json({ itemId: req.params.id, roles });
+    } catch (error) {
+      console.error("Error fetching navigation item roles:", error);
+      res.status(500).json({ error: "Failed to fetch navigation item roles" });
+    }
+  });
+
+  app.put("/api/navigation/items/:id/roles", requireRole(...ADMIN_ROLES), async (req, res) => {
+    try {
+      const { roles } = req.body;
+      if (!Array.isArray(roles)) {
+        return res.status(400).json({ error: "roles must be an array" });
+      }
+      await storage.setNavigationItemRoles(req.params.id, roles);
+      res.json({ success: true, itemId: req.params.id, roles });
+    } catch (error) {
+      console.error("Error setting navigation item roles:", error);
+      res.status(500).json({ error: "Failed to set navigation item roles" });
+    }
+  });
+
+  // Bulk navigation roles update
+  app.put("/api/admin/navigation/bulk-roles", requireRole(...ADMIN_ROLES), async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "items must be an array of {itemId, roles}" });
+      }
+      
+      for (const { itemId, roles } of items) {
+        if (itemId && Array.isArray(roles)) {
+          await storage.setNavigationItemRoles(itemId, roles);
+        }
+      }
+      
+      res.json({ success: true, updated: items.length });
+    } catch (error) {
+      console.error("Error bulk updating navigation roles:", error);
+      res.status(500).json({ error: "Failed to bulk update navigation roles" });
+    }
+  });
+
+  // Available roles endpoint for UI
+  app.get("/api/admin/roles", requireRole(...ADMIN_ROLES), async (req, res) => {
+    try {
+      const roles = [
+        { id: 'LASHAN_SUPER_USER', name: 'Lashan Super User', description: 'Full system access' },
+        { id: 'SUPER_ADMIN', name: 'Super Admin', description: 'Organisation-wide administrative access' },
+        { id: 'SYSTEM_ADMIN', name: 'System Admin', description: 'System configuration access' },
+        { id: 'COMPLIANCE_MANAGER', name: 'Compliance Manager', description: 'Compliance oversight and management' },
+        { id: 'ADMIN', name: 'Admin', description: 'Administrative functions' },
+        { id: 'MANAGER', name: 'Manager', description: 'Team management and oversight' },
+        { id: 'OFFICER', name: 'Officer', description: 'Operational compliance tasks' },
+        { id: 'VIEWER', name: 'Viewer', description: 'Read-only access' }
+      ];
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ error: "Failed to fetch roles" });
     }
   });
 
