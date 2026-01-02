@@ -27,7 +27,7 @@ import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { eq, desc, and, count, sql, isNotNull, lt, gte } from "drizzle-orm";
+import { eq, desc, and, count, sql, isNotNull, lt, gte, inArray } from "drizzle-orm";
 import { addSSEClient, removeSSEClient, getSSEClientCount } from "./events";
 import { 
   parseCSV, 
@@ -9590,6 +9590,18 @@ export async function registerRoutes(
         .orderBy(desc(mlPredictions.createdAt))
         .limit(Math.min(parseInt(limit as string), 100));
       
+      const propertyIds = rawPredictions.map(p => p.propertyId).filter(Boolean) as string[];
+      const propertiesData = propertyIds.length > 0 
+        ? await db.select({
+            id: properties.id,
+            uprn: properties.uprn,
+            address: properties.address,
+            postcode: properties.postcode,
+          }).from(properties).where(inArray(properties.id, propertyIds))
+        : [];
+      
+      const propertyMap = new Map(propertiesData.map(p => [p.id, p]));
+      
       const predictions = rawPredictions.map(p => {
         const hasML = p.mlScore !== null && p.mlConfidence !== null;
         const statConf = p.statisticalConfidence || 50;
@@ -9609,10 +9621,14 @@ export async function registerRoutes(
         }
         
         const breachProbability = combinedScore / 100;
+        const property = p.propertyId ? propertyMap.get(p.propertyId) : null;
         
         return {
           id: p.id,
           propertyId: p.propertyId,
+          propertyUprn: property?.uprn || null,
+          propertyAddress: property?.address || null,
+          propertyPostcode: property?.postcode || null,
           riskScore: combinedScore,
           riskCategory: p.predictedRiskCategory || 'LOW',
           breachProbability,

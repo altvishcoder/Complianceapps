@@ -112,6 +112,9 @@ interface RiskAlert {
 interface MLPrediction {
   id: string;
   propertyId: string;
+  propertyUprn: string | null;
+  propertyAddress: string | null;
+  propertyPostcode: string | null;
   riskScore: number;
   riskCategory: string;
   breachProbability: number;
@@ -684,19 +687,22 @@ function MLPredictionCard({ prediction, onFeedback }: {
   return (
     <Card className="transition-shadow hover:shadow-md" data-testid={`card-ml-prediction-${prediction.id}`}>
       <CardContent className="p-3 md:p-4">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="text-center flex-shrink-0">
-            <div 
-              className="text-2xl md:text-3xl font-bold"
-              style={{ color: TIER_COLORS[prediction.riskCategory as RiskTier] || '#6b7280' }}
-            >
-              {prediction.riskScore}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm truncate" data-testid={`text-prediction-address-${prediction.id}`}>
+                {prediction.propertyAddress || 'Unknown Property'}
+              </div>
+              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                {prediction.propertyUprn && (
+                  <span>UPRN: {prediction.propertyUprn}</span>
+                )}
+                {prediction.propertyPostcode && (
+                  <span className="font-medium">{prediction.propertyPostcode}</span>
+                )}
+              </div>
             </div>
-            <div className="text-[10px] text-muted-foreground">Risk</div>
-          </div>
-
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <SourceBadge sourceLabel={prediction.sourceLabel} />
               <Badge variant={
                 prediction.riskCategory === 'CRITICAL' ? 'destructive' :
@@ -705,44 +711,57 @@ function MLPredictionCard({ prediction, onFeedback }: {
                 {prediction.riskCategory}
               </Badge>
             </div>
-            <div className="w-full max-w-[200px]">
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="text-center flex-shrink-0 w-16">
+              <div 
+                className="text-2xl font-bold"
+                style={{ color: TIER_COLORS[prediction.riskCategory as RiskTier] || '#6b7280' }}
+              >
+                {prediction.riskScore}
+              </div>
+              <div className="text-[10px] text-muted-foreground">Risk Score</div>
+            </div>
+
+            <div className="flex-1 min-w-0">
               <ConfidenceBar confidence={prediction.confidenceLevel} sourceLabel={prediction.sourceLabel} />
             </div>
-          </div>
 
-          <div className="text-right flex-shrink-0">
-            <div className="text-lg font-bold text-amber-600">
-              {prediction.breachProbability != null ? `${(prediction.breachProbability * 100).toFixed(0)}%` : '—'}
-            </div>
-            <div className="text-[10px] text-muted-foreground">Breach Risk</div>
-            {prediction.predictedBreachDate && (
-              <div className="text-[10px] text-red-600 mt-0.5">
-                {format(new Date(prediction.predictedBreachDate), 'MMM d')}
+            <div className="text-right flex-shrink-0 w-20">
+              <div className="text-lg font-bold text-amber-600">
+                {prediction.breachProbability != null ? `${(prediction.breachProbability * 100).toFixed(0)}%` : '—'}
               </div>
-            )}
-          </div>
+              <div className="text-[10px] text-muted-foreground">Breach Risk</div>
+              {prediction.predictedBreachDate && (
+                <div className="text-[10px] text-red-600 mt-0.5">
+                  Est. {format(new Date(prediction.predictedBreachDate), 'MMM d')}
+                </div>
+              )}
+            </div>
 
-          <div className="flex flex-col gap-1">
-            <Button
-              size="icon"
-              variant="outline"
-              className="h-8 w-8 text-green-600 hover:bg-green-50"
-              onClick={() => onFeedback(prediction.id, 'CORRECT')}
-              data-testid={`button-feedback-correct-${prediction.id}`}
-              aria-label="Mark prediction as correct"
-            >
-              <ThumbsUp className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="h-8 w-8 text-red-600 hover:bg-red-50"
-              onClick={() => onFeedback(prediction.id, 'INCORRECT')}
-              data-testid={`button-feedback-incorrect-${prediction.id}`}
-              aria-label="Mark prediction as incorrect"
-            >
-              <ThumbsDown className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1 flex-shrink-0">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 text-green-600 hover:bg-green-50"
+                onClick={() => onFeedback(prediction.id, 'CORRECT')}
+                data-testid={`button-feedback-correct-${prediction.id}`}
+                aria-label="Mark prediction as correct"
+              >
+                <ThumbsUp className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 text-red-600 hover:bg-red-50"
+                onClick={() => onFeedback(prediction.id, 'INCORRECT')}
+                data-testid={`button-feedback-incorrect-${prediction.id}`}
+                aria-label="Mark prediction as incorrect"
+              >
+                <ThumbsDown className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
