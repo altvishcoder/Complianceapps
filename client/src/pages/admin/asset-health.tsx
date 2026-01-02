@@ -289,7 +289,7 @@ export default function AssetHealth() {
     },
   });
 
-  const { data: properties = [], isLoading: propertiesLoading } = useQuery<Property[]>({
+  const { data: propertiesResponse, isLoading: propertiesLoading } = useQuery<{ data: Property[], total: number } | Property[]>({
     queryKey: ['properties'],
     queryFn: async () => {
       const res = await fetch('/api/properties', { credentials: 'include' });
@@ -297,8 +297,9 @@ export default function AssetHealth() {
       return res.json();
     },
   });
+  const properties: Property[] = Array.isArray(propertiesResponse) ? propertiesResponse : (propertiesResponse?.data || []);
 
-  const { data: certificates = [], isLoading: certificatesLoading, refetch } = useQuery<Certificate[]>({
+  const { data: certificatesResponse, isLoading: certificatesLoading, refetch } = useQuery<{ data: Certificate[], total: number } | Certificate[]>({
     queryKey: ['certificates'],
     queryFn: async () => {
       const res = await fetch('/api/certificates', { credentials: 'include' });
@@ -306,6 +307,7 @@ export default function AssetHealth() {
       return res.json();
     },
   });
+  const certificates: Certificate[] = Array.isArray(certificatesResponse) ? certificatesResponse : (certificatesResponse?.data || []);
 
   const isLoading = schemesLoading || blocksLoading || propertiesLoading || certificatesLoading;
 

@@ -2249,7 +2249,7 @@ async function seedNavigation() {
     // Operations
     { sectionId: "sec-ops", slug: "ingestion", name: "Ingestion", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 1, isSystem: true },
     { sectionId: "sec-ops", slug: "certificates", name: "Certificates", href: "/certificates", iconKey: "Files", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-ops", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-command", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 6, isSystem: true },
     { sectionId: "sec-ops", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
     { sectionId: "sec-ops", slug: "calendar", name: "Calendar", href: "/calendar", iconKey: "Calendar", displayOrder: 5, isSystem: true },
     { sectionId: "sec-ops", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 6, isSystem: true },

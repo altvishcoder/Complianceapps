@@ -4,12 +4,13 @@ import {
   certificates, 
   remedialActions, 
   blocks,
+  schemes,
   propertyRiskSnapshots,
   riskFactorDefinitions,
   riskAlerts,
   complianceStreams
 } from '@shared/schema';
-import { eq, and, lt, gt, gte, lte, isNull, sql, desc, inArray, count } from 'drizzle-orm';
+import { eq, and, lt, gt, gte, lte, isNull, sql, desc, inArray, count, or } from 'drizzle-orm';
 import { logger } from '../logger';
 
 export type RiskTier = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -130,7 +131,7 @@ export async function calculateExpiryRiskScore(propertyId: string): Promise<{
     expiringCount: expiringWithin7Days + expiringWithin30Days,
     overdueCount,
     factors,
-    legislation: [...new Set(legislation)],
+    legislation: Array.from(new Set(legislation)),
   };
 }
 
@@ -150,7 +151,11 @@ export async function calculateDefectRiskScore(propertyId: string): Promise<{
   .from(remedialActions)
   .where(and(
     eq(remedialActions.propertyId, propertyId),
-    inArray(remedialActions.status, ['OPEN', 'IN_PROGRESS', 'OVERDUE'])
+    or(
+      eq(remedialActions.status, 'OPEN'),
+      eq(remedialActions.status, 'IN_PROGRESS'),
+      eq(remedialActions.status, 'SCHEDULED')
+    )
   ));
 
   let criticalCount = 0;
@@ -161,11 +166,12 @@ export async function calculateDefectRiskScore(propertyId: string): Promise<{
 
   for (const action of actions) {
     switch (action.severity) {
-      case 'CRITICAL':
+      case 'IMMEDIATE':
         criticalCount++;
-        factors.push(`Critical defect: ${action.description?.substring(0, 50) || 'Unspecified'}`);
+        factors.push(`Immediate defect: ${action.description?.substring(0, 50) || 'Unspecified'}`);
         break;
       case 'URGENT':
+      case 'PRIORITY':
         urgentCount++;
         factors.push(`Urgent defect requiring attention`);
         break;
@@ -268,7 +274,7 @@ export async function calculateAssetProfileRiskScore(propertyId: string): Promis
     isHRB,
     hasVulnerableOccupants: prop.vulnerableOccupant,
     factors,
-    legislation: [...new Set(legislation)],
+    legislation: Array.from(new Set(legislation)),
   };
 }
 
@@ -329,12 +335,12 @@ export async function calculateCoverageGapRiskScore(propertyId: string): Promise
   }
 
   const isHRB = (prop.numberOfFloors || 1) >= 7;
-  if (isHRB && !existingTypes.has('FRA')) {
+  if (isHRB && !existingTypes.has('FIRE_RISK_ASSESSMENT')) {
     missingStreams.push('Fire Safety');
     factors.push('Missing Fire Risk Assessment for HRB');
     legislation.push('Regulatory Reform (Fire Safety) Order 2005', 'Building Safety Act 2022');
     score += 30;
-  } else if (!existingTypes.has('FRA')) {
+  } else if (!existingTypes.has('FIRE_RISK_ASSESSMENT')) {
     score += 10;
   }
 
@@ -344,7 +350,7 @@ export async function calculateCoverageGapRiskScore(propertyId: string): Promise
     score,
     missingStreams,
     factors,
-    legislation: [...new Set(legislation)],
+    legislation: Array.from(new Set(legislation)),
   };
 }
 
@@ -436,13 +442,13 @@ export async function calculatePropertyRiskScore(
     ...externalFactor.factors,
   ];
 
-  const allLegislation = [...new Set([
+  const allLegislation = Array.from(new Set([
     ...expiry.legislation,
     ...defect.legislation,
     ...assetProfile.legislation,
     ...coverageGap.legislation,
     ...externalFactor.legislation,
-  ])];
+  ]));
 
   const recommendedActions = generateRecommendedActions(riskTier, {
     expiryFactors: expiry.factors,
@@ -634,7 +640,8 @@ export async function calculateAllPropertyRisks(organisationId: string): Promise
   })
   .from(properties)
   .innerJoin(blocks, eq(properties.blockId, blocks.id))
-  .where(eq(blocks.organisationId, organisationId));
+  .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+  .where(eq(schemes.organisationId, organisationId));
 
   const stats = { processed: 0, critical: 0, high: 0, medium: 0, low: 0 };
 
