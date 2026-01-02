@@ -26,18 +26,19 @@ Preferred communication style: Simple, everyday language.
 -   **Database**: PostgreSQL.
 -   **Migrations**: Drizzle Kit.
 -   **Data Model**: Follows UKHDS 5-level asset hierarchy with optional linking and verification status. Organisation is implicit. Components attach at any hierarchy level.
-    - **UKHDS Hierarchy Terminology**:
-      - **Scheme (Site Layer)**: Estate, Portfolio, Development
-      - **Block (Building Layer)**: Physical building structure
-      - **Property (Structure Layer)**: Structure within a Block (UKHDS definition)
-      - **Unit (Dwelling Layer)**: The lettable home - what housing associations typically call "Property" (flat, house)
-      - **Space (Room Layer)**: Individual rooms (Kitchen, Bedroom, Bathroom) - can attach to units, blocks, or schemes
-      - **Component (Asset Layer)**: Equipment and assets (Boiler, Smoke Alarm, Consumer Unit)
-    - **Important**: Housing associations commonly use "Property" to mean the dwelling (Unit level). The UKHDS "Property" layer refers to structures within blocks. UI labels clarify this distinction.
-    - **Flexible Space Hierarchy**: Spaces can attach at three levels:
-      - **Unit-level**: Individual rooms within a dwelling (Kitchen, Bedroom)
-      - **Block-level**: Communal areas within a building (Stairwell, Plant Room, Bin Store)
-      - **Scheme-level**: Estate-wide communal spaces (Community Hall, Playground, Estate Office)
+    - **UKHDS Hierarchy Terminology** (aligned with Housing Association usage):
+      - **Scheme (Site Layer)**: Portfolio, Estate, Development - `schemes` table
+      - **Block (Building Layer)**: Physical building structure - `blocks` table (what UKHDS calls "Property")
+      - **Dwelling (Property Layer)**: The lettable home (flat, house) - `properties` table. UI displays as "Dwelling (Property)"
+      - **Space (Room Layer)**: Individual rooms (Kitchen, Bedroom, Bathroom) - `spaces` table with `propertyId`
+      - **Component (Asset Layer)**: Equipment and assets (Boiler, Smoke Alarm, Consumer Unit) - `components` table with `propertyId`
+      - **Unit (Communal Areas Only)**: Used ONLY for block-level communal spaces (COMMUNAL_AREA, PLANT_ROOM, ROOF_SPACE) - `units` table
+    - **Key Design Decision**: The `properties` table represents the Dwelling layer. No separate DWELLING units are created - properties ARE dwellings.
+    - **Flexible Space Hierarchy**: Spaces can attach at four levels:
+      - **Property-level**: Rooms within a dwelling (Kitchen, Bedroom) - via `spaces.propertyId`
+      - **Unit-level**: Areas within communal units - via `spaces.unitId`
+      - **Block-level**: Communal areas within a building (Stairwell) - via `spaces.blockId`
+      - **Scheme-level**: Estate-wide communal spaces (Community Hall) - via `spaces.schemeId`
 -   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 compliance streams aligned with UK social housing regulations.
 -   **Compliance Streams**: 16 high-level compliance categories (Gas & Heating, Electrical, Energy, Fire Safety, Asbestos, Water Safety, Lifting Equipment, Building Safety, External Areas, Security, HRB-specific, Housing Health, Accessibility, Pest Control, Waste, Communal) with system protection (isSystem streams cannot be deleted, only disabled).
 -   **Configuration Data**: Comprehensive industry-standard configuration:
