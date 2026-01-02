@@ -326,6 +326,28 @@ export default function RiskRadarPage() {
     },
   });
 
+  const generateMLPredictionsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/ml/predictions/bulk', {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Predictions Generated',
+        description: `Generated ${data.generated || 0} ML predictions`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['ml-predictions'] });
+      queryClient.invalidateQueries({ queryKey: ['ml-model-metrics'] });
+    },
+    onError: () => {
+      toast({
+        title: 'Generation Failed',
+        description: 'Unable to generate ML predictions. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const updateAlertMutation = useMutation({
     mutationFn: async ({ alertId, status }: { alertId: string; status: string }) => {
       const res = await apiRequest('PATCH', `/api/risk/alerts/${alertId}`, { status });
@@ -929,10 +951,10 @@ export default function RiskRadarPage() {
                   ML predictions are generated when properties are assessed through the risk scoring system.
                 </p>
                 <Button 
-                  onClick={() => calculateAllMutation.mutate()} 
-                  disabled={calculateAllMutation.isPending}
+                  onClick={() => generateMLPredictionsMutation.mutate()} 
+                  disabled={generateMLPredictionsMutation.isPending}
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${calculateAllMutation.isPending ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 mr-2 ${generateMLPredictionsMutation.isPending ? 'animate-spin' : ''}`} />
                   Generate Predictions
                 </Button>
               </CardContent>
