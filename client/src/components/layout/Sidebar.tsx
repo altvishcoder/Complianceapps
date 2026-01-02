@@ -180,9 +180,9 @@ export function Sidebar() {
           aria-expanded={isOpen}
           data-testid={`section-toggle-${section.slug}`}
         >
-          <div className="flex items-center gap-2">
-            <SectionIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{section.title}</span>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <SectionIcon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+            <span className="truncate">{section.title}</span>
           </div>
           {isOpen ? (
             <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -207,7 +207,7 @@ export function Sidebar() {
                     )}
                     data-testid={`nav-item-${item.slug}`}
                   >
-                    <div className="flex items-center">
+                    <div className="flex items-center min-w-0 flex-1">
                       <ItemIcon
                         className={cn(
                           "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
@@ -215,7 +215,7 @@ export function Sidebar() {
                         )}
                         aria-hidden="true"
                       />
-                      {item.name}
+                      <span className="truncate">{item.name}</span>
                     </div>
                     {isActive && (
                       <ChevronRight className="h-4 w-4 text-white/70" aria-hidden="true" />
