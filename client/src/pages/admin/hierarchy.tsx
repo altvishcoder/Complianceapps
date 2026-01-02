@@ -479,14 +479,50 @@ export default function PropertyHierarchy() {
   const BLOCK_LEVEL_UNIT_TYPES = new Set(['COMMUNAL_AREA', 'PLANT_ROOM', 'BASEMENT', 'EXTERNAL', 'GARAGE']);
 
   const hierarchyData = useMemo((): HierarchyNode[] => {
+    // Helper to get component display name
+    const getComponentName = (comp: EnrichedComponent) => {
+      if (comp.componentType?.name) return comp.componentType.name;
+      if (comp.manufacturer) return `${comp.manufacturer} ${comp.model || ''}`.trim();
+      return comp.assetTag || comp.serialNumber || 'Component';
+    };
+    
+    // Helper to build space node with its components
+    // Determines the hierarchy level from space data and provides contextual info
+    const buildSpaceNode = (space: Space, context: { propertyId?: string; blockId?: string; schemeId?: string } = {}): HierarchyNode => {
+      // Determine hierarchy level based on which ID is set
+      const hierarchyLevel = space.unitId ? 'unit' : (space as any).blockId ? 'block' : (space as any).schemeId ? 'scheme' : 'unknown';
+      
+      const spaceComponents = components
+        .filter((c: EnrichedComponent) => c.spaceId === space.id)
+        .map((component: EnrichedComponent) => ({
+          id: component.id,
+          name: getComponentName(component),
+          type: 'component' as const,
+          reference: component.serialNumber || undefined,
+          data: { ...component, ...context },
+          children: [],
+        }));
+      
+      return {
+        id: space.id,
+        name: space.name,
+        type: 'space' as const,
+        reference: space.reference || undefined,
+        // Include full context: spaceType, hierarchyLevel, and parent IDs
+        data: { 
+          ...space, 
+          spaceType: space.spaceType, 
+          hierarchyLevel,
+          ...context 
+        },
+        children: spaceComponents,
+      };
+    };
+    
     // Helper to build unit node with its children
     const buildUnitNode = (unit: Unit, propertyId: string): HierarchyNode => {
+      // Only get unit-level spaces (those with unitId set)
       const unitSpaces = allSpaces.filter((s: Space) => s.unitId === unit.id);
-      const getComponentName = (comp: EnrichedComponent) => {
-        if (comp.componentType?.name) return comp.componentType.name;
-        if (comp.manufacturer) return `${comp.manufacturer} ${comp.model || ''}`.trim();
-        return comp.assetTag || comp.serialNumber || 'Component';
-      };
       
       const unitComponents = components
         .filter((c: EnrichedComponent) => c.unitId === unit.id && !c.spaceId)
@@ -499,27 +535,9 @@ export default function PropertyHierarchy() {
           children: [],
         }));
       
-      const spaceNodes: HierarchyNode[] = unitSpaces.map((space: Space) => {
-        const spaceComponents = components
-          .filter((c: EnrichedComponent) => c.spaceId === space.id)
-          .map((component: EnrichedComponent) => ({
-            id: component.id,
-            name: getComponentName(component),
-            type: 'component' as const,
-            reference: component.serialNumber || undefined,
-            data: { ...component, propertyId },
-            children: [],
-          }));
-        
-        return {
-          id: space.id,
-          name: space.name,
-          type: 'space' as const,
-          reference: space.reference || undefined,
-          data: { ...space, spaceType: space.spaceType, propertyId },
-          children: spaceComponents,
-        };
-      });
+      const spaceNodes: HierarchyNode[] = unitSpaces.map((space: Space) => 
+        buildSpaceNode(space, { propertyId })
+      );
       
       return {
         id: unit.id,
@@ -532,29 +550,27 @@ export default function PropertyHierarchy() {
     };
 
     // UKHDS 5-level hierarchy with Housing Ops view support
-    // Block-level units (communal areas, plant rooms) appear under Block, not Property
-    return schemes.map((scheme) => ({
-      id: scheme.id,
-      name: scheme.name,
-      type: 'scheme' as const,
-      reference: scheme.reference,
-      status: scheme.complianceStatus,
-      linkStatus: (scheme as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
-      data: scheme,
-      children: blocks
+    // Block-level units and spaces (communal areas, plant rooms) appear under Block, not Property
+    // Scheme-level spaces (estate-wide communal areas) appear under Scheme
+    return schemes.map((scheme) => {
+      // Scheme-level spaces: spaces with schemeId set but no blockId or unitId
+      const schemeLevelSpaces: HierarchyNode[] = allSpaces
+        .filter((s: Space) => (s as any).schemeId === scheme.id && !(s as any).blockId && !s.unitId)
+        .map((space: Space) => buildSpaceNode(space, { schemeId: scheme.id }));
+      
+      const blockNodes = blocks
         .filter((b) => b.schemeId === scheme.id)
         .map((block) => {
           const blockProperties = properties.filter((p: Property) => p.blockId === block.id);
           
+          // Block-level spaces: spaces with blockId set but no unitId
+          const blockLevelSpaces: HierarchyNode[] = allSpaces
+            .filter((s: Space) => (s as any).blockId === block.id && !s.unitId)
+            .map((space: Space) => buildSpaceNode(space, { blockId: block.id }));
+          
           // Collect block-level units from all properties in this block (deduplicated)
           const blockLevelUnits: HierarchyNode[] = [];
           const seenUnitIds = new Set<string>();
-          
-          const getComponentName = (comp: EnrichedComponent) => {
-            if (comp.componentType?.name) return comp.componentType.name;
-            if (comp.manufacturer) return `${comp.manufacturer} ${comp.model || ''}`.trim();
-            return comp.assetTag || comp.serialNumber || 'Component';
-          };
           
           const propertyNodes = blockProperties.map((property: Property) => {
             const propertyUnits = allUnits.filter((u: Unit) => u.propertyId === property.id);
@@ -606,11 +622,23 @@ export default function PropertyHierarchy() {
             status: block.complianceStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
             data: block,
-            // Block-level units appear directly under block, before properties
-            children: [...blockLevelUnits, ...propertyNodes],
+            // Block-level spaces and units appear directly under block, before properties
+            children: [...blockLevelSpaces, ...blockLevelUnits, ...propertyNodes],
           };
-        }),
-    }));
+        });
+      
+      return {
+        id: scheme.id,
+        name: scheme.name,
+        type: 'scheme' as const,
+        reference: scheme.reference,
+        status: scheme.complianceStatus,
+        linkStatus: (scheme as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
+        data: scheme,
+        // Scheme-level spaces appear before blocks
+        children: [...schemeLevelSpaces, ...blockNodes],
+      };
+    });
   }, [schemes, blocks, properties, allUnits, allSpaces, components]);
 
   const createOrgMutation = useMutation({

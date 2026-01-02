@@ -775,12 +775,18 @@ export const units = pgTable("units", {
 // Space type enum for UKHDS
 export const spaceTypeEnum = pgEnum('space_type', ['ROOM', 'COMMUNAL_AREA', 'EXTERNAL', 'CIRCULATION', 'UTILITY', 'STORAGE', 'OTHER']);
 
-// Spaces (specific locations within units - UKHDS hierarchy level 5)
+// Spaces (specific locations - UKHDS hierarchy level 5)
+// Can attach to units (individual rooms), blocks (communal areas), or schemes (estate-level spaces)
 export const spaces = pgTable("spaces", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
   
-  name: text("name").notNull(),                       // "Boiler Cupboard", "Under Stairs", etc.
+  // Hierarchical attachment - spaces can link to units, blocks, or schemes
+  // At least one should be set; if multiple are set, the most specific takes precedence
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
+  blockId: varchar("block_id").references(() => blocks.id, { onDelete: 'cascade' }),
+  schemeId: varchar("scheme_id").references(() => schemes.id, { onDelete: 'cascade' }),
+  
+  name: text("name").notNull(),                       // "Boiler Cupboard", "Communal Stairwell", etc.
   reference: text("reference"),                        // Space reference code
   spaceType: spaceTypeEnum("space_type").notNull().default('ROOM'),
   
@@ -1509,7 +1515,16 @@ export const insertOutcomeRuleSchema = createInsertSchema(certificateOutcomeRule
 // HACT Architecture Insert Schemas
 export const insertComponentTypeSchema = createInsertSchema(componentTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUnitSchema = createInsertSchema(units).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSpaceSchema = createInsertSchema(spaces).omit({ id: true, createdAt: true, updatedAt: true });
+// Space schema with validation: spaces must attach to exactly one hierarchy level (unit, block, or scheme)
+export const insertSpaceSchema = createInsertSchema(spaces)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .refine(
+    (data) => {
+      const attachments = [data.unitId, data.blockId, data.schemeId].filter(Boolean);
+      return attachments.length === 1;
+    },
+    { message: "Space must attach to exactly one level: unitId, blockId, or schemeId" }
+  );
 export const insertComponentSchema = createInsertSchema(components).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertComponentCertificateSchema = createInsertSchema(componentCertificates).omit({ id: true, createdAt: true });
 export const insertDataImportSchema = createInsertSchema(dataImports).omit({ id: true, createdAt: true, updatedAt: true });

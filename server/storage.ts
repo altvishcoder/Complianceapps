@@ -70,7 +70,7 @@ import {
   type IconRegistryEntry, type InsertIconRegistryEntry
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -261,8 +261,8 @@ export interface IStorage {
   updateUnit(id: string, updates: Partial<InsertUnit>): Promise<Unit | undefined>;
   deleteUnit(id: string): Promise<boolean>;
   
-  // HACT Architecture - Spaces (Rooms)
-  listSpaces(unitId?: string): Promise<Space[]>;
+  // HACT Architecture - Spaces (can attach to units, blocks, or schemes for communal areas)
+  listSpaces(filters?: { unitId?: string; blockId?: string; schemeId?: string }): Promise<Space[]>;
   getSpace(id: string): Promise<Space | undefined>;
   createSpace(space: InsertSpace): Promise<Space>;
   updateSpace(id: string, updates: Partial<InsertSpace>): Promise<Space | undefined>;
@@ -1635,12 +1635,17 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
   
-  // HACT Architecture - Spaces (Rooms)
-  async listSpaces(unitId?: string): Promise<Space[]> {
-    if (unitId) {
-      return db.select().from(spaces)
-        .where(eq(spaces.unitId, unitId))
-        .orderBy(spaces.name);
+  // HACT Architecture - Spaces (can attach to units, blocks, or schemes for communal areas)
+  // Since spaces can only attach to ONE level, filters use OR logic (not AND)
+  async listSpaces(filters?: { unitId?: string; blockId?: string; schemeId?: string }): Promise<Space[]> {
+    const conditions = [];
+    if (filters?.unitId) conditions.push(eq(spaces.unitId, filters.unitId));
+    if (filters?.blockId) conditions.push(eq(spaces.blockId, filters.blockId));
+    if (filters?.schemeId) conditions.push(eq(spaces.schemeId, filters.schemeId));
+    
+    if (conditions.length > 0) {
+      // Use OR since spaces attach to exactly one hierarchy level
+      return db.select().from(spaces).where(or(...conditions)).orderBy(spaces.name);
     }
     return db.select().from(spaces).orderBy(spaces.name);
   }
@@ -1651,11 +1656,32 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createSpace(space: InsertSpace): Promise<Space> {
+    // Validate single-parent constraint at storage level
+    const attachments = [space.unitId, space.blockId, space.schemeId].filter(Boolean);
+    if (attachments.length !== 1) {
+      throw new Error('Space must attach to exactly one level: unitId, blockId, or schemeId');
+    }
     const [created] = await db.insert(spaces).values(space).returning();
     return created;
   }
   
   async updateSpace(id: string, updates: Partial<InsertSpace>): Promise<Space | undefined> {
+    // If hierarchy IDs are being updated, validate single-parent constraint
+    const isUpdatingHierarchy = 'unitId' in updates || 'blockId' in updates || 'schemeId' in updates;
+    if (isUpdatingHierarchy) {
+      const current = await this.getSpace(id);
+      if (!current) return undefined;
+      
+      const mergedUnitId = 'unitId' in updates ? updates.unitId : current.unitId;
+      const mergedBlockId = 'blockId' in updates ? updates.blockId : (current as any).blockId;
+      const mergedSchemeId = 'schemeId' in updates ? updates.schemeId : (current as any).schemeId;
+      
+      const attachments = [mergedUnitId, mergedBlockId, mergedSchemeId].filter(Boolean);
+      if (attachments.length !== 1) {
+        throw new Error('Space must attach to exactly one level: unitId, blockId, or schemeId');
+      }
+    }
+    
     const [updated] = await db.update(spaces)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(spaces.id, id))

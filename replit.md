@@ -31,9 +31,13 @@ Preferred communication style: Simple, everyday language.
       - **Block (Building Layer)**: Physical building structure
       - **Property (Structure Layer)**: Structure within a Block (UKHDS definition)
       - **Unit (Dwelling Layer)**: The lettable home - what housing associations typically call "Property" (flat, house)
-      - **Space (Room Layer)**: Individual rooms (Kitchen, Bedroom, Bathroom)
+      - **Space (Room Layer)**: Individual rooms (Kitchen, Bedroom, Bathroom) - can attach to units, blocks, or schemes
       - **Component (Asset Layer)**: Equipment and assets (Boiler, Smoke Alarm, Consumer Unit)
     - **Important**: Housing associations commonly use "Property" to mean the dwelling (Unit level). The UKHDS "Property" layer refers to structures within blocks. UI labels clarify this distinction.
+    - **Flexible Space Hierarchy**: Spaces can attach at three levels:
+      - **Unit-level**: Individual rooms within a dwelling (Kitchen, Bedroom)
+      - **Block-level**: Communal areas within a building (Stairwell, Plant Room, Bin Store)
+      - **Scheme-level**: Estate-wide communal spaces (Community Hall, Playground, Estate Office)
 -   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 compliance streams aligned with UK social housing regulations.
 -   **Compliance Streams**: 16 high-level compliance categories (Gas & Heating, Electrical, Energy, Fire Safety, Asbestos, Water Safety, Lifting Equipment, Building Safety, External Areas, Security, HRB-specific, Housing Health, Accessibility, Pest Control, Waste, Communal) with system protection (isSystem streams cannot be deleted, only disabled).
 -   **Configuration Data**: Comprehensive industry-standard configuration:

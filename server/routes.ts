@@ -15,11 +15,12 @@ import {
   insertComponentTypeSchema, insertUnitSchema, insertSpaceSchema, insertComponentSchema, insertDataImportSchema,
   insertDetectionPatternSchema, insertOutcomeRuleSchema,
   extractionRuns, humanReviews, complianceRules, normalisationRules, certificates, properties, ingestionBatches,
-  componentTypes, components, units, componentCertificates, users, extractionTierAudits,
+  componentTypes, components, units, spaces, componentCertificates, users, extractionTierAudits,
   propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes, remedialActions, contractors,
   contractorSLAProfiles, contractorJobPerformance, contractorRatings,
   type ApiClient
 } from "@shared/schema";
+import { createInsertSchema } from "drizzle-zod";
 import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
 import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
@@ -5442,11 +5443,15 @@ export async function registerRoutes(
     }
   });
   
-  // ===== HACT ARCHITECTURE - SPACES (ROOMS) =====
+  // ===== HACT ARCHITECTURE - SPACES (can attach to units, blocks, or schemes for communal areas) =====
   app.get("/api/spaces", async (req, res) => {
     try {
-      const unitId = req.query.unitId as string | undefined;
-      const spacesList = await storage.listSpaces(unitId);
+      const filters = {
+        unitId: req.query.unitId as string | undefined,
+        blockId: req.query.blockId as string | undefined,
+        schemeId: req.query.schemeId as string | undefined,
+      };
+      const spacesList = await storage.listSpaces(filters);
       res.json(spacesList);
     } catch (error) {
       console.error("Error fetching spaces:", error);
@@ -5484,7 +5489,32 @@ export async function registerRoutes(
   
   app.patch("/api/spaces/:id", async (req, res) => {
     try {
-      const updateData = insertSpaceSchema.partial().parse(req.body);
+      // Get base schema without the refine for partial updates
+      const baseSpaceSchema = createInsertSchema(spaces).omit({ id: true, createdAt: true, updatedAt: true });
+      const updateData = baseSpaceSchema.partial().parse(req.body);
+      
+      // If hierarchy IDs are being updated, validate that exactly one is set
+      const isUpdatingHierarchy = 'unitId' in req.body || 'blockId' in req.body || 'schemeId' in req.body;
+      if (isUpdatingHierarchy) {
+        // Get current space to merge with updates
+        const currentSpace = await storage.getSpace(req.params.id);
+        if (!currentSpace) {
+          return res.status(404).json({ error: "Space not found" });
+        }
+        
+        const mergedUnitId = 'unitId' in updateData ? updateData.unitId : currentSpace.unitId;
+        const mergedBlockId = 'blockId' in updateData ? updateData.blockId : (currentSpace as any).blockId;
+        const mergedSchemeId = 'schemeId' in updateData ? updateData.schemeId : (currentSpace as any).schemeId;
+        
+        const attachments = [mergedUnitId, mergedBlockId, mergedSchemeId].filter(Boolean);
+        if (attachments.length !== 1) {
+          return res.status(400).json({ 
+            error: "Validation failed", 
+            details: [{ message: "Space must attach to exactly one level: unitId, blockId, or schemeId" }] 
+          });
+        }
+      }
+      
       const updated = await storage.updateSpace(req.params.id, updateData);
       if (!updated) {
         return res.status(404).json({ error: "Space not found" });
