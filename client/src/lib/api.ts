@@ -6,7 +6,8 @@ import type {
   CertificateType, InsertCertificateType, ClassificationCode, InsertClassificationCode,
   ExtractionSchema, InsertExtractionSchema, ComplianceRule, InsertComplianceRule,
   NormalisationRule, InsertNormalisationRule,
-  ComponentType, InsertComponentType, Unit, InsertUnit, Space, InsertSpace, Component, InsertComponent, DataImport, InsertDataImport
+  ComponentType, InsertComponentType, Unit, InsertUnit, Space, InsertSpace, Component, InsertComponent, DataImport, InsertDataImport,
+  StaffMember, InsertStaffMember
 } from "@shared/schema";
 
 const API_BASE = "/api";
@@ -281,26 +282,36 @@ export const contractorsApi = {
     }),
 };
 
-// Staff / DLO (internal operatives)
+// Staff / DLO (internal operatives) - uses dedicated staff_members table
 export const staffApi = {
-  list: () => fetchJSON<Contractor[]>(`${API_BASE}/contractors?isInternal=true`),
+  list: (filters?: { status?: string; department?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.department) params.append('department', filters.department);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return fetchJSON<StaffMember[]>(`${API_BASE}/staff${query}`);
+  },
   
-  get: (id: string) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`),
+  get: (id: string) => fetchJSON<StaffMember>(`${API_BASE}/staff/${id}`),
   
-  create: (data: Omit<InsertContractor, 'organisationId'>) => fetchJSON<Contractor>(`${API_BASE}/contractors`, {
+  create: (data: Omit<InsertStaffMember, 'organisationId'>) => fetchJSON<StaffMember>(`${API_BASE}/staff`, {
     method: "POST",
-    body: JSON.stringify({ ...data, isInternal: true }),
+    body: JSON.stringify(data),
   }),
   
-  update: (id: string, data: Partial<Contractor>) => fetchJSON<Contractor>(`${API_BASE}/contractors/${id}`, {
+  update: (id: string, data: Partial<InsertStaffMember>) => fetchJSON<StaffMember>(`${API_BASE}/staff/${id}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   }),
   
-  updateStatus: (id: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED') => 
-    fetchJSON<Contractor>(`${API_BASE}/contractors/${id}/status`, {
+  delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/staff/${id}`, {
+    method: "DELETE",
+  }),
+  
+  bulkImport: (staffList: Omit<InsertStaffMember, 'organisationId'>[]) => 
+    fetchJSON<{ success: boolean; created: number; staff: StaffMember[] }>(`${API_BASE}/staff/bulk-import`, {
       method: "POST",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ staffList }),
     }),
 };
 

@@ -16,7 +16,7 @@ import {
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { staffApi, actionsApi } from "@/lib/api";
-import type { Contractor } from "@shared/schema";
+import type { StaffMember } from "@shared/schema";
 
 export default function StaffSLAPage() {
   useEffect(() => {
@@ -173,15 +173,15 @@ export default function StaffSLAPage() {
                     <div className="text-center py-8 text-slate-500">No staff data available</div>
                   ) : (
                     <div className="space-y-3">
-                      {staff.slice(0, 5).map((member: Contractor) => (
+                      {staff.slice(0, 5).map((member: StaffMember) => (
                         <div key={member.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className="h-8 w-8 bg-blue-600/20 rounded-full flex items-center justify-center">
                               <Users className="h-4 w-4 text-blue-400" />
                             </div>
                             <div>
-                              <h4 className="text-white text-sm font-medium">{member.companyName}</h4>
-                              <p className="text-xs text-slate-500">{member.tradeType}</p>
+                              <h4 className="text-white text-sm font-medium">{member.firstName} {member.lastName}</h4>
+                              <p className="text-xs text-slate-500">{member.roleTitle || member.department || 'Staff'}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
