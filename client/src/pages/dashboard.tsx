@@ -438,7 +438,6 @@ export default function Dashboard() {
                     <span className="text-muted-foreground flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
                       Total Homes
-                      <span className="text-xs text-muted-foreground/70">(Properties/Units)</span>
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{stats?.totalHomes || 0}</span>
