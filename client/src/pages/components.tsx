@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { componentsApi, componentTypesApi, propertiesApi, type EnrichedComponent } from "@/lib/api";
 import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil } from "lucide-react";
+import { ComponentTypePicker } from "@/components/ComponentTypePicker";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useSearch } from "wouter";
 import type { InsertComponent } from "@shared/schema";
@@ -458,19 +459,13 @@ export default function ComponentsPage() {
                   data-testid="input-search-components"
                 />
               </div>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-48" data-testid="filter-component-type">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {uniqueComponentTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ComponentTypePicker
+                componentTypes={uniqueComponentTypes}
+                value={typeFilter}
+                onValueChange={setTypeFilter}
+                placeholder="All Types"
+                data-testid="filter-component-type"
+              />
             </div>
           </div>
           

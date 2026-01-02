@@ -217,14 +217,15 @@ export default function ComplianceCalendar() {
     agendaDateFormat: (date: Date) => `${format(date, 'EEE', { locale: enGB })} ${format(date, getDateFnsFormat(), { locale: enGB })}`,
   }), [getDateFnsFormat, getShortDateFormat]);
 
-  const { data: certificates, isLoading: certificatesLoading } = useQuery<any[]>({
+  const { data: certificatesResponse, isLoading: certificatesLoading } = useQuery<{ data: any[], total: number }>({
     queryKey: ["calendarCertificates"],
     queryFn: async () => {
-      const res = await fetch("/api/certificates", { credentials: 'include' });
+      const res = await fetch("/api/certificates?limit=200", { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch certificates");
       return res.json();
     },
   });
+  const certificates = certificatesResponse?.data || [];
 
   const { data: calendarEvents, isLoading: eventsLoading, refetch } = useQuery<any[]>({
     queryKey: ["calendarEvents"],
@@ -235,14 +236,15 @@ export default function ComplianceCalendar() {
     },
   });
 
-  const { data: properties } = useQuery<any[]>({
-    queryKey: ["properties"],
+  const { data: propertiesResponse } = useQuery<{ data: any[], total: number }>({
+    queryKey: ["calendarProperties"],
     queryFn: async () => {
-      const res = await fetch("/api/properties", { credentials: 'include' });
+      const res = await fetch("/api/properties?limit=200", { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch properties");
       return res.json();
     },
   });
+  const properties = propertiesResponse?.data || [];
 
   const { data: complianceStreams } = useQuery<any[]>({
     queryKey: ["complianceStreams"],
