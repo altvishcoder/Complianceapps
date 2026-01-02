@@ -323,12 +323,12 @@ export default function MLInsightsPage() {
                   <CardHeader className="pb-2">
                     <CardDescription>Total Predictions</CardDescription>
                     <CardTitle className="text-2xl">
-                      {modelMetrics?.predictionStats.total.toLocaleString() || 0}
+                      {(modelMetrics?.predictionStats?.total ?? 0).toLocaleString()}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs text-muted-foreground">
-                      Avg confidence: {(modelMetrics?.predictionStats.avgConfidence || 0).toFixed(1)}%
+                      Avg confidence: {(modelMetrics?.predictionStats?.avgConfidence ?? 0).toFixed(1)}%
                     </p>
                   </CardContent>
                 </Card>
@@ -337,16 +337,16 @@ export default function MLInsightsPage() {
                   <CardHeader className="pb-2">
                     <CardDescription>Human Feedback</CardDescription>
                     <CardTitle className="text-2xl">
-                      {modelMetrics?.feedbackStats.total || 0}
+                      {modelMetrics?.feedbackStats?.total ?? 0}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex gap-2 text-xs">
                       <Badge variant="outline" className="bg-green-50 text-green-700">
-                        {modelMetrics?.feedbackStats.correct || 0} correct
+                        {modelMetrics?.feedbackStats?.correct ?? 0} correct
                       </Badge>
                       <Badge variant="outline" className="bg-red-50 text-red-700">
-                        {modelMetrics?.feedbackStats.incorrect || 0} incorrect
+                        {modelMetrics?.feedbackStats?.incorrect ?? 0} incorrect
                       </Badge>
                     </div>
                   </CardContent>
@@ -388,7 +388,7 @@ export default function MLInsightsPage() {
                     <Separator />
                     <div className="text-sm text-muted-foreground">
                       <strong>Tip:</strong> The ML model requires at least 10 feedback samples to begin 
-                      learning. Currently have {modelMetrics?.feedbackStats.total || 0} samples.
+                      learning. Currently have {modelMetrics?.feedbackStats?.total ?? 0} samples.
                       {!modelMetrics?.trainingReady && (
                         <span className="text-amber-600">
                           {" "}Need {modelMetrics?.feedbackSamplesNeeded || 10} more for training.
