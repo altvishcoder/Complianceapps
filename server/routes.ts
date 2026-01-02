@@ -5501,11 +5501,25 @@ export async function registerRoutes(
       const total = filtered.length;
       const paginatedComponents = filtered.slice(offset, offset + limit);
       
-      // Enrich with component type and property info
-      const enriched = await Promise.all(paginatedComponents.map(async (comp) => {
-        const type = await storage.getComponentType(comp.componentTypeId);
-        const property = comp.propertyId ? await storage.getProperty(comp.propertyId) : undefined;
-        return { ...comp, componentType: type, property: property ? { id: property.id, addressLine1: property.addressLine1, postcode: property.postcode } : undefined };
+      // Batch fetch all needed component types and properties for efficiency
+      const uniqueTypeIds = Array.from(new Set(paginatedComponents.map(c => c.componentTypeId).filter(Boolean)));
+      const uniquePropertyIds = Array.from(new Set(paginatedComponents.map(c => c.propertyId).filter((id): id is string => id !== null)));
+      
+      // Fetch all types and properties in parallel batches
+      const [allTypes, allProperties] = await Promise.all([
+        Promise.all(uniqueTypeIds.map(id => storage.getComponentType(id))),
+        Promise.all(uniquePropertyIds.map(id => storage.getProperty(id)))
+      ]);
+      
+      // Create lookup maps
+      const typeMap = new Map(allTypes.filter(Boolean).map(t => [t!.id, t]));
+      const propertyMap = new Map(allProperties.filter(Boolean).map(p => [p!.id, { id: p!.id, addressLine1: p!.addressLine1, postcode: p!.postcode }]));
+      
+      // Enrich components using lookup maps (no additional DB calls)
+      const enriched = paginatedComponents.map(comp => ({
+        ...comp,
+        componentType: typeMap.get(comp.componentTypeId),
+        property: comp.propertyId ? propertyMap.get(comp.propertyId) : undefined
       }));
       
       res.json({ data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) });

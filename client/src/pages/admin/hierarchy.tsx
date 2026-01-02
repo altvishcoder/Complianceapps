@@ -1344,7 +1344,6 @@ export default function PropertyHierarchy() {
                         </TableHeader>
                         <TableBody>
                           {assetsList.map((component: EnrichedComponent) => {
-                            const property = properties.find((p: Property) => p.id === component.propertyId);
                             const componentTypeName = component.componentType?.name || 'Unknown';
                             const categoryName = component.componentType?.category || 'OTHER';
                             return (
@@ -1361,7 +1360,11 @@ export default function PropertyHierarchy() {
                                     </>
                                   ) : '-'}
                                 </TableCell>
-                                <TableCell>{property ? `${property.addressLine1}, ${property.postcode}` : '-'}</TableCell>
+                                <TableCell>
+                                  {component.property ? (
+                                    <span className="text-sm">{component.property.addressLine1}, {component.property.postcode}</span>
+                                  ) : '-'}
+                                </TableCell>
                                 <TableCell>
                                   {component.installDate ? new Date(component.installDate).toLocaleDateString() : '-'}
                                 </TableCell>
