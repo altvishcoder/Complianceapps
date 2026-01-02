@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { type Options } from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import { logger } from '../logger';
@@ -167,9 +167,6 @@ export function createGlobalRateLimiter() {
         retryAfter: 60,
       });
     },
-    keyGenerator: (req) => {
-      return req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
-    },
   });
 }
 
@@ -194,9 +191,6 @@ export function createHeavyEndpointRateLimiter() {
         code: 'HEAVY_RATE_LIMIT_EXCEEDED',
         retryAfter: 60,
       });
-    },
-    keyGenerator: (req) => {
-      return req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
     },
   });
 }
