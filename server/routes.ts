@@ -3007,9 +3007,11 @@ export async function registerRoutes(
   });
   
   // ===== ADMIN / DEMO DATA MANAGEMENT =====
+  // All admin routes require admin role
+  const SUPER_ADMIN_ROLES = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'];
   
   // Wipe all data (certificates, actions, extractions)
-  app.post("/api/admin/wipe-data", async (req, res) => {
+  app.post("/api/admin/wipe-data", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const { includeProperties } = req.body || {};
       await storage.wipeData(includeProperties === true);
@@ -3021,7 +3023,7 @@ export async function registerRoutes(
   });
   
   // Seed demo data (schemes, blocks, properties)
-  app.post("/api/admin/seed-demo", async (req, res) => {
+  app.post("/api/admin/seed-demo", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       await storage.seedDemoData(ORG_ID);
       res.json({ success: true, message: "Demo data seeded successfully" });
@@ -3032,7 +3034,7 @@ export async function registerRoutes(
   });
   
   // Reset demo (wipe all + reseed)
-  app.post("/api/admin/reset-demo", async (req, res) => {
+  app.post("/api/admin/reset-demo", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       await storage.wipeData(true);
       await storage.seedDemoData(ORG_ID);
@@ -3044,7 +3046,7 @@ export async function registerRoutes(
   });
   
   // Reclassify existing certificates based on extracted document type
-  app.post("/api/admin/reclassify-certificates", async (req, res) => {
+  app.post("/api/admin/reclassify-certificates", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const allCertificates = await storage.listCertificates(ORG_ID);
       let updated = 0;
@@ -3117,7 +3119,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/users/:id/role", async (req, res) => {
+  app.patch("/api/users/:id/role", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const { role, requesterId } = req.body;
       if (!role || !requesterId) {
@@ -4566,6 +4568,9 @@ export async function registerRoutes(
   });
   
   // ===== CONFIGURATION - COMPLIANCE STREAMS =====
+  // Config modification routes require admin roles
+  const CONFIG_ADMIN_ROLES = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'ADMIN'];
+  
   app.get("/api/config/compliance-streams", async (req, res) => {
     try {
       const streams = await storage.listComplianceStreams();
@@ -4589,7 +4594,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/compliance-streams", async (req, res) => {
+  app.post("/api/config/compliance-streams", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertComplianceStreamSchema.parse(req.body);
       const stream = await storage.createComplianceStream(data);
@@ -4604,7 +4609,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/compliance-streams/:id", async (req, res) => {
+  app.patch("/api/config/compliance-streams/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       // Check if stream is a system stream
       const existingStream = await storage.getComplianceStream(req.params.id);
@@ -4640,7 +4645,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/compliance-streams/:id", async (req, res) => {
+  app.delete("/api/config/compliance-streams/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       // Check if stream is a system stream
       const existingStream = await storage.getComplianceStream(req.params.id);
@@ -4687,7 +4692,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/certificate-types", async (req, res) => {
+  app.post("/api/config/certificate-types", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertCertificateTypeSchema.parse(req.body);
       const certType = await storage.createCertificateType(data);
@@ -4702,7 +4707,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/certificate-types/:id", async (req, res) => {
+  app.patch("/api/config/certificate-types/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertCertificateTypeSchema.partial().parse(req.body);
       const updated = await storage.updateCertificateType(req.params.id, updateData);
@@ -4720,7 +4725,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/certificate-types/:id", async (req, res) => {
+  app.delete("/api/config/certificate-types/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteCertificateType(req.params.id);
       if (!deleted) {
@@ -4759,7 +4764,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/classification-codes", async (req, res) => {
+  app.post("/api/config/classification-codes", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertClassificationCodeSchema.parse(req.body);
       const code = await storage.createClassificationCode(data);
@@ -4774,7 +4779,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/classification-codes/:id", async (req, res) => {
+  app.patch("/api/config/classification-codes/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertClassificationCodeSchema.partial().parse(req.body);
       const updated = await storage.updateClassificationCode(req.params.id, updateData);
@@ -4792,7 +4797,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/classification-codes/:id", async (req, res) => {
+  app.delete("/api/config/classification-codes/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteClassificationCode(req.params.id);
       if (!deleted) {
@@ -4832,7 +4837,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/detection-patterns", async (req, res) => {
+  app.post("/api/config/detection-patterns", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertDetectionPatternSchema.parse(req.body);
       const pattern = await storage.createDetectionPattern(data);
@@ -4847,7 +4852,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/detection-patterns/:id", async (req, res) => {
+  app.patch("/api/config/detection-patterns/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertDetectionPatternSchema.partial().parse(req.body);
       const updated = await storage.updateDetectionPattern(req.params.id, updateData);
@@ -4865,7 +4870,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/detection-patterns/:id", async (req, res) => {
+  app.delete("/api/config/detection-patterns/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const pattern = await storage.getDetectionPattern(req.params.id);
       if (!pattern) {
@@ -4909,7 +4914,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/outcome-rules", async (req, res) => {
+  app.post("/api/config/outcome-rules", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertOutcomeRuleSchema.parse(req.body);
       const rule = await storage.createOutcomeRule(data);
@@ -4924,7 +4929,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/outcome-rules/:id", async (req, res) => {
+  app.patch("/api/config/outcome-rules/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertOutcomeRuleSchema.partial().parse(req.body);
       const updated = await storage.updateOutcomeRule(req.params.id, updateData);
@@ -4942,7 +4947,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/outcome-rules/:id", async (req, res) => {
+  app.delete("/api/config/outcome-rules/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const rule = await storage.getOutcomeRule(req.params.id);
       if (!rule) {
@@ -4984,7 +4989,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/extraction-schemas", async (req, res) => {
+  app.post("/api/config/extraction-schemas", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertExtractionSchemaSchema.parse(req.body);
       const schema = await storage.createExtractionSchema(data);
@@ -4999,7 +5004,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/extraction-schemas/:id", async (req, res) => {
+  app.patch("/api/config/extraction-schemas/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertExtractionSchemaSchema.partial().parse(req.body);
       const updated = await storage.updateExtractionSchema(req.params.id, updateData);
@@ -5017,7 +5022,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/extraction-schemas/:id", async (req, res) => {
+  app.delete("/api/config/extraction-schemas/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteExtractionSchema(req.params.id);
       if (!deleted) {
@@ -5055,7 +5060,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/compliance-rules", async (req, res) => {
+  app.post("/api/config/compliance-rules", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertComplianceRuleSchema.parse(req.body);
       const rule = await storage.createComplianceRule(data);
@@ -5070,7 +5075,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/compliance-rules/:id", async (req, res) => {
+  app.patch("/api/config/compliance-rules/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertComplianceRuleSchema.partial().parse(req.body);
       const updated = await storage.updateComplianceRule(req.params.id, updateData);
@@ -5088,7 +5093,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/compliance-rules/:id", async (req, res) => {
+  app.delete("/api/config/compliance-rules/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteComplianceRule(req.params.id);
       if (!deleted) {
@@ -5126,7 +5131,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/config/normalisation-rules", async (req, res) => {
+  app.post("/api/config/normalisation-rules", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const data = insertNormalisationRuleSchema.parse(req.body);
       const rule = await storage.createNormalisationRule(data);
@@ -5141,7 +5146,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/config/normalisation-rules/:id", async (req, res) => {
+  app.patch("/api/config/normalisation-rules/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const updateData = insertNormalisationRuleSchema.partial().parse(req.body);
       const updated = await storage.updateNormalisationRule(req.params.id, updateData);
@@ -5159,7 +5164,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/config/normalisation-rules/:id", async (req, res) => {
+  app.delete("/api/config/normalisation-rules/:id", requireRole(...CONFIG_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteNormalisationRule(req.params.id);
       if (!deleted) {
@@ -6029,7 +6034,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/admin/webhooks", async (req, res) => {
+  app.post("/api/admin/webhooks", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const { name, url, authType, authValue, headers, events, retryCount, timeoutMs } = req.body;
       
@@ -6056,7 +6061,7 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/admin/webhooks/:id", async (req, res) => {
+  app.patch("/api/admin/webhooks/:id", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const webhook = await storage.updateWebhookEndpoint(req.params.id, req.body);
       if (!webhook) {
@@ -6069,7 +6074,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/admin/webhooks/:id", async (req, res) => {
+  app.delete("/api/admin/webhooks/:id", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteWebhookEndpoint(req.params.id);
       if (!deleted) {
@@ -6083,7 +6088,7 @@ export async function registerRoutes(
   });
   
   // Test webhook
-  app.post("/api/admin/webhooks/:id/test", async (req, res) => {
+  app.post("/api/admin/webhooks/:id/test", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const webhook = await storage.getWebhookEndpoint(req.params.id);
       if (!webhook) {
@@ -6192,7 +6197,7 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/admin/api-keys", async (req, res) => {
+  app.post("/api/admin/api-keys", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const { name, scopes, expiresAt } = req.body;
       
@@ -6225,7 +6230,7 @@ export async function registerRoutes(
     }
   });
   
-  app.delete("/api/admin/api-keys/:id", async (req, res) => {
+  app.delete("/api/admin/api-keys/:id", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const deleted = await storage.deleteApiKey(req.params.id);
       if (!deleted) {
