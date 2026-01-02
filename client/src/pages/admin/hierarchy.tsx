@@ -1335,9 +1335,9 @@ export default function PropertyHierarchy() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead>Serial Number</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Manufacturer / Model</TableHead>
                             <TableHead>Property</TableHead>
                             <TableHead>Install Date</TableHead>
                           </TableRow>
@@ -1345,15 +1345,22 @@ export default function PropertyHierarchy() {
                         <TableBody>
                           {assetsList.map((component: EnrichedComponent) => {
                             const property = properties.find((p: Property) => p.id === component.propertyId);
-                            const componentTypeName = component.componentType?.name || component.componentTypeId || '-';
-                            const componentName = component.manufacturer ? `${component.manufacturer} ${component.model || ''}`.trim() : (component.assetTag || component.serialNumber || componentTypeName);
+                            const componentTypeName = component.componentType?.name || 'Unknown';
+                            const categoryName = component.componentType?.category || 'OTHER';
                             return (
                               <TableRow key={component.id} data-testid={`row-component-${component.id}`}>
-                                <TableCell className="font-medium">{componentName}</TableCell>
+                                <TableCell className="font-medium">{componentTypeName}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline">{componentTypeName}</Badge>
+                                  <Badge variant="outline">{categoryName}</Badge>
                                 </TableCell>
-                                <TableCell>{component.serialNumber || '-'}</TableCell>
+                                <TableCell>
+                                  {component.manufacturer || component.model ? (
+                                    <>
+                                      <span className="font-medium">{component.manufacturer}</span>
+                                      {component.model && <span className="text-muted-foreground"> / {component.model}</span>}
+                                    </>
+                                  ) : '-'}
+                                </TableCell>
                                 <TableCell>{property ? `${property.addressLine1}, ${property.postcode}` : '-'}</TableCell>
                                 <TableCell>
                                   {component.installDate ? new Date(component.installDate).toLocaleDateString() : '-'}
