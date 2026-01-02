@@ -117,18 +117,30 @@ class SimpleNeuralNetwork {
     return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x))));
   }
 
+  private sigmoidDerivative(x: number): number {
+    const s = this.sigmoid(x);
+    return s * (1 - s);
+  }
+
   private relu(x: number): number {
     return Math.max(0, x);
   }
 
-  predict(inputFeatures: number[]): number {
-    let current = inputFeatures;
+  private reluDerivative(x: number): number {
+    return x > 0 ? 1 : 0;
+  }
+
+  private forwardPass(inputFeatures: number[]): { activations: number[][]; preActivations: number[][] } {
     const layers = [this.config.inputFeatures.length, ...this.config.hiddenLayers, this.config.outputSize];
+    const activations: number[][] = [inputFeatures];
+    const preActivations: number[][] = [inputFeatures];
+    let current = inputFeatures;
     
     for (let layerIdx = 0; layerIdx < this.weights.length; layerIdx++) {
       const inputSize = layers[layerIdx];
       const outputSize = layers[layerIdx + 1];
       const layerWeights = this.weights[layerIdx];
+      const preAct: number[] = [];
       const next: number[] = [];
       
       for (let j = 0; j < outputSize; j++) {
@@ -136,16 +148,24 @@ class SimpleNeuralNetwork {
         for (let i = 0; i < inputSize; i++) {
           sum += current[i] * layerWeights[i * outputSize + j];
         }
+        preAct.push(sum);
         if (layerIdx === this.weights.length - 1) {
           next.push(this.sigmoid(sum));
         } else {
           next.push(this.relu(sum));
         }
       }
+      preActivations.push(preAct);
+      activations.push(next);
       current = next;
     }
     
-    return current[0] * 100;
+    return { activations, preActivations };
+  }
+
+  predict(inputFeatures: number[]): number {
+    const { activations } = this.forwardPass(inputFeatures);
+    return activations[activations.length - 1][0] * 100;
   }
 
   train(
@@ -155,6 +175,7 @@ class SimpleNeuralNetwork {
   ): { finalLoss: number; finalAccuracy: number; epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> } {
     const learningRate = config.learningRate;
     const epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> = [];
+    const layers = [this.config.inputFeatures.length, ...this.config.hiddenLayers, this.config.outputSize];
     
     for (let epoch = 0; epoch < config.epochs; epoch++) {
       let totalLoss = 0;
@@ -163,19 +184,56 @@ class SimpleNeuralNetwork {
       const shuffled = [...trainingData].sort(() => Math.random() - 0.5);
       
       for (const sample of shuffled) {
-        const prediction = this.predict(sample.input) / 100;
+        const { activations, preActivations } = this.forwardPass(sample.input);
+        const prediction = activations[activations.length - 1][0];
         const target = sample.target / 100;
-        const error = target - prediction;
+        const outputError = target - prediction;
         
-        totalLoss += error * error;
+        totalLoss += outputError * outputError;
         
         if (Math.abs(prediction * 100 - sample.target) < 15) {
           correct++;
         }
         
-        for (let w = 0; w < this.weights.length; w++) {
-          for (let i = 0; i < this.weights[w].length; i++) {
-            this.weights[w][i] += learningRate * error * 0.01;
+        const deltas: number[][] = new Array(this.weights.length);
+        
+        const outputDelta = outputError * this.sigmoidDerivative(preActivations[preActivations.length - 1][0]);
+        deltas[this.weights.length - 1] = [outputDelta];
+        
+        for (let layerIdx = this.weights.length - 2; layerIdx >= 0; layerIdx--) {
+          const inputSize = layers[layerIdx + 1];
+          const outputSize = layers[layerIdx + 2];
+          const layerWeights = this.weights[layerIdx + 1];
+          const currentDeltas: number[] = [];
+          
+          for (let i = 0; i < inputSize; i++) {
+            let errorSum = 0;
+            for (let j = 0; j < outputSize; j++) {
+              errorSum += deltas[layerIdx + 1][j] * layerWeights[i * outputSize + j];
+            }
+            const derivative = this.reluDerivative(preActivations[layerIdx + 1][i]);
+            currentDeltas.push(errorSum * derivative);
+          }
+          deltas[layerIdx] = currentDeltas;
+        }
+        
+        for (let layerIdx = 0; layerIdx < this.weights.length; layerIdx++) {
+          const inputSize = layers[layerIdx];
+          const outputSize = layers[layerIdx + 1];
+          const layerActivations = activations[layerIdx];
+          const layerDeltas = deltas[layerIdx];
+          
+          for (let i = 0; i < inputSize; i++) {
+            for (let j = 0; j < outputSize; j++) {
+              const gradient = layerActivations[i] * layerDeltas[j];
+              this.weights[layerIdx][i * outputSize + j] += learningRate * gradient;
+            }
+          }
+          
+          if (this.biases[layerIdx] !== undefined) {
+            for (let j = 0; j < outputSize; j++) {
+              this.biases[layerIdx] += learningRate * layerDeltas[j] * 0.1;
+            }
           }
         }
       }

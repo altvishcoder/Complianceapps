@@ -22,7 +22,12 @@ import {
   Zap,
   FileWarning,
   ChevronRight,
-  Calendar
+  Calendar,
+  Brain,
+  Calculator,
+  Sparkles,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 import { Link } from "wouter";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
@@ -94,6 +99,32 @@ interface RiskAlert {
   propertyPostcode: string;
 }
 
+interface MLPrediction {
+  id: string;
+  propertyId: string;
+  riskScore: number;
+  riskCategory: string;
+  breachProbability: number;
+  predictedBreachDate: string | null;
+  confidenceLevel: number;
+  sourceLabel: 'Statistical' | 'ML-Enhanced' | 'ML-Only';
+  createdAt: string;
+}
+
+interface MLModelMetrics {
+  model: {
+    accuracy: number | null;
+    totalPredictions: number;
+    correctPredictions: number;
+  } | null;
+  feedbackStats: {
+    total: number;
+    correct: number;
+    incorrect: number;
+  };
+  trainingReady: boolean;
+}
+
 const TIER_COLORS = {
   CRITICAL: '#dc2626',
   HIGH: '#ea580c',
@@ -160,6 +191,55 @@ function RiskScoreGauge({ score, tier }: { score: number; tier: RiskTier }) {
   );
 }
 
+function SourceBadge({ sourceLabel }: { sourceLabel: string }) {
+  switch (sourceLabel) {
+    case 'Statistical':
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs" data-testid="badge-source-statistical">
+          <Calculator className="h-3 w-3 mr-1" /> Statistical
+        </Badge>
+      );
+    case 'ML-Enhanced':
+      return (
+        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs" data-testid="badge-source-ml-enhanced">
+          <Brain className="h-3 w-3 mr-1" /> ML-Enhanced
+        </Badge>
+      );
+    case 'ML-Only':
+      return (
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs" data-testid="badge-source-ml-only">
+          <Sparkles className="h-3 w-3 mr-1" /> ML-Only
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline" className="text-xs">{sourceLabel}</Badge>;
+  }
+}
+
+function ConfidenceBar({ confidence, sourceLabel }: { confidence: number; sourceLabel: string }) {
+  const getColor = () => {
+    if (sourceLabel === 'Statistical') return 'bg-blue-500';
+    if (confidence >= 80) return 'bg-green-500';
+    if (confidence >= 60) return 'bg-yellow-500';
+    return 'bg-orange-500';
+  };
+
+  return (
+    <div className="w-full" data-testid="confidence-bar">
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-muted-foreground">Confidence</span>
+        <span className="font-medium">{confidence.toFixed(0)}%</span>
+      </div>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${getColor()} transition-all`}
+          style={{ width: `${confidence}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function RiskRadarPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -189,6 +269,39 @@ export default function RiskRadarPage() {
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
+    }
+  });
+
+  const { data: mlPredictions, isLoading: mlLoading } = useQuery<MLPrediction[]>({
+    queryKey: ['ml-predictions'],
+    queryFn: async () => {
+      const res = await fetch('/api/ml/predictions?limit=30', { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
+  const { data: mlMetrics } = useQuery<MLModelMetrics>({
+    queryKey: ['ml-model-metrics'],
+    queryFn: async () => {
+      const res = await fetch('/api/ml/model', { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    }
+  });
+
+  const submitFeedbackMutation = useMutation({
+    mutationFn: async ({ predictionId, feedbackType }: { predictionId: string; feedbackType: 'CORRECT' | 'INCORRECT' }) => {
+      const res = await apiRequest('POST', `/api/ml/predictions/${predictionId}/feedback`, { feedbackType });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Feedback submitted', description: 'Thank you for helping improve our predictions!' });
+      queryClient.invalidateQueries({ queryKey: ['ml-predictions'] });
+      queryClient.invalidateQueries({ queryKey: ['ml-model-metrics'] });
+    },
+    onError: () => {
+      toast({ title: 'Feedback failed', variant: 'destructive' });
     }
   });
 
@@ -415,6 +528,10 @@ export default function RiskRadarPage() {
         <TabsList data-testid="tabs-risk-views">
           <TabsTrigger value="properties">Properties at Risk</TabsTrigger>
           <TabsTrigger value="alerts">Active Alerts</TabsTrigger>
+          <TabsTrigger value="ml-predictions" data-testid="tab-ml-predictions">
+            <Brain className="h-4 w-4 mr-2" />
+            ML Predictions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="properties" className="space-y-4">
@@ -646,6 +763,180 @@ export default function RiskRadarPage() {
                 </Card>
               ))}
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ml-predictions" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2" data-testid="card-ml-info">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-600" />
+                  Two-Tier Prediction System
+                </CardTitle>
+                <CardDescription>
+                  Understanding how predictions are generated
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calculator className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-blue-800">Statistical Score (85-95%)</span>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    Based on proven compliance rules, certificate expiry patterns, and historical data.
+                    Always reliable, high accuracy baseline.
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-5 w-5 text-purple-600" />
+                    <span className="font-semibold text-purple-800">ML Prediction (30-95%)</span>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    Learning from patterns and human feedback. Confidence improves over time
+                    as more feedback is provided.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-ml-stats">
+              <CardHeader>
+                <CardTitle>Model Stats</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Model Accuracy</div>
+                  <div className="text-2xl font-bold">
+                    {mlMetrics?.model?.accuracy != null 
+                      ? `${(mlMetrics.model.accuracy * 100).toFixed(1)}%` 
+                      : 'Training...'}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="p-2 bg-muted rounded">
+                    <div className="text-lg font-bold">{mlMetrics?.model?.totalPredictions || 0}</div>
+                    <div className="text-xs text-muted-foreground">Predictions</div>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <div className="text-lg font-bold">{mlMetrics?.feedbackStats?.total || 0}</div>
+                    <div className="text-xs text-muted-foreground">Feedback</div>
+                  </div>
+                </div>
+                <Link href="/admin/ml-insights">
+                  <Button variant="outline" className="w-full" data-testid="button-view-ml-dashboard">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    View Full Dashboard
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          {mlLoading ? (
+            <div className="h-[200px] flex items-center justify-center">Loading predictions...</div>
+          ) : mlPredictions && mlPredictions.length > 0 ? (
+            <div className="grid gap-4">
+              {mlPredictions.map(prediction => (
+                <Card key={prediction.id} className="hover:shadow-md transition-shadow" data-testid={`card-ml-prediction-${prediction.id}`}>
+                  <CardContent className="py-4">
+                    <div className="flex items-center gap-6">
+                      <div className="w-20 text-center">
+                        <div 
+                          className="text-3xl font-bold"
+                          style={{ color: 
+                            prediction.riskCategory === 'CRITICAL' ? '#dc2626' :
+                            prediction.riskCategory === 'HIGH' ? '#ea580c' :
+                            prediction.riskCategory === 'MEDIUM' ? '#eab308' : '#22c55e'
+                          }}
+                        >
+                          {prediction.riskScore}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Risk Score</div>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <SourceBadge sourceLabel={prediction.sourceLabel} />
+                          <Badge variant={
+                            prediction.riskCategory === 'CRITICAL' ? 'destructive' :
+                            prediction.riskCategory === 'HIGH' ? 'warning' :
+                            prediction.riskCategory === 'MEDIUM' ? 'default' : 'secondary'
+                          }>
+                            {prediction.riskCategory}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Property: {prediction.propertyId.slice(0, 8)}...
+                        </p>
+                        <div className="mt-2 w-48">
+                          <ConfidenceBar confidence={prediction.confidenceLevel} sourceLabel={prediction.sourceLabel} />
+                        </div>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-amber-600">
+                          {(prediction.breachProbability * 100).toFixed(0)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Breach Probability</div>
+                        {prediction.predictedBreachDate && (
+                          <div className="text-xs text-red-600 mt-1">
+                            Est. {format(new Date(prediction.predictedBreachDate), 'MMM d, yyyy')}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-600 hover:bg-green-50"
+                          onClick={() => submitFeedbackMutation.mutate({ predictionId: prediction.id, feedbackType: 'CORRECT' })}
+                          disabled={submitFeedbackMutation.isPending}
+                          data-testid={`button-feedback-correct-${prediction.id}`}
+                        >
+                          <ThumbsUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:bg-red-50"
+                          onClick={() => submitFeedbackMutation.mutate({ predictionId: prediction.id, feedbackType: 'INCORRECT' })}
+                          disabled={submitFeedbackMutation.isPending}
+                          data-testid={`button-feedback-incorrect-${prediction.id}`}
+                        >
+                          <ThumbsDown className="h-4 w-4" />
+                        </Button>
+                        <Link href={`/properties/${prediction.propertyId}`}>
+                          <Button variant="ghost" size="sm">
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">No ML Predictions Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  ML predictions are generated when properties are assessed through the risk scoring system.
+                </p>
+                <Button 
+                  onClick={() => calculateAllMutation.mutate()} 
+                  disabled={calculateAllMutation.isPending}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${calculateAllMutation.isPending ? 'animate-spin' : ''}`} />
+                  Generate Predictions
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
