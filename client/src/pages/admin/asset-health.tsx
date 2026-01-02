@@ -197,11 +197,14 @@ interface TreemapContentProps {
 }
 
 function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', complianceRate = 0, complianceStatus, nodeType, depth = 0 }: TreemapContentProps) {
-  if (width < 50 || height < 30) return null;
+  if (width < 4 || height < 4) return null;
   
   const color = nodeType === 'property' && complianceStatus 
     ? getPropertyComplianceColor(complianceStatus)
     : getComplianceColor(complianceRate);
+  
+  const showFullText = width > 60 && height > 40;
+  const showCompactText = !showFullText && width > 35 && height > 25;
   
   return (
     <g style={{ cursor: 'pointer' }}>
@@ -213,10 +216,10 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
         fill={color}
         fillOpacity={depth === 1 ? 0.9 : 0.7}
         stroke="#fff"
-        strokeWidth={2}
-        rx={4}
+        strokeWidth={1}
+        rx={2}
       />
-      {width > 60 && height > 40 && (
+      {showFullText && (
         <>
           <text
             x={x + width / 2}
@@ -240,6 +243,19 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
             {nodeType === 'property' ? (complianceStatus === 'compliant' ? '✓' : complianceStatus === 'at_risk' ? '⚠' : complianceStatus === 'expired' ? '✗' : '—') : `${complianceRate.toFixed(0)}%`}
           </text>
         </>
+      )}
+      {showCompactText && (
+        <text
+          x={x + width / 2}
+          y={y + height / 2 + 4}
+          textAnchor="middle"
+          fill="#fff"
+          fontSize={Math.min(10, Math.min(width, height) / 3)}
+          fontWeight="600"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+        >
+          {nodeType === 'property' ? (complianceStatus === 'compliant' ? '✓' : complianceStatus === 'at_risk' ? '⚠' : complianceStatus === 'expired' ? '✗' : '—') : `${complianceRate.toFixed(0)}%`}
+        </text>
       )}
     </g>
   );
