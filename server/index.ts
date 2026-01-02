@@ -33,8 +33,8 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 // Setup session middleware (must be before routes)
 setupSession(app);
 
-// Apply global rate limiting
-app.use(createGlobalRateLimiter());
+// Apply global rate limiting to API routes only (not static assets)
+app.use('/api', createGlobalRateLimiter());
 
 export function log(message: string, source = "express") {
   logger.info({ source }, message);
