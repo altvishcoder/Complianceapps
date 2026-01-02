@@ -315,7 +315,9 @@ export default function RiskRadarPage() {
         title: 'Risk Calculation Complete',
         description: `Processed ${data.processed} properties: ${data.critical} critical, ${data.high} high, ${data.medium} medium, ${data.low} low`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/risk'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/risk/portfolio-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/risk/properties'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/risk/alerts'] });
     },
     onError: () => {
       toast({
