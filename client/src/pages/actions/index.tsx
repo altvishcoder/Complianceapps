@@ -19,9 +19,12 @@ import {
   User,
   Building2,
   MapPin,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { actionsApi } from "@/lib/api";
 import type { EnrichedRemedialAction } from "@/lib/api";
@@ -76,73 +79,60 @@ export default function ActionsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>(getInitialFilterFromUrl);
   const [typeFilter, setTypeFilter] = useState<string | null>(getInitialTypeFromUrl);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   
-  const { data: remedialActions = [] } = useQuery({
-    queryKey: ["actions"],
-    queryFn: () => actionsApi.list(),
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  const ITEMS_PER_PAGE = 50;
+  
+  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent' 
+    ? 'OPEN' 
+    : activeFilter === 'in_progress' 
+    ? 'IN_PROGRESS' 
+    : activeFilter === 'resolved' 
+    ? 'COMPLETED' 
+    : undefined;
+  
+  const apiSeverity = activeFilter === 'immediate' || activeFilter === 'emergency' 
+    ? 'IMMEDIATE' 
+    : activeFilter === 'urgent' 
+    ? 'URGENT' 
+    : undefined;
+  
+  const { data: paginatedData, isLoading: isLoadingActions, isFetching } = useQuery({
+    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch],
+    queryFn: () => actionsApi.list({ 
+      page, 
+      limit: ITEMS_PER_PAGE,
+      status: apiStatus,
+      severity: apiSeverity,
+      search: debouncedSearch || undefined
+    }),
   });
   
-  // Calculate stats from real data
-  const totalOpen = remedialActions.filter(a => a.status === 'OPEN').length;
-  const emergencyCount = remedialActions.filter(a => a.severity === 'IMMEDIATE' && a.status === 'OPEN').length;
-  const inProgressCount = remedialActions.filter(a => a.status === 'IN_PROGRESS').length;
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const resolvedCount = remedialActions.filter(a => {
-    if (a.status !== 'COMPLETED') return false;
-    if (!a.resolvedAt) return false;
-    return new Date(a.resolvedAt) >= thirtyDaysAgo;
-  }).length;
+  const remedialActions = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalItems = paginatedData?.total || 0;
   
-  // Filter actions based on active filter and search
-  const filteredActions = remedialActions.filter(action => {
-    // Apply filter
-    let passesFilter = true;
-    switch (activeFilter) {
-      case 'open':
-        passesFilter = action.status === 'OPEN';
-        break;
-      case 'emergency':
-        passesFilter = action.severity === 'IMMEDIATE' && action.status === 'OPEN';
-        break;
-      case 'immediate':
-        passesFilter = action.severity === 'IMMEDIATE';
-        break;
-      case 'urgent':
-        passesFilter = action.severity === 'URGENT';
-        break;
-      case 'in_progress':
-        passesFilter = action.status === 'IN_PROGRESS';
-        break;
-      case 'resolved':
-        passesFilter = action.status === 'COMPLETED';
-        break;
-      default:
-        passesFilter = true;
-    }
-    
-    // Apply type filter
-    if (typeFilter && action.certificate?.certificateType !== typeFilter) {
-      return false;
-    }
-    
-    // Apply search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch = 
-        action.description?.toLowerCase().includes(query) ||
-        action.location?.toLowerCase().includes(query) ||
-        action.code?.toLowerCase().includes(query) ||
-        action.property?.addressLine1?.toLowerCase().includes(query);
-      return passesFilter && matchesSearch;
-    }
-    
-    return passesFilter;
-  });
+  const totalOpen = totalItems;
+  const emergencyCount = apiSeverity === 'IMMEDIATE' ? totalItems : 0;
+  const inProgressCount = apiStatus === 'IN_PROGRESS' ? totalItems : 0;
+  const resolvedCount = apiStatus === 'COMPLETED' ? totalItems : 0;
+  
+  const filteredActions = typeFilter 
+    ? remedialActions.filter(action => action.certificate?.certificateType === typeFilter)
+    : remedialActions;
   
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
@@ -286,12 +276,17 @@ export default function ActionsPage() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Action Required</span>
-                <Badge variant="secondary">{filteredActions.length} result{filteredActions.length !== 1 ? 's' : ''}</Badge>
+                <Badge variant="secondary">{totalItems} result{totalItems !== 1 ? 's' : ''}</Badge>
               </CardTitle>
               <CardDescription>Remedial works identified from recent inspections</CardDescription>
             </CardHeader>
             <CardContent>
-              {filteredActions.length === 0 ? (
+              {isLoadingActions ? (
+                <div className="text-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Loading actions...</p>
+                </div>
+              ) : filteredActions.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium">No actions found</p>
@@ -364,6 +359,40 @@ export default function ActionsPage() {
                     </div>
                   </div>
                 ))}
+                
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems} actions
+                      {isFetching && <Loader2 className="h-4 w-4 animate-spin inline ml-2" />}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        data-testid="pagination-prev"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {page} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages}
+                        data-testid="pagination-next"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
               )}
             </CardContent>

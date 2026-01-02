@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,7 +16,10 @@ import {
   FileCheck,
   Plus,
   AlertTriangle,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -60,6 +63,8 @@ export default function CertificatesPage() {
 
   const searchString = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [multiStatusFilter, setMultiStatusFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -68,6 +73,14 @@ export default function CertificatesPage() {
   const [expiringFilter, setExpiringFilter] = useState(false);
   const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   
@@ -163,10 +176,21 @@ export default function CertificatesPage() {
     }
   }, [searchString]);
   
-  const { data: certificates = [] } = useQuery({
-    queryKey: ["certificates"],
-    queryFn: () => certificatesApi.list(),
+  const ITEMS_PER_PAGE = 50;
+  
+  const { data: paginatedData, isLoading: isLoadingCerts, isFetching } = useQuery({
+    queryKey: ["certificates", page, statusFilter, debouncedSearch],
+    queryFn: () => certificatesApi.list({ 
+      page, 
+      limit: ITEMS_PER_PAGE, 
+      status: statusFilter || undefined,
+      search: debouncedSearch || undefined
+    }),
   });
+  
+  const certificates = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalItems = paginatedData?.total || 0;
   
   const isOverdue = (cert: EnrichedCertificate) => {
     if (!cert.expiryDate) return false;
@@ -461,7 +485,51 @@ export default function CertificatesPage() {
                     })}
                   </tbody>
                 </table>
+                {isLoadingCerts ? (
+                  <div className="p-8 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                    <p className="mt-2 text-sm text-muted-foreground">Loading certificates...</p>
+                  </div>
+                ) : filteredCertificates.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No certificates found matching your criteria.
+                  </div>
+                ) : null}
               </div>
+              
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems} certificates
+                    {isFetching && <Loader2 className="h-4 w-4 animate-spin inline ml-2" />}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      data-testid="pagination-prev"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      data-testid="pagination-next"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
