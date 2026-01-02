@@ -246,7 +246,7 @@ export default function ComponentsPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Components & Assets" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Components and assets content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Components and assets content">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Components & Assets</h1>

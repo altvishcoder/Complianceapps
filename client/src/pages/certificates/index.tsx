@@ -262,7 +262,7 @@ export default function CertificatesPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Certificates" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificates content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Certificates content">
           
           {showBackButton && (
             <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />

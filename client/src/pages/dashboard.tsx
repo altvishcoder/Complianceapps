@@ -273,7 +273,7 @@ export default function Dashboard() {
         return (
           <DraggableWidget key={widgetId} widgetId={widgetId} isConfiguring={isConfiguring}>
             <div className="grid gap-6 md:grid-cols-7">
-              <Card className="col-span-4">
+              <Card className="md:col-span-4">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>Compliance by Stream</CardTitle>
@@ -324,7 +324,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
               
-              <Card className="col-span-3">
+              <Card className="md:col-span-3">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>Active Hazard Distribution</CardTitle>
@@ -727,7 +727,7 @@ export default function Dashboard() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Overview Hub" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Dashboard content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Dashboard content">
           
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">

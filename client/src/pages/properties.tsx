@@ -294,7 +294,7 @@ export default function Properties() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Property Management" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Property management content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Property management content">
           
           {showBackButton && (
             <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
@@ -429,7 +429,7 @@ export default function Properties() {
                    <form onSubmit={handleAddProperty}>
                      <div className="grid gap-4 py-4">
                        
-                       <div className="grid grid-cols-2 gap-4">
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                              <Label>Scheme</Label>
                              <Select 
@@ -470,7 +470,7 @@ export default function Properties() {
                           />
                        </div>
 
-                       <div className="grid grid-cols-2 gap-4">
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                              <Label>City</Label>
                              <Input 
@@ -489,7 +489,7 @@ export default function Properties() {
                           </div>
                        </div>
 
-                       <div className="grid grid-cols-3 gap-4">
+                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="space-y-2">
                              <Label>Type</Label>
                              <Select 
@@ -557,7 +557,7 @@ export default function Properties() {
                            : 'Not set'}</span>
                        </div>
                        
-                       <div className="grid grid-cols-2 gap-4">
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                          <div className="space-y-2">
                            <Label>Latitude</Label>
                            <Input 
