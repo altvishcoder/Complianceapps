@@ -492,84 +492,84 @@ export default function AssetHealth() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Asset Health" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold">Asset Health Overview</h1>
-              <p className="text-muted-foreground">Visual compliance status across your property portfolio</p>
+              <h1 className="text-xl md:text-2xl font-bold">Asset Health Overview</h1>
+              <p className="text-sm md:text-base text-muted-foreground">Visual compliance status across your property portfolio</p>
             </div>
-            <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
+            <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh" className="w-full sm:w-auto">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
           </div>
 
           <ErrorBoundary sectionName="Statistics">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Properties</p>
-                    <p className="text-2xl font-bold" data-testid="stat-total">{summaryStats.totalProperties}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">Total Properties</p>
+                    <p className="text-lg md:text-2xl font-bold" data-testid="stat-total">{summaryStats.totalProperties}</p>
                   </div>
-                  <Building2 className="h-8 w-8 text-muted-foreground" />
+                  <Building2 className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-emerald-200 bg-emerald-50/50">
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-emerald-600">Compliant</p>
-                    <p className="text-2xl font-bold text-emerald-700" data-testid="stat-compliant">{summaryStats.compliantProperties}</p>
+                    <p className="text-xs md:text-sm text-emerald-600">Compliant</p>
+                    <p className="text-lg md:text-2xl font-bold text-emerald-700" data-testid="stat-compliant">{summaryStats.compliantProperties}</p>
                   </div>
-                  <CheckCircle className="h-8 w-8 text-emerald-500" />
+                  <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-emerald-500" />
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-amber-200 bg-amber-50/50">
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-amber-600">At Risk</p>
-                    <p className="text-2xl font-bold text-amber-700" data-testid="stat-at-risk">{summaryStats.atRiskProperties}</p>
+                    <p className="text-xs md:text-sm text-amber-600">At Risk</p>
+                    <p className="text-lg md:text-2xl font-bold text-amber-700" data-testid="stat-at-risk">{summaryStats.atRiskProperties}</p>
                   </div>
-                  <Clock className="h-8 w-8 text-amber-500" />
+                  <Clock className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-red-200 bg-red-50/50">
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-red-600">Expired</p>
-                    <p className="text-2xl font-bold text-red-700" data-testid="stat-expired">{summaryStats.expiredProperties}</p>
+                    <p className="text-xs md:text-sm text-red-600">Expired</p>
+                    <p className="text-lg md:text-2xl font-bold text-red-700" data-testid="stat-expired">{summaryStats.expiredProperties}</p>
                   </div>
-                  <AlertTriangle className="h-8 w-8 text-red-500" />
+                  <AlertTriangle className="h-6 w-6 md:h-8 md:w-8 text-red-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card style={{ borderColor: getComplianceColor(summaryStats.complianceRate) }}>
-              <CardContent className="pt-6">
+            <Card className="col-span-2 md:col-span-1" style={{ borderColor: getComplianceColor(summaryStats.complianceRate) }}>
+              <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Compliance Rate</p>
-                    <p className="text-2xl font-bold" style={{ color: getComplianceColor(summaryStats.complianceRate) }} data-testid="stat-rate">
+                    <p className="text-xs md:text-sm text-muted-foreground">Compliance Rate</p>
+                    <p className="text-lg md:text-2xl font-bold" style={{ color: getComplianceColor(summaryStats.complianceRate) }} data-testid="stat-rate">
                       {summaryStats.complianceRate.toFixed(1)}%
                     </p>
                   </div>
                   <div className="flex items-center">
                     {summaryStats.complianceRate >= 85 ? (
-                      <TrendingUp className="h-8 w-8 text-emerald-500" />
+                      <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-emerald-500" />
                     ) : summaryStats.complianceRate >= 70 ? (
-                      <Minus className="h-8 w-8 text-amber-500" />
+                      <Minus className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
                     ) : (
-                      <TrendingDown className="h-8 w-8 text-red-500" />
+                      <TrendingDown className="h-6 w-6 md:h-8 md:w-8 text-red-500" />
                     )}
                   </div>
                 </div>
@@ -580,24 +580,24 @@ export default function AssetHealth() {
 
           <ErrorBoundary sectionName="Treemap">
           <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+            <CardHeader className="pb-2 px-3 md:px-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                     {drilldown.level !== 'schemes' && (
                       <>
-                        <Button variant="ghost" size="sm" onClick={handleGoHome} data-testid="button-home">
+                        <Button variant="ghost" size="sm" onClick={handleGoHome} data-testid="button-home" className="h-8 w-8 p-0 md:h-9 md:w-9">
                           <Home className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={handleGoBack} data-testid="button-back">
+                        <Button variant="ghost" size="sm" onClick={handleGoBack} data-testid="button-back" className="h-8 px-2 md:h-9 md:px-3">
                           <ChevronLeft className="h-4 w-4" />
-                          Back
+                          <span className="hidden sm:inline ml-1">Back</span>
                         </Button>
                       </>
                     )}
-                    <CardTitle className="text-lg">{getViewTitle()}</CardTitle>
+                    <CardTitle className="text-base md:text-lg truncate">{getViewTitle()}</CardTitle>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1 text-xs md:text-sm text-muted-foreground flex-wrap">
                     {getBreadcrumb().map((part, i) => (
                       <span key={i} className="flex items-center gap-1">
                         {i > 0 && <span>/</span>}
@@ -605,15 +605,15 @@ export default function AssetHealth() {
                       </span>
                     ))}
                   </div>
-                  <CardDescription>
+                  <CardDescription className="text-xs md:text-sm">
                     {drilldown.level === 'properties' 
                       ? 'Color indicates compliance status' 
-                      : 'Size represents property count, color indicates compliance rate. Click to drill down.'}
+                      : 'Size represents property count, color indicates compliance rate. Tap to drill down.'}
                   </CardDescription>
                 </div>
                 {drilldown.level === 'schemes' && (
                   <Select value={selectedSchemeFilter} onValueChange={setSelectedSchemeFilter}>
-                    <SelectTrigger className="w-48" data-testid="select-scheme">
+                    <SelectTrigger className="w-full sm:w-48" data-testid="select-scheme">
                       <SelectValue placeholder="All Schemes" />
                     </SelectTrigger>
                     <SelectContent>
@@ -626,15 +626,15 @@ export default function AssetHealth() {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-2 md:px-6">
               {isLoading ? (
-                <div className="flex items-center justify-center py-24">
-                  <Loader2 className="h-8 w-8 animate-spin" />
+                <div className="flex items-center justify-center py-12 md:py-24">
+                  <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin" />
                 </div>
               ) : treeData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                  <Building2 className="h-12 w-12 mb-4" />
-                  <p>No data available for the selected view</p>
+                <div className="flex flex-col items-center justify-center py-12 md:py-24 text-muted-foreground">
+                  <Building2 className="h-10 w-10 md:h-12 md:w-12 mb-3 md:mb-4" />
+                  <p className="text-sm md:text-base text-center">No data available for the selected view</p>
                   {drilldown.level !== 'schemes' && (
                     <Button variant="link" onClick={handleGoBack} className="mt-2">
                       Go back
@@ -642,7 +642,7 @@ export default function AssetHealth() {
                   )}
                 </div>
               ) : (
-                <div className="h-[500px]" data-testid="treemap-container">
+                <div className="h-[300px] sm:h-[400px] md:h-[500px]" data-testid="treemap-container">
                   <ResponsiveContainer width="100%" height="100%">
                     <Treemap
                       data={treeData}
@@ -660,27 +660,27 @@ export default function AssetHealth() {
           </Card>
           </ErrorBoundary>
 
-          <div className="flex items-center justify-center gap-6 text-sm" data-testid="color-legend">
-            <span className="text-muted-foreground font-medium">Compliance Legend:</span>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.excellent }} />
-              <span>≥95% Excellent</span>
+          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 text-xs md:text-sm px-2" data-testid="color-legend">
+            <span className="text-muted-foreground font-medium w-full text-center sm:w-auto">Compliance Legend:</span>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.excellent }} />
+              <span>≥95%</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.good }} />
-              <span>≥85% Good</span>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.good }} />
+              <span>≥85%</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.warning }} />
-              <span>≥70% At Risk</span>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.warning }} />
+              <span>≥70%</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.danger }} />
-              <span>≥50% Poor</span>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.danger }} />
+              <span>≥50%</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.critical }} />
-              <span>&lt;50% Critical</span>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded" style={{ backgroundColor: COMPLIANCE_COLORS.critical }} />
+              <span>&lt;50%</span>
             </div>
           </div>
         </main>
