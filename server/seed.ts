@@ -2275,7 +2275,8 @@ async function seedNavigation() {
     { sectionId: "sec-monitoring", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
     { sectionId: "sec-monitoring", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
     { sectionId: "sec-monitoring", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, requiresAdmin: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "model-insights", name: "Model Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 6, requiresAITools: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "model-insights", name: "Extraction Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 6, requiresAITools: true, isSystem: true },
+    { sectionId: "sec-monitoring", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
     
     // Administration
     { sectionId: "sec-admin", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },

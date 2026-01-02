@@ -73,6 +73,7 @@ import AdminApiDocs from "@/pages/admin/api-docs";
 import AdminChatbotAnalytics from "@/pages/admin/chatbot-analytics";
 import AdminKnowledgeTraining from "@/pages/admin/knowledge-training";
 import AdminNavigationManagement from "@/pages/admin/navigation-management";
+import AdminMLInsights from "@/pages/admin/ml-insights";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
@@ -141,6 +142,7 @@ function Router() {
       <Route path="/admin/chatbot-analytics">{() => <ProtectedRoute component={AdminChatbotAnalytics} />}</Route>
       <Route path="/admin/knowledge-training">{() => <ProtectedRoute component={AdminKnowledgeTraining} />}</Route>
       <Route path="/admin/navigation">{() => <ProtectedRoute component={AdminNavigationManagement} />}</Route>
+      <Route path="/admin/ml-insights">{() => <ProtectedRoute component={AdminMLInsights} />}</Route>
       <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
       <Route path="/human-review">{() => <ProtectedRoute component={HumanReviewPage} />}</Route>
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
