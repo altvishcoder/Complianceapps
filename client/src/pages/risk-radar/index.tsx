@@ -326,28 +326,6 @@ export default function RiskRadarPage() {
     },
   });
 
-  const generateMLPredictionsMutation = useMutation({
-    mutationFn: async (propertyIds: string[]) => {
-      const res = await apiRequest('POST', '/api/ml/predictions/bulk', { propertyIds });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: 'Predictions Generated',
-        description: `Generated ${data.generated || 0} ML predictions`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['ml-predictions'] });
-      queryClient.invalidateQueries({ queryKey: ['ml-model-metrics'] });
-    },
-    onError: () => {
-      toast({
-        title: 'Generation Failed',
-        description: 'Unable to generate ML predictions. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
-
   const testPredictionsMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/ml/predictions/test', {});
