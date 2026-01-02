@@ -85,30 +85,35 @@ function TrendIndicator({ trend }: { trend: string }) {
   return <Minus className="h-4 w-4 text-gray-400" />;
 }
 
-function RiskGauge({ score, previousScore }: { score: number; previousScore: number }) {
+function RiskGauge({ score, previousScore, size = "default" }: { score: number; previousScore: number; size?: "small" | "default" }) {
   const improvement = score - previousScore;
-  const circumference = 2 * Math.PI * 80;
+  const isSmall = size === "small";
+  const radius = isSmall ? 40 : 80;
+  const strokeWidth = isSmall ? 8 : 12;
+  const circumference = 2 * Math.PI * radius;
   const progress = (score / 100) * circumference;
+  const svgSize = isSmall ? 100 : 192;
+  const center = svgSize / 2;
   
   return (
     <div className="relative flex flex-col items-center justify-center" data-testid="risk-gauge">
-      <svg className="w-48 h-48 transform -rotate-90">
+      <svg className={isSmall ? "w-[100px] h-[100px]" : "w-48 h-48"} style={{ transform: 'rotate(-90deg)' }}>
         <circle
-          cx="96"
-          cy="96"
-          r="80"
+          cx={center}
+          cy={center}
+          r={radius}
           fill="none"
           stroke="currentColor"
-          strokeWidth="12"
+          strokeWidth={strokeWidth}
           className="text-gray-200 dark:text-gray-700"
         />
         <circle
-          cx="96"
-          cy="96"
-          r="80"
+          cx={center}
+          cy={center}
+          r={radius}
           fill="none"
           stroke={score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#ef4444"}
-          strokeWidth="12"
+          strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={circumference - progress}
           strokeLinecap="round"
@@ -116,21 +121,21 @@ function RiskGauge({ score, previousScore }: { score: number; previousScore: num
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className={`text-4xl font-bold ${getScoreColor(score)}`} data-testid="risk-score">{score}</span>
-        <span className="text-sm text-muted-foreground">Risk Score</span>
+        <span className={`${isSmall ? "text-2xl" : "text-4xl"} font-bold ${getScoreColor(score)}`} data-testid="risk-score">{score}</span>
+        <span className={`${isSmall ? "text-xs" : "text-sm"} text-muted-foreground`}>Risk Score</span>
         <div className="flex items-center gap-1 mt-1">
           {improvement > 0 ? (
             <>
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-green-500">+{improvement} pts</span>
+              <TrendingUp className={`${isSmall ? "h-3 w-3" : "h-4 w-4"} text-green-500`} />
+              <span className={`${isSmall ? "text-xs" : "text-sm"} text-green-500`}>+{improvement} pts</span>
             </>
           ) : improvement < 0 ? (
             <>
-              <TrendingDown className="h-4 w-4 text-red-500" />
-              <span className="text-sm text-red-500">{improvement} pts</span>
+              <TrendingDown className={`${isSmall ? "h-3 w-3" : "h-4 w-4"} text-red-500`} />
+              <span className={`${isSmall ? "text-xs" : "text-sm"} text-red-500`}>{improvement} pts</span>
             </>
           ) : (
-            <span className="text-sm text-muted-foreground">No change</span>
+            <span className={`${isSmall ? "text-xs" : "text-sm"} text-muted-foreground`}>No change</span>
           )}
         </div>
       </div>
@@ -442,14 +447,14 @@ export default function BoardReporting() {
             {/* Main Content Grid */}
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Overall Risk Score */}
-              <Card className="lg:row-span-2" data-testid="card-overall-risk">
-                <CardHeader>
-                  <CardTitle>Overall Risk Score</CardTitle>
+              <Card data-testid="card-overall-risk">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Overall Risk Score</CardTitle>
                   <CardDescription>Portfolio-wide compliance health indicator</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center">
-                  <RiskGauge score={overallRiskScore} previousScore={previousRiskScore} />
-                  <div className="w-full mt-6 space-y-2">
+                <CardContent className="flex items-center gap-4 pt-0">
+                  <RiskGauge score={overallRiskScore} previousScore={previousRiskScore} size="small" />
+                  <div className="flex-1 space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Target Score</span>
                       <span className="font-medium" data-testid="text-target-score">85</span>
