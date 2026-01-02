@@ -572,14 +572,17 @@ export default function PropertyHierarchy() {
           const blockLevelUnits: HierarchyNode[] = [];
           const seenUnitIds = new Set<string>();
           
-          const propertyNodes = blockProperties.map((property: Property) => {
+          // Build property and unit nodes interleaved (each property followed by its dwelling units)
+          const propertyAndUnitNodes: HierarchyNode[] = [];
+          
+          blockProperties.forEach((property: Property) => {
             const propertyUnits = allUnits.filter((u: Unit) => u.propertyId === property.id);
             
             // Separate dwelling units from block-level units
             const dwellingUnits = propertyUnits.filter((u: Unit) => !BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
             const blockUnits = propertyUnits.filter((u: Unit) => BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
             
-            // Add block-level units to the block's children (deduplicate by ID)
+            // Add block-level units (COMMUNAL_AREA, PLANT_ROOM, etc.) to block's children (deduplicate by ID)
             blockUnits.forEach((unit: Unit) => {
               if (!seenUnitIds.has(unit.id)) {
                 seenUnitIds.add(unit.id);
@@ -598,11 +601,8 @@ export default function PropertyHierarchy() {
                 children: [],
               }));
             
-            const unitNodes: HierarchyNode[] = dwellingUnits.map((unit: Unit) => 
-              buildUnitNode(unit, property.id)
-            );
-            
-            return {
+            // Add property node (contains only direct components)
+            propertyAndUnitNodes.push({
               id: property.id,
               name: `${property.addressLine1}, ${property.postcode}`,
               type: 'property' as const,
@@ -610,8 +610,13 @@ export default function PropertyHierarchy() {
               status: property.complianceStatus,
               linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
               data: property,
-              children: [...unitNodes, ...directComponents],
-            };
+              children: directComponents,
+            });
+            
+            // Add dwelling units IMMEDIATELY after their property (interleaved, same level)
+            dwellingUnits.forEach((unit: Unit) => {
+              propertyAndUnitNodes.push(buildUnitNode(unit, property.id));
+            });
           });
           
           return {
@@ -622,8 +627,8 @@ export default function PropertyHierarchy() {
             status: block.complianceStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
             data: block,
-            // Block-level spaces and units appear directly under block, before properties
-            children: [...blockLevelSpaces, ...blockLevelUnits, ...propertyNodes],
+            // Block children: spaces, block-level units, then interleaved properties and their dwelling units
+            children: [...blockLevelSpaces, ...blockLevelUnits, ...propertyAndUnitNodes],
           };
         });
       

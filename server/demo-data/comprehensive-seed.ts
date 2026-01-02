@@ -240,17 +240,43 @@ async function seedProperties(blockIds: string[]): Promise<string[]> {
 
 async function seedUnits(propertyIds: string[]): Promise<string[]> {
   const unitIds: string[] = [];
-  const unitTypes = ["DWELLING", "COMMUNAL_AREA", "PLANT_ROOM", "ROOF_SPACE", "EXTERNAL"] as const;
+  // Dwelling units are created per property, block-level units only once per block
+  type UnitType = "DWELLING" | "COMMUNAL_AREA" | "PLANT_ROOM" | "ROOF_SPACE" | "BASEMENT" | "EXTERNAL" | "GARAGE" | "COMMERCIAL" | "OTHER";
+  const blockLevelTypes: UnitType[] = ["COMMUNAL_AREA", "PLANT_ROOM", "ROOF_SPACE"];
   
-  const allBatchValues = [];
+  // Pre-fetch all properties with their blockIds in one query for efficiency
+  const allProperties = await db.query.properties.findMany({
+    columns: { id: true, blockId: true }
+  });
+  const propertyBlockMap = new Map(allProperties.map(p => [p.id, p.blockId]));
+  
+  const allBatchValues: { propertyId: string; name: string; unitType: UnitType; floor: string }[] = [];
+  const seenBlockIds = new Set<string>();
+  
   for (let i = 0; i < propertyIds.length; i++) {
+    const blockId = propertyBlockMap.get(propertyIds[i]);
+    
+    // Create dwelling units for each property
     for (let u = 0; u < SCALE_CONFIG.UNITS_PER_PROPERTY; u++) {
       allBatchValues.push({
         propertyId: propertyIds[i],
-        name: `${unitTypes[u % unitTypes.length]} ${u + 1}`,
-        unitType: unitTypes[u % unitTypes.length],
+        name: `Unit ${u + 1}`,
+        unitType: "DWELLING" as UnitType,
         floor: String(Math.floor(u / 2)),
       });
+    }
+    
+    // Create block-level units only ONCE per block (not per property)
+    if (blockId && !seenBlockIds.has(blockId)) {
+      seenBlockIds.add(blockId);
+      for (let b = 0; b < blockLevelTypes.length; b++) {
+        allBatchValues.push({
+          propertyId: propertyIds[i], // Link to first property in block for reference
+          name: `${blockLevelTypes[b].replace('_', ' ')}`,
+          unitType: blockLevelTypes[b],
+          floor: b === 2 ? "Roof" : "Ground", // Roof space on roof, others on ground
+        });
+      }
     }
   }
   
