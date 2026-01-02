@@ -712,7 +712,7 @@ function MLPredictionCard({ prediction, onFeedback }: {
 
           <div className="text-right flex-shrink-0">
             <div className="text-lg font-bold text-amber-600">
-              {(prediction.breachProbability * 100).toFixed(0)}%
+              {prediction.breachProbability != null ? `${(prediction.breachProbability * 100).toFixed(0)}%` : '—'}
             </div>
             <div className="text-[10px] text-muted-foreground">Breach Risk</div>
             {prediction.predictedBreachDate && (

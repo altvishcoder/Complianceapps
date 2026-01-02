@@ -9586,9 +9586,46 @@ export async function registerRoutes(
         query = query.where(eq(mlPredictions.propertyId, propertyId)) as any;
       }
       
-      const predictions = await query
+      const rawPredictions = await query
         .orderBy(desc(mlPredictions.createdAt))
         .limit(Math.min(parseInt(limit as string), 100));
+      
+      const predictions = rawPredictions.map(p => {
+        const hasML = p.mlScore !== null && p.mlConfidence !== null;
+        const statConf = p.statisticalConfidence || 50;
+        const mlConf = p.mlConfidence || 0;
+        
+        let combinedScore = p.statisticalScore || 0;
+        let combinedConfidence = statConf;
+        let sourceLabel: 'Statistical' | 'ML-Enhanced' | 'ML-Only' = 'Statistical';
+        
+        if (hasML && p.mlScore !== null) {
+          const totalConf = statConf + mlConf;
+          const statWeight = statConf / totalConf;
+          const mlWeight = mlConf / totalConf;
+          combinedScore = Math.round((p.statisticalScore || 0) * statWeight + p.mlScore * mlWeight);
+          combinedConfidence = Math.round((statConf + mlConf) / 2);
+          sourceLabel = 'ML-Enhanced';
+        }
+        
+        const breachProbability = combinedScore / 100;
+        
+        return {
+          id: p.id,
+          propertyId: p.propertyId,
+          riskScore: combinedScore,
+          riskCategory: p.predictedRiskCategory || 'LOW',
+          breachProbability,
+          predictedBreachDate: p.predictedBreachDate,
+          confidenceLevel: combinedConfidence,
+          sourceLabel,
+          createdAt: p.createdAt,
+          statisticalScore: p.statisticalScore,
+          statisticalConfidence: p.statisticalConfidence,
+          mlScore: p.mlScore,
+          mlConfidence: p.mlConfidence,
+        };
+      });
       
       res.json(predictions);
     } catch (error) {
