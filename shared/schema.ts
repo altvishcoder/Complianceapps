@@ -2681,6 +2681,16 @@ export const navigationItems = pgTable("navigation_items", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const navigationItemRoles = pgTable("navigation_item_roles", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  navigationItemId: varchar("navigation_item_id").references(() => navigationItems.id, { onDelete: 'cascade' }).notNull(),
+  role: text("role").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  { name: "unique_item_role", unique: true, columns: [table.navigationItemId, table.role] }
+]);
+
 export const iconRegistry = pgTable("icon_registry", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   
@@ -2708,5 +2718,8 @@ export type NavigationSection = typeof navigationSections.$inferSelect;
 export type InsertNavigationSection = z.infer<typeof insertNavigationSectionSchema>;
 export type NavigationItem = typeof navigationItems.$inferSelect;
 export type InsertNavigationItem = z.infer<typeof insertNavigationItemSchema>;
+export type NavigationItemRole = typeof navigationItemRoles.$inferSelect;
 export type IconRegistryEntry = typeof iconRegistry.$inferSelect;
 export type InsertIconRegistryEntry = z.infer<typeof insertIconRegistrySchema>;
+
+export type NavigationItemWithRoles = NavigationItem & { allowedRoles: string[] };
