@@ -5486,33 +5486,36 @@ export async function registerRoutes(
       };
       const allComponents = await storage.listComponents(filters);
       
-      // Apply search filter
+      // Get all component types upfront for search and enrichment
+      const allComponentTypes = await storage.listComponentTypes();
+      const typeMap = new Map(allComponentTypes.map(t => [t.id, t]));
+      
+      // Apply search filter (includes type name search)
       let filtered = allComponents;
       if (search) {
         const searchLower = search.toLowerCase();
-        filtered = allComponents.filter(c => 
-          c.serialNumber?.toLowerCase().includes(searchLower) ||
-          c.make?.toLowerCase().includes(searchLower) ||
-          c.model?.toLowerCase().includes(searchLower) ||
-          c.location?.toLowerCase().includes(searchLower)
-        );
+        filtered = allComponents.filter(c => {
+          const typeName = typeMap.get(c.componentTypeId)?.name?.toLowerCase() || '';
+          return (
+            c.serialNumber?.toLowerCase().includes(searchLower) ||
+            c.make?.toLowerCase().includes(searchLower) ||
+            c.model?.toLowerCase().includes(searchLower) ||
+            c.location?.toLowerCase().includes(searchLower) ||
+            typeName.includes(searchLower)
+          );
+        });
       }
       
       const total = filtered.length;
       const paginatedComponents = filtered.slice(offset, offset + limit);
       
-      // Batch fetch all needed component types and properties for efficiency
-      const uniqueTypeIds = Array.from(new Set(paginatedComponents.map(c => c.componentTypeId).filter(Boolean)));
+      // Batch fetch properties for the paginated results
       const uniquePropertyIds = Array.from(new Set(paginatedComponents.map(c => c.propertyId).filter((id): id is string => id !== null)));
       
-      // Fetch all types and properties in parallel batches
-      const [allTypes, allProperties] = await Promise.all([
-        Promise.all(uniqueTypeIds.map(id => storage.getComponentType(id))),
-        Promise.all(uniquePropertyIds.map(id => storage.getProperty(id)))
-      ]);
+      // Fetch all properties in parallel
+      const allProperties = await Promise.all(uniquePropertyIds.map(id => storage.getProperty(id)));
       
-      // Create lookup maps
-      const typeMap = new Map(allTypes.filter(Boolean).map(t => [t!.id, t]));
+      // Create property lookup map
       const propertyMap = new Map(allProperties.filter(Boolean).map(p => [p!.id, { id: p!.id, addressLine1: p!.addressLine1, postcode: p!.postcode }]));
       
       // Enrich components using lookup maps (no additional DB calls)

@@ -710,7 +710,7 @@ export const importRowStatusEnum = pgEnum('import_row_status', [
 export const componentTypes = pgTable("component_types", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   code: text("code").notNull().unique(),             // "GAS_BOILER", "SMOKE_ALARM", etc.
-  name: text("name").notNull(),                       // "Gas Boiler"
+  name: text("name").notNull().unique(),              // "Gas Boiler" - must be unique
   category: componentCategoryEnum("category").notNull(),
   description: text("description"),
   
