@@ -1,0 +1,59 @@
+┌────────────────────────────────────┐
+│ ComplianceAI                       │
+│ [ Search features… ]               │
+│                                    │
+│ PINNED                             │
+│  • My Dashboard                    │
+│  • Risk Alerts                     │
+│  • Remedial Kanban                 │
+│                                    │
+│ OPERATE (Day-to-Day)               │
+│  • Dashboard                       │
+│  • Calendar                        │
+│  • Risk Alerts                     │
+│  • Remedial Actions                │
+│  • Remedial Kanban                 │
+│  • Human Review                    │
+│  ▸ Assets                          │
+│      • Properties                  │
+│      • Components                  │
+│      • Asset Health                │
+│      • Risk Maps                   │
+│      • Property Hierarchy          │
+│  ▸ People & Suppliers              │
+│      • Contractors                 │
+│      • Staff & DLO                 │
+│      • SLA Tracking                │
+│      • Performance                 │
+│                                    │
+│ ASSURE (Compliance & Proof)        │
+│  • Regulatory Evidence             │
+│  • Certificates                    │
+│  • Audit Log                       │
+│  • Compliance Reports              │
+│                                    │
+│ UNDERSTAND (Insights & Trends)     │
+│  • Analytics                       │
+│  • Board                           │
+│  • Report Builder                  │
+│  • Model Insights                  │
+│  • Chatbot Analytics               │
+│                                    │
+│ MANAGE SYSTEM (Admin/IT)           │
+│  • System Health                   │
+│  • Ingestion Control               │
+│  • Ingestion                       │
+│  • Test Suite                      │
+│  • User Management                 │
+│  • Configuration                   │
+│  • Integrations                    │
+│  • API Docs / Integration          │
+│  • Factory Settings                │
+│  • Knowledge Training              │
+│  • Navigation Management           │
+│                                    │
+│ RESOURCES                          │
+│  • Data Import                     │
+│  • Video Library                   │
+│  • Help Guide                      │
+└────────────────────────────────────┘

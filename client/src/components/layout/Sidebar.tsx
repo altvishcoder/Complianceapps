@@ -9,13 +9,16 @@ import {
   ChevronDown,
   Menu,
   X,
-  HelpCircle
+  HelpCircle,
+  Sun,
+  Moon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { sidebarApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "next-themes";
 
 interface NavigationItem {
   id: string;
@@ -49,7 +52,7 @@ const SIDEBAR_SCROLL_KEY = 'sidebar_scroll_position';
 const SIDEBAR_SECTIONS_KEY = 'sidebar_sections_state';
 
 const getIconComponent = (iconKey: string): React.ComponentType<{ className?: string }> => {
-  const icons = LucideIcons as Record<string, React.ComponentType<{ className?: string }>>;
+  const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
   return icons[iconKey] || HelpCircle;
 };
 
@@ -58,6 +61,12 @@ export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const userRole = user?.role || null;
   const isLashanSuperUser = userRole === "LASHAN_SUPER_USER" || userRole === "lashan_super_user";
@@ -331,16 +340,38 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="p-4 border-t border-white/5">
-          <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-white/5">
+        <div className="p-4 border-t border-white/5 dark:border-white/5">
+          <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-white/5 dark:bg-white/5">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-sm font-bold">
               {(user?.name || "User").charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.name || "Guest User"}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email || "Not logged in"}</p>
+              <p className="text-sm font-medium text-white dark:text-white truncate">{user?.name || "Guest User"}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 truncate">{user?.email || "Not logged in"}</p>
             </div>
           </div>
+          {mounted && (
+            <div className="flex items-center gap-2 mb-3">
+              <button 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="flex flex-1 items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+                data-testid="button-theme-toggle"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="h-4 w-4" aria-hidden="true" />
+                    Light Mode
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-4 w-4" aria-hidden="true" />
+                    Dark Mode
+                  </>
+                )}
+              </button>
+            </div>
+          )}
           <button 
             onClick={logout}
             className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
