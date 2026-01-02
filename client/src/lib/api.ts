@@ -12,6 +12,14 @@ import type {
 
 const API_BASE = "/api";
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -158,12 +166,15 @@ export interface CertificateUploadData {
 }
 
 export const certificatesApi = {
-  list: (filters?: { propertyId?: string; status?: string }) => {
+  list: (filters?: { propertyId?: string; status?: string; page?: number; limit?: number; search?: string }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);
     if (filters?.status) params.append("status", filters.status);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.search) params.append("search", filters.search);
     const query = params.toString() ? `?${params}` : "";
-    return fetchJSON<EnrichedCertificate[]>(`${API_BASE}/certificates${query}`);
+    return fetchJSON<PaginatedResponse<EnrichedCertificate>>(`${API_BASE}/certificates${query}`);
   },
   
   get: (id: string) => fetchJSON<EnrichedCertificate>(`${API_BASE}/certificates/${id}`),
@@ -192,13 +203,17 @@ export interface EnrichedRemedialAction extends RemedialAction {
 }
 
 export const actionsApi = {
-  list: (filters?: { propertyId?: string; status?: string; certificateId?: string }) => {
+  list: (filters?: { propertyId?: string; status?: string; certificateId?: string; severity?: string; page?: number; limit?: number; search?: string }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);
     if (filters?.status) params.append("status", filters.status);
     if (filters?.certificateId) params.append("certificateId", filters.certificateId);
+    if (filters?.severity) params.append("severity", filters.severity);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.search) params.append("search", filters.search);
     const query = params.toString() ? `?${params}` : "";
-    return fetchJSON<EnrichedRemedialAction[]>(`${API_BASE}/actions${query}`);
+    return fetchJSON<PaginatedResponse<EnrichedRemedialAction>>(`${API_BASE}/actions${query}`);
   },
   
   update: (id: string, data: Partial<RemedialAction>) => fetchJSON<RemedialAction>(`${API_BASE}/actions/${id}`, {
@@ -520,14 +535,17 @@ export interface EnrichedComponent extends Component {
 }
 
 export const componentsApi = {
-  list: (filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }) => {
+  list: (filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string; page?: number; limit?: number; search?: string }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);
     if (filters?.unitId) params.append("unitId", filters.unitId);
     if (filters?.blockId) params.append("blockId", filters.blockId);
     if (filters?.componentTypeId) params.append("componentTypeId", filters.componentTypeId);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.search) params.append("search", filters.search);
     const query = params.toString() ? `?${params}` : "";
-    return fetchJSON<EnrichedComponent[]>(`${API_BASE}/components${query}`);
+    return fetchJSON<PaginatedResponse<EnrichedComponent>>(`${API_BASE}/components${query}`);
   },
   
   get: (id: string) => fetchJSON<EnrichedComponent>(`${API_BASE}/components/${id}`),

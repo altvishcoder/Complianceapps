@@ -2571,12 +2571,30 @@ export async function registerRoutes(
   // ===== CERTIFICATES =====
   app.get("/api/certificates", async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
       const certificates = await storage.listCertificates(ORG_ID, { propertyId, status });
       
+      // Apply search filter
+      let filtered = certificates;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = certificates.filter(c => 
+          c.certificateNumber?.toLowerCase().includes(searchLower) ||
+          c.fileName?.toLowerCase().includes(searchLower) ||
+          c.type?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      const total = filtered.length;
+      const offset = (page - 1) * limit;
+      const paginatedCertificates = filtered.slice(offset, offset + limit);
+      
       // Enrich with property and extraction data
-      const enrichedCertificates = await Promise.all(certificates.map(async (cert) => {
+      const enrichedCertificates = await Promise.all(paginatedCertificates.map(async (cert) => {
         const property = await storage.getProperty(cert.propertyId);
         const extraction = await storage.getExtractionByCertificate(cert.id);
         return {
@@ -2586,7 +2604,7 @@ export async function registerRoutes(
         };
       }));
       
-      res.json(enrichedCertificates);
+      res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (error) {
       console.error("Error fetching certificates:", error);
       res.status(500).json({ error: "Failed to fetch certificates" });
@@ -2896,6 +2914,9 @@ export async function registerRoutes(
   // ===== REMEDIAL ACTIONS =====
   app.get("/api/actions", async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
       const severity = req.query.severity as string | undefined;
@@ -2907,6 +2928,19 @@ export async function registerRoutes(
         filteredActions = actions.filter(a => a.severity === severity);
       }
       
+      // Apply search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredActions = filteredActions.filter(a => 
+          a.code?.toLowerCase().includes(searchLower) ||
+          a.description?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      const total = filteredActions.length;
+      const offset = (page - 1) * limit;
+      const paginatedActions = filteredActions.slice(offset, offset + limit);
+      
       // Pre-fetch all schemes and blocks for efficiency
       const schemes = await storage.listSchemes(ORG_ID);
       const blocks = await storage.listBlocks(ORG_ID);
@@ -2914,7 +2948,7 @@ export async function registerRoutes(
       const blockMap = new Map(blocks.map(b => [b.id, { name: b.name, schemeId: b.schemeId }]));
       
       // Enrich with property, certificate, scheme, and block data
-      const enrichedActions = await Promise.all(filteredActions.map(async (action) => {
+      const enrichedActions = await Promise.all(paginatedActions.map(async (action) => {
         const property = await storage.getProperty(action.propertyId);
         const certificate = await storage.getCertificate(action.certificateId);
         
@@ -2943,7 +2977,7 @@ export async function registerRoutes(
         };
       }));
       
-      res.json(enrichedActions);
+      res.json({ data: enrichedActions, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (error) {
       console.error("Error fetching actions:", error);
       res.status(500).json({ error: "Failed to fetch actions" });
@@ -5392,22 +5426,41 @@ export async function registerRoutes(
   // ===== HACT ARCHITECTURE - COMPONENTS (ASSETS) =====
   app.get("/api/components", async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string | undefined;
       const filters = {
         propertyId: req.query.propertyId as string | undefined,
         unitId: req.query.unitId as string | undefined,
         blockId: req.query.blockId as string | undefined,
         componentTypeId: req.query.componentTypeId as string | undefined,
       };
-      const componentsList = await storage.listComponents(filters);
+      const allComponents = await storage.listComponents(filters);
+      
+      // Apply search filter
+      let filtered = allComponents;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = allComponents.filter(c => 
+          c.serialNumber?.toLowerCase().includes(searchLower) ||
+          c.make?.toLowerCase().includes(searchLower) ||
+          c.model?.toLowerCase().includes(searchLower) ||
+          c.location?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      const total = filtered.length;
+      const offset = (page - 1) * limit;
+      const paginatedComponents = filtered.slice(offset, offset + limit);
       
       // Enrich with component type and property info
-      const enriched = await Promise.all(componentsList.map(async (comp) => {
+      const enriched = await Promise.all(paginatedComponents.map(async (comp) => {
         const type = await storage.getComponentType(comp.componentTypeId);
         const property = comp.propertyId ? await storage.getProperty(comp.propertyId) : undefined;
         return { ...comp, componentType: type, property: property ? { id: property.id, addressLine1: property.addressLine1, postcode: property.postcode } : undefined };
       }));
       
-      res.json(enriched);
+      res.json({ data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (error) {
       console.error("Error fetching components:", error);
       res.status(500).json({ error: "Failed to fetch components" });

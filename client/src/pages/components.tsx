@@ -48,17 +48,38 @@ export default function ComponentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingComponent, setEditingComponent] = useState<EnrichedComponent | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<InsertComponent>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const pageSize = 50;
+  
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [propertyFilter, typeFilter, debouncedSearch]);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  const { data: components = [], isLoading: componentsLoading } = useQuery({
-    queryKey: ["components", propertyFilter, typeFilter],
+  const { data: componentsResponse, isLoading: componentsLoading } = useQuery({
+    queryKey: ["components", propertyFilter, typeFilter, currentPage, debouncedSearch],
     queryFn: () => componentsApi.list({
       propertyId: propertyFilter !== "all" ? propertyFilter : undefined,
       componentTypeId: typeFilter !== "all" ? typeFilter : undefined,
+      page: currentPage,
+      limit: pageSize,
+      search: debouncedSearch || undefined,
     }),
   });
+  
+  const components = componentsResponse?.data || [];
+  const totalComponents = componentsResponse?.total || 0;
+  const totalPages = componentsResponse?.totalPages || 1;
   
   const { data: componentTypes = [] } = useQuery({
     queryKey: ["component-types"],
@@ -181,18 +202,8 @@ export default function ComponentsPage() {
     }
   };
   
-  const filteredComponents = components.filter((comp) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      comp.componentType?.name?.toLowerCase().includes(query) ||
-      comp.assetTag?.toLowerCase().includes(query) ||
-      comp.serialNumber?.toLowerCase().includes(query) ||
-      comp.manufacturer?.toLowerCase().includes(query) ||
-      comp.model?.toLowerCase().includes(query) ||
-      comp.location?.toLowerCase().includes(query)
-    );
-  });
+  // Server-side search/filter is applied, use components directly
+  const filteredComponents = components;
   
   // Scroll to highlighted component when data loads and component is found
   useEffect(() => {
@@ -407,7 +418,7 @@ export default function ComponentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Component Registry</CardTitle>
-              <CardDescription>{filteredComponents.length} components registered</CardDescription>
+              <CardDescription>{totalComponents.toLocaleString()} components registered (showing {filteredComponents.length})</CardDescription>
             </div>
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -485,6 +496,7 @@ export default function ComponentsPage() {
               <p>No components found. Add your first component or import from CSV.</p>
             </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -595,6 +607,54 @@ export default function ComponentsPage() {
                 ))}
               </TableBody>
             </Table>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages} ({totalComponents.toLocaleString()} total)
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    data-testid="pagination-first"
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="pagination-prev"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="pagination-next"
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    data-testid="pagination-last"
+                  >
+                    Last
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
           )}
         </CardContent>
       </Card>
