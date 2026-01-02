@@ -203,8 +203,16 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
     ? getPropertyComplianceColor(complianceStatus)
     : getComplianceColor(complianceRate);
   
-  const showFullText = width > 60 && height > 40;
-  const showCompactText = !showFullText && width > 35 && height > 25;
+  const showFullText = width > 50 && height > 35;
+  const showNameOnly = !showFullText && width > 40 && height > 20;
+  const showPercentOnly = !showFullText && !showNameOnly && width > 25 && height > 18;
+  
+  const truncateName = (n: string, maxChars: number) => {
+    if (n.length <= maxChars) return n;
+    return n.substring(0, maxChars - 2) + '..';
+  };
+  
+  const maxChars = Math.max(3, Math.floor(width / 7));
   
   return (
     <g style={{ cursor: 'pointer' }}>
@@ -223,38 +231,51 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
         <>
           <text
             x={x + width / 2}
-            y={y + height / 2 - 8}
+            y={y + height / 2 - 6}
             textAnchor="middle"
             fill="#fff"
-            fontSize={Math.min(14, width / 8)}
+            fontSize={Math.min(11, Math.max(8, width / 10))}
             fontWeight="600"
-            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
           >
-            {name.length > 15 ? name.substring(0, 12) + '...' : name}
+            {truncateName(name, maxChars)}
           </text>
           <text
             x={x + width / 2}
-            y={y + height / 2 + 10}
+            y={y + height / 2 + 8}
             textAnchor="middle"
             fill="#fff"
-            fontSize={Math.min(12, width / 10)}
-            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+            fontSize={Math.min(10, Math.max(7, width / 12))}
+            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
           >
             {nodeType === 'property' ? (complianceStatus === 'compliant' ? '✓' : complianceStatus === 'at_risk' ? '⚠' : complianceStatus === 'expired' ? '✗' : '—') : `${complianceRate.toFixed(0)}%`}
           </text>
         </>
       )}
-      {showCompactText && (
+      {showNameOnly && (
         <text
           x={x + width / 2}
           y={y + height / 2 + 4}
           textAnchor="middle"
           fill="#fff"
-          fontSize={Math.min(10, Math.min(width, height) / 3)}
+          fontSize={Math.min(9, Math.max(7, width / 8))}
           fontWeight="600"
-          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
         >
-          {nodeType === 'property' ? (complianceStatus === 'compliant' ? '✓' : complianceStatus === 'at_risk' ? '⚠' : complianceStatus === 'expired' ? '✗' : '—') : `${complianceRate.toFixed(0)}%`}
+          {truncateName(name, Math.max(3, Math.floor(width / 8)))}
+        </text>
+      )}
+      {showPercentOnly && (
+        <text
+          x={x + width / 2}
+          y={y + height / 2 + 3}
+          textAnchor="middle"
+          fill="#fff"
+          fontSize={Math.min(8, Math.max(6, Math.min(width, height) / 4))}
+          fontWeight="600"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+        >
+          {nodeType === 'property' ? (complianceStatus === 'compliant' ? '✓' : complianceStatus === 'at_risk' ? '⚠' : '✗') : `${complianceRate.toFixed(0)}%`}
         </text>
       )}
     </g>
