@@ -18,6 +18,7 @@ import {
   componentTypes, components, spaces, componentCertificates, users, extractionTierAudits,
   propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes, remedialActions, contractors,
   contractorSLAProfiles, contractorJobPerformance, contractorRatings,
+  mlModels, mlPredictions, mlTrainingRuns,
   type ApiClient
 } from "@shared/schema";
 import { createInsertSchema } from "drizzle-zod";
@@ -9076,6 +9077,208 @@ export async function registerRoutes(
     }
   });
   
+  // =====================================================
+  // ML PREDICTION ROUTES
+  // =====================================================
+
+  // Get ML model metrics and status
+  app.get("/api/ml/model", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { getModelMetrics } = await import('./services/ml-prediction');
+      const metrics = await getModelMetrics(user.organisationId);
+      
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching ML model metrics:", error);
+      res.status(500).json({ error: "Failed to fetch ML model metrics" });
+    }
+  });
+
+  // Update ML model settings
+  app.patch("/api/ml/model/settings", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { learningRate, epochs, batchSize, featureWeights } = req.body;
+      
+      const { updateModelSettings } = await import('./services/ml-prediction');
+      const updatedModel = await updateModelSettings(user.organisationId, {
+        learningRate,
+        epochs,
+        batchSize,
+        featureWeights,
+      });
+      
+      res.json(updatedModel);
+    } catch (error) {
+      console.error("Error updating ML model settings:", error);
+      res.status(500).json({ error: "Failed to update ML model settings" });
+    }
+  });
+
+  // Get ML prediction for a property
+  app.get("/api/ml/predictions/:propertyId", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { propertyId } = req.params;
+      
+      const { predictPropertyBreach } = await import('./services/ml-prediction');
+      const prediction = await predictPropertyBreach(propertyId, user.organisationId);
+      
+      res.json(prediction);
+    } catch (error) {
+      console.error("Error getting ML prediction:", error);
+      res.status(500).json({ error: "Failed to get ML prediction" });
+    }
+  });
+
+  // Get bulk predictions for multiple properties
+  app.post("/api/ml/predictions/bulk", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { propertyIds } = req.body;
+      if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
+        return res.status(400).json({ error: "Property IDs array required" });
+      }
+
+      const { predictPropertyBreach } = await import('./services/ml-prediction');
+      
+      const predictions = await Promise.all(
+        propertyIds.slice(0, 50).map(id => predictPropertyBreach(id, user.organisationId!))
+      );
+      
+      res.json({ predictions });
+    } catch (error) {
+      console.error("Error getting bulk ML predictions:", error);
+      res.status(500).json({ error: "Failed to get bulk ML predictions" });
+    }
+  });
+
+  // Submit feedback for a prediction
+  app.post("/api/ml/predictions/:predictionId/feedback", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { predictionId } = req.params;
+      const { feedbackType, correctedScore, correctedCategory, feedbackNotes } = req.body;
+      
+      if (!['CORRECT', 'INCORRECT', 'PARTIALLY_CORRECT'].includes(feedbackType)) {
+        return res.status(400).json({ error: "Invalid feedback type" });
+      }
+
+      const { submitPredictionFeedback } = await import('./services/ml-prediction');
+      const feedback = await submitPredictionFeedback(
+        predictionId,
+        user.organisationId,
+        feedbackType,
+        user.id,
+        user.displayName || user.email,
+        correctedScore,
+        correctedCategory,
+        feedbackNotes
+      );
+      
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error submitting ML feedback:", error);
+      res.status(500).json({ error: "Failed to submit ML feedback" });
+    }
+  });
+
+  // Train/retrain the ML model
+  app.post("/api/ml/model/train", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { learningRate, epochs, batchSize } = req.body;
+      
+      const { trainModelFromFeedback } = await import('./services/ml-prediction');
+      const result = await trainModelFromFeedback(user.organisationId, {
+        learningRate,
+        epochs,
+        batchSize,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error training ML model:", error);
+      res.status(500).json({ error: "Failed to train ML model" });
+    }
+  });
+
+  // Get recent training runs
+  app.get("/api/ml/training-runs", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const trainingRuns = await db.select()
+        .from(mlTrainingRuns)
+        .innerJoin(mlModels, eq(mlTrainingRuns.modelId, mlModels.id))
+        .where(eq(mlModels.organisationId, user.organisationId))
+        .orderBy(desc(mlTrainingRuns.startedAt))
+        .limit(20);
+      
+      res.json(trainingRuns.map(r => r.ml_training_runs));
+    } catch (error) {
+      console.error("Error fetching training runs:", error);
+      res.status(500).json({ error: "Failed to fetch training runs" });
+    }
+  });
+
+  // Get recent predictions for a property or all
+  app.get("/api/ml/predictions", async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      if (!user?.organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { propertyId, limit = '50' } = req.query;
+      
+      let query = db.select()
+        .from(mlPredictions)
+        .where(eq(mlPredictions.organisationId, user.organisationId));
+      
+      if (propertyId && typeof propertyId === 'string') {
+        query = query.where(eq(mlPredictions.propertyId, propertyId)) as any;
+      }
+      
+      const predictions = await query
+        .orderBy(desc(mlPredictions.createdAt))
+        .limit(Math.min(parseInt(limit as string), 100));
+      
+      res.json(predictions);
+    } catch (error) {
+      console.error("Error fetching ML predictions:", error);
+      res.status(500).json({ error: "Failed to fetch ML predictions" });
+    }
+  });
+
   return httpServer;
 }
 

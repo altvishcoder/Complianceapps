@@ -1,0 +1,685 @@
+import { db } from '../db';
+import { 
+  mlModels, 
+  mlPredictions, 
+  mlFeedback, 
+  mlTrainingRuns,
+  properties,
+  certificates,
+  remedialActions,
+  schemes,
+  blocks
+} from '@shared/schema';
+import { eq, and, desc, gte, lte, sql, count, or } from 'drizzle-orm';
+import { logger } from '../logger';
+import { calculatePropertyRiskScore, type PropertyRiskData, type RiskTier } from './risk-scoring';
+
+export interface MLModelConfig {
+  inputFeatures: string[];
+  hiddenLayers: number[];
+  outputSize: number;
+  activation: string;
+}
+
+export interface MLPredictionResult {
+  propertyId: string;
+  predictionType: 'BREACH_PROBABILITY' | 'DAYS_TO_BREACH' | 'RISK_CATEGORY';
+  statisticalScore: number;
+  statisticalConfidence: number;
+  mlScore: number | null;
+  mlConfidence: number | null;
+  predictedBreachDate: Date | null;
+  predictedDaysToBreach: number | null;
+  predictedRiskCategory: string | null;
+  inputFeatures: Record<string, number>;
+  combinedScore: number;
+  combinedConfidence: number;
+  sourceLabel: 'Statistical' | 'ML-Enhanced' | 'ML-Only';
+}
+
+export interface TrainingConfig {
+  learningRate: number;
+  epochs: number;
+  batchSize: number;
+  validationSplit: number;
+}
+
+const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
+  learningRate: 0.01,
+  epochs: 100,
+  batchSize: 32,
+  validationSplit: 0.2,
+};
+
+const DEFAULT_MODEL_CONFIG: MLModelConfig = {
+  inputFeatures: [
+    'expiryRiskScore',
+    'defectRiskScore',
+    'assetProfileRiskScore',
+    'coverageGapRiskScore',
+    'externalFactorRiskScore',
+    'daysSinceLastCert',
+    'openActionsCount',
+    'historicalBreachCount',
+    'propertyAge',
+    'isHRB',
+    'hasVulnerableOccupants',
+  ],
+  hiddenLayers: [16, 8],
+  outputSize: 1,
+  activation: 'sigmoid',
+};
+
+const DEFAULT_FEATURE_WEIGHTS: Record<string, number> = {
+  expiryRiskScore: 0.25,
+  defectRiskScore: 0.20,
+  assetProfileRiskScore: 0.15,
+  coverageGapRiskScore: 0.15,
+  externalFactorRiskScore: 0.10,
+  daysSinceLastCert: 0.05,
+  openActionsCount: 0.05,
+  historicalBreachCount: 0.05,
+};
+
+class SimpleNeuralNetwork {
+  private weights: number[][];
+  private biases: number[];
+  private config: MLModelConfig;
+
+  constructor(config: MLModelConfig, weights?: number[][]) {
+    this.config = config;
+    if (weights) {
+      this.weights = weights;
+      this.biases = new Array(config.hiddenLayers.length + 1).fill(0);
+    } else {
+      this.weights = this.initializeWeights();
+      this.biases = new Array(config.hiddenLayers.length + 1).fill(0).map(() => Math.random() * 0.1);
+    }
+  }
+
+  private initializeWeights(): number[][] {
+    const layers = [this.config.inputFeatures.length, ...this.config.hiddenLayers, this.config.outputSize];
+    const weights: number[][] = [];
+    
+    for (let i = 0; i < layers.length - 1; i++) {
+      const layerWeights: number[] = [];
+      const scale = Math.sqrt(2 / layers[i]);
+      for (let j = 0; j < layers[i] * layers[i + 1]; j++) {
+        layerWeights.push((Math.random() * 2 - 1) * scale);
+      }
+      weights.push(layerWeights);
+    }
+    
+    return weights;
+  }
+
+  private sigmoid(x: number): number {
+    return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x))));
+  }
+
+  private relu(x: number): number {
+    return Math.max(0, x);
+  }
+
+  predict(inputFeatures: number[]): number {
+    let current = inputFeatures;
+    const layers = [this.config.inputFeatures.length, ...this.config.hiddenLayers, this.config.outputSize];
+    
+    for (let layerIdx = 0; layerIdx < this.weights.length; layerIdx++) {
+      const inputSize = layers[layerIdx];
+      const outputSize = layers[layerIdx + 1];
+      const layerWeights = this.weights[layerIdx];
+      const next: number[] = [];
+      
+      for (let j = 0; j < outputSize; j++) {
+        let sum = this.biases[layerIdx] || 0;
+        for (let i = 0; i < inputSize; i++) {
+          sum += current[i] * layerWeights[i * outputSize + j];
+        }
+        if (layerIdx === this.weights.length - 1) {
+          next.push(this.sigmoid(sum));
+        } else {
+          next.push(this.relu(sum));
+        }
+      }
+      current = next;
+    }
+    
+    return current[0] * 100;
+  }
+
+  train(
+    trainingData: { input: number[]; target: number }[],
+    config: TrainingConfig,
+    onProgress?: (epoch: number, loss: number, accuracy: number) => void
+  ): { finalLoss: number; finalAccuracy: number; epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> } {
+    const learningRate = config.learningRate;
+    const epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> = [];
+    
+    for (let epoch = 0; epoch < config.epochs; epoch++) {
+      let totalLoss = 0;
+      let correct = 0;
+      
+      const shuffled = [...trainingData].sort(() => Math.random() - 0.5);
+      
+      for (const sample of shuffled) {
+        const prediction = this.predict(sample.input) / 100;
+        const target = sample.target / 100;
+        const error = target - prediction;
+        
+        totalLoss += error * error;
+        
+        if (Math.abs(prediction * 100 - sample.target) < 15) {
+          correct++;
+        }
+        
+        for (let w = 0; w < this.weights.length; w++) {
+          for (let i = 0; i < this.weights[w].length; i++) {
+            this.weights[w][i] += learningRate * error * 0.01;
+          }
+        }
+      }
+      
+      const avgLoss = totalLoss / trainingData.length;
+      const accuracy = (correct / trainingData.length) * 100;
+      
+      epochHistory.push({ epoch, loss: avgLoss, accuracy });
+      
+      if (onProgress && epoch % 10 === 0) {
+        onProgress(epoch, avgLoss, accuracy);
+      }
+    }
+    
+    const lastEpoch = epochHistory[epochHistory.length - 1];
+    return {
+      finalLoss: lastEpoch.loss,
+      finalAccuracy: lastEpoch.accuracy,
+      epochHistory,
+    };
+  }
+
+  getWeights(): number[][] {
+    return this.weights;
+  }
+}
+
+export async function getOrCreateModel(
+  organisationId: string,
+  predictionType: 'BREACH_PROBABILITY' | 'DAYS_TO_BREACH' | 'RISK_CATEGORY' = 'BREACH_PROBABILITY'
+): Promise<typeof mlModels.$inferSelect | null> {
+  const existing = await db.select()
+    .from(mlModels)
+    .where(and(
+      eq(mlModels.organisationId, organisationId),
+      eq(mlModels.predictionType, predictionType),
+      eq(mlModels.isActive, true)
+    ))
+    .orderBy(desc(mlModels.modelVersion))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return existing[0];
+  }
+
+  const [newModel] = await db.insert(mlModels)
+    .values({
+      organisationId,
+      modelName: `Breach Predictor v1`,
+      predictionType,
+      status: 'TRAINING',
+      modelConfig: DEFAULT_MODEL_CONFIG,
+      featureWeights: DEFAULT_FEATURE_WEIGHTS,
+      learningRate: String(DEFAULT_TRAINING_CONFIG.learningRate),
+      epochs: DEFAULT_TRAINING_CONFIG.epochs,
+      batchSize: DEFAULT_TRAINING_CONFIG.batchSize,
+    })
+    .returning();
+
+  return newModel;
+}
+
+export async function extractPropertyFeatures(
+  propertyId: string,
+  riskData?: PropertyRiskData
+): Promise<Record<string, number>> {
+  if (!riskData) {
+    const prop = await db.select({ organisationId: schemes.organisationId })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(properties.id, propertyId))
+      .limit(1);
+    
+    if (prop.length === 0 || !prop[0].organisationId) return {};
+    
+    riskData = await calculatePropertyRiskScore(propertyId, prop[0].organisationId);
+  }
+
+  const certs = await db.select({
+    issueDate: certificates.issueDate,
+    expiryDate: certificates.expiryDate,
+  })
+  .from(certificates)
+  .where(eq(certificates.propertyId, propertyId))
+  .orderBy(desc(certificates.issueDate))
+  .limit(1);
+
+  const actions = await db.select({ id: remedialActions.id })
+    .from(remedialActions)
+    .where(and(
+      eq(remedialActions.propertyId, propertyId),
+      or(
+        eq(remedialActions.status, 'OPEN'),
+        eq(remedialActions.status, 'IN_PROGRESS')
+      )
+    ));
+
+  const now = new Date();
+  let daysSinceLastCert = 365;
+  if (certs.length > 0 && certs[0].issueDate) {
+    const issueDate = new Date(certs[0].issueDate);
+    daysSinceLastCert = Math.floor((now.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  return {
+    expiryRiskScore: riskData.expiryRiskScore / 100,
+    defectRiskScore: riskData.defectRiskScore / 100,
+    assetProfileRiskScore: riskData.assetProfileRiskScore / 100,
+    coverageGapRiskScore: riskData.coverageGapRiskScore / 100,
+    externalFactorRiskScore: riskData.externalFactorRiskScore / 100,
+    daysSinceLastCert: Math.min(daysSinceLastCert / 365, 1),
+    openActionsCount: Math.min(actions.length / 10, 1),
+    historicalBreachCount: 0,
+    propertyAge: (riskData.factorBreakdown.assetAge || 20) / 100,
+    isHRB: riskData.factorBreakdown.isHRB ? 1 : 0,
+    hasVulnerableOccupants: riskData.factorBreakdown.hasVulnerableOccupants ? 1 : 0,
+  };
+}
+
+export async function calculateStatisticalPrediction(
+  propertyId: string,
+  organisationId: string
+): Promise<{ score: number; confidence: number; riskData: PropertyRiskData }> {
+  const riskData = await calculatePropertyRiskScore(propertyId, organisationId);
+  
+  let confidence = 85;
+  
+  if (riskData.factorBreakdown.expiringCertificates > 0 || riskData.factorBreakdown.overdueCertificates > 0) {
+    confidence = 95;
+  } else if (riskData.factorBreakdown.openDefects > 0) {
+    confidence = 90;
+  } else if (riskData.factorBreakdown.missingStreams.length > 0) {
+    confidence = 80;
+  }
+
+  return {
+    score: riskData.overallScore,
+    confidence,
+    riskData,
+  };
+}
+
+export async function predictPropertyBreach(
+  propertyId: string,
+  organisationId: string
+): Promise<MLPredictionResult> {
+  const model = await getOrCreateModel(organisationId, 'BREACH_PROBABILITY');
+  
+  const { score: statisticalScore, confidence: statisticalConfidence, riskData } = 
+    await calculateStatisticalPrediction(propertyId, organisationId);
+  
+  const inputFeatures = await extractPropertyFeatures(propertyId, riskData);
+  
+  let mlScore: number | null = null;
+  let mlConfidence: number | null = null;
+  let sourceLabel: 'Statistical' | 'ML-Enhanced' | 'ML-Only' = 'Statistical';
+  
+  if (model && model.status === 'ACTIVE' && model.modelWeights) {
+    try {
+      const nn = new SimpleNeuralNetwork(
+        model.modelConfig as MLModelConfig,
+        model.modelWeights as number[][]
+      );
+      
+      const featureVector = DEFAULT_MODEL_CONFIG.inputFeatures.map(
+        feature => inputFeatures[feature] || 0
+      );
+      
+      mlScore = Math.round(nn.predict(featureVector));
+      
+      const modelAccuracy = parseFloat(model.trainingAccuracy || '50');
+      const feedbackCount = model.feedbackCount || 0;
+      mlConfidence = Math.min(
+        Math.round(30 + (modelAccuracy * 0.4) + Math.min(feedbackCount * 2, 20)),
+        95
+      );
+      
+      sourceLabel = 'ML-Enhanced';
+    } catch (err) {
+      logger.error({ err, propertyId }, 'ML prediction failed, falling back to statistical');
+    }
+  }
+  
+  let combinedScore = statisticalScore;
+  let combinedConfidence = statisticalConfidence;
+  
+  if (mlScore !== null && mlConfidence !== null) {
+    const statWeight = statisticalConfidence / (statisticalConfidence + mlConfidence);
+    const mlWeight = mlConfidence / (statisticalConfidence + mlConfidence);
+    combinedScore = Math.round(statisticalScore * statWeight + mlScore * mlWeight);
+    combinedConfidence = Math.round((statisticalConfidence + mlConfidence) / 2);
+  }
+  
+  let predictedDaysToBreach: number | null = null;
+  let predictedBreachDate: Date | null = null;
+  
+  if (combinedScore >= 70) {
+    predictedDaysToBreach = Math.max(1, Math.round((100 - combinedScore) * 3));
+    predictedBreachDate = new Date();
+    predictedBreachDate.setDate(predictedBreachDate.getDate() + predictedDaysToBreach);
+  } else if (combinedScore >= 40) {
+    predictedDaysToBreach = Math.round(30 + (100 - combinedScore) * 2);
+    predictedBreachDate = new Date();
+    predictedBreachDate.setDate(predictedBreachDate.getDate() + predictedDaysToBreach);
+  }
+  
+  const riskCategory = combinedScore >= 85 ? 'CRITICAL' :
+                       combinedScore >= 70 ? 'HIGH' :
+                       combinedScore >= 40 ? 'MEDIUM' : 'LOW';
+
+  if (model) {
+    await db.insert(mlPredictions).values({
+      organisationId,
+      modelId: model.id,
+      propertyId,
+      predictionType: 'BREACH_PROBABILITY',
+      statisticalScore,
+      statisticalConfidence,
+      mlScore,
+      mlConfidence,
+      predictedBreachDate,
+      predictedDaysToBreach,
+      predictedRiskCategory: riskCategory,
+      inputFeatures,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+  }
+
+  return {
+    propertyId,
+    predictionType: 'BREACH_PROBABILITY',
+    statisticalScore,
+    statisticalConfidence,
+    mlScore,
+    mlConfidence,
+    predictedBreachDate,
+    predictedDaysToBreach,
+    predictedRiskCategory: riskCategory,
+    inputFeatures,
+    combinedScore,
+    combinedConfidence,
+    sourceLabel,
+  };
+}
+
+export async function trainModelFromFeedback(
+  organisationId: string,
+  trainingConfig?: Partial<TrainingConfig>
+): Promise<{
+  success: boolean;
+  modelId: string;
+  accuracy: number;
+  epochHistory: Array<{ epoch: number; loss: number; accuracy: number }>;
+}> {
+  const config = { ...DEFAULT_TRAINING_CONFIG, ...trainingConfig };
+  
+  const model = await getOrCreateModel(organisationId, 'BREACH_PROBABILITY');
+  if (!model) {
+    throw new Error('Failed to create or get model');
+  }
+
+  const [trainingRun] = await db.insert(mlTrainingRuns)
+    .values({
+      organisationId,
+      modelId: model.id,
+      status: 'TRAINING',
+      learningRate: String(config.learningRate),
+      epochs: config.epochs,
+      batchSize: config.batchSize,
+    })
+    .returning();
+
+  try {
+    const predictions = await db.select()
+      .from(mlPredictions)
+      .innerJoin(mlFeedback, eq(mlPredictions.id, mlFeedback.predictionId))
+      .where(and(
+        eq(mlPredictions.organisationId, organisationId),
+        eq(mlFeedback.usedForTraining, false)
+      ))
+      .limit(1000);
+
+    const trainingData: { input: number[]; target: number }[] = [];
+    
+    for (const record of predictions) {
+      const features = record.ml_predictions.inputFeatures as Record<string, number>;
+      const feedback = record.ml_feedback;
+      
+      let targetScore: number;
+      if (feedback.feedbackType === 'CORRECT') {
+        targetScore = record.ml_predictions.statisticalScore || 50;
+      } else if (feedback.correctedScore !== null) {
+        targetScore = feedback.correctedScore;
+      } else {
+        continue;
+      }
+      
+      const input = DEFAULT_MODEL_CONFIG.inputFeatures.map(
+        feature => features[feature] || 0
+      );
+      
+      trainingData.push({ input, target: targetScore });
+    }
+
+    if (trainingData.length < 10) {
+      const allProperties = await db.select({ id: properties.id })
+        .from(properties)
+        .innerJoin(blocks, eq(properties.blockId, blocks.id))
+        .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+        .where(eq(schemes.organisationId, organisationId))
+        .limit(100);
+
+      for (const prop of allProperties) {
+        const { score: statScore, riskData } = await calculateStatisticalPrediction(prop.id, organisationId);
+        const features = await extractPropertyFeatures(prop.id, riskData);
+        
+        const input = DEFAULT_MODEL_CONFIG.inputFeatures.map(
+          feature => features[feature] || 0
+        );
+        
+        trainingData.push({ input, target: statScore });
+      }
+    }
+
+    const nn = new SimpleNeuralNetwork(DEFAULT_MODEL_CONFIG, model.modelWeights as number[][] | undefined);
+    
+    const result = nn.train(trainingData, config, async (epoch, loss, accuracy) => {
+      await db.update(mlTrainingRuns)
+        .set({
+          currentEpoch: epoch,
+          trainingProgress: Math.round((epoch / config.epochs) * 100),
+        })
+        .where(eq(mlTrainingRuns.id, trainingRun.id));
+    });
+
+    await db.update(mlModels)
+      .set({
+        modelWeights: nn.getWeights(),
+        status: 'ACTIVE',
+        trainingAccuracy: String(result.finalAccuracy.toFixed(2)),
+        trainingLoss: String(result.finalLoss.toFixed(4)),
+        trainingProgress: 100,
+        trainingSamples: trainingData.length,
+        lastTrainedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(mlModels.id, model.id));
+
+    await db.update(mlTrainingRuns)
+      .set({
+        status: 'ACTIVE',
+        trainingProgress: 100,
+        trainingSamples: trainingData.length,
+        finalAccuracy: String(result.finalAccuracy.toFixed(2)),
+        finalLoss: String(result.finalLoss.toFixed(4)),
+        epochHistory: result.epochHistory,
+        completedAt: new Date(),
+      })
+      .where(eq(mlTrainingRuns.id, trainingRun.id));
+
+    if (predictions.length > 0) {
+      for (const pred of predictions) {
+        await db.update(mlFeedback)
+          .set({
+            usedForTraining: true,
+            trainingBatchId: trainingRun.id,
+          })
+          .where(eq(mlFeedback.id, pred.ml_feedback.id));
+      }
+    }
+
+    logger.info({ modelId: model.id, accuracy: result.finalAccuracy, samples: trainingData.length }, 'ML model training completed');
+
+    return {
+      success: true,
+      modelId: model.id,
+      accuracy: result.finalAccuracy,
+      epochHistory: result.epochHistory,
+    };
+  } catch (error) {
+    await db.update(mlTrainingRuns)
+      .set({
+        status: 'FAILED',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        completedAt: new Date(),
+      })
+      .where(eq(mlTrainingRuns.id, trainingRun.id));
+
+    logger.error({ err: error, organisationId }, 'ML model training failed');
+    throw error;
+  }
+}
+
+export async function submitPredictionFeedback(
+  predictionId: string,
+  organisationId: string,
+  feedbackType: 'CORRECT' | 'INCORRECT' | 'PARTIALLY_CORRECT',
+  submittedById?: string,
+  submittedByName?: string,
+  correctedScore?: number,
+  correctedCategory?: string,
+  feedbackNotes?: string
+): Promise<typeof mlFeedback.$inferSelect> {
+  const [feedback] = await db.insert(mlFeedback)
+    .values({
+      organisationId,
+      predictionId,
+      feedbackType,
+      submittedById,
+      submittedByName,
+      correctedScore,
+      correctedCategory,
+      feedbackNotes,
+    })
+    .returning();
+
+  const model = await db.select()
+    .from(mlPredictions)
+    .innerJoin(mlModels, eq(mlPredictions.modelId, mlModels.id))
+    .where(eq(mlPredictions.id, predictionId))
+    .limit(1);
+
+  if (model.length > 0) {
+    await db.update(mlModels)
+      .set({
+        feedbackCount: sql`${mlModels.feedbackCount} + 1`,
+        correctPredictions: feedbackType === 'CORRECT' 
+          ? sql`${mlModels.correctPredictions} + 1` 
+          : mlModels.correctPredictions,
+        updatedAt: new Date(),
+      })
+      .where(eq(mlModels.id, model[0].ml_models.id));
+  }
+
+  return feedback;
+}
+
+export async function getModelMetrics(organisationId: string): Promise<{
+  model: typeof mlModels.$inferSelect | null;
+  totalPredictions: number;
+  feedbackCount: number;
+  accuracy: number;
+  recentTrainingRuns: Array<typeof mlTrainingRuns.$inferSelect>;
+}> {
+  const model = await getOrCreateModel(organisationId);
+  
+  if (!model) {
+    return {
+      model: null,
+      totalPredictions: 0,
+      feedbackCount: 0,
+      accuracy: 0,
+      recentTrainingRuns: [],
+    };
+  }
+
+  const predictions = await db.select({ count: count() })
+    .from(mlPredictions)
+    .where(eq(mlPredictions.modelId, model.id));
+
+  const feedbacks = await db.select({ count: count() })
+    .from(mlFeedback)
+    .innerJoin(mlPredictions, eq(mlFeedback.predictionId, mlPredictions.id))
+    .where(eq(mlPredictions.modelId, model.id));
+
+  const trainingRuns = await db.select()
+    .from(mlTrainingRuns)
+    .where(eq(mlTrainingRuns.modelId, model.id))
+    .orderBy(desc(mlTrainingRuns.startedAt))
+    .limit(10);
+
+  const accuracy = model.correctPredictions && model.feedbackCount 
+    ? (model.correctPredictions / model.feedbackCount) * 100 
+    : 0;
+
+  return {
+    model,
+    totalPredictions: predictions[0]?.count || 0,
+    feedbackCount: feedbacks[0]?.count || 0,
+    accuracy,
+    recentTrainingRuns: trainingRuns,
+  };
+}
+
+export async function updateModelSettings(
+  organisationId: string,
+  settings: {
+    learningRate?: string;
+    epochs?: number;
+    batchSize?: number;
+    featureWeights?: Record<string, number>;
+  }
+): Promise<typeof mlModels.$inferSelect | null> {
+  const model = await getOrCreateModel(organisationId);
+  if (!model) return null;
+
+  const [updated] = await db.update(mlModels)
+    .set({
+      ...settings,
+      updatedAt: new Date(),
+    })
+    .where(eq(mlModels.id, model.id))
+    .returning();
+
+  return updated;
+}
