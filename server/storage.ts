@@ -2534,39 +2534,65 @@ export class DatabaseStorage implements IStorage {
     certificates: Array<{ type: string; status: string; expiryDate: string | null }>;
     actions: Array<{ severity: string; status: string }>;
   }>> {
+    // Optimized: Batch fetch all data in 3 queries instead of N+1
     const allProperties = await db.select()
       .from(properties)
       .innerJoin(blocks, eq(properties.blockId, blocks.id))
       .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
       .where(eq(schemes.organisationId, organisationId));
     
-    const result = [];
-    for (const row of allProperties) {
-      const prop = row.properties;
-      
-      const certs = await db.select({
-        type: certificates.certificateType,
-        status: certificates.status,
-        expiryDate: certificates.expiryDate
-      })
-      .from(certificates)
-      .where(eq(certificates.propertyId, prop.id));
-      
-      const actions = await db.select({
-        severity: remedialActions.severity,
-        status: remedialActions.status
-      })
-      .from(remedialActions)
-      .where(eq(remedialActions.propertyId, prop.id));
-      
-      result.push({
-        property: prop,
-        certificates: certs,
-        actions
+    const propertyIds = allProperties.map(row => row.properties.id);
+    if (propertyIds.length === 0) return [];
+    
+    // Batch fetch all certificates for these properties
+    const allCerts = await db.select({
+      propertyId: certificates.propertyId,
+      type: certificates.certificateType,
+      status: certificates.status,
+      expiryDate: certificates.expiryDate
+    })
+    .from(certificates)
+    .where(inArray(certificates.propertyId, propertyIds));
+    
+    // Batch fetch all actions for these properties
+    const allActions = await db.select({
+      propertyId: remedialActions.propertyId,
+      severity: remedialActions.severity,
+      status: remedialActions.status
+    })
+    .from(remedialActions)
+    .where(inArray(remedialActions.propertyId, propertyIds));
+    
+    // Group by property ID
+    const certsByProperty = new Map<string, Array<{ type: string; status: string; expiryDate: string | null }>>();
+    const actionsByProperty = new Map<string, Array<{ severity: string; status: string }>>();
+    
+    for (const cert of allCerts) {
+      if (!certsByProperty.has(cert.propertyId!)) {
+        certsByProperty.set(cert.propertyId!, []);
+      }
+      certsByProperty.get(cert.propertyId!)!.push({
+        type: cert.type,
+        status: cert.status,
+        expiryDate: cert.expiryDate
       });
     }
     
-    return result;
+    for (const action of allActions) {
+      if (!actionsByProperty.has(action.propertyId)) {
+        actionsByProperty.set(action.propertyId, []);
+      }
+      actionsByProperty.get(action.propertyId)!.push({
+        severity: action.severity,
+        status: action.status
+      });
+    }
+    
+    return allProperties.map(row => ({
+      property: row.properties,
+      certificates: certsByProperty.get(row.properties.id) || [],
+      actions: actionsByProperty.get(row.properties.id) || []
+    }));
   }
   
   // Audit Trail Implementation

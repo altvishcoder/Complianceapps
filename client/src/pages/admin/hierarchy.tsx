@@ -546,8 +546,9 @@ export default function PropertyHierarchy() {
         .map((block) => {
           const blockProperties = properties.filter((p: Property) => p.blockId === block.id);
           
-          // Collect block-level units from all properties in this block
+          // Collect block-level units from all properties in this block (deduplicated)
           const blockLevelUnits: HierarchyNode[] = [];
+          const seenUnitIds = new Set<string>();
           
           const getComponentName = (comp: EnrichedComponent) => {
             if (comp.componentType?.name) return comp.componentType.name;
@@ -562,9 +563,12 @@ export default function PropertyHierarchy() {
             const dwellingUnits = propertyUnits.filter((u: Unit) => !BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
             const blockUnits = propertyUnits.filter((u: Unit) => BLOCK_LEVEL_UNIT_TYPES.has(u.unitType));
             
-            // Add block-level units to the block's children
+            // Add block-level units to the block's children (deduplicate by ID)
             blockUnits.forEach((unit: Unit) => {
-              blockLevelUnits.push(buildUnitNode(unit, property.id));
+              if (!seenUnitIds.has(unit.id)) {
+                seenUnitIds.add(unit.id);
+                blockLevelUnits.push(buildUnitNode(unit, property.id));
+              }
             });
             
             const directComponents = components
