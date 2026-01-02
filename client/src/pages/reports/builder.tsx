@@ -652,11 +652,11 @@ export default function ReportBuilder() {
                       {scheduledReports.map((report, index) => (
                         <div 
                           key={report.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
+                          className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border rounded-lg"
                           data-testid={`scheduled-report-${index}`}
                         >
-                          <div className="flex items-center gap-4">
-                            <div className={`p-2 rounded-lg ${
+                          <div className="flex items-start md:items-center gap-3 md:gap-4 min-w-0">
+                            <div className={`p-2 rounded-lg flex-shrink-0 ${
                               report.status === "Active" 
                                 ? "bg-green-100 dark:bg-green-900/30" 
                                 : "bg-gray-100 dark:bg-gray-800"
@@ -665,34 +665,43 @@ export default function ReportBuilder() {
                                 report.status === "Active" ? "text-green-600" : "text-gray-400"
                               }`} />
                             </div>
-                            <div>
-                              <p className="font-medium" data-testid={`text-scheduled-name-${index}`}>{report.name}</p>
-                              <p className="text-sm text-muted-foreground" data-testid={`text-scheduled-template-${index}`}>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium truncate" data-testid={`text-scheduled-name-${index}`}>{report.name}</p>
+                                <Badge 
+                                  variant={report.status === "Active" ? "default" : "secondary"}
+                                  className={`md:hidden flex-shrink-0 ${report.status === "Active" ? "bg-green-500" : ""}`}
+                                  data-testid={`badge-scheduled-status-mobile-${index}`}
+                                >
+                                  {report.status}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate" data-testid={`text-scheduled-template-${index}`}>
                                 Template: {report.template}
                               </p>
-                              <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-xs text-muted-foreground">
                                 <span data-testid={`text-scheduled-frequency-${index}`}>{report.schedule}</span>
-                                <span>•</span>
+                                <span className="hidden md:inline">•</span>
                                 <span data-testid={`text-scheduled-format-${index}`}>{report.format}</span>
-                                <span>•</span>
+                                <span className="hidden md:inline">•</span>
                                 <span data-testid={`text-scheduled-recipients-${index}`}>{report.recipients.length} recipients</span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
+                          <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4 border-t md:border-t-0 pt-3 md:pt-0 -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="text-left md:text-right">
                               <Badge 
                                 variant={report.status === "Active" ? "default" : "secondary"}
-                                className={report.status === "Active" ? "bg-green-500" : ""}
+                                className={`hidden md:inline-flex ${report.status === "Active" ? "bg-green-500" : ""}`}
                                 data-testid={`badge-scheduled-status-${index}`}
                               >
                                 {report.status}
                               </Badge>
-                              <p className="text-xs text-muted-foreground mt-1" data-testid={`text-next-run-${index}`}>
+                              <p className="text-xs text-muted-foreground md:mt-1" data-testid={`text-next-run-${index}`}>
                                 Next: {report.nextRun}
                               </p>
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-shrink-0">
                               <Button variant="ghost" size="icon" data-testid={`button-edit-schedule-${index}`}>
                                 <Edit className="h-4 w-4" />
                               </Button>

@@ -442,8 +442,8 @@ export default function BoardReporting() {
               </CardContent>
             </Card>
 
-            {/* Key Metrics Row */}
-            <div className="grid gap-4 md:grid-cols-4">
+            {/* Key Metrics Row - Horizontal scroll on mobile, grid on desktop */}
+            <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-4 md:gap-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
               {keyMetrics.map((metric, index) => {
                 const metricLinks: Record<string, string> = {
                   "Total Properties": "/properties",
@@ -454,32 +454,30 @@ export default function BoardReporting() {
                 const href = metricLinks[metric.label] || "#";
                 const MetricIcon = metricIcons[metric.label] || Shield;
                 return (
-                  <Link key={index} href={href}>
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow" data-testid={`card-metric-${index}`}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <MetricIcon className="h-5 w-5 text-primary" />
+                  <Link key={index} href={href} className="flex-shrink-0 w-[160px] md:w-auto">
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow h-full" data-testid={`card-metric-${index}`}>
+                      <CardContent className="p-4 md:p-6">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                            <MetricIcon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <TrendIndicator trend={metric.trend} />
-                              <span className={`text-sm ${
-                                metric.trend === "up" ? "text-green-500" : 
-                                metric.trend === "down" ? "text-red-500" : 
-                                "text-muted-foreground"
-                              }`}>
-                                {metric.change}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-1">
+                            <TrendIndicator trend={metric.trend} />
+                            <span className={`text-xs md:text-sm ${
+                              metric.trend === "up" ? "text-green-500" : 
+                              metric.trend === "down" ? "text-red-500" : 
+                              "text-muted-foreground"
+                            }`}>
+                              {metric.change}
+                            </span>
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
-                        <div className="mt-4">
-                          <p className="text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
-                          <p className="text-sm text-muted-foreground">
+                        <div className="mt-3 md:mt-4">
+                          <p className="text-xl md:text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
                             {metric.label}
-                            {metric.sublabel && <span className="text-xs ml-1">{metric.sublabel}</span>}
+                            {metric.sublabel && <span className="text-xs ml-1 hidden md:inline">{metric.sublabel}</span>}
                           </p>
                         </div>
                       </CardContent>
