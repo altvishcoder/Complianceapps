@@ -295,15 +295,16 @@ export default function AssetHealth() {
       const allProperties: Property[] = [];
       let page = 1;
       const limit = 1000;
-      let hasMore = true;
+      const maxPages = 100;
       
-      while (hasMore) {
+      while (page <= maxPages) {
         const res = await fetch(`/api/properties?limit=${limit}&page=${page}`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch properties');
         const data = await res.json();
         const pageData = Array.isArray(data) ? data : (data.data || []);
+        const total = data.total || 0;
         allProperties.push(...pageData);
-        hasMore = pageData.length === limit;
+        if (pageData.length < limit || allProperties.length >= total) break;
         page++;
       }
       return allProperties;
@@ -316,15 +317,16 @@ export default function AssetHealth() {
       const allCerts: Certificate[] = [];
       let page = 1;
       const limit = 1000;
-      let hasMore = true;
+      const maxPages = 100;
       
-      while (hasMore) {
+      while (page <= maxPages) {
         const res = await fetch(`/api/certificates?limit=${limit}&page=${page}`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch certificates');
         const data = await res.json();
         const pageData = Array.isArray(data) ? data : (data.data || []);
+        const total = data.total || 0;
         allCerts.push(...pageData);
-        hasMore = pageData.length === limit;
+        if (pageData.length < limit || allCerts.length >= total) break;
         page++;
       }
       return allCerts;
