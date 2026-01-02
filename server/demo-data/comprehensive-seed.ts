@@ -445,7 +445,7 @@ async function seedCertificates(
   streamCodeToId: Record<string, string>
 ): Promise<string[]> {
   const certIds: string[] = [];
-  const statuses = ["APPROVED", "EXTRACTED", "NEEDS_REVIEW", "PENDING", "FAILED"] as const;
+  const statuses = ["APPROVED", "EXTRACTED", "NEEDS_REVIEW", "UPLOADED", "PROCESSING"] as const;
   const certTypes = ["GAS_SAFETY", "EICR", "FIRE_RISK_ASSESSMENT", "ASBESTOS_SURVEY", "LIFT_LOLER", "LEGIONELLA_ASSESSMENT", "EPC"] as const;
   
   const certTypeToStream: Record<string, string> = {
