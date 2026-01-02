@@ -2,44 +2,15 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Building2, Home, Layers, ChevronRight, AlertTriangle, CheckCircle, 
+  Building2, AlertTriangle, CheckCircle, 
   Clock, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, ExternalLink
 } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Treemap, ResponsiveContainer, Cell, Tooltip } from "recharts";
-import { cn } from "@/lib/utils";
-import { useLocation } from "wouter";
+import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-
-interface Property {
-  id: string;
-  addressLine1: string;
-  blockId: string;
-}
-
-interface Certificate {
-  id: string;
-  propertyId: string;
-  certificateType: string;
-  status: string;
-  expiryDate: string;
-  outcome?: string;
-}
-
-interface Scheme {
-  id: string;
-  name: string;
-}
-
-interface Block {
-  id: string;
-  name: string;
-  schemeId: string;
-}
 
 interface TreeNode {
   name: string;
@@ -287,9 +258,7 @@ export default function AssetHealth() {
     document.title = "Asset Health - ComplianceAI";
   }, []);
 
-  const [viewLevel, setViewLevel] = useState<'scheme' | 'block' | 'property'>('scheme');
   const [selectedScheme, setSelectedScheme] = useState<string>('all');
-  const [selectedBlock, setSelectedBlock] = useState<string>('all');
 
   const { data: summary, isLoading: summaryLoading, refetch } = useQuery<AssetHealthSummary>({
     queryKey: ['asset-health-summary'],
@@ -300,16 +269,7 @@ export default function AssetHealth() {
     },
   });
 
-  const { data: blocks = [], isLoading: blocksLoading } = useQuery<Block[]>({
-    queryKey: ['blocks'],
-    queryFn: async () => {
-      const res = await fetch('/api/blocks', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch blocks');
-      return res.json();
-    },
-  });
-
-  const isLoading = summaryLoading || blocksLoading;
+  const isLoading = summaryLoading;
   const schemes = summary?.schemes || [];
 
   const treeData = useMemo(() => {
@@ -341,79 +301,14 @@ export default function AssetHealth() {
     return summary.totals;
   }, [summary]);
 
-  // Placeholder for block view (would need a separate API endpoint)
-  const blockTreeData = useMemo(() => {
-    if (viewLevel !== 'block') return [];
-    
-    const blocksByScheme = new Map<string, Block[]>();
-    blocks.forEach(b => {
-      const existing = blocksByScheme.get(b.schemeId) || [];
-      existing.push(b);
-      blocksByScheme.set(b.schemeId, existing);
-    });
-    
-    const filteredBlocks = blocks
-      .filter(b => selectedScheme === 'all' || b.schemeId === selectedScheme)
-      .filter(b => selectedBlock === 'all' || b.id === selectedBlock);
-    
-    // For block view, use summary data to distribute proportionally
-    const schemeMap = new Map(summary?.schemes.map(s => [s.id, s]) || []);
-    
-    return filteredBlocks.map(block => {
-      const schemeStats = schemeMap.get(block.schemeId);
-      const schemeBlocks = blocksByScheme.get(block.schemeId) || [];
-      const blockCount = schemeBlocks.length || 1;
-      
-      // Distribute scheme stats proportionally across blocks
-      const proportion = 1 / blockCount;
-      const total = Math.round((schemeStats?.totalProperties || 0) * proportion);
-      const compliant = Math.round((schemeStats?.compliantProperties || 0) * proportion);
-      const atRisk = Math.round((schemeStats?.atRiskProperties || 0) * proportion);
-      const expired = Math.round((schemeStats?.expiredProperties || 0) * proportion);
-      
-      return {
-        name: block.name,
-        size: Math.max(total, 1),
-        totalProperties: total,
-        compliantProperties: compliant,
-        atRiskProperties: atRisk,
-        expiredProperties: expired,
-        complianceRate: total > 0 ? (compliant / total) * 100 : 100,
-        nodeType: 'block' as const,
-        nodeId: block.id,
-      };
-    }).filter(node => node.totalProperties > 0);
-  }, [viewLevel, blocks, selectedScheme, selectedBlock, summary]);
-
-  const activeTreeData = viewLevel === 'block' ? blockTreeData : treeData;
-
-  const filteredBlocks = useMemo(() => {
-    if (selectedScheme === 'all') return blocks;
-    return blocks.filter(b => b.schemeId === selectedScheme);
-  }, [blocks, selectedScheme]);
-
-  const [, navigate] = useLocation();
-
   const handleTreemapClick = useCallback((data: any) => {
     if (!data || !data.nodeType || !data.nodeId) return;
     
-    switch (data.nodeType) {
-      case 'property':
-        navigate(`/properties/${data.nodeId}`);
-        break;
-      case 'scheme':
-        // Drill down to blocks in this scheme, resetting block filter
-        setSelectedScheme(data.nodeId);
-        setSelectedBlock('all');
-        setViewLevel('block');
-        break;
-      case 'block':
-        // Navigate to properties page with block filter
-        setSelectedBlock(data.nodeId);
-        setViewLevel('property');
-        break;
+    if (data.nodeType === 'scheme') {
+      // Filter to show only this scheme in the treemap
+      setSelectedScheme(data.nodeId);
     }
-  }, [navigate]);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden" data-testid="page-asset-health">
@@ -514,42 +409,17 @@ export default function AssetHealth() {
                   <CardTitle className="text-lg">Asset Compliance Treemap</CardTitle>
                   <CardDescription>Size represents property count, color indicates compliance rate</CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Select value={viewLevel} onValueChange={(v) => setViewLevel(v as 'scheme' | 'block' | 'property')}>
-                    <SelectTrigger className="w-32" data-testid="select-view-level">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scheme">By Scheme</SelectItem>
-                      <SelectItem value="block">By Block</SelectItem>
-                      <SelectItem value="property">By Property</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedScheme} onValueChange={setSelectedScheme}>
-                    <SelectTrigger className="w-40" data-testid="select-scheme">
-                      <SelectValue placeholder="All Schemes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Schemes</SelectItem>
-                      {schemes.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(viewLevel === 'block' || viewLevel === 'property') && (
-                    <Select value={selectedBlock} onValueChange={setSelectedBlock}>
-                      <SelectTrigger className="w-40" data-testid="select-block">
-                        <SelectValue placeholder="All Blocks" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Blocks</SelectItem>
-                        {filteredBlocks.map(b => (
-                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
+                <Select value={selectedScheme} onValueChange={setSelectedScheme}>
+                  <SelectTrigger className="w-48" data-testid="select-scheme">
+                    <SelectValue placeholder="All Schemes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Schemes</SelectItem>
+                    {schemes.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>

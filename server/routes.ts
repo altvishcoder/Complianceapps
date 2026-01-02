@@ -872,7 +872,7 @@ export async function registerRoutes(
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
-               AND c.status = 'VALID' 
+               AND c.status = 'APPROVED' 
                AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
             ) as compliant_certs,
             COALESCE(
