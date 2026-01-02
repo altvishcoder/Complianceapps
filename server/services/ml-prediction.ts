@@ -377,10 +377,16 @@ export async function calculateStatisticalPrediction(
   };
 }
 
+interface PredictionOptions {
+  isTest?: boolean;
+}
+
 export async function predictPropertyBreach(
   propertyId: string,
-  organisationId: string
+  organisationId: string,
+  options: PredictionOptions = {}
 ): Promise<MLPredictionResult> {
+  const { isTest = false } = options;
   const model = await getOrCreateModel(organisationId, 'BREACH_PROBABILITY');
   
   const { score: statisticalScore, confidence: statisticalConfidence, riskData } = 
@@ -459,6 +465,7 @@ export async function predictPropertyBreach(
       predictedDaysToBreach,
       predictedRiskCategory: riskCategory,
       inputFeatures,
+      isTest,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
   }

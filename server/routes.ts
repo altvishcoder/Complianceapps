@@ -9152,15 +9152,10 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      let { propertyIds } = req.body;
+      const { propertyIds } = req.body;
       
       if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
-        const sampleProperties = await storage.listProperties(organisationId, { limit: 30 });
-        propertyIds = sampleProperties.map(p => p.id);
-      }
-      
-      if (propertyIds.length === 0) {
-        return res.json({ predictions: [], message: "No properties found" });
+        return res.status(400).json({ error: "propertyIds array is required" });
       }
 
       const { predictPropertyBreach } = await import('./services/ml-prediction');
@@ -9173,6 +9168,39 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error getting bulk ML predictions:", error);
       res.status(500).json({ error: "Failed to get bulk ML predictions" });
+    }
+  });
+
+  // Test predictions endpoint - generates predictions for sample properties
+  app.post("/api/ml/predictions/test", async (req, res) => {
+    try {
+      const organisationId = req.session?.organisationId || ORG_ID;
+      if (!organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const limit = Math.min(req.body.limit || 30, 50);
+      const sampleProperties = await storage.listProperties(organisationId, { limit });
+      
+      if (sampleProperties.length === 0) {
+        return res.json({ predictions: [], message: "No properties found for testing" });
+      }
+
+      const propertyIds = sampleProperties.map(p => p.id);
+      const { predictPropertyBreach } = await import('./services/ml-prediction');
+      
+      const predictions = await Promise.all(
+        propertyIds.map(id => predictPropertyBreach(id, organisationId, { isTest: true }))
+      );
+      
+      res.json({ 
+        predictions, 
+        generated: predictions.length,
+        message: `Generated ${predictions.length} test predictions`
+      });
+    } catch (error) {
+      console.error("Error generating test ML predictions:", error);
+      res.status(500).json({ error: "Failed to generate test ML predictions" });
     }
   });
 

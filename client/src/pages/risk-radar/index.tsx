@@ -327,8 +327,8 @@ export default function RiskRadarPage() {
   });
 
   const generateMLPredictionsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/ml/predictions/bulk', {});
+    mutationFn: async (propertyIds: string[]) => {
+      const res = await apiRequest('POST', '/api/ml/predictions/bulk', { propertyIds });
       return res.json();
     },
     onSuccess: (data) => {
@@ -343,6 +343,28 @@ export default function RiskRadarPage() {
       toast({
         title: 'Generation Failed',
         description: 'Unable to generate ML predictions. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const testPredictionsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/ml/predictions/test', {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Test Predictions Generated',
+        description: data.message || `Generated ${data.generated || 0} test predictions`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['ml-predictions'] });
+      queryClient.invalidateQueries({ queryKey: ['ml-model-metrics'] });
+    },
+    onError: () => {
+      toast({
+        title: 'Test Failed',
+        description: 'Unable to generate test predictions. Please try again.',
         variant: 'destructive',
       });
     },
@@ -948,14 +970,15 @@ export default function RiskRadarPage() {
                 <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold">No ML Predictions Yet</h3>
                 <p className="text-muted-foreground mb-4">
-                  ML predictions are generated when properties are assessed through the risk scoring system.
+                  Generate test predictions to see how the ML model evaluates your property portfolio.
                 </p>
                 <Button 
-                  onClick={() => generateMLPredictionsMutation.mutate()} 
-                  disabled={generateMLPredictionsMutation.isPending}
+                  onClick={() => testPredictionsMutation.mutate()} 
+                  disabled={testPredictionsMutation.isPending}
+                  data-testid="button-test-predictions"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${generateMLPredictionsMutation.isPending ? 'animate-spin' : ''}`} />
-                  Generate Predictions
+                  <RefreshCw className={`h-4 w-4 mr-2 ${testPredictionsMutation.isPending ? 'animate-spin' : ''}`} />
+                  Test Predictions
                 </Button>
               </CardContent>
             </Card>

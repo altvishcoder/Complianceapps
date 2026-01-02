@@ -2685,6 +2685,9 @@ export const mlPredictions = pgTable("ml_predictions", {
   actualBreachDate: timestamp("actual_breach_date"),
   wasAccurate: boolean("was_accurate"),
   
+  // Test prediction flag
+  isTest: boolean("is_test").notNull().default(false),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
 });
