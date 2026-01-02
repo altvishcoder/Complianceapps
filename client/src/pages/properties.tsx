@@ -335,11 +335,11 @@ export default function Properties() {
               data-testid="card-schemes"
             />
             <StatsCard 
-              title="Showing" 
-              value={String(filteredProperties.length)}
-              description={isLoading ? "Loading..." : `of ${totalProperties.toLocaleString()} on this page`}
+              title="This Page" 
+              value={isLoading ? "..." : String(filteredProperties.length)}
+              description={isLoading ? "Loading properties" : `of ${totalProperties.toLocaleString()} total`}
               icon={AlertCircle}
-              data-testid="card-showing-count"
+              data-testid="card-page-count"
             />
           </div>
 
