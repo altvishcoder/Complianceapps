@@ -36,6 +36,40 @@ type Organisation = {
 
 type ViewMode = 'tree' | 'list' | 'grid';
 
+// UKHDS-compliant unit type labels
+const UNIT_TYPE_LABELS: Record<string, string> = {
+  DWELLING: 'Unit (Dwelling)',
+  COMMUNAL_AREA: 'Communal Area',
+  PLANT_ROOM: 'Plant Room',
+  ROOF_SPACE: 'Roof Space',
+  BASEMENT: 'Basement',
+  EXTERNAL: 'External Area',
+  GARAGE: 'Garage/Parking',
+  COMMERCIAL: 'Commercial Unit',
+  OTHER: 'Other Area',
+};
+
+// UKHDS-compliant space type labels
+const SPACE_TYPE_LABELS: Record<string, string> = {
+  ROOM: 'Space (Room)',
+  COMMUNAL_AREA: 'Communal Space',
+  EXTERNAL: 'External Space',
+  CIRCULATION: 'Circulation',
+  UTILITY: 'Utility Space',
+  STORAGE: 'Storage',
+  OTHER: 'Other Space',
+};
+
+function getUnitTypeLabel(unitType?: string): string {
+  if (!unitType) return 'Unit (Dwelling)';
+  return UNIT_TYPE_LABELS[unitType] || 'Unit (Dwelling)';
+}
+
+function getSpaceTypeLabel(spaceType?: string): string {
+  if (!spaceType) return 'Space (Room)';
+  return SPACE_TYPE_LABELS[spaceType] || 'Space (Room)';
+}
+
 interface HierarchyNode {
   id: string;
   name: string;
@@ -63,8 +97,19 @@ function HactBadge({ label }: { label: string }) {
 }
 
 function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: HierarchyNode; level?: number; defaultOpen?: boolean; onNodeClick?: (node: HierarchyNode) => void }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen && level < 2);
+  // Performance optimization: only expand first 2 levels by default
+  // and render children lazily (only when expanded)
+  const [isOpen, setIsOpen] = useState(defaultOpen && level < 1);
+  const [hasRenderedChildren, setHasRenderedChildren] = useState(level < 1);
   const hasChildren = node.children.length > 0;
+  
+  // Lazy render children - only mount when first opened
+  const handleOpenChange = (open: boolean) => {
+    if (open && !hasRenderedChildren) {
+      setHasRenderedChildren(true);
+    }
+    setIsOpen(open);
+  };
   
   const typeColors: Record<string, string> = {
     scheme: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -100,7 +145,7 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
 
   return (
     <div className="select-none">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
         <div 
           className={cn(
             "flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer",
@@ -151,8 +196,8 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
             {node.type === 'scheme' && 'Scheme (Site)'}
             {node.type === 'block' && 'Block (Building)'}
             {node.type === 'property' && 'Property (Structure)'}
-            {node.type === 'unit' && 'Unit (Dwelling)'}
-            {node.type === 'space' && 'Space (Room)'}
+            {node.type === 'unit' && getUnitTypeLabel(node.data?.unitType)}
+            {node.type === 'space' && getSpaceTypeLabel(node.data?.spaceType)}
             {node.type === 'component' && 'Component (Asset)'}
           </Badge>
           
@@ -163,11 +208,11 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
           )}
         </div>
         
-        {hasChildren && (
+        {hasChildren && hasRenderedChildren && (
           <CollapsibleContent>
             <div className="border-l-2 border-slate-200 ml-6">
               {node.children.map((child) => (
-                <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={level < 1} onNodeClick={onNodeClick} />
+                <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={false} onNodeClick={onNodeClick} />
               ))}
             </div>
           </CollapsibleContent>
@@ -262,13 +307,16 @@ function VisualHierarchy({ hierarchyData, viewMode, onNodeClick }: { hierarchyDa
     // UKHDS hierarchy labels with housing association friendly terms
     // Note: Housing associations typically call "Unit" as "Property" (the lettable dwelling)
     // UKHDS "Property" actually means Building/Block level
-    const typeLabels: Record<string, string> = {
-      scheme: 'Scheme (Site)',
-      block: 'Block (Building)',
-      property: 'Property (Structure)',
-      unit: 'Unit (Dwelling)',
-      space: 'Space (Room)',
-      component: 'Component (Asset)',
+    const getTypeLabel = (node: HierarchyNode & { depth: number }): string => {
+      if (node.type === 'unit') return getUnitTypeLabel(node.data?.unitType);
+      if (node.type === 'space') return getSpaceTypeLabel(node.data?.spaceType);
+      const baseLabels: Record<string, string> = {
+        scheme: 'Scheme (Site)',
+        block: 'Block (Building)',
+        property: 'Property (Structure)',
+        component: 'Component (Asset)',
+      };
+      return baseLabels[node.type] || node.type;
     };
 
     const statusColors: Record<string, string> = {
@@ -299,7 +347,7 @@ function VisualHierarchy({ hierarchyData, viewMode, onNodeClick }: { hierarchyDa
                 </TableCell>
                 <TableCell className="font-medium">{node.name}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize">{typeLabels[node.type]}</Badge>
+                  <Badge variant="outline" className="capitalize">{getTypeLabel(node)}</Badge>
                 </TableCell>
                 <TableCell className="text-slate-500">{node.reference || '-'}</TableCell>
                 <TableCell>
