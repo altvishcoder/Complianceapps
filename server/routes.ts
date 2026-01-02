@@ -967,6 +967,166 @@ export async function registerRoutes(
     }
   });
 
+  // ===== ASSET HEALTH - BLOCKS BY SCHEME =====
+  app.get("/api/asset-health/schemes/:schemeId/blocks", async (req, res) => {
+    try {
+      const { schemeId } = req.params;
+      const organisationId = req.session?.organisationId || ORG_ID;
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const result = await db.execute(sql`
+        WITH property_compliance AS (
+          SELECT 
+            p.id as property_id,
+            p.block_id,
+            COALESCE(
+              (SELECT COUNT(*) FROM certificates c 
+               WHERE c.property_id = p.id 
+               AND c.status = 'APPROVED' 
+               AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
+            ) as compliant_certs,
+            COALESCE(
+              (SELECT COUNT(*) FROM certificates c 
+               WHERE c.property_id = p.id 
+               AND c.expiry_date IS NOT NULL 
+               AND c.expiry_date <= ${now}), 0
+            ) as expired_certs,
+            COALESCE(
+              (SELECT COUNT(*) FROM certificates c 
+               WHERE c.property_id = p.id 
+               AND c.expiry_date IS NOT NULL 
+               AND c.expiry_date > ${now} 
+               AND c.expiry_date <= ${thirtyDaysFromNow}), 0
+            ) as expiring_certs
+          FROM properties p
+          INNER JOIN blocks b ON p.block_id = b.id
+          WHERE b.scheme_id = ${schemeId}
+          AND p.organisation_id = ${organisationId}
+        )
+        SELECT 
+          b.id as block_id,
+          b.name as block_name,
+          COUNT(DISTINCT pc.property_id)::int as total_properties,
+          COUNT(DISTINCT CASE WHEN pc.expired_certs = 0 AND pc.compliant_certs > 0 THEN pc.property_id END)::int as compliant_properties,
+          COUNT(DISTINCT CASE WHEN pc.expiring_certs > 0 AND pc.expired_certs = 0 THEN pc.property_id END)::int as at_risk_properties,
+          COUNT(DISTINCT CASE WHEN pc.expired_certs > 0 THEN pc.property_id END)::int as expired_properties,
+          CASE 
+            WHEN COUNT(DISTINCT pc.property_id) = 0 THEN 100
+            ELSE ROUND((COUNT(DISTINCT CASE WHEN pc.expired_certs = 0 AND pc.compliant_certs > 0 THEN pc.property_id END)::decimal / 
+                        NULLIF(COUNT(DISTINCT pc.property_id), 0)) * 100, 1)
+          END as compliance_rate
+        FROM blocks b
+        LEFT JOIN property_compliance pc ON pc.block_id = b.id
+        WHERE b.scheme_id = ${schemeId}
+        GROUP BY b.id, b.name
+        ORDER BY b.name
+      `);
+
+      const blocks = result.rows.map((row: any) => ({
+        id: row.block_id,
+        name: row.block_name,
+        totalProperties: parseInt(row.total_properties) || 0,
+        compliantProperties: parseInt(row.compliant_properties) || 0,
+        atRiskProperties: parseInt(row.at_risk_properties) || 0,
+        expiredProperties: parseInt(row.expired_properties) || 0,
+        complianceRate: parseFloat(row.compliance_rate) || 100,
+      }));
+
+      const totals = blocks.reduce((acc, b) => ({
+        totalProperties: acc.totalProperties + b.totalProperties,
+        compliantProperties: acc.compliantProperties + b.compliantProperties,
+        atRiskProperties: acc.atRiskProperties + b.atRiskProperties,
+        expiredProperties: acc.expiredProperties + b.expiredProperties,
+      }), { totalProperties: 0, compliantProperties: 0, atRiskProperties: 0, expiredProperties: 0 });
+
+      res.json({
+        blocks,
+        totals: {
+          ...totals,
+          complianceRate: totals.totalProperties > 0 
+            ? Math.round((totals.compliantProperties / totals.totalProperties) * 1000) / 10 
+            : 100
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching blocks for scheme:", error);
+      res.status(500).json({ error: "Failed to fetch blocks for scheme" });
+    }
+  });
+
+  // ===== ASSET HEALTH - PROPERTIES BY BLOCK =====
+  app.get("/api/asset-health/blocks/:blockId/properties", async (req, res) => {
+    try {
+      const { blockId } = req.params;
+      const organisationId = req.session?.organisationId || ORG_ID;
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const result = await db.execute(sql`
+        SELECT 
+          p.id as property_id,
+          p.address_line1 as property_name,
+          p.uprn,
+          COALESCE(
+            (SELECT COUNT(*) FROM certificates c 
+             WHERE c.property_id = p.id 
+             AND c.status = 'APPROVED' 
+             AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
+          )::int as compliant_certs,
+          COALESCE(
+            (SELECT COUNT(*) FROM certificates c 
+             WHERE c.property_id = p.id 
+             AND c.status = 'APPROVED'
+             AND c.expiry_date IS NOT NULL 
+             AND c.expiry_date <= ${now}), 0
+          )::int as expired_certs,
+          COALESCE(
+            (SELECT COUNT(*) FROM certificates c 
+             WHERE c.property_id = p.id 
+             AND c.status = 'APPROVED'
+             AND c.expiry_date IS NOT NULL 
+             AND c.expiry_date > ${now} 
+             AND c.expiry_date <= ${thirtyDaysFromNow}), 0
+          )::int as expiring_certs,
+          CASE 
+            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND c.expiry_date IS NOT NULL AND c.expiry_date <= ${now}) > 0 THEN 'expired'
+            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND c.expiry_date IS NOT NULL AND c.expiry_date > ${now} AND c.expiry_date <= ${thirtyDaysFromNow}) > 0 THEN 'at_risk'
+            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND (c.expiry_date IS NULL OR c.expiry_date > ${now})) > 0 THEN 'compliant'
+            ELSE 'no_data'
+          END as compliance_status
+        FROM properties p
+        WHERE p.block_id = ${blockId}
+        AND p.organisation_id = ${organisationId}
+        ORDER BY p.address_line1
+        LIMIT 200
+      `);
+
+      const properties = result.rows.map((row: any) => ({
+        id: row.property_id,
+        name: row.property_name,
+        uprn: row.uprn,
+        compliantCerts: parseInt(row.compliant_certs) || 0,
+        expiredCerts: parseInt(row.expired_certs) || 0,
+        expiringCerts: parseInt(row.expiring_certs) || 0,
+        complianceStatus: row.compliance_status,
+      }));
+
+      const totals = {
+        total: properties.length,
+        compliant: properties.filter(p => p.complianceStatus === 'compliant').length,
+        atRisk: properties.filter(p => p.complianceStatus === 'at_risk').length,
+        expired: properties.filter(p => p.complianceStatus === 'expired').length,
+        noData: properties.filter(p => p.complianceStatus === 'no_data').length,
+      };
+
+      res.json({ properties, totals });
+    } catch (error) {
+      console.error("Error fetching properties for block:", error);
+      res.status(500).json({ error: "Failed to fetch properties for block" });
+    }
+  });
+
   // ===== SCHEMES =====
   app.get("/api/schemes", async (req, res) => {
     try {

@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Building2, AlertTriangle, CheckCircle, 
-  Clock, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, ExternalLink
+  Clock, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, ExternalLink, ChevronLeft, Home
 } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useLocation } from "wouter";
 
 interface TreeNode {
   name: string;
@@ -42,12 +43,11 @@ function getComplianceColor(rate: number): string {
   return COMPLIANCE_COLORS.critical;
 }
 
-function getComplianceStatus(rate: number): string {
-  if (rate >= 95) return 'Excellent';
-  if (rate >= 85) return 'Good';
-  if (rate >= 70) return 'At Risk';
-  if (rate >= 50) return 'Poor';
-  return 'Critical';
+function getPropertyComplianceColor(status: string): string {
+  if (status === 'compliant') return COMPLIANCE_COLORS.excellent;
+  if (status === 'at_risk') return COMPLIANCE_COLORS.warning;
+  if (status === 'expired') return COMPLIANCE_COLORS.critical;
+  return '#9ca3af';
 }
 
 interface CustomTooltipProps {
@@ -62,14 +62,13 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
   const rate = data.complianceRate || 0;
   const nodeType = data.nodeType || 'scheme';
   
-  // Property-level tooltip - simpler display
   if (nodeType === 'property') {
-    const status = data.expiredProperties > 0 ? 'Expired' : 
-                   data.atRiskProperties > 0 ? 'At Risk' : 
-                   data.compliantProperties > 0 ? 'Compliant' : 'No Certificates';
-    const statusColor = data.expiredProperties > 0 ? 'text-red-600' :
-                        data.atRiskProperties > 0 ? 'text-amber-600' :
-                        data.compliantProperties > 0 ? 'text-green-600' : 'text-muted-foreground';
+    const status = data.complianceStatus === 'expired' ? 'Expired' : 
+                   data.complianceStatus === 'at_risk' ? 'At Risk' : 
+                   data.complianceStatus === 'compliant' ? 'Compliant' : 'No Certificates';
+    const statusColor = data.complianceStatus === 'expired' ? 'text-red-600' :
+                        data.complianceStatus === 'at_risk' ? 'text-amber-600' :
+                        data.complianceStatus === 'compliant' ? 'text-green-600' : 'text-muted-foreground';
     
     return (
       <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border text-sm" data-testid="treemap-tooltip">
@@ -79,22 +78,33 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
             <span className="text-muted-foreground">Status:</span>
             <span className={`font-medium ${statusColor}`}>{status}</span>
           </div>
+          {data.uprn && (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">UPRN:</span>
+              <span>{data.uprn}</span>
+            </div>
+          )}
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Compliance Score:</span>
-            <span className="font-medium" style={{ color: getComplianceColor(rate) }}>
-              {rate.toFixed(0)}%
-            </span>
+            <span className="text-green-600">Valid Certs:</span>
+            <span>{data.compliantCerts || 0}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-amber-600">Expiring:</span>
+            <span>{data.expiringCerts || 0}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-red-600">Expired:</span>
+            <span>{data.expiredCerts || 0}</span>
           </div>
           <div className="flex items-center gap-1 text-blue-600 pt-1 border-t mt-1">
             <ExternalLink className="h-3 w-3" />
-            <span>Click to view property</span>
+            <span>Click to view property details</span>
           </div>
         </div>
       </div>
     );
   }
   
-  // Scheme-level tooltip - shows blocks and properties
   if (nodeType === 'scheme') {
     return (
       <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border text-sm" data-testid="treemap-tooltip">
@@ -130,14 +140,13 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
           </div>
           <div className="flex items-center gap-1 text-blue-600 pt-1 border-t mt-1">
             <ExternalLink className="h-3 w-3" />
-            <span>Click to view properties in scheme</span>
+            <span>Click to drill down to blocks</span>
           </div>
         </div>
       </div>
     );
   }
   
-  // Block-level tooltip - shows properties within block
   return (
     <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border text-sm" data-testid="treemap-tooltip">
       <p className="font-semibold mb-2">{data.name}</p>
@@ -166,7 +175,7 @@ function CustomTreemapTooltip({ active, payload }: CustomTooltipProps) {
         </div>
         <div className="flex items-center gap-1 text-blue-600 pt-1 border-t mt-1">
           <ExternalLink className="h-3 w-3" />
-          <span>Click to view properties in block</span>
+          <span>Click to drill down to properties</span>
         </div>
       </div>
     </div>
@@ -180,16 +189,19 @@ interface TreemapContentProps {
   height?: number;
   name?: string;
   complianceRate?: number;
+  complianceStatus?: string;
   depth?: number;
   index?: number;
   nodeType?: 'scheme' | 'block' | 'property';
   nodeId?: string;
 }
 
-function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', complianceRate = 0, depth = 0 }: TreemapContentProps) {
+function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', complianceRate = 0, complianceStatus, nodeType, depth = 0 }: TreemapContentProps) {
   if (width < 50 || height < 30) return null;
   
-  const color = getComplianceColor(complianceRate);
+  const color = nodeType === 'property' && complianceStatus 
+    ? getPropertyComplianceColor(complianceStatus)
+    : getComplianceColor(complianceRate);
   
   return (
     <g style={{ cursor: 'pointer' }}>
@@ -225,7 +237,7 @@ function CustomTreemapContent({ x = 0, y = 0, width = 0, height = 0, name = '', 
             fontSize={Math.min(12, width / 10)}
             style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
           >
-            {complianceRate.toFixed(0)}%
+            {nodeType === 'property' ? (complianceStatus === 'compliant' ? '✓' : complianceStatus === 'at_risk' ? '⚠' : complianceStatus === 'expired' ? '✗' : '—') : `${complianceRate.toFixed(0)}%`}
           </text>
         </>
       )}
@@ -253,12 +265,63 @@ interface AssetHealthSummary {
   };
 }
 
+interface BlocksResponse {
+  blocks: Array<{
+    id: string;
+    name: string;
+    totalProperties: number;
+    compliantProperties: number;
+    atRiskProperties: number;
+    expiredProperties: number;
+    complianceRate: number;
+  }>;
+  totals: {
+    totalProperties: number;
+    compliantProperties: number;
+    atRiskProperties: number;
+    expiredProperties: number;
+    complianceRate: number;
+  };
+}
+
+interface PropertiesResponse {
+  properties: Array<{
+    id: string;
+    name: string;
+    uprn: string;
+    compliantCerts: number;
+    expiredCerts: number;
+    expiringCerts: number;
+    complianceStatus: 'compliant' | 'at_risk' | 'expired' | 'no_data';
+  }>;
+  totals: {
+    total: number;
+    compliant: number;
+    atRisk: number;
+    expired: number;
+    noData: number;
+  };
+}
+
+type ViewLevel = 'schemes' | 'blocks' | 'properties';
+
+interface DrilldownState {
+  level: ViewLevel;
+  schemeId?: string;
+  schemeName?: string;
+  blockId?: string;
+  blockName?: string;
+}
+
 export default function AssetHealth() {
+  const [, navigate] = useLocation();
+  
   useEffect(() => {
     document.title = "Asset Health - ComplianceAI";
   }, []);
 
-  const [selectedScheme, setSelectedScheme] = useState<string>('all');
+  const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'schemes' });
+  const [selectedSchemeFilter, setSelectedSchemeFilter] = useState<string>('all');
 
   const { data: summary, isLoading: summaryLoading, refetch } = useQuery<AssetHealthSummary>({
     queryKey: ['asset-health-summary'],
@@ -269,46 +332,160 @@ export default function AssetHealth() {
     },
   });
 
-  const isLoading = summaryLoading;
+  const { data: blocksData, isLoading: blocksLoading } = useQuery<BlocksResponse>({
+    queryKey: ['asset-health-blocks', drilldown.schemeId],
+    queryFn: async () => {
+      const res = await fetch(`/api/asset-health/schemes/${drilldown.schemeId}/blocks`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch blocks');
+      return res.json();
+    },
+    enabled: drilldown.level === 'blocks' && !!drilldown.schemeId,
+  });
+
+  const { data: propertiesData, isLoading: propertiesLoading } = useQuery<PropertiesResponse>({
+    queryKey: ['asset-health-properties', drilldown.blockId],
+    queryFn: async () => {
+      const res = await fetch(`/api/asset-health/blocks/${drilldown.blockId}/properties`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch properties');
+      return res.json();
+    },
+    enabled: drilldown.level === 'properties' && !!drilldown.blockId,
+  });
+
+  const isLoading = summaryLoading || (drilldown.level === 'blocks' && blocksLoading) || (drilldown.level === 'properties' && propertiesLoading);
   const schemes = summary?.schemes || [];
 
   const treeData = useMemo(() => {
-    if (!summary || !summary.schemes) return [];
+    if (drilldown.level === 'schemes') {
+      if (!summary || !summary.schemes) return [];
+      
+      const filteredSchemes = summary.schemes.filter(
+        s => selectedSchemeFilter === 'all' || s.id === selectedSchemeFilter
+      );
+      
+      return filteredSchemes
+        .map(scheme => ({
+          name: scheme.name,
+          size: Math.max(scheme.totalProperties, 1),
+          totalProperties: scheme.totalProperties,
+          compliantProperties: scheme.compliantProperties,
+          atRiskProperties: scheme.atRiskProperties,
+          expiredProperties: scheme.expiredProperties,
+          complianceRate: scheme.complianceRate,
+          nodeType: 'scheme' as const,
+          blocksCount: scheme.blocksCount,
+          nodeId: scheme.id,
+        }))
+        .filter(node => node.totalProperties > 0);
+    }
     
-    // Use the pre-computed scheme stats from the server
-    const filteredSchemes = summary.schemes.filter(
-      s => selectedScheme === 'all' || s.id === selectedScheme
-    );
+    if (drilldown.level === 'blocks' && blocksData) {
+      return blocksData.blocks
+        .map(block => ({
+          name: block.name,
+          size: Math.max(block.totalProperties, 1),
+          totalProperties: block.totalProperties,
+          compliantProperties: block.compliantProperties,
+          atRiskProperties: block.atRiskProperties,
+          expiredProperties: block.expiredProperties,
+          complianceRate: block.complianceRate,
+          nodeType: 'block' as const,
+          nodeId: block.id,
+        }))
+        .filter(node => node.totalProperties > 0);
+    }
     
-    return filteredSchemes
-      .map(scheme => ({
-        name: scheme.name,
-        size: Math.max(scheme.totalProperties, 1),
-        totalProperties: scheme.totalProperties,
-        compliantProperties: scheme.compliantProperties,
-        atRiskProperties: scheme.atRiskProperties,
-        expiredProperties: scheme.expiredProperties,
-        complianceRate: scheme.complianceRate,
-        nodeType: 'scheme' as const,
-        blocksCount: scheme.blocksCount,
-        nodeId: scheme.id,
-      }))
-      .filter(node => node.totalProperties > 0);
-  }, [summary, selectedScheme]);
+    if (drilldown.level === 'properties' && propertiesData) {
+      return propertiesData.properties.map(prop => ({
+        name: prop.name,
+        size: 1,
+        totalProperties: 1,
+        compliantProperties: prop.complianceStatus === 'compliant' ? 1 : 0,
+        atRiskProperties: prop.complianceStatus === 'at_risk' ? 1 : 0,
+        expiredProperties: prop.complianceStatus === 'expired' ? 1 : 0,
+        complianceRate: prop.complianceStatus === 'compliant' ? 100 : prop.complianceStatus === 'at_risk' ? 70 : 0,
+        complianceStatus: prop.complianceStatus,
+        nodeType: 'property' as const,
+        nodeId: prop.id,
+        uprn: prop.uprn,
+        compliantCerts: prop.compliantCerts,
+        expiredCerts: prop.expiredCerts,
+        expiringCerts: prop.expiringCerts,
+      }));
+    }
+    
+    return [];
+  }, [summary, blocksData, propertiesData, drilldown.level, selectedSchemeFilter]);
 
   const summaryStats = useMemo(() => {
+    if (drilldown.level === 'blocks' && blocksData) {
+      return blocksData.totals;
+    }
+    if (drilldown.level === 'properties' && propertiesData) {
+      return {
+        totalProperties: propertiesData.totals.total,
+        compliantProperties: propertiesData.totals.compliant,
+        atRiskProperties: propertiesData.totals.atRisk,
+        expiredProperties: propertiesData.totals.expired,
+        complianceRate: propertiesData.totals.total > 0 
+          ? Math.round((propertiesData.totals.compliant / propertiesData.totals.total) * 1000) / 10 
+          : 100,
+      };
+    }
     if (!summary) return { totalProperties: 0, compliantProperties: 0, atRiskProperties: 0, expiredProperties: 0, complianceRate: 100 };
     return summary.totals;
-  }, [summary]);
+  }, [summary, blocksData, propertiesData, drilldown.level]);
 
   const handleTreemapClick = useCallback((data: any) => {
     if (!data || !data.nodeType || !data.nodeId) return;
     
     if (data.nodeType === 'scheme') {
-      // Filter to show only this scheme in the treemap
-      setSelectedScheme(data.nodeId);
+      setDrilldown({
+        level: 'blocks',
+        schemeId: data.nodeId,
+        schemeName: data.name,
+      });
+    } else if (data.nodeType === 'block') {
+      setDrilldown(prev => ({
+        ...prev,
+        level: 'properties',
+        blockId: data.nodeId,
+        blockName: data.name,
+      }));
+    } else if (data.nodeType === 'property') {
+      navigate(`/properties/${data.nodeId}`);
     }
+  }, [navigate]);
+
+  const handleGoBack = useCallback(() => {
+    if (drilldown.level === 'properties') {
+      setDrilldown(prev => ({
+        level: 'blocks',
+        schemeId: prev.schemeId,
+        schemeName: prev.schemeName,
+      }));
+    } else if (drilldown.level === 'blocks') {
+      setDrilldown({ level: 'schemes' });
+    }
+  }, [drilldown.level]);
+
+  const handleGoHome = useCallback(() => {
+    setDrilldown({ level: 'schemes' });
+    setSelectedSchemeFilter('all');
   }, []);
+
+  const getBreadcrumb = () => {
+    const parts = ['All Schemes'];
+    if (drilldown.schemeName) parts.push(drilldown.schemeName);
+    if (drilldown.blockName) parts.push(drilldown.blockName);
+    return parts;
+  };
+
+  const getViewTitle = () => {
+    if (drilldown.level === 'properties') return `Properties in ${drilldown.blockName}`;
+    if (drilldown.level === 'blocks') return `Blocks in ${drilldown.schemeName}`;
+    return 'Scheme Overview';
+  };
 
   return (
     <div className="flex h-screen overflow-hidden" data-testid="page-asset-health">
@@ -405,21 +582,48 @@ export default function AssetHealth() {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Asset Compliance Treemap</CardTitle>
-                  <CardDescription>Size represents property count, color indicates compliance rate</CardDescription>
-                </div>
-                <Select value={selectedScheme} onValueChange={setSelectedScheme}>
-                  <SelectTrigger className="w-48" data-testid="select-scheme">
-                    <SelectValue placeholder="All Schemes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Schemes</SelectItem>
-                    {schemes.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    {drilldown.level !== 'schemes' && (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={handleGoHome} data-testid="button-home">
+                          <Home className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleGoBack} data-testid="button-back">
+                          <ChevronLeft className="h-4 w-4" />
+                          Back
+                        </Button>
+                      </>
+                    )}
+                    <CardTitle className="text-lg">{getViewTitle()}</CardTitle>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    {getBreadcrumb().map((part, i) => (
+                      <span key={i} className="flex items-center gap-1">
+                        {i > 0 && <span>/</span>}
+                        <span className={i === getBreadcrumb().length - 1 ? 'font-medium text-foreground' : ''}>{part}</span>
+                      </span>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                  <CardDescription>
+                    {drilldown.level === 'properties' 
+                      ? 'Color indicates compliance status' 
+                      : 'Size represents property count, color indicates compliance rate. Click to drill down.'}
+                  </CardDescription>
+                </div>
+                {drilldown.level === 'schemes' && (
+                  <Select value={selectedSchemeFilter} onValueChange={setSelectedSchemeFilter}>
+                    <SelectTrigger className="w-48" data-testid="select-scheme">
+                      <SelectValue placeholder="All Schemes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Schemes</SelectItem>
+                      {schemes.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -430,7 +634,12 @@ export default function AssetHealth() {
               ) : treeData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                   <Building2 className="h-12 w-12 mb-4" />
-                  <p>No data available for the selected filters</p>
+                  <p>No data available for the selected view</p>
+                  {drilldown.level !== 'schemes' && (
+                    <Button variant="link" onClick={handleGoBack} className="mt-2">
+                      Go back
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="h-[500px]" data-testid="treemap-container">
