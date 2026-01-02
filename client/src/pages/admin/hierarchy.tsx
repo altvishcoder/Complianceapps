@@ -459,13 +459,13 @@ export default function PropertyHierarchy() {
 
   const { data: propertiesResponse, isLoading: propertiesLoading } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => propertiesApi.list({ limit: 200 }),
+    queryFn: () => propertiesApi.list({ limit: 500 }),
   });
   const properties = propertiesResponse?.data ?? [];
 
   const { data: componentsResponse, isLoading: componentsLoading } = useQuery({
     queryKey: ["components"],
-    queryFn: () => componentsApi.list({ limit: 200 }),
+    queryFn: () => componentsApi.list({ limit: 2000 }),
   });
   const components = componentsResponse?.data ?? [];
 
