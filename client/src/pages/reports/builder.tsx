@@ -318,68 +318,68 @@ export default function ReportBuilder() {
             </div>
 
             {/* Performance Metrics */}
-            <div className="grid gap-4 md:grid-cols-5">
-              <Card data-testid="card-cache-rate">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                      <Zap className="h-5 w-5 text-green-600" />
+            <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto scrollbar-hide pb-1">
+              <Card data-testid="card-cache-rate" className="shrink-0 w-36 md:w-auto">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="p-1.5 md:p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                      <Zap className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-green-600" data-testid="text-cache-rate">{dataMetrics.cacheHitRate}%</p>
+                      <p className="text-xl md:text-2xl font-bold text-green-600" data-testid="text-cache-rate">{dataMetrics.cacheHitRate}%</p>
                       <p className="text-xs text-muted-foreground">Cache Hit Rate</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card data-testid="card-query-time">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                      <Timer className="h-5 w-5 text-blue-600" />
+              <Card data-testid="card-query-time" className="shrink-0 w-32 md:w-auto">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="p-1.5 md:p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                      <Timer className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold" data-testid="text-query-time">{dataMetrics.avgQueryTime}</p>
+                      <p className="text-xl md:text-2xl font-bold" data-testid="text-query-time">{dataMetrics.avgQueryTime}</p>
                       <p className="text-xs text-muted-foreground">Avg Query Time</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card data-testid="card-off-peak">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                      <Clock className="h-5 w-5 text-purple-600" />
+              <Card data-testid="card-off-peak" className="shrink-0 w-32 md:w-auto">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="p-1.5 md:p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                      <Clock className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold" data-testid="text-off-peak">{dataMetrics.offPeakScheduled}</p>
-                      <p className="text-xs text-muted-foreground">Off-Peak Scheduled</p>
+                      <p className="text-xl md:text-2xl font-bold" data-testid="text-off-peak">{dataMetrics.offPeakScheduled}</p>
+                      <p className="text-xs text-muted-foreground">Off-Peak</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card data-testid="card-materialized-views">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                      <Database className="h-5 w-5 text-amber-600" />
+              <Card data-testid="card-materialized-views" className="shrink-0 w-32 md:w-auto">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="p-1.5 md:p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                      <Database className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold" data-testid="text-materialized-views">{dataMetrics.materializedViews}</p>
-                      <p className="text-xs text-muted-foreground">Materialized Views</p>
+                      <p className="text-xl md:text-2xl font-bold" data-testid="text-materialized-views">{dataMetrics.materializedViews}</p>
+                      <p className="text-xs text-muted-foreground">Mat. Views</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card data-testid="card-last-refresh">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
-                      <RefreshCw className="h-5 w-5 text-teal-600" />
+              <Card data-testid="card-last-refresh" className="shrink-0 w-40 md:w-auto">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="p-1.5 md:p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+                      <RefreshCw className="h-4 w-4 md:h-5 md:w-5 text-teal-600" />
                     </div>
                     <div>
                       <p className="text-sm font-bold" data-testid="text-last-refresh">{dataMetrics.lastRefresh}</p>
-                      <p className="text-xs text-muted-foreground">Last Data Refresh</p>
+                      <p className="text-xs text-muted-foreground">Last Refresh</p>
                     </div>
                   </div>
                 </CardContent>
