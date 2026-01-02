@@ -611,8 +611,57 @@ export default function Properties() {
 
           <Card>
             <CardContent className="p-0">
-               <div className="rounded-md border-t border-border">
-                <table className="w-full text-sm text-left">
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border">
+                {filteredProperties.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No properties found. Add a property or load demo data.
+                  </div>
+                ) : (
+                  filteredProperties.map((prop) => (
+                    <div 
+                      key={prop.id}
+                      className={`p-4 active:bg-muted/30 ${selectedIds.has(prop.id) ? 'bg-muted/30' : ''}`}
+                      onClick={() => navigate(`/properties/${prop.id}`)}
+                      data-testid={`card-property-${prop.id}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                          <Checkbox 
+                            checked={selectedIds.has(prop.id)}
+                            onCheckedChange={() => {
+                              const newSelection = new Set(selectedIds);
+                              if (newSelection.has(prop.id)) {
+                                newSelection.delete(prop.id);
+                              } else {
+                                newSelection.add(prop.id);
+                              }
+                              setSelectedIds(newSelection);
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground truncate">{prop.addressLine1}</p>
+                              <p className="text-sm text-muted-foreground">{prop.city}, {prop.postcode}</p>
+                            </div>
+                            {getStatusBadge(prop.complianceStatus, prop.needsVerification)}
+                          </div>
+                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                            <span className="capitalize">{prop.propertyType.toLowerCase()}</span>
+                            <span className="text-xs">{prop.block?.name} • {prop.scheme?.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block rounded-md border-t border-border overflow-x-auto">
+                <table className="w-full text-sm text-left min-w-[700px]">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
                       <th className="p-4 pl-4 w-10">

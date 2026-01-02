@@ -385,117 +385,172 @@ export default function CertificatesPage() {
               <CardDescription>Manage and view compliance documents across all properties.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/50 text-muted-foreground font-medium">
-                    <tr>
-                      <th className="p-4">Certificate Type</th>
-                      <th className="p-4">Stream</th>
-                      <th className="p-4">Property</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Expiry Date</th>
-                      <th className="p-4">Outcome</th>
-                      <th className="p-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+              {isLoadingCerts ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Loading certificates...</p>
+                </div>
+              ) : filteredCertificates.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No certificates found matching your criteria.
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Card View */}
+                  <div className="md:hidden divide-y divide-border border rounded-md">
                     {filteredCertificates.map((cert) => {
+                      const streamInfo = certTypeToStream.get(cert.certificateType);
                       return (
-                      <tr key={cert.id} className="hover:bg-muted/20 cursor-pointer" onClick={() => setSelectedCert(cert)}>
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center">
-                              <FileText className="h-4 w-4" />
+                        <div 
+                          key={cert.id} 
+                          className="p-4 active:bg-muted/30"
+                          onClick={() => setSelectedCert(cert)}
+                          data-testid={`card-cert-${cert.id}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="h-10 w-10 rounded bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                              <FileText className="h-5 w-5" />
                             </div>
-                            <div>
-                              <div className="font-medium">{cert.certificateType}</div>
-                              <div className="text-xs text-muted-foreground">{cert.fileName}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          {(() => {
-                            const streamInfo = certTypeToStream.get(cert.certificateType);
-                            if (streamInfo) {
-                              return (
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-semibold truncate">{cert.certificateType}</p>
+                                  <p className="text-sm text-muted-foreground truncate">{cert.property?.addressLine1}</p>
+                                </div>
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setStreamFilter(streamInfo.streamCode);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
-                                  style={{ 
-                                    backgroundColor: `${streamInfo.colorCode}15`, 
-                                    color: streamInfo.colorCode,
-                                    borderColor: `${streamInfo.colorCode}40`
-                                  }}
-                                  data-testid={`stream-badge-${cert.id}`}
+                                  onClick={(e) => handleStatusClick(e, cert.status)}
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${getStatusColor(cert.status)}`}
                                 >
-                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: streamInfo.colorCode }} />
-                                  {streamInfo.streamName}
+                                  {cert.status.replace('_', ' ')}
                                 </button>
-                              );
-                            }
-                            return <span className="text-muted-foreground text-xs">-</span>;
-                          })()}
-                        </td>
-                        <td className="p-4 font-medium">{cert.property?.addressLine1}</td>
-                        <td className="p-4">
-                          <button
-                            onClick={(e) => handleStatusClick(e, cert.status)}
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all ${getStatusColor(cert.status)} ${statusFilter === cert.status ? 'ring-2 ring-primary' : ''}`}
-                          >
-                            {cert.status.replace('_', ' ')}
-                          </button>
-                        </td>
-                        <td className="p-4 text-muted-foreground">{formatDate(cert.expiryDate)}</td>
-                        <td className="p-4">
-                          <Badge variant="outline">{cert.outcome}</Badge>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Link href={`/certificates/${cert.id}`}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`view-cert-${cert.id}`}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={handleDownload}>
-                                  <Download className="mr-2 h-4 w-4" /> Download PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <FileCheck className="mr-2 h-4 w-4" /> Verify Again
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive">
-                                  Archive Document
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              </div>
+                              <div className="flex items-center gap-3 mt-2 text-sm">
+                                {streamInfo && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
+                                    style={{ 
+                                      backgroundColor: `${streamInfo.colorCode}15`, 
+                                      color: streamInfo.colorCode,
+                                      borderColor: `${streamInfo.colorCode}40`
+                                    }}
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: streamInfo.colorCode }} />
+                                    {streamInfo.streamName}
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground text-xs">Exp: {formatDate(cert.expiryDate)}</span>
+                              </div>
+                            </div>
                           </div>
-                        </td>
-                      </tr>
-                    );
+                        </div>
+                      );
                     })}
-                  </tbody>
-                </table>
-                {isLoadingCerts ? (
-                  <div className="p-8 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                    <p className="mt-2 text-sm text-muted-foreground">Loading certificates...</p>
                   </div>
-                ) : filteredCertificates.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    No certificates found matching your criteria.
+                  
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block rounded-md border overflow-x-auto">
+                    <table className="w-full text-sm text-left min-w-[900px]">
+                      <thead className="bg-muted/50 text-muted-foreground font-medium">
+                        <tr>
+                          <th className="p-4">Certificate Type</th>
+                          <th className="p-4">Stream</th>
+                          <th className="p-4">Property</th>
+                          <th className="p-4">Status</th>
+                          <th className="p-4">Expiry Date</th>
+                          <th className="p-4">Outcome</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filteredCertificates.map((cert) => {
+                          return (
+                          <tr key={cert.id} className="hover:bg-muted/20 cursor-pointer" onClick={() => setSelectedCert(cert)}>
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center">
+                                  <FileText className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <div className="font-medium">{cert.certificateType}</div>
+                                  <div className="text-xs text-muted-foreground">{cert.fileName}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {(() => {
+                                const streamInfo = certTypeToStream.get(cert.certificateType);
+                                if (streamInfo) {
+                                  return (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStreamFilter(streamInfo.streamCode);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
+                                      style={{ 
+                                        backgroundColor: `${streamInfo.colorCode}15`, 
+                                        color: streamInfo.colorCode,
+                                        borderColor: `${streamInfo.colorCode}40`
+                                      }}
+                                      data-testid={`stream-badge-${cert.id}`}
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: streamInfo.colorCode }} />
+                                      {streamInfo.streamName}
+                                    </button>
+                                  );
+                                }
+                                return <span className="text-muted-foreground text-xs">-</span>;
+                              })()}
+                            </td>
+                            <td className="p-4 font-medium">{cert.property?.addressLine1}</td>
+                            <td className="p-4">
+                              <button
+                                onClick={(e) => handleStatusClick(e, cert.status)}
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all ${getStatusColor(cert.status)} ${statusFilter === cert.status ? 'ring-2 ring-primary' : ''}`}
+                              >
+                                {cert.status.replace('_', ' ')}
+                              </button>
+                            </td>
+                            <td className="p-4 text-muted-foreground">{formatDate(cert.expiryDate)}</td>
+                            <td className="p-4">
+                              <Badge variant="outline">{cert.outcome}</Badge>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Link href={`/certificates/${cert.id}`}>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`view-cert-${cert.id}`}>
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={handleDownload}>
+                                      <Download className="mr-2 h-4 w-4" /> Download PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                      <FileCheck className="mr-2 h-4 w-4" /> Verify Again
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive">
+                                      Archive Document
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                ) : null}
-              </div>
+                </>
+              )}
               
               {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-4">
