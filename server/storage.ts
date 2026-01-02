@@ -4,7 +4,7 @@ import {
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
   complianceStreams, certificateTypes, classificationCodes,
-  componentTypes, units, spaces, components, componentCertificates, dataImports, dataImportRows,
+  componentTypes, spaces, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
   factorySettings, factorySettingsAudit, apiClients, uploadSessions, ingestionJobs, ingestionBatches, rateLimitEntries,
@@ -33,7 +33,6 @@ import {
   type ComplianceRule, type InsertComplianceRule,
   type NormalisationRule, type InsertNormalisationRule,
   type ComponentType, type InsertComponentType,
-  type Unit, type InsertUnit,
   type Space, type InsertSpace,
   type Component, type InsertComponent,
   type ComponentCertificate, type InsertComponentCertificate,
@@ -254,22 +253,15 @@ export interface IStorage {
   updateComponentType(id: string, updates: Partial<InsertComponentType>): Promise<ComponentType | undefined>;
   deleteComponentType(id: string): Promise<boolean>;
   
-  // HACT Architecture - Units
-  listUnits(propertyId?: string): Promise<Unit[]>;
-  getUnit(id: string): Promise<Unit | undefined>;
-  createUnit(unit: InsertUnit): Promise<Unit>;
-  updateUnit(id: string, updates: Partial<InsertUnit>): Promise<Unit | undefined>;
-  deleteUnit(id: string): Promise<boolean>;
-  
-  // HACT Architecture - Spaces (can attach to units, blocks, or schemes for communal areas)
-  listSpaces(filters?: { unitId?: string; blockId?: string; schemeId?: string }): Promise<Space[]>;
+  // HACT Architecture - Spaces (can attach to properties, blocks, or schemes)
+  listSpaces(filters?: { propertyId?: string; blockId?: string; schemeId?: string }): Promise<Space[]>;
   getSpace(id: string): Promise<Space | undefined>;
   createSpace(space: InsertSpace): Promise<Space>;
   updateSpace(id: string, updates: Partial<InsertSpace>): Promise<Space | undefined>;
   deleteSpace(id: string): Promise<boolean>;
   
-  // HACT Architecture - Components
-  listComponents(filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]>;
+  // HACT Architecture - Components (can attach to properties, spaces, or blocks)
+  listComponents(filters?: { propertyId?: string; spaceId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]>;
   getComponent(id: string): Promise<Component | undefined>;
   createComponent(component: InsertComponent): Promise<Component>;
   updateComponent(id: string, updates: Partial<InsertComponent>): Promise<Component | undefined>;
@@ -1602,44 +1594,11 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
   
-  // HACT Architecture - Units
-  async listUnits(propertyId?: string): Promise<Unit[]> {
-    if (propertyId) {
-      return db.select().from(units)
-        .where(eq(units.propertyId, propertyId))
-        .orderBy(units.name);
-    }
-    return db.select().from(units).orderBy(units.name);
-  }
-  
-  async getUnit(id: string): Promise<Unit | undefined> {
-    const [unit] = await db.select().from(units).where(eq(units.id, id));
-    return unit || undefined;
-  }
-  
-  async createUnit(unit: InsertUnit): Promise<Unit> {
-    const [created] = await db.insert(units).values(unit).returning();
-    return created;
-  }
-  
-  async updateUnit(id: string, updates: Partial<InsertUnit>): Promise<Unit | undefined> {
-    const [updated] = await db.update(units)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(units.id, id))
-      .returning();
-    return updated || undefined;
-  }
-  
-  async deleteUnit(id: string): Promise<boolean> {
-    const result = await db.delete(units).where(eq(units.id, id)).returning();
-    return result.length > 0;
-  }
-  
-  // HACT Architecture - Spaces (can attach to units, blocks, or schemes for communal areas)
-  // Since spaces can only attach to ONE level, filters use OR logic (not AND)
-  async listSpaces(filters?: { unitId?: string; blockId?: string; schemeId?: string }): Promise<Space[]> {
+  // HACT Architecture - Spaces (can attach to properties, blocks, or schemes)
+  // Since spaces attach to ONE level, filters use OR logic (not AND)
+  async listSpaces(filters?: { propertyId?: string; blockId?: string; schemeId?: string }): Promise<Space[]> {
     const conditions = [];
-    if (filters?.unitId) conditions.push(eq(spaces.unitId, filters.unitId));
+    if (filters?.propertyId) conditions.push(eq(spaces.propertyId, filters.propertyId));
     if (filters?.blockId) conditions.push(eq(spaces.blockId, filters.blockId));
     if (filters?.schemeId) conditions.push(eq(spaces.schemeId, filters.schemeId));
     
@@ -1657,9 +1616,9 @@ export class DatabaseStorage implements IStorage {
   
   async createSpace(space: InsertSpace): Promise<Space> {
     // Validate single-parent constraint at storage level
-    const attachments = [space.unitId, space.blockId, space.schemeId].filter(Boolean);
+    const attachments = [space.propertyId, space.blockId, space.schemeId].filter(Boolean);
     if (attachments.length !== 1) {
-      throw new Error('Space must attach to exactly one level: unitId, blockId, or schemeId');
+      throw new Error('Space must attach to exactly one level: propertyId (dwelling), blockId (communal), or schemeId (estate)');
     }
     const [created] = await db.insert(spaces).values(space).returning();
     return created;
@@ -1667,18 +1626,18 @@ export class DatabaseStorage implements IStorage {
   
   async updateSpace(id: string, updates: Partial<InsertSpace>): Promise<Space | undefined> {
     // If hierarchy IDs are being updated, validate single-parent constraint
-    const isUpdatingHierarchy = 'unitId' in updates || 'blockId' in updates || 'schemeId' in updates;
+    const isUpdatingHierarchy = 'propertyId' in updates || 'blockId' in updates || 'schemeId' in updates;
     if (isUpdatingHierarchy) {
       const current = await this.getSpace(id);
       if (!current) return undefined;
       
-      const mergedUnitId = 'unitId' in updates ? updates.unitId : current.unitId;
-      const mergedBlockId = 'blockId' in updates ? updates.blockId : (current as any).blockId;
-      const mergedSchemeId = 'schemeId' in updates ? updates.schemeId : (current as any).schemeId;
+      const mergedPropertyId = 'propertyId' in updates ? updates.propertyId : current.propertyId;
+      const mergedBlockId = 'blockId' in updates ? updates.blockId : current.blockId;
+      const mergedSchemeId = 'schemeId' in updates ? updates.schemeId : current.schemeId;
       
-      const attachments = [mergedUnitId, mergedBlockId, mergedSchemeId].filter(Boolean);
+      const attachments = [mergedPropertyId, mergedBlockId, mergedSchemeId].filter(Boolean);
       if (attachments.length !== 1) {
-        throw new Error('Space must attach to exactly one level: unitId, blockId, or schemeId');
+        throw new Error('Space must attach to exactly one level: propertyId (dwelling), blockId (communal), or schemeId (estate)');
       }
     }
     
@@ -1694,11 +1653,11 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
   
-  // HACT Architecture - Components
-  async listComponents(filters?: { propertyId?: string; unitId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]> {
+  // HACT Architecture - Components (attach to properties, spaces, or blocks)
+  async listComponents(filters?: { propertyId?: string; spaceId?: string; blockId?: string; componentTypeId?: string }): Promise<Component[]> {
     const conditions = [];
     if (filters?.propertyId) conditions.push(eq(components.propertyId, filters.propertyId));
-    if (filters?.unitId) conditions.push(eq(components.unitId, filters.unitId));
+    if (filters?.spaceId) conditions.push(eq(components.spaceId, filters.spaceId));
     if (filters?.blockId) conditions.push(eq(components.blockId, filters.blockId));
     if (filters?.componentTypeId) conditions.push(eq(components.componentTypeId, filters.componentTypeId));
     
