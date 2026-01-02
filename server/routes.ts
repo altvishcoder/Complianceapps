@@ -878,18 +878,22 @@ export async function registerRoutes(
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
+               AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
                AND c.expiry_date <= ${now}), 0
             ) as expired_certs,
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
+               AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
                AND c.expiry_date > ${now} 
                AND c.expiry_date <= ${thirtyDaysFromNow}), 0
             ) as expiring_certs
           FROM properties p
-          WHERE p.organisation_id = ${organisationId}
+          INNER JOIN blocks b ON p.block_id = b.id
+          INNER JOIN schemes s ON b.scheme_id = s.id
+          WHERE s.organisation_id = ${organisationId}
         ),
         block_stats AS (
           SELECT 
@@ -989,20 +993,23 @@ export async function registerRoutes(
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
+               AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
                AND c.expiry_date <= ${now}), 0
             ) as expired_certs,
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
+               AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
                AND c.expiry_date > ${now} 
                AND c.expiry_date <= ${thirtyDaysFromNow}), 0
             ) as expiring_certs
           FROM properties p
           INNER JOIN blocks b ON p.block_id = b.id
+          INNER JOIN schemes s ON b.scheme_id = s.id
           WHERE b.scheme_id = ${schemeId}
-          AND p.organisation_id = ${organisationId}
+          AND s.organisation_id = ${organisationId}
         )
         SELECT 
           b.id as block_id,
@@ -1096,8 +1103,10 @@ export async function registerRoutes(
             ELSE 'no_data'
           END as compliance_status
         FROM properties p
+        INNER JOIN blocks b ON p.block_id = b.id
+        INNER JOIN schemes s ON b.scheme_id = s.id
         WHERE p.block_id = ${blockId}
-        AND p.organisation_id = ${organisationId}
+        AND s.organisation_id = ${organisationId}
         ORDER BY p.address_line1
         LIMIT 200
       `);
