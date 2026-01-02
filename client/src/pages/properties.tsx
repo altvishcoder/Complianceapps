@@ -660,7 +660,9 @@ export default function Properties() {
                           </td>
                           <td className="p-4">
                             <div className="flex flex-col">
-                              <span className="font-semibold text-foreground">{prop.addressLine1}</span>
+                              <span className="font-semibold text-foreground max-w-xs truncate" title={prop.addressLine1}>
+                                {prop.addressLine1.length > 60 ? prop.addressLine1.substring(0, 60) + '...' : prop.addressLine1}
+                              </span>
                               <span className="text-xs text-muted-foreground">{prop.city}, {prop.postcode}</span>
                             </div>
                           </td>

@@ -13,6 +13,14 @@ import { useQuery } from "@tanstack/react-query";
 import { propertiesApi } from "@/lib/api";
 import { Breadcrumb, useBreadcrumbContext } from "@/components/Breadcrumb";
 
+function truncateAddress(address: string, maxLength: number = 60): string {
+  if (!address) return "Property";
+  if (address.length <= maxLength) return address;
+  const truncated = address.substring(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated) + "...";
+}
+
 function PropertyDetailSkeleton() {
   return (
     <div className="flex h-screen bg-muted/30">
@@ -109,14 +117,14 @@ export default function PropertyDetail() {
             <Breadcrumb 
               items={[
                 { label: "Properties", href: "/properties" },
-                { label: property.addressLine1 || "Property" }
+                { label: truncateAddress(property.addressLine1, 50) }
               ]}
             />
           </div>
           
           <div className="flex items-center gap-4">
              <div>
-               <h1 className="text-2xl font-bold tracking-tight">{property.addressLine1}</h1>
+               <h1 className="text-2xl font-bold tracking-tight">{truncateAddress(property.addressLine1, 80)}</h1>
                <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <span>{property.city}, {property.postcode}</span>
                   <span>•</span>
