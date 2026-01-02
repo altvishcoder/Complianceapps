@@ -2600,6 +2600,181 @@ export type InsertUkhdsExport = z.infer<typeof insertUkhdsExportSchema>;
 export type ComplianceCalendarEvent = typeof complianceCalendarEvents.$inferSelect;
 export type InsertComplianceCalendarEvent = z.infer<typeof insertComplianceCalendarEventSchema>;
 
+// =====================================================
+// ML PREDICTIVE COMPLIANCE MODELS
+// =====================================================
+
+// ML Model status enum
+export const mlModelStatusEnum = pgEnum('ml_model_status', ['TRAINING', 'ACTIVE', 'INACTIVE', 'FAILED']);
+export const mlPredictionTypeEnum = pgEnum('ml_prediction_type', ['BREACH_PROBABILITY', 'DAYS_TO_BREACH', 'RISK_CATEGORY']);
+export const mlFeedbackTypeEnum = pgEnum('ml_feedback_type', ['CORRECT', 'INCORRECT', 'PARTIALLY_CORRECT']);
+
+// ML Models - stores trained model weights and configuration
+export const mlModels = pgTable("ml_models", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  
+  modelName: text("model_name").notNull(),
+  modelVersion: integer("model_version").notNull().default(1),
+  predictionType: mlPredictionTypeEnum("prediction_type").notNull(),
+  status: mlModelStatusEnum("status").notNull().default('TRAINING'),
+  
+  // Model architecture/weights stored as JSON (TensorFlow.js compatible)
+  modelWeights: json("model_weights").$type<number[][]>(),
+  modelConfig: json("model_config").$type<{
+    inputFeatures: string[];
+    hiddenLayers: number[];
+    outputSize: number;
+    activation: string;
+  }>(),
+  
+  // Training configuration
+  learningRate: text("learning_rate").notNull().default('0.01'),
+  epochs: integer("epochs").notNull().default(100),
+  batchSize: integer("batch_size").notNull().default(32),
+  featureWeights: json("feature_weights").$type<Record<string, number>>(),
+  
+  // Training metrics
+  trainingAccuracy: text("training_accuracy"),
+  validationAccuracy: text("validation_accuracy"),
+  trainingLoss: text("training_loss"),
+  validationLoss: text("validation_loss"),
+  trainingProgress: integer("training_progress").notNull().default(0),
+  trainingSamples: integer("training_samples").notNull().default(0),
+  lastTrainedAt: timestamp("last_trained_at"),
+  
+  // Performance tracking
+  totalPredictions: integer("total_predictions").notNull().default(0),
+  correctPredictions: integer("correct_predictions").notNull().default(0),
+  feedbackCount: integer("feedback_count").notNull().default(0),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ML Predictions - individual predictions for properties/certificates
+export const mlPredictions = pgTable("ml_predictions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  modelId: varchar("model_id").references(() => mlModels.id).notNull(),
+  
+  propertyId: varchar("property_id").references(() => properties.id),
+  certificateId: varchar("certificate_id").references(() => certificates.id),
+  complianceStreamCode: text("compliance_stream_code"),
+  
+  predictionType: mlPredictionTypeEnum("prediction_type").notNull(),
+  
+  // Two-tier confidence: Statistical vs ML
+  statisticalScore: integer("statistical_score"), // Rule-based score (0-100)
+  statisticalConfidence: integer("statistical_confidence"), // Confidence in statistical (0-100)
+  
+  mlScore: integer("ml_score"), // ML-predicted score (0-100)
+  mlConfidence: integer("ml_confidence"), // ML confidence (0-100)
+  
+  // Prediction details
+  predictedBreachDate: timestamp("predicted_breach_date"),
+  predictedDaysToBreach: integer("predicted_days_to_breach"),
+  predictedRiskCategory: text("predicted_risk_category"),
+  
+  // Input features used for this prediction
+  inputFeatures: json("input_features").$type<Record<string, number>>(),
+  
+  // Actual outcome (for feedback loop)
+  actualOutcome: text("actual_outcome"),
+  actualBreachDate: timestamp("actual_breach_date"),
+  wasAccurate: boolean("was_accurate"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// ML Feedback - human feedback for improving models
+export const mlFeedback = pgTable("ml_feedback", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  predictionId: varchar("prediction_id").references(() => mlPredictions.id).notNull(),
+  
+  feedbackType: mlFeedbackTypeEnum("feedback_type").notNull(),
+  feedbackNotes: text("feedback_notes"),
+  
+  correctedScore: integer("corrected_score"),
+  correctedCategory: text("corrected_category"),
+  
+  submittedById: varchar("submitted_by_id").references(() => users.id),
+  submittedByName: text("submitted_by_name"),
+  
+  // Was this feedback used to retrain?
+  usedForTraining: boolean("used_for_training").notNull().default(false),
+  trainingBatchId: varchar("training_batch_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ML Training History - track training runs
+export const mlTrainingRuns = pgTable("ml_training_runs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  modelId: varchar("model_id").references(() => mlModels.id).notNull(),
+  
+  status: mlModelStatusEnum("status").notNull().default('TRAINING'),
+  
+  // Training configuration for this run
+  learningRate: text("learning_rate").notNull(),
+  epochs: integer("epochs").notNull(),
+  batchSize: integer("batch_size").notNull(),
+  
+  // Progress tracking
+  currentEpoch: integer("current_epoch").notNull().default(0),
+  trainingProgress: integer("training_progress").notNull().default(0),
+  
+  // Results
+  trainingSamples: integer("training_samples").notNull().default(0),
+  validationSamples: integer("validation_samples").notNull().default(0),
+  finalAccuracy: text("final_accuracy"),
+  finalLoss: text("final_loss"),
+  
+  // Epoch-by-epoch history
+  epochHistory: json("epoch_history").$type<Array<{
+    epoch: number;
+    loss: number;
+    accuracy: number;
+    valLoss?: number;
+    valAccuracy?: number;
+  }>>(),
+  
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+});
+
+// Insert schemas for ML tables
+export const insertMlModelSchema = createInsertSchema(mlModels).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+export const insertMlPredictionSchema = createInsertSchema(mlPredictions).omit({ 
+  id: true, createdAt: true 
+});
+export const insertMlFeedbackSchema = createInsertSchema(mlFeedback).omit({ 
+  id: true, createdAt: true 
+});
+export const insertMlTrainingRunSchema = createInsertSchema(mlTrainingRuns).omit({ 
+  id: true, startedAt: true 
+});
+
+// Types for ML tables
+export type MlModel = typeof mlModels.$inferSelect;
+export type InsertMlModel = z.infer<typeof insertMlModelSchema>;
+
+export type MlPrediction = typeof mlPredictions.$inferSelect;
+export type InsertMlPrediction = z.infer<typeof insertMlPredictionSchema>;
+
+export type MlFeedback = typeof mlFeedback.$inferSelect;
+export type InsertMlFeedback = z.infer<typeof insertMlFeedbackSchema>;
+
+export type MlTrainingRun = typeof mlTrainingRuns.$inferSelect;
+export type InsertMlTrainingRun = z.infer<typeof insertMlTrainingRunSchema>;
+
 // Navigation Configuration - Database-driven navigation
 export const navigationSections = pgTable("navigation_sections", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
