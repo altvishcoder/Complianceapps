@@ -38,15 +38,17 @@ export default function CompliancePage() {
 
   const [, navigate] = useLocation();
   
-  const { data: certificates = [], isLoading: certsLoading } = useQuery({
+  const { data: certificatesResponse, isLoading: certsLoading } = useQuery({
     queryKey: ["certificates"],
-    queryFn: () => certificatesApi.list(),
+    queryFn: () => certificatesApi.list({ limit: 200 }),
   });
+  const certificates = certificatesResponse?.data ?? [];
 
-  const { data: actions = [], isLoading: actionsLoading } = useQuery({
+  const { data: actionsResponse, isLoading: actionsLoading } = useQuery({
     queryKey: ["actions"],
-    queryFn: () => actionsApi.list(),
+    queryFn: () => actionsApi.list({ limit: 200 }),
   });
+  const actions = actionsResponse?.data ?? [];
 
   // Fetch dynamic compliance streams from database
   const { data: complianceStreams = [] } = useQuery<ComplianceStream[]>({

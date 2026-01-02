@@ -405,15 +405,17 @@ export default function PropertyHierarchy() {
     queryFn: () => blocksApi.list(),
   });
 
-  const { data: properties = [], isLoading: propertiesLoading } = useQuery({
+  const { data: propertiesResponse, isLoading: propertiesLoading } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => propertiesApi.list(),
+    queryFn: () => propertiesApi.list({ limit: 200 }),
   });
+  const properties = propertiesResponse?.data ?? [];
 
-  const { data: components = [], isLoading: componentsLoading } = useQuery({
+  const { data: componentsResponse, isLoading: componentsLoading } = useQuery({
     queryKey: ["components"],
-    queryFn: () => componentsApi.list(),
+    queryFn: () => componentsApi.list({ limit: 200 }),
   });
+  const components = componentsResponse?.data ?? [];
 
   const { data: allUnits = [], isLoading: unitsLoading } = useQuery({
     queryKey: ["units"],

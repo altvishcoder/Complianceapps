@@ -34,10 +34,11 @@ export default function CertificateUpload() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
-  const { data: properties = [] } = useQuery({
+  const { data: propertiesResponse } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => propertiesApi.list(),
+    queryFn: () => propertiesApi.list({ limit: 200 }),
   });
+  const properties = propertiesResponse?.data ?? [];
 
   const { data: certificateTypes = [] } = useQuery({
     queryKey: ["certificateTypes"],

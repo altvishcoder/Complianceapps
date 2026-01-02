@@ -28,10 +28,11 @@ export default function StaffSLAPage() {
     queryFn: () => staffApi.list(),
   });
 
-  const { data: actions = [] } = useQuery({
+  const { data: actionsResponse } = useQuery({
     queryKey: ["actions"],
-    queryFn: () => actionsApi.list(),
+    queryFn: () => actionsApi.list({ limit: 200 }),
   });
+  const actions = actionsResponse?.data ?? [];
 
   const completedOnTime = actions.filter((a: any) => {
     if (a.status !== 'COMPLETED' || !a.dueDate || !a.resolvedAt) return false;

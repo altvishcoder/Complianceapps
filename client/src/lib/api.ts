@@ -101,12 +101,15 @@ export interface EnrichedProperty extends Property {
 }
 
 export const propertiesApi = {
-  list: (filters?: { blockId?: string; schemeId?: string }) => {
+  list: (filters?: { blockId?: string; schemeId?: string; limit?: number; page?: number; search?: string }) => {
     const params = new URLSearchParams();
     if (filters?.blockId) params.append("blockId", filters.blockId);
     if (filters?.schemeId) params.append("schemeId", filters.schemeId);
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.search) params.append("search", filters.search);
     const query = params.toString() ? `?${params}` : "";
-    return fetchJSON<EnrichedProperty[]>(`${API_BASE}/properties${query}`);
+    return fetchJSON<PaginatedResponse<EnrichedProperty>>(`${API_BASE}/properties${query}`);
   },
   
   get: (id: string) => fetchJSON<EnrichedProperty>(`${API_BASE}/properties/${id}`),

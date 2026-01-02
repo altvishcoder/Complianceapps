@@ -86,10 +86,11 @@ export default function ComponentsPage() {
     queryFn: componentTypesApi.list,
   });
   
-  const { data: properties = [] } = useQuery({
+  const { data: propertiesResponse } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => propertiesApi.list(),
+    queryFn: () => propertiesApi.list({ limit: 200 }),
   });
+  const properties = propertiesResponse?.data ?? [];
   
   // Reset scroll state when highlightId changes
   useEffect(() => {

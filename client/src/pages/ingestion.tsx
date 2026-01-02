@@ -186,20 +186,22 @@ export default function Ingestion() {
   const queryClient = useQueryClient();
   const { uploadFile } = useUpload();
 
-  const { data: properties = [] } = useQuery({
+  const { data: propertiesResponse } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => propertiesApi.list(),
+    queryFn: () => propertiesApi.list({ limit: 200 }),
   });
+  const properties = propertiesResponse?.data ?? [];
 
   const { data: certificateTypes = [] } = useQuery({
     queryKey: ["certificateTypes"],
     queryFn: certificateTypesApi.list,
   });
 
-  const { data: recentCertificates = [] } = useQuery({
+  const { data: recentCertificatesResponse } = useQuery({
     queryKey: ["certificates"],
-    queryFn: () => certificatesApi.list(),
+    queryFn: () => certificatesApi.list({ limit: 50 }),
   });
+  const recentCertificates = recentCertificatesResponse?.data ?? [];
 
   const createCertificate = useMutation({
     mutationFn: certificatesApi.create,

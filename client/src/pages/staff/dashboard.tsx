@@ -30,15 +30,17 @@ export default function StaffDashboardPage() {
     queryFn: () => staffApi.list(),
   });
 
-  const { data: certificates = [] } = useQuery({
+  const { data: certificatesResponse } = useQuery({
     queryKey: ["certificates"],
-    queryFn: () => certificatesApi.list(),
+    queryFn: () => certificatesApi.list({ limit: 200 }),
   });
+  const certificates = certificatesResponse?.data ?? [];
 
-  const { data: actions = [] } = useQuery({
+  const { data: actionsResponse } = useQuery({
     queryKey: ["actions"],
-    queryFn: () => actionsApi.list(),
+    queryFn: () => actionsApi.list({ limit: 200 }),
   });
+  const actions = actionsResponse?.data ?? [];
 
   const activeStaff = staff.filter((s: Contractor) => s.status === 'APPROVED');
   const completedActions = actions.filter((a: any) => a.status === 'COMPLETED');

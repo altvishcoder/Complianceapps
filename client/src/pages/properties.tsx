@@ -51,10 +51,11 @@ export default function Properties() {
   const [blockFilter, setBlockFilter] = useState(getInitialBlockFilter);
   const [searchQuery, setSearchQuery] = useState("");
   
-  const { data: properties = [] } = useQuery({
+  const { data: propertiesResponse } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => propertiesApi.list(),
+    queryFn: () => propertiesApi.list({ limit: 200 }),
   });
+  const properties = propertiesResponse?.data ?? [];
   
   const { data: schemes = [] } = useQuery({
     queryKey: ["schemes"],
