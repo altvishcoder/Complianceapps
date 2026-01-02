@@ -38,7 +38,7 @@ import {
 import { enqueueWebhookEvent } from "./webhook-worker";
 import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 import { recordAudit, extractAuditContext, getChanges } from "./services/audit";
-import { clearApiLimitsCache } from "./services/api-limits";
+import { clearApiLimitsCache, paginationMiddleware, type PaginationParams, getApiLimitsConfig } from "./services/api-limits";
 import { 
   validatePassword, 
   checkLoginLockout, 
@@ -990,15 +990,49 @@ export async function registerRoutes(
     }
   });
   
-  // ===== PROPERTIES =====
-  app.get("/api/properties", async (req, res) => {
+  // ===== API LIMITS CONFIG (for frontend) =====
+  app.get("/api/config/limits", async (req, res) => {
     try {
+      const config = await getApiLimitsConfig();
+      res.json({
+        defaultLimit: config.paginationDefaultLimit,
+        maxLimit: config.paginationMaxLimit,
+        maxPages: config.paginationMaxPages,
+        unfilteredMaxRecords: config.paginationUnfilteredMaxRecords,
+        requireFilterForLargeData: config.paginationRequireFilterForLargeData,
+      });
+    } catch (error) {
+      console.error("Error fetching API limits config:", error);
+      res.status(500).json({ error: "Failed to fetch config" });
+    }
+  });
+  
+  // ===== PROPERTIES =====
+  app.get("/api/properties", paginationMiddleware(), async (req, res) => {
+    try {
+      const pagination = (req as any).pagination as PaginationParams;
+      const { page, limit, offset, hasFilters } = pagination;
       const blockId = req.query.blockId as string | undefined;
       const schemeId = req.query.schemeId as string | undefined;
-      const properties = await storage.listProperties(ORG_ID, { blockId, schemeId });
+      const search = req.query.search as string | undefined;
+      const allProperties = await storage.listProperties(ORG_ID, { blockId, schemeId });
+      
+      // Apply search filter
+      let filtered = allProperties;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = allProperties.filter(p => 
+          p.addressLine1?.toLowerCase().includes(searchLower) ||
+          p.postcode?.toLowerCase().includes(searchLower) ||
+          p.uprn?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      const total = filtered.length;
+      const paginatedProperties = filtered.slice(offset, offset + limit);
       
       // Enrich properties with block and scheme information
-      const enrichedProperties = await Promise.all(properties.map(async (prop) => {
+      const enrichedProperties = await Promise.all(paginatedProperties.map(async (prop) => {
         const block = await storage.getBlock(prop.blockId);
         const scheme = block ? await storage.getScheme(block.schemeId) : null;
         return {
@@ -1009,7 +1043,7 @@ export async function registerRoutes(
         };
       }));
       
-      res.json(enrichedProperties);
+      res.json({ data: enrichedProperties, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (error) {
       console.error("Error fetching properties:", error);
       res.status(500).json({ error: "Failed to fetch properties" });
@@ -2570,10 +2604,10 @@ export async function registerRoutes(
   });
   
   // ===== CERTIFICATES =====
-  app.get("/api/certificates", async (req, res) => {
+  app.get("/api/certificates", paginationMiddleware(), async (req, res) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const pagination = (req as any).pagination as PaginationParams;
+      const { page, limit, offset, hasFilters } = pagination;
       const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
@@ -2591,7 +2625,6 @@ export async function registerRoutes(
       }
       
       const total = filtered.length;
-      const offset = (page - 1) * limit;
       const paginatedCertificates = filtered.slice(offset, offset + limit);
       
       // Enrich with property and extraction data
@@ -2913,10 +2946,10 @@ export async function registerRoutes(
   });
   
   // ===== REMEDIAL ACTIONS =====
-  app.get("/api/actions", async (req, res) => {
+  app.get("/api/actions", paginationMiddleware(), async (req, res) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const pagination = (req as any).pagination as PaginationParams;
+      const { page, limit, offset, hasFilters } = pagination;
       const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
@@ -2939,7 +2972,6 @@ export async function registerRoutes(
       }
       
       const total = filteredActions.length;
-      const offset = (page - 1) * limit;
       const paginatedActions = filteredActions.slice(offset, offset + limit);
       
       // Pre-fetch all schemes and blocks for efficiency
@@ -5425,10 +5457,10 @@ export async function registerRoutes(
   });
   
   // ===== HACT ARCHITECTURE - COMPONENTS (ASSETS) =====
-  app.get("/api/components", async (req, res) => {
+  app.get("/api/components", paginationMiddleware(), async (req, res) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const pagination = (req as any).pagination as PaginationParams;
+      const { page, limit, offset, hasFilters } = pagination;
       const search = req.query.search as string | undefined;
       const filters = {
         propertyId: req.query.propertyId as string | undefined,
@@ -5451,7 +5483,6 @@ export async function registerRoutes(
       }
       
       const total = filtered.length;
-      const offset = (page - 1) * limit;
       const paginatedComponents = filtered.slice(offset, offset + limit);
       
       // Enrich with component type and property info
