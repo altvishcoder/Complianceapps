@@ -78,11 +78,21 @@ function HactBadge({ label }: { label: string }) {
   );
 }
 
+const INITIAL_COMPONENT_DISPLAY = 5; // Show first 5 components, then paginate
+
 function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: HierarchyNode; level?: number; defaultOpen?: boolean; onNodeClick?: (node: HierarchyNode) => void }) {
   // Performance optimization: only expand first 2 levels by default
   // and render children lazily (only when expanded)
   const [isOpen, setIsOpen] = useState(defaultOpen && level < 1);
   const [hasRenderedChildren, setHasRenderedChildren] = useState(level < 1);
+  const [visibleComponentCount, setVisibleComponentCount] = useState(INITIAL_COMPONENT_DISPLAY);
+  
+  // Separate component children from other children for progressive loading
+  const componentChildren = node.children.filter(child => child.type === 'component');
+  const otherChildren = node.children.filter(child => child.type !== 'component');
+  const hasMoreComponents = componentChildren.length > visibleComponentCount;
+  const visibleComponents = componentChildren.slice(0, visibleComponentCount);
+  
   const hasChildren = node.children.length > 0;
   
   // Lazy render children - only mount when first opened
@@ -190,9 +200,29 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
         {hasChildren && hasRenderedChildren && (
           <CollapsibleContent>
             <div className="border-l-2 border-slate-200 ml-6">
-              {node.children.map((child) => (
+              {/* Render non-component children first (spaces, properties, etc.) */}
+              {otherChildren.map((child) => (
                 <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={false} onNodeClick={onNodeClick} />
               ))}
+              
+              {/* Render components with progressive loading */}
+              {visibleComponents.map((child) => (
+                <TreeNode key={`${child.type}-${child.id}`} node={child} level={level + 1} defaultOpen={false} onNodeClick={onNodeClick} />
+              ))}
+              
+              {/* Load more components button */}
+              {hasMoreComponents && (
+                <div 
+                  className="py-2 px-3 ml-6 text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+                  style={{ marginLeft: `${(level + 1) * 24}px` }}
+                  onClick={() => setVisibleComponentCount(prev => prev + 10)}
+                  data-testid={`load-more-components-${node.id}`}
+                >
+                  <Package className="h-4 w-4" />
+                  <span>Show {Math.min(10, componentChildren.length - visibleComponentCount)} more components</span>
+                  <span className="text-slate-400">({componentChildren.length - visibleComponentCount} remaining)</span>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         )}
