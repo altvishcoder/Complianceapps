@@ -8,6 +8,7 @@ import { httpLogger, logger } from "./logger";
 import { initSentry, setupSentryErrorHandler } from "./sentry";
 import { setupSession } from "./session";
 import { startLogRotationScheduler } from "./services/log-rotation";
+import { createGlobalRateLimiter, seedApiLimitSettings } from "./services/api-limits";
 
 const app = express();
 const httpServer = createServer(app);
@@ -32,6 +33,9 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 // Setup session middleware (must be before routes)
 setupSession(app);
 
+// Apply global rate limiting
+app.use(createGlobalRateLimiter());
+
 export function log(message: string, source = "express") {
   logger.info({ source }, message);
 }
@@ -44,6 +48,9 @@ app.use(httpLogger);
   
   // Seed database with initial data
   await seedDatabase();
+  
+  // Seed API limit settings
+  await seedApiLimitSettings();
   
   // Initialize pg-boss job queue
   try {

@@ -38,6 +38,7 @@ import {
 import { enqueueWebhookEvent } from "./webhook-worker";
 import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 import { recordAudit, extractAuditContext, getChanges } from "./services/audit";
+import { clearApiLimitsCache } from "./services/api-limits";
 import { 
   validatePassword, 
   checkLoginLockout, 
@@ -6605,6 +6606,12 @@ export async function registerRoutes(
       
       // Update the setting
       const updated = await storage.updateFactorySetting(req.params.key, value, userId || 'system');
+      
+      // Clear API limits cache if an api_limits setting was changed
+      if (existing.category === 'api_limits' || req.params.key.startsWith('api.')) {
+        clearApiLimitsCache();
+      }
+      
       res.json(updated);
     } catch (error) {
       console.error("Error updating factory setting:", error);

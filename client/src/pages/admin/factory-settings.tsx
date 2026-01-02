@@ -49,6 +49,7 @@ const categoryIcons: Record<string, React.ElementType> = {
   GEOCODING: Globe,
   DETECTION_PATTERNS: Search,
   OUTCOME_RULES: Scale,
+  api_limits: Shield,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -66,6 +67,7 @@ const categoryLabels: Record<string, string> = {
   GEOCODING: "Geocoding",
   DETECTION_PATTERNS: "Detection Patterns",
   OUTCOME_RULES: "Outcome Rules",
+  api_limits: "API Limits & Throttling",
 };
 
 const categoryDescriptions: Record<string, string> = {
@@ -83,6 +85,7 @@ const categoryDescriptions: Record<string, string> = {
   GEOCODING: "Address lookup and geocoding settings",
   DETECTION_PATTERNS: "Configure patterns for automatic certificate type detection from filenames and content",
   OUTCOME_RULES: "Configure rules for interpreting compliance outcomes from extracted data",
+  api_limits: "Configure pagination limits, rate limiting, and system protection settings for all API endpoints",
 };
 
 interface DetectionPattern {
