@@ -3001,12 +3001,23 @@ export async function registerRoutes(
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
       const severity = req.query.severity as string | undefined;
+      const overdue = req.query.overdue as string | undefined;
       const actions = await storage.listRemedialActions(ORG_ID, { propertyId, status });
       
       // Filter by severity if provided
       let filteredActions = actions;
       if (severity) {
         filteredActions = actions.filter(a => a.severity === severity);
+      }
+      
+      // Filter for overdue actions (Awaab's Law breaches)
+      if (overdue === 'true') {
+        const now = new Date();
+        filteredActions = filteredActions.filter(a => {
+          if (a.status !== 'OPEN') return false;
+          if (!a.dueDate) return false;
+          return new Date(a.dueDate) < now;
+        });
       }
       
       // Apply search filter

@@ -42,7 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ContextBackButton } from "@/components/navigation/ContextBackButton";
 
-type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved' | 'immediate' | 'urgent';
+type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved' | 'immediate' | 'urgent' | 'overdue';
 
 function getInitialFilterFromUrl(): FilterType {
   const params = new URLSearchParams(window.location.search);
@@ -50,7 +50,7 @@ function getInitialFilterFromUrl(): FilterType {
   const severity = params.get('severity');
   const awaabs = params.get('awaabs');
   
-  if (awaabs === 'true') return 'open';
+  if (awaabs === 'true') return 'overdue';
   if (severity === 'IMMEDIATE') return 'immediate';
   if (severity === 'URGENT') return 'urgent';
   if (status === 'OPEN') return 'open';
@@ -96,7 +96,9 @@ export default function ActionsPage() {
   
   const ITEMS_PER_PAGE = 50;
   
-  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent' 
+  const isOverdueFilter = activeFilter === 'overdue';
+  
+  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent' || activeFilter === 'overdue'
     ? 'OPEN' 
     : activeFilter === 'in_progress' 
     ? 'IN_PROGRESS' 
@@ -111,13 +113,14 @@ export default function ActionsPage() {
     : undefined;
   
   const { data: paginatedData, isLoading: isLoadingActions, isFetching } = useQuery({
-    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch],
+    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter],
     queryFn: () => actionsApi.list({ 
       page, 
       limit: ITEMS_PER_PAGE,
       status: apiStatus,
       severity: apiSeverity,
-      search: debouncedSearch || undefined
+      search: debouncedSearch || undefined,
+      overdue: isOverdueFilter || undefined
     }),
   });
   
