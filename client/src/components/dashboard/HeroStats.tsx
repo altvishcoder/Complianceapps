@@ -53,6 +53,9 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick
   const styles = riskStyles[riskLevel];
   const isClickable = href || onClick;
   
+  const valueStr = String(value);
+  const valueFontSize = valueStr.length > 6 ? "text-xl" : valueStr.length > 3 ? "text-2xl" : "text-3xl";
+  
   const content = (
     <div className={cn(
       "rounded-lg p-4 border transition-all",
@@ -69,7 +72,7 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick
             <span className="text-sm font-medium text-muted-foreground truncate">{title}</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className={cn("text-3xl font-bold", styles.text)}>{value}</span>
+            <span className={cn(valueFontSize, "font-bold", styles.text)}>{value}</span>
             {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
           </div>
           {slaInfo && (
