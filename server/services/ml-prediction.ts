@@ -994,9 +994,13 @@ export async function getModelMetrics(organisationId: string): Promise<{
   const incorrectCount = incorrectFeedbacks[0]?.count || 0;
   const totalFeedback = correctCount + incorrectCount;
   
-  const accuracy = totalFeedback > 0 
-    ? correctCount / totalFeedback 
-    : (modelData.trainingAccuracy ? parseFloat(modelData.trainingAccuracy) / 100 : null);
+  let accuracy: number | null = null;
+  if (totalFeedback > 0) {
+    accuracy = correctCount / totalFeedback;
+  } else if (modelData.trainingLoss) {
+    const loss = parseFloat(modelData.trainingLoss);
+    accuracy = Math.max(0, 1 - loss);
+  }
 
   return {
     model: {
