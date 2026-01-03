@@ -160,3 +160,20 @@ export const navigationItems = pgTable("navigation_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const navigationItemRoles = pgTable("navigation_item_roles", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  navigationItemId: varchar("navigation_item_id").notNull(),
+  role: text("role").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const iconRegistry = pgTable("icon_registry", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  iconKey: text("icon_key").notNull().unique(),
+  lucideName: text("lucide_name").notNull(),
+  customSvg: text("custom_svg"),
+  category: text("category"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
