@@ -304,6 +304,7 @@ export function Sidebar() {
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
         aria-label="Main navigation"
+        data-testid="sidebar-content"
       >
         <div className="flex h-20 items-center px-6 border-b border-slate-200 dark:border-white/5">
           <div className="flex items-center gap-3">

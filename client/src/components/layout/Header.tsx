@@ -1,4 +1,4 @@
-import { Bell, Settings, HelpCircle, Search } from "lucide-react";
+import { Bell, Settings, HelpCircle, Search, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -103,6 +103,19 @@ export function Header({ title }: { title: string }) {
           onClick={() => navigate('/admin/setup')}
         >
           <Settings className="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
+        </Button>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="hidden sm:flex text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl h-9 w-9 md:h-10 md:w-10"
+          aria-label="Start guided tour"
+          data-testid="button-start-tour"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('start-guided-tour'));
+          }}
+        >
+          <Sparkles className="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
         </Button>
         
         <Button 

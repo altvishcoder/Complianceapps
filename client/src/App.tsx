@@ -95,6 +95,7 @@ import HelpPage from "@/pages/help";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { AIAssistant } from "@/components/AIAssistant";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
+import { GuidedTour, TourTriggerButton } from "@/components/GuidedTour";
 
 function Router() {
   return (
@@ -174,7 +175,13 @@ function AppContent() {
       <KeyboardShortcutsDialog />
       <Router />
       <AIAssistant />
-      {isAuthenticated && isProtectedRoute && <OnboardingWizard />}
+      {isAuthenticated && isProtectedRoute && (
+        <>
+          <OnboardingWizard />
+          <GuidedTour />
+          <TourTriggerButton />
+        </>
+      )}
     </>
   );
 }
