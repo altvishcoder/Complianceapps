@@ -370,6 +370,89 @@ export default function SystemHealthPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
+              <Card data-testid="card-database-status" className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+                    <Database className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="hidden sm:inline">Database</span>
+                    <span className="sm:hidden">DB</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 md:p-6 pt-0 md:pt-0">
+                  <div className="flex items-center gap-1 md:gap-2">
+                    {healthLoading ? (
+                      <Badge variant="outline" className="text-xs" data-testid="badge-database-checking">...</Badge>
+                    ) : healthStatus?.database ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
+                        <span className="text-xs md:text-sm font-medium text-green-600 dark:text-green-400 hidden sm:inline" data-testid="text-database-connected">Connected</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
+                        <span className="text-xs md:text-sm font-medium text-red-600 dark:text-red-400 hidden sm:inline" data-testid="text-database-error">Error</span>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-api-status" className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+                    <Server className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="hidden sm:inline">API Server</span>
+                    <span className="sm:hidden">API</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 md:p-6 pt-0 md:pt-0">
+                  <div className="flex items-center gap-1 md:gap-2">
+                    {healthLoading ? (
+                      <Badge variant="outline" className="text-xs" data-testid="badge-api-checking">...</Badge>
+                    ) : healthStatus?.api ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
+                        <span className="text-xs md:text-sm font-medium text-green-600 dark:text-green-400 hidden sm:inline" data-testid="text-api-operational">OK</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
+                        <span className="text-xs md:text-sm font-medium text-red-600 dark:text-red-400 hidden sm:inline" data-testid="text-api-degraded">Error</span>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-queue-status" className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+                    <Zap className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="hidden sm:inline">Background Jobs</span>
+                    <span className="sm:hidden">Jobs</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 md:p-6 pt-0 md:pt-0">
+                  <div className="flex items-center gap-1 md:gap-2">
+                    {queueLoading ? (
+                      <Badge variant="outline" className="text-xs" data-testid="badge-queue-checking">...</Badge>
+                    ) : queueHealthy ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
+                        <span className="text-xs md:text-sm font-medium text-green-600 dark:text-green-400 hidden sm:inline" data-testid="text-queue-running">OK</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
+                        <span className="text-xs md:text-sm font-medium text-red-600 dark:text-red-400 hidden sm:inline" data-testid="text-queue-stopped">Error</span>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="flex-wrap h-auto gap-1">
                 <TabsTrigger value="health" data-testid="tab-health">
@@ -391,89 +474,6 @@ export default function SystemHealthPage() {
               </TabsList>
               
               <TabsContent value="health" className="space-y-6">
-                <div className="grid grid-cols-3 gap-2 md:gap-4">
-                  <Card data-testid="card-database-status" className="p-2 md:p-0">
-                    <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
-                      <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
-                        <Database className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="hidden sm:inline">Database</span>
-                        <span className="sm:hidden">DB</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2 md:p-6 pt-0 md:pt-0">
-                      <div className="flex items-center gap-1 md:gap-2">
-                        {healthLoading ? (
-                          <Badge variant="outline" className="text-xs" data-testid="badge-database-checking">...</Badge>
-                        ) : healthStatus?.database ? (
-                          <>
-                            <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                            <span className="text-xs md:text-sm font-medium text-green-600 hidden sm:inline" data-testid="text-database-connected">Connected</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                            <span className="text-xs md:text-sm font-medium text-red-600 hidden sm:inline" data-testid="text-database-error">Error</span>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card data-testid="card-api-status" className="p-2 md:p-0">
-                    <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
-                      <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
-                        <Server className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="hidden sm:inline">API Server</span>
-                        <span className="sm:hidden">API</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2 md:p-6 pt-0 md:pt-0">
-                      <div className="flex items-center gap-1 md:gap-2">
-                        {healthLoading ? (
-                          <Badge variant="outline" className="text-xs" data-testid="badge-api-checking">...</Badge>
-                        ) : healthStatus?.api ? (
-                          <>
-                            <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                            <span className="text-xs md:text-sm font-medium text-green-600 hidden sm:inline" data-testid="text-api-operational">OK</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                            <span className="text-xs md:text-sm font-medium text-red-600 hidden sm:inline" data-testid="text-api-degraded">Error</span>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card data-testid="card-queue-status" className="p-2 md:p-0">
-                    <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
-                      <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
-                        <Zap className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="hidden sm:inline">Background Jobs</span>
-                        <span className="sm:hidden">Jobs</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2 md:p-6 pt-0 md:pt-0">
-                      <div className="flex items-center gap-1 md:gap-2">
-                        {queueLoading ? (
-                          <Badge variant="outline" className="text-xs" data-testid="badge-queue-checking">...</Badge>
-                        ) : queueHealthy ? (
-                          <>
-                            <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                            <span className="text-xs md:text-sm font-medium text-green-600 hidden sm:inline" data-testid="text-queue-running">OK</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                            <span className="text-xs md:text-sm font-medium text-red-600 hidden sm:inline" data-testid="text-queue-stopped">Error</span>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
                 <HeroStatsGrid stats={[
                   {
                     title: "Total Queued",
