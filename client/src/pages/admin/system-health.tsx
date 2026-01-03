@@ -141,6 +141,18 @@ function LogLevelBadge({ level }: { level: string }) {
   );
 }
 
+interface VersionInfo {
+  version: string;
+  name: string;
+  environment: string;
+  buildTime: string;
+  uptime: number;
+  release: {
+    date: string;
+    highlights: string[];
+  } | null;
+}
+
 export default function SystemHealthPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
@@ -152,6 +164,16 @@ export default function SystemHealthPage() {
   const [logPage, setLogPage] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const logsPerPage = 50;
+  
+  const { data: versionInfo } = useQuery<VersionInfo>({
+    queryKey: ["version"],
+    queryFn: async () => {
+      const res = await fetch("/api/version", { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch version");
+      return res.json();
+    },
+    staleTime: 60000,
+  });
   
   const { data: queueStats, isLoading: queueLoading, isError: queueError, refetch: refetchQueue } = useQuery<QueueStats>({
     queryKey: ["queue-stats"],
@@ -326,14 +348,24 @@ export default function SystemHealthPage() {
                   Monitor service status, background jobs, and system logs
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={handleRefresh}
-                data-testid="button-refresh-health"
-              >
-                <RefreshCcw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
+              <div className="flex items-center gap-4">
+                {versionInfo && (
+                  <div className="text-right" data-testid="version-info">
+                    <p className="text-sm font-medium">{versionInfo.name} v{versionInfo.version}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {versionInfo.environment} | Uptime: {Math.floor(versionInfo.uptime / 3600)}h {Math.floor((versionInfo.uptime % 3600) / 60)}m
+                    </p>
+                  </div>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={handleRefresh}
+                  data-testid="button-refresh-health"
+                >
+                  <RefreshCcw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>

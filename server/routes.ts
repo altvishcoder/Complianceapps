@@ -501,27 +501,37 @@ export async function registerRoutes(
   });
   
   // Version endpoint - returns app version and release info
-  app.get("/api/version", (req, res) => {
-    const { APP_VERSION, APP_NAME, RELEASE_NOTES } = require("@shared/version");
-    const currentRelease = RELEASE_NOTES[APP_VERSION];
-    
-    res.json({
-      version: APP_VERSION,
-      name: APP_NAME,
-      environment: process.env.NODE_ENV || "development",
-      buildTime: new Date().toISOString(),
-      uptime: Math.floor(process.uptime()),
-      release: currentRelease ? {
-        date: currentRelease.date,
-        highlights: currentRelease.highlights,
-      } : null,
-    });
+  app.get("/api/version", async (req, res) => {
+    try {
+      const { APP_VERSION, APP_NAME, RELEASE_NOTES } = await import("@shared/version");
+      const currentRelease = RELEASE_NOTES[APP_VERSION];
+      
+      res.json({
+        version: APP_VERSION,
+        name: APP_NAME,
+        environment: process.env.NODE_ENV || "development",
+        buildTime: new Date().toISOString(),
+        uptime: Math.floor(process.uptime()),
+        release: currentRelease ? {
+          date: currentRelease.date,
+          highlights: currentRelease.highlights,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching version info:", error);
+      res.status(500).json({ error: "Failed to fetch version info" });
+    }
   });
   
   // Release notes endpoint - returns full release history
-  app.get("/api/version/releases", (req, res) => {
-    const { RELEASE_NOTES } = require("@shared/version");
-    res.json(RELEASE_NOTES);
+  app.get("/api/version/releases", async (req, res) => {
+    try {
+      const { RELEASE_NOTES } = await import("@shared/version");
+      res.json(RELEASE_NOTES);
+    } catch (error) {
+      console.error("Error fetching release notes:", error);
+      res.status(500).json({ error: "Failed to fetch release notes" });
+    }
   });
   
   // ===== AI ASSISTANT CHAT ENDPOINT (Streaming) =====

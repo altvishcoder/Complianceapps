@@ -72,6 +72,26 @@ const getIconComponent = (iconKey: string): React.ComponentType<{ className?: st
   return icons[iconKey] || HelpCircle;
 };
 
+function VersionDisplay() {
+  const { data: version } = useQuery<{ version: string; name: string }>({
+    queryKey: ["app-version"],
+    queryFn: async () => {
+      const res = await fetch("/api/version", { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch version");
+      return res.json();
+    },
+    staleTime: 300000,
+  });
+  
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/5">
+      <p className="text-center text-[10px] text-slate-400 dark:text-slate-600" data-testid="text-app-version">
+        {version ? `${version.name} v${version.version}` : "Loading..."}
+      </p>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -408,11 +428,7 @@ export function Sidebar() {
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Sign Out
           </button>
-          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/5">
-            <p className="text-center text-[10px] text-slate-400 dark:text-slate-600" data-testid="text-app-version">
-              ComplianceAI v0.9.0
-            </p>
-          </div>
+          <VersionDisplay />
         </div>
       </aside>
     </>
