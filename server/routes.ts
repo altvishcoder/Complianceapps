@@ -500,6 +500,30 @@ export async function registerRoutes(
     });
   });
   
+  // Version endpoint - returns app version and release info
+  app.get("/api/version", (req, res) => {
+    const { APP_VERSION, APP_NAME, RELEASE_NOTES } = require("@shared/version");
+    const currentRelease = RELEASE_NOTES[APP_VERSION];
+    
+    res.json({
+      version: APP_VERSION,
+      name: APP_NAME,
+      environment: process.env.NODE_ENV || "development",
+      buildTime: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()),
+      release: currentRelease ? {
+        date: currentRelease.date,
+        highlights: currentRelease.highlights,
+      } : null,
+    });
+  });
+  
+  // Release notes endpoint - returns full release history
+  app.get("/api/version/releases", (req, res) => {
+    const { RELEASE_NOTES } = require("@shared/version");
+    res.json(RELEASE_NOTES);
+  });
+  
   // ===== AI ASSISTANT CHAT ENDPOINT (Streaming) =====
   const chatMessageSchema = z.object({
     role: z.enum(['user', 'assistant']),

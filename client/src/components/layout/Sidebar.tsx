@@ -408,6 +408,11 @@ export function Sidebar() {
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Sign Out
           </button>
+          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/5">
+            <p className="text-center text-[10px] text-slate-400 dark:text-slate-600" data-testid="text-app-version">
+              ComplianceAI v0.9.0
+            </p>
+          </div>
         </div>
       </aside>
     </>
