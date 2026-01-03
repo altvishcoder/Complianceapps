@@ -23,11 +23,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+interface AwaabsPhase {
+  count: number;
+  status: 'active' | 'preview' | 'future';
+  label: string;
+}
+
 interface DashboardStats {
   overallCompliance: string;
   activeHazards: number;
   immediateHazards: number;
   awaabsLawBreaches: number;
+  awaabsLaw?: {
+    phase1: AwaabsPhase;
+    phase2: AwaabsPhase;
+    phase3: AwaabsPhase;
+    total: number;
+  };
   pendingCertificates: number;
   totalProperties: number;
   totalHomes: number;
@@ -481,15 +493,19 @@ export default function Dashboard() {
         );
         
       case 'awaabs':
+        const awaabsData = stats?.awaabsLaw;
+        const hasAnyBreaches = (awaabsData?.total || 0) > 0;
         return (
           <DraggableWidget key={widgetId} widgetId={widgetId} isConfiguring={isConfiguring}>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
-                  <CardTitle>Awaab's Law Watchlist</CardTitle>
-                  <CardDescription>Properties with timescale breaches</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    Awaab's Law Compliance
+                  </CardTitle>
+                  <CardDescription>Timescale breaches by regulatory phase</CardDescription>
                 </div>
-                {(stats?.awaabsLawBreaches || 0) > 0 && (
+                {hasAnyBreaches && (
                   <Link href="/actions?awaabs=true&from=/dashboard">
                     <Button variant="ghost" size="sm">
                       View All <ChevronRight className="h-4 w-4 ml-1" />
@@ -497,21 +513,48 @@ export default function Dashboard() {
                   </Link>
                 )}
               </CardHeader>
-              <CardContent>
-                {stats?.awaabsLawBreaches === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <CheckCircle2 className="w-10 h-10 text-green-500 mb-2" />
+              <CardContent className="space-y-3">
+                {!hasAnyBreaches ? (
+                  <div className="flex flex-col items-center justify-center py-4 text-center">
+                    <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
                     <p className="text-muted-foreground text-sm">No timescale violations</p>
-                    <p className="text-xs text-muted-foreground">All within compliance deadlines</p>
                   </div>
                 ) : (
-                  <Link href="/actions?awaabs=true&from=/dashboard" className="block">
-                    <div className="text-center py-6 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer">
-                      <p className="text-3xl font-bold text-red-600">{stats?.awaabsLawBreaches}</p>
-                      <p className="text-sm text-muted-foreground">properties require immediate attention</p>
-                      <p className="text-xs text-muted-foreground mt-2">Click to view details</p>
-                    </div>
-                  </Link>
+                  <div className="space-y-2">
+                    <Link href="/actions?awaabs=true&phase=1&from=/dashboard" className="block">
+                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default" className="text-xs">Active</Badge>
+                          <span className="text-sm font-medium">Phase 1: Damp & Mould</span>
+                        </div>
+                        <span className={`text-lg font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {awaabsData?.phase1?.count || 0}
+                        </span>
+                      </div>
+                    </Link>
+                    <Link href="/actions?awaabs=true&phase=2&from=/dashboard" className="block">
+                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">Preview</Badge>
+                          <span className="text-sm font-medium">Phase 2: Fire, Electrical, Falls</span>
+                        </div>
+                        <span className={`text-lg font-bold ${(awaabsData?.phase2?.count || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                          {awaabsData?.phase2?.count || 0}
+                        </span>
+                      </div>
+                    </Link>
+                    <Link href="/actions?awaabs=true&phase=3&from=/dashboard" className="block">
+                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer opacity-60">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">Future</Badge>
+                          <span className="text-sm font-medium">Phase 3: All HHSRS</span>
+                        </div>
+                        <span className="text-lg font-bold text-slate-400">
+                          {awaabsData?.phase3?.count || 0}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
                 )}
               </CardContent>
             </Card>

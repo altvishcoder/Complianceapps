@@ -4791,19 +4791,51 @@ export async function registerRoutes(
         .sort((a, b) => b.criticalCount - a.criticalCount || b.issueCount - a.issueCount)
         .slice(0, 10);
       
-      // Awaab's Law breaches - actions that are overdue based on severity timescales
-      const awaabsBreaches = allActions.filter(a => {
+      // Awaab's Law breaches by phase - based on certificate type and classification codes
+      const phase1CertTypes = ['DAMP_MOULD_SURVEY', 'DAMP_SURVEY', 'MOULD_INSPECTION', 'CONDENSATION_REPORT'];
+      const phase1Codes = ['DAMP_MODERATE', 'DAMP_SEVERE', 'DAMP_CRITICAL', 'MOULD_PRESENT', 'MOULD_SEVERE'];
+      
+      const phase2CertTypes = ['EICR', 'FIRE_RISK_ASSESSMENT', 'EMERGENCY_LIGHTING', 'FIRE_ALARM', 'PAT'];
+      const phase2Codes = ['C1', 'C2', 'C3', 'FI', 'UNSATISFACTORY', 'HIGH_RISK', 'SIGNIFICANT_RISK'];
+      
+      const phase3CertTypes = ['GAS_SAFETY', 'LEGIONELLA_ASSESSMENT', 'ASBESTOS_SURVEY', 'LIFT_LOLER', 'EPC'];
+      const phase3Codes = ['AT_RISK', 'ID', 'IMMEDIATELY_DANGEROUS', 'NCS'];
+
+      const isOverdue = (a: typeof allActions[0]) => {
         if (a.status !== 'OPEN') return false;
         if (!a.dueDate) return false;
-        const target = new Date(a.dueDate);
-        return target < new Date();
-      }).length;
+        return new Date(a.dueDate) < new Date();
+      };
+
+      const getActionCertType = (a: typeof allActions[0]) => {
+        const cert = allCertificates.find(c => c.id === a.certificateId);
+        return cert?.certificateType || '';
+      };
+
+      const matchesPhase = (a: typeof allActions[0], certTypes: string[], codes: string[]) => {
+        const certType = getActionCertType(a);
+        const classCode = (a as any).code || (a as any).classificationCode || a.description || '';
+        return certTypes.includes(certType) || codes.some(c => classCode.toUpperCase().includes(c));
+      };
+
+      const overdueActions = allActions.filter(isOverdue);
+      
+      const awaabsPhase1 = overdueActions.filter(a => matchesPhase(a, phase1CertTypes, phase1Codes)).length;
+      const awaabsPhase2 = overdueActions.filter(a => matchesPhase(a, phase2CertTypes, phase2Codes)).length;
+      const awaabsPhase3 = overdueActions.filter(a => matchesPhase(a, phase3CertTypes, phase3Codes)).length;
+      const awaabsTotal = overdueActions.length;
       
       res.json({
         overallCompliance: complianceRate,
         activeHazards,
         immediateHazards,
-        awaabsLawBreaches: awaabsBreaches,
+        awaabsLawBreaches: awaabsPhase1,
+        awaabsLaw: {
+          phase1: { count: awaabsPhase1, status: 'active', label: 'Damp & Mould' },
+          phase2: { count: awaabsPhase2, status: 'preview', label: 'Fire, Electrical, Falls' },
+          phase3: { count: awaabsPhase3, status: 'future', label: 'All HHSRS Hazards' },
+          total: awaabsTotal,
+        },
         pendingCertificates: pendingCerts,
         totalProperties: allProperties.length,
         totalHomes: allProperties.length,
