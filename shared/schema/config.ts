@@ -2,7 +2,6 @@ import { pgTable, text, varchar, timestamp, boolean, integer, real, json, pgEnum
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { organisations, users } from "./core-auth";
-import { certificates } from "./compliance";
 
 export const detectionPatternTypeEnum = pgEnum('detection_pattern_type', ['FILENAME', 'TEXT_CONTENT']);
 export const detectionMatcherTypeEnum = pgEnum('detection_matcher_type', ['CONTAINS', 'REGEX', 'STARTS_WITH', 'ENDS_WITH']);
@@ -224,7 +223,7 @@ export const benchmarkSets = pgTable("benchmark_sets", {
 export const benchmarkItems = pgTable("benchmark_items", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   benchmarkSetId: varchar("benchmark_set_id").references(() => benchmarkSets.id, { onDelete: 'cascade' }).notNull(),
-  certificateId: varchar("certificate_id").references(() => certificates.id).notNull(),
+  certificateId: varchar("certificate_id").notNull(), // FK to certificates.id - defined at DB level to avoid circular import
   expectedOutput: json("expected_output").notNull(),
   difficulty: text("difficulty").notNull().default("medium"),
   challengeTypes: text("challenge_types").array(),
@@ -256,21 +255,13 @@ export const evalRuns = pgTable("eval_runs", {
 });
 
 export type ComplianceStream = typeof complianceStreams.$inferSelect;
-export type InsertComplianceStream = Omit<ComplianceStream, 'id' | 'createdAt' | 'updatedAt'>;
 export type CertificateType = typeof certificateTypes.$inferSelect;
-export type InsertCertificateType = Omit<CertificateType, 'id' | 'createdAt' | 'updatedAt'>;
 export type ClassificationCode = typeof classificationCodes.$inferSelect;
-export type InsertClassificationCode = Omit<ClassificationCode, 'id' | 'createdAt' | 'updatedAt'>;
 export type CertificateDetectionPattern = typeof certificateDetectionPatterns.$inferSelect;
-export type InsertCertificateDetectionPattern = Omit<CertificateDetectionPattern, 'id' | 'createdAt' | 'updatedAt'>;
 export type CertificateOutcomeRule = typeof certificateOutcomeRules.$inferSelect;
-export type InsertCertificateOutcomeRule = Omit<CertificateOutcomeRule, 'id' | 'createdAt' | 'updatedAt'>;
 export type ComplianceRule = typeof complianceRules.$inferSelect;
-export type InsertComplianceRule = Omit<ComplianceRule, 'id' | 'createdAt' | 'updatedAt'>;
 export type NormalisationRule = typeof normalisationRules.$inferSelect;
-export type InsertNormalisationRule = Omit<NormalisationRule, 'id' | 'createdAt' | 'updatedAt'>;
 export type ExtractionSchema = typeof extractionSchemas.$inferSelect;
-export type InsertExtractionSchema = Omit<ExtractionSchema, 'id' | 'createdAt' | 'updatedAt'>;
 export type FactorySetting = typeof factorySettings.$inferSelect;
 export type InsertFactorySetting = Omit<FactorySetting, 'id' | 'createdAt' | 'updatedAt'>;
 export type FactorySettingsAuditEntry = typeof factorySettingsAudit.$inferSelect;

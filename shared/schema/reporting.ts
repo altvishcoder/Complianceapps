@@ -1,7 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, pgEnum } from "drizzle-orm/pg-core";
 import { organisations, users } from "./core-auth";
 import { properties } from "./org-structure";
-import { certificates, remedialActions } from "./compliance";
 
 export const ukhdsExportStatusEnum = pgEnum('ukhds_export_status', [
   'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED'
@@ -56,8 +55,8 @@ export const complianceCalendarEvents = pgTable("compliance_calendar_events", {
   recurrence: calendarEventRecurrenceEnum("recurrence").notNull().default('NONE'),
   recurrenceEndDate: timestamp("recurrence_end_date"),
   propertyId: varchar("property_id").references(() => properties.id),
-  certificateId: varchar("certificate_id").references(() => certificates.id),
-  remedialActionId: varchar("remedial_action_id").references(() => remedialActions.id),
+  certificateId: varchar("certificate_id"), // FK to certificates.id - defined at DB level to avoid circular import
+  remedialActionId: varchar("remedial_action_id"), // FK to remedial_actions.id - defined at DB level to avoid circular import
   reminderDaysBefore: integer("reminder_days_before").default(7),
   reminderSent: boolean("reminder_sent").notNull().default(false),
   legislationReference: text("legislation_reference"),

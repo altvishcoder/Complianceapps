@@ -1,7 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, pgEnum } from "drizzle-orm/pg-core";
 import { organisations, users } from "./core-auth";
 import { properties } from "./org-structure";
-import { certificates } from "./compliance";
 
 export const mlModelStatusEnum = pgEnum('ml_model_status', ['TRAINING', 'ACTIVE', 'INACTIVE', 'FAILED']);
 export const mlPredictionTypeEnum = pgEnum('ml_prediction_type', ['BREACH_PROBABILITY', 'DAYS_TO_BREACH', 'RISK_CATEGORY']);
@@ -43,7 +42,7 @@ export const mlPredictions = pgTable("ml_predictions", {
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
   modelId: varchar("model_id").references(() => mlModels.id).notNull(),
   propertyId: varchar("property_id").references(() => properties.id),
-  certificateId: varchar("certificate_id").references(() => certificates.id),
+  certificateId: varchar("certificate_id"), // FK to certificates.id - defined at DB level to avoid circular import
   complianceStreamCode: text("compliance_stream_code"),
   predictionType: mlPredictionTypeEnum("prediction_type").notNull(),
   statisticalScore: integer("statistical_score"),
