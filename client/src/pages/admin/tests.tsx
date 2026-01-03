@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -319,12 +319,12 @@ const testSuiteData: TestSuite[] = [
 ];
 
 const categoryConfig = {
-  functional: { label: "Functional Tests", icon: FlaskConical, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
-  api: { label: "API Tests", icon: Link2, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
-  "user-flow": { label: "User Flow Tests", icon: Users, color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
-  e2e: { label: "End-to-End Tests", icon: Monitor, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
-  accessibility: { label: "Accessibility Tests", icon: Accessibility, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
-  visual: { label: "Visual Regression", icon: Eye, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200" },
+  functional: { label: "Functional Tests", icon: FlaskConical, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800" },
+  api: { label: "API Tests", icon: Link2, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/30", border: "border-purple-200 dark:border-purple-800" },
+  "user-flow": { label: "User Flow Tests", icon: Users, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800" },
+  e2e: { label: "End-to-End Tests", icon: Monitor, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/30", border: "border-orange-200 dark:border-orange-800" },
+  accessibility: { label: "Accessibility Tests", icon: Accessibility, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-950/30", border: "border-indigo-200 dark:border-indigo-800" },
+  visual: { label: "Visual Regression", icon: Eye, color: "text-pink-600 dark:text-pink-400", bg: "bg-pink-50 dark:bg-pink-950/30", border: "border-pink-200 dark:border-pink-800" },
 };
 
 function TestSuiteCard({ suite, expanded, onToggle }: { suite: TestSuite; expanded: boolean; onToggle: () => void }) {
@@ -356,11 +356,11 @@ function TestSuiteCard({ suite, expanded, onToggle }: { suite: TestSuite; expand
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 text-xs">
                   {suite.passedTests} passed
                 </Badge>
                 {suite.failedTests > 0 && (
-                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+                  <Badge variant="outline" className="bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800 text-xs">
                     {suite.failedTests} failed
                   </Badge>
                 )}
@@ -498,10 +498,10 @@ export default function TestSuite() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Test Suite" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Test suite content" data-testid="test-suite-page">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Test Dashboard</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">Test Dashboard</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
                 Baseline test results from latest CI run (87 tests across 16 suites)
               </p>
             </div>
@@ -509,60 +509,66 @@ export default function TestSuite() {
               onClick={runTests} 
               disabled={isRunning}
               data-testid="button-run-tests"
+              size="sm"
+              className="shrink-0"
             >
               {isRunning ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Running...
+                  <span className="hidden sm:inline">Running...</span>
                 </>
               ) : (
                 <>
                   <Play className="mr-2 h-4 w-4" />
-                  Run All Tests
+                  <span className="hidden sm:inline">Run All Tests</span>
+                  <span className="sm:hidden">Run</span>
                 </>
               )}
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <StatsCard 
-              title="Total Tests" 
-              value={String(totalTests)}
-              description={`Across ${testSuites.length} test files`}
-              icon={FlaskConical}
-              data-testid="card-total-tests"
-            />
-            <StatsCard 
-              title="Passed" 
-              value={String(passedTests)}
-              description={`${((passedTests / totalTests) * 100).toFixed(1)}% pass rate`}
-              icon={CheckCircle}
-              status="success"
-              data-testid="card-passed-tests"
-            />
-            <StatsCard 
-              title="Failed" 
-              value={String(failedTests)}
-              description={failedTests === 0 ? "All tests passing" : "Needs attention"}
-              icon={XCircle}
-              status={failedTests > 0 ? "danger" : "success"}
-              data-testid="card-failed-tests"
-            />
-            <StatsCard 
-              title="Duration" 
-              value={`${(totalDuration / 1000).toFixed(2)}s`}
-              description={lastRun ? `Last run: ${lastRun.toLocaleTimeString()}` : "Not run yet"}
-              icon={Clock}
-              data-testid="card-duration"
-            />
-            <StatsCard 
-              title="Categories" 
-              value={String(Object.keys(categorizedSuites).length)}
-              description="Test categories"
-              icon={FlaskConical}
-              data-testid="card-categories"
-            />
-          </div>
+          <HeroStatsGrid stats={[
+            {
+              title: "Total Tests",
+              value: totalTests,
+              subtitle: `${testSuites.length} suites`,
+              icon: FlaskConical,
+              riskLevel: "low",
+              testId: "stat-total-tests"
+            },
+            {
+              title: "Passed",
+              value: passedTests,
+              subtitle: `${((passedTests / totalTests) * 100).toFixed(0)}%`,
+              icon: CheckCircle,
+              riskLevel: "good",
+              testId: "stat-passed-tests"
+            },
+            {
+              title: "Failed",
+              value: failedTests,
+              subtitle: failedTests === 0 ? "All passing" : "Attention",
+              icon: XCircle,
+              riskLevel: failedTests > 0 ? "critical" : "good",
+              testId: "stat-failed-tests"
+            },
+            {
+              title: "Duration",
+              value: Math.round(totalDuration / 1000),
+              subtitle: "seconds",
+              icon: Clock,
+              riskLevel: "low",
+              testId: "stat-duration"
+            },
+            {
+              title: "Categories",
+              value: Object.keys(categorizedSuites).length,
+              subtitle: "Test types",
+              icon: FlaskConical,
+              riskLevel: "low",
+              testId: "stat-categories"
+            }
+          ]} />
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-7" data-testid="tabs-categories">
