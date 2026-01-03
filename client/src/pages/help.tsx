@@ -58,92 +58,96 @@ export default function HelpPage() {
                         track remedial actions, and visualise risk across their property portfolio.
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="p-4 border rounded-lg space-y-2">
-                          <h4 className="font-semibold flex items-center gap-2">
-                            <Layers className="h-4 w-4 text-blue-500" />
-                            UKHDS 5-Level Asset Hierarchy
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            Properties are organised following the UK Housing Data Standards hierarchy:
-                          </p>
-                          <ul className="text-sm space-y-1 ml-4">
-                            <li><strong>Organisation</strong> → Your housing association (implicit)</li>
-                            <li><strong>Scheme</strong> → Estate, development, or site</li>
-                            <li><strong>Block</strong> → Physical building structure</li>
-                            <li><strong>Dwelling (Property)</strong> → The lettable home</li>
-                            <li><strong>Space</strong> → Rooms and communal areas</li>
-                            <li><strong>Component</strong> → Equipment (boilers, alarms, lifts)</li>
-                          </ul>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                        <div className="rounded-lg p-3 border-l-4 border-l-blue-500 border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1 rounded-md bg-blue-500">
+                              <Layers className="h-3 w-3 text-white" />
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground">Hierarchy</span>
+                          </div>
+                          <span className="text-xl font-bold text-blue-600 dark:text-blue-400">5-Level</span>
+                          <p className="text-[10px] text-muted-foreground">UKHDS standard</p>
                         </div>
-                        <div className="p-4 border rounded-lg space-y-2">
-                          <h4 className="font-semibold flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-green-500" />
-                            16 Compliance Streams
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            Track certificates across all major UK compliance areas:
-                          </p>
-                          <ul className="text-sm space-y-1 ml-4 grid grid-cols-2">
-                            <li>Gas & Heating</li>
-                            <li>Electrical</li>
-                            <li>Fire Safety</li>
-                            <li>Energy (EPC)</li>
-                            <li>Asbestos</li>
-                            <li>Water Safety</li>
-                            <li>Lifting Equipment</li>
-                            <li>Building Safety</li>
-                            <li>External Areas</li>
-                            <li>Security</li>
-                            <li>HRB-specific</li>
-                            <li>Housing Health</li>
-                            <li>Accessibility</li>
-                            <li>Pest Control</li>
-                            <li>Waste</li>
-                            <li>Communal</li>
-                          </ul>
+                        <div className="rounded-lg p-3 border-l-4 border-l-emerald-500 border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1 rounded-md bg-emerald-500">
+                              <Shield className="h-3 w-3 text-white" />
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground">Streams</span>
+                          </div>
+                          <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">16</span>
+                          <p className="text-[10px] text-muted-foreground">Compliance areas</p>
+                        </div>
+                        <div className="rounded-lg p-3 border-l-4 border-l-purple-500 border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/40">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1 rounded-md bg-purple-500">
+                              <FileText className="h-3 w-3 text-white" />
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground">Cert Types</span>
+                          </div>
+                          <span className="text-xl font-bold text-purple-600 dark:text-purple-400">80+</span>
+                          <p className="text-[10px] text-muted-foreground">CP12, EICR, FRA</p>
+                        </div>
+                        <div className="rounded-lg p-3 border-l-4 border-l-amber-500 border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1 rounded-md bg-amber-500">
+                              <Brain className="h-3 w-3 text-white" />
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground">AI Schemas</span>
+                          </div>
+                          <span className="text-xl font-bold text-amber-600 dark:text-amber-400">45</span>
+                          <p className="text-[10px] text-muted-foreground">Auto extraction</p>
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Brain className="h-4 w-4 text-blue-500 shrink-0" />
-                            <div className="min-w-0">
-                              <h5 className="font-medium text-xs text-blue-800 dark:text-blue-300">AI Platform</h5>
-                              <p className="text-[10px] text-blue-600 dark:text-blue-400 truncate">Smart extraction</p>
+                      <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="hierarchy" className="border rounded-lg px-3">
+                          <AccordionTrigger className="text-sm py-2">
+                            <div className="flex items-center gap-2">
+                              <Layers className="h-4 w-4 text-blue-500" />
+                              UKHDS Asset Hierarchy Details
                             </div>
-                          </div>
-                        </div>
-                        <div className="p-2 sm:p-3 border rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-primary shrink-0" />
-                            <div className="min-w-0">
-                              <h5 className="font-medium text-xs">80+ Cert Types</h5>
-                              <p className="text-[10px] text-muted-foreground truncate">CP12, EICR, FRA</p>
+                          </AccordionTrigger>
+                          <AccordionContent className="text-xs space-y-1 pb-3">
+                            <p><strong>Organisation</strong> → Your housing association</p>
+                            <p><strong>Scheme</strong> → Estate, development, or site</p>
+                            <p><strong>Block</strong> → Physical building structure</p>
+                            <p><strong>Dwelling</strong> → The lettable home</p>
+                            <p><strong>Space</strong> → Rooms and communal areas</p>
+                            <p><strong>Component</strong> → Equipment (boilers, alarms)</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="streams" className="border rounded-lg px-3 mt-2">
+                          <AccordionTrigger className="text-sm py-2">
+                            <div className="flex items-center gap-2">
+                              <Shield className="h-4 w-4 text-green-500" />
+                              16 Compliance Streams
                             </div>
-                          </div>
-                        </div>
-                        <div className="p-2 sm:p-3 border rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Brain className="h-4 w-4 text-primary shrink-0" />
-                            <div className="min-w-0">
-                              <h5 className="font-medium text-xs">AI Extraction</h5>
-                              <p className="text-[10px] text-muted-foreground truncate">45 schemas</p>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-3">
+                            <div className="grid grid-cols-2 gap-1 text-xs">
+                              <span>Gas & Heating</span>
+                              <span>Electrical</span>
+                              <span>Fire Safety</span>
+                              <span>Energy (EPC)</span>
+                              <span>Asbestos</span>
+                              <span>Water Safety</span>
+                              <span>Lifting Equipment</span>
+                              <span>Building Safety</span>
+                              <span>External Areas</span>
+                              <span>Security</span>
+                              <span>HRB-specific</span>
+                              <span>Housing Health</span>
+                              <span>Accessibility</span>
+                              <span>Pest Control</span>
+                              <span>Waste</span>
+                              <span>Communal</span>
                             </div>
-                          </div>
-                        </div>
-                        <div className="p-2 sm:p-3 border rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Radar className="h-4 w-4 text-primary shrink-0" />
-                            <div className="min-w-0">
-                              <h5 className="font-medium text-xs">Risk Radar</h5>
-                              <p className="text-[10px] text-muted-foreground truncate">ML forecasting</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
                     </CardContent>
                   </Card>
 
