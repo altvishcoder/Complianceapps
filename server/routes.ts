@@ -9653,17 +9653,21 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { propertyId, limit = '50' } = req.query;
+      const { propertyId, tier, limit = '50' } = req.query;
       
-      let query = db.select()
-        .from(mlPredictions)
-        .where(eq(mlPredictions.organisationId, organisationId));
+      const conditions = [eq(mlPredictions.organisationId, organisationId)];
       
       if (propertyId && typeof propertyId === 'string') {
-        query = query.where(eq(mlPredictions.propertyId, propertyId)) as any;
+        conditions.push(eq(mlPredictions.propertyId, propertyId));
       }
       
-      const rawPredictions = await query
+      if (tier && typeof tier === 'string' && ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(tier)) {
+        conditions.push(eq(mlPredictions.predictedRiskCategory, tier));
+      }
+      
+      const rawPredictions = await db.select()
+        .from(mlPredictions)
+        .where(and(...conditions))
         .orderBy(desc(mlPredictions.createdAt))
         .limit(Math.min(parseInt(limit as string), 100));
       

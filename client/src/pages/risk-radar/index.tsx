@@ -823,9 +823,12 @@ export default function RiskRadarPage() {
   });
 
   const { data: mlPredictions, isLoading: mlLoading } = useQuery<MLPrediction[]>({
-    queryKey: ['ml-predictions'],
+    queryKey: ['ml-predictions', tierFilter],
     queryFn: async () => {
-      const res = await fetch('/api/ml/predictions?limit=30', { credentials: 'include' });
+      const url = tierFilter === 'all' 
+        ? '/api/ml/predictions?limit=50' 
+        : `/api/ml/predictions?tier=${tierFilter}&limit=50`;
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) return [];
       return res.json();
     }
