@@ -518,16 +518,16 @@ export default function IngestionControlRoom() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Ingestion Control Room" />
         <main id="main-content" className="flex-1 overflow-auto p-6" role="main" aria-label="Ingestion control room content" data-testid="ingestion-control-page">
-          <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
-            <div>
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+            <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight">Ingestion Control Room</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">
+              <p className="text-sm text-muted-foreground">
                 Monitor and manage certificate processing pipeline
               </p>
             </div>
-            <Button onClick={() => { refetchStats(); refetchJobs(); }} variant="outline" size="icon" data-testid="button-refresh" title="Refresh" className="shrink-0">
+            <Button onClick={() => { refetchStats(); refetchJobs(); }} variant="outline" size="sm" data-testid="button-refresh" title="Refresh" className="shrink-0 sm:size-icon gap-2">
               <RefreshCw className="h-4 w-4" />
-              <span className="sr-only">Refresh</span>
+              <span className="sm:sr-only">Refresh</span>
             </Button>
           </div>
 

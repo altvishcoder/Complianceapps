@@ -204,24 +204,25 @@ export default function KnowledgeTrainingPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Knowledge Training" />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-      <div className="flex items-start sm:items-center justify-between gap-3">
-        <div>
+      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+        <div className="hidden sm:block">
           <h1 className="text-xl md:text-2xl font-bold">Knowledge Training</h1>
-          <p className="text-sm text-muted-foreground hidden sm:block">
+          <p className="text-sm text-muted-foreground">
             Manage AI Assistant knowledge documents
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/knowledge'] })}
             disabled={isFetching}
             data-testid="button-refresh-knowledge"
             title="Refresh"
+            className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            <span className="sr-only">Refresh</span>
+            <span className="sm:sr-only">Refresh</span>
           </Button>
           <Button onClick={openCreateDialog} size="sm" data-testid="button-add-knowledge">
             <Plus className="h-4 w-4 sm:mr-2" />

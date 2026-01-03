@@ -530,14 +530,14 @@ export default function AssetHealth() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Asset Health" />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
-          <div className="flex items-start sm:items-center justify-between gap-3">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+            <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold">Asset Health Overview</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">Visual compliance status across your property portfolio</p>
+              <p className="text-sm text-muted-foreground">Visual compliance status across your property portfolio</p>
             </div>
-            <Button variant="outline" size="icon" onClick={() => refetch()} data-testid="button-refresh" className="shrink-0">
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh" className="shrink-0 gap-2">
               <RefreshCw className="h-4 w-4" />
-              <span className="sr-only">Refresh</span>
+              <span className="sm:sr-only">Refresh</span>
             </Button>
           </div>
 

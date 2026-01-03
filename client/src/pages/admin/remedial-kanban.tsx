@@ -277,16 +277,16 @@ export default function RemedialKanban() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Remedial Actions" />
         <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="Remedial actions kanban board" data-testid="remedial-kanban-page">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight">Remedial Actions Kanban</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">
+              <p className="text-sm text-muted-foreground">
                 Track and manage remedial actions across your properties
               </p>
             </div>
-            <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
+            <Button onClick={() => refetch()} variant="outline" size="sm" data-testid="button-refresh" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              <span className="sm:sr-only">Refresh</span>
             </Button>
           </div>
 

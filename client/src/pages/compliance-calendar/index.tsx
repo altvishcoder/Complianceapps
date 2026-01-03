@@ -524,32 +524,33 @@ export default function ComplianceCalendar() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Compliance Calendar" />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+            <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold">Compliance Calendar</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">Track certificate expirations, legislative deadlines, and compliance events</p>
+              <p className="text-sm text-muted-foreground">Track certificate expirations, legislative deadlines, and compliance events</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button 
                 variant={showHeatmap ? "default" : "outline"} 
                 onClick={() => setShowHeatmap(!showHeatmap)} 
                 data-testid="button-toggle-heatmap"
+                size="sm"
                 className={showHeatmap ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : ""}
               >
-                {showHeatmap ? <ToggleRight className="h-4 w-4 mr-2" /> : <ToggleLeft className="h-4 w-4 mr-2" />}
-                Heatmap
+                {showHeatmap ? <ToggleRight className="h-4 w-4 sm:mr-2" /> : <ToggleLeft className="h-4 w-4 sm:mr-2" />}
+                <span className="hidden sm:inline">Heatmap</span>
               </Button>
-              <Button variant="outline" onClick={() => navigate('/risk-radar')} data-testid="button-view-radar">
-                <Radar className="h-4 w-4 mr-2" />
-                Risk Radar
+              <Button variant="outline" size="sm" onClick={() => navigate('/risk-radar')} data-testid="button-view-radar">
+                <Radar className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Risk Radar</span>
               </Button>
-              <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-calendar">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+              <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-calendar">
+                <RefreshCw className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
-              <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-add-event">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Event
+              <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} data-testid="button-add-event">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add</span>
               </Button>
             </div>
           </div>

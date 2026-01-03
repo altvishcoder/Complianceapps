@@ -73,10 +73,10 @@ export default function ApiDocs() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="API Documentation" />
         <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="API documentation content" data-testid="api-docs-page">
-          <div className="flex items-start sm:items-center justify-between gap-3 mb-4">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight">API Documentation</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">
+              <p className="text-sm text-muted-foreground">
                 Interactive API reference with OpenAPI 3.0 specification
               </p>
             </div>

@@ -498,10 +498,10 @@ export default function TestSuite() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Test Suite" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Test suite content" data-testid="test-suite-page">
-          <div className="flex items-start sm:items-center justify-between gap-3">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+            <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight">Test Dashboard</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">
+              <p className="text-sm text-muted-foreground">
                 Baseline test results from latest CI run (87 tests across 16 suites)
               </p>
             </div>
@@ -514,14 +514,13 @@ export default function TestSuite() {
             >
               {isRunning ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <RefreshCw className="h-4 w-4 sm:mr-2 animate-spin" />
                   <span className="hidden sm:inline">Running...</span>
                 </>
               ) : (
                 <>
-                  <Play className="mr-2 h-4 w-4" />
+                  <Play className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Run All Tests</span>
-                  <span className="sm:hidden">Run</span>
                 </>
               )}
             </Button>
