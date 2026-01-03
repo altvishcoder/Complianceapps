@@ -9677,7 +9677,7 @@ export async function registerRoutes(
         propertyMap = new Map(propertiesData.map(p => [p.id, { 
           id: p.id, 
           uprn: p.uprn, 
-          address: p.address, 
+          address: p.addressLine1, 
           postcode: p.postcode 
         }]));
       }
