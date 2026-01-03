@@ -1,6 +1,7 @@
 import { pgTable, text, varchar, timestamp, boolean, json, pgEnum } from "drizzle-orm/pg-core";
 import { organisations } from "./core-auth";
 import { properties } from "./org-structure";
+import { certificates } from "./compliance";
 
 export const auditActorTypeEnum = pgEnum('audit_actor_type', ['USER', 'SYSTEM', 'API']);
 export const auditEventTypeEnum = pgEnum('audit_event_type', [
@@ -26,7 +27,7 @@ export const auditEvents = pgTable("audit_events", {
   entityId: varchar("entity_id").notNull(),
   entityName: text("entity_name"),
   propertyId: varchar("property_id").references(() => properties.id),
-  certificateId: varchar("certificate_id"),
+  certificateId: varchar("certificate_id").references(() => certificates.id),
   beforeState: json("before_state"),
   afterState: json("after_state"),
   changes: json("changes"),

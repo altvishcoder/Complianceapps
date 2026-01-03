@@ -1,6 +1,7 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, pgEnum } from "drizzle-orm/pg-core";
 import { organisations, users } from "./core-auth";
 import { properties } from "./org-structure";
+import { certificates, remedialActions } from "./compliance";
 
 export const ukhdsExportStatusEnum = pgEnum('ukhds_export_status', [
   'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED'
@@ -55,8 +56,8 @@ export const complianceCalendarEvents = pgTable("compliance_calendar_events", {
   recurrence: calendarEventRecurrenceEnum("recurrence").notNull().default('NONE'),
   recurrenceEndDate: timestamp("recurrence_end_date"),
   propertyId: varchar("property_id").references(() => properties.id),
-  certificateId: varchar("certificate_id"),
-  remedialActionId: varchar("remedial_action_id"),
+  certificateId: varchar("certificate_id").references(() => certificates.id),
+  remedialActionId: varchar("remedial_action_id").references(() => remedialActions.id),
   reminderDaysBefore: integer("reminder_days_before").default(7),
   reminderSent: boolean("reminder_sent").notNull().default(false),
   legislationReference: text("legislation_reference"),
@@ -103,7 +104,7 @@ export const reportTemplates = pgTable("report_templates", {
 export const generatedReports = pgTable("generated_reports", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   scheduledReportId: varchar("scheduled_report_id").references(() => scheduledReports.id),
-  organisationId: varchar("organisation_id"),
+  organisationId: varchar("organisation_id").references(() => organisations.id),
   name: text("name").notNull(),
   format: reportFormatEnum("format").notNull(),
   storageKey: text("storage_key"),

@@ -1,4 +1,8 @@
 import { pgEnum, varchar, timestamp } from "drizzle-orm/pg-core";
+import { z } from "zod";
+
+export { createInsertSchema } from "drizzle-zod";
+export { z };
 
 export const complianceStatusEnum = pgEnum('compliance_status', ['COMPLIANT', 'EXPIRING_SOON', 'OVERDUE', 'NON_COMPLIANT', 'ACTION_REQUIRED', 'UNKNOWN']);
 export const linkStatusEnum = pgEnum('link_status', ['VERIFIED', 'UNVERIFIED']);

@@ -1,6 +1,7 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, real, pgEnum } from "drizzle-orm/pg-core";
 import { organisations, users } from "./core-auth";
 import { properties } from "./org-structure";
+import { remedialActions } from "./compliance";
 
 export const contractorStatusEnum = pgEnum('contractor_status', ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED']);
 
@@ -70,7 +71,7 @@ export const contractorAssignments = pgTable("contractor_assignments", {
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
   contractorId: varchar("contractor_id").references(() => contractors.id, { onDelete: 'cascade' }).notNull(),
   propertyId: varchar("property_id").references(() => properties.id),
-  remedialActionId: varchar("remedial_action_id"),
+  remedialActionId: varchar("remedial_action_id").references(() => remedialActions.id),
   assignmentType: text("assignment_type").notNull(),
   status: text("status").notNull().default('PENDING'),
   priority: text("priority").notNull().default('MEDIUM'),
