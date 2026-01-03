@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -427,35 +427,40 @@ export default function StaffDirectoryPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <StatsCard
-                title="Total Staff"
-                value={staff.length.toString()}
-                icon={Users}
-                description="Staff members"
-              />
-              <StatsCard
-                title="Active"
-                value={activeStaff.length.toString()}
-                icon={ShieldCheck}
-                description="Currently active"
-                status="success"
-              />
-              <StatsCard
-                title="Pending"
-                value={pendingStaff.length.toString()}
-                icon={Clock}
-                description="Pending activation"
-                status="warning"
-              />
-              <StatsCard
-                title="Suspended"
-                value={suspendedStaff.length.toString()}
-                icon={ShieldAlert}
-                description="Temporarily suspended"
-                status="danger"
-              />
-            </div>
+            <HeroStatsGrid stats={[
+              {
+                title: "Total Staff",
+                value: staff.length,
+                icon: Users,
+                riskLevel: "good",
+                subtitle: "Staff members",
+                testId: "stat-total-staff"
+              },
+              {
+                title: "Active",
+                value: activeStaff.length,
+                icon: ShieldCheck,
+                riskLevel: "good",
+                subtitle: "Currently active",
+                testId: "stat-active-staff"
+              },
+              {
+                title: "Pending",
+                value: pendingStaff.length,
+                icon: Clock,
+                riskLevel: pendingStaff.length > 5 ? "high" : pendingStaff.length > 0 ? "medium" : "good",
+                subtitle: "Pending activation",
+                testId: "stat-pending-staff"
+              },
+              {
+                title: "Suspended",
+                value: suspendedStaff.length,
+                icon: ShieldAlert,
+                riskLevel: suspendedStaff.length > 0 ? "critical" : "good",
+                subtitle: "Temporarily suspended",
+                testId: "stat-suspended-staff"
+              }
+            ]} />
 
             <Card className="bg-slate-900/50 border-slate-700">
               <CardHeader>
