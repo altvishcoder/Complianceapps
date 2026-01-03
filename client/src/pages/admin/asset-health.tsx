@@ -555,36 +555,36 @@ export default function AssetHealth() {
               </CardContent>
             </Card>
 
-            <Card className="border-emerald-200 bg-emerald-50/50">
+            <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/20">
               <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-emerald-600">Compliant</p>
-                    <p className="text-lg md:text-2xl font-bold text-emerald-700" data-testid="stat-compliant">{summaryStats.compliantProperties}</p>
+                    <p className="text-xs md:text-sm text-emerald-600 dark:text-emerald-400">Compliant</p>
+                    <p className="text-lg md:text-2xl font-bold text-emerald-700 dark:text-emerald-300" data-testid="stat-compliant">{summaryStats.compliantProperties}</p>
                   </div>
                   <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-emerald-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-amber-200 bg-amber-50/50">
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20">
               <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-amber-600">At Risk</p>
-                    <p className="text-lg md:text-2xl font-bold text-amber-700" data-testid="stat-at-risk">{summaryStats.atRiskProperties}</p>
+                    <p className="text-xs md:text-sm text-amber-600 dark:text-amber-400">At Risk</p>
+                    <p className="text-lg md:text-2xl font-bold text-amber-700 dark:text-amber-300" data-testid="stat-at-risk">{summaryStats.atRiskProperties}</p>
                   </div>
                   <Clock className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-red-200 bg-red-50/50">
+            <Card className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/20">
               <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-red-600">Expired</p>
-                    <p className="text-lg md:text-2xl font-bold text-red-700" data-testid="stat-expired">{summaryStats.expiredProperties}</p>
+                    <p className="text-xs md:text-sm text-red-600 dark:text-red-400">Expired</p>
+                    <p className="text-lg md:text-2xl font-bold text-red-700 dark:text-red-300" data-testid="stat-expired">{summaryStats.expiredProperties}</p>
                   </div>
                   <AlertTriangle className="h-6 w-6 md:h-8 md:w-8 text-red-500" />
                 </div>

@@ -72,7 +72,7 @@ function HactBadge({ label }: { label: string }) {
   return (
     <Tooltip>
       <TooltipTrigger>
-        <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+        <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700">
           HACT: {label}
         </Badge>
       </TooltipTrigger>
@@ -148,7 +148,7 @@ function LazyComponentsLoader({
       {visibleComponents.map((component) => (
         <div
           key={component.id}
-          className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer"
+          className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
           style={{ marginLeft: `${level * 24}px` }}
           onClick={() => onNodeClick?.({
             id: component.id,
@@ -161,12 +161,12 @@ function LazyComponentsLoader({
           data-testid={`tree-node-component-${component.id}`}
         >
           <div className="w-6" />
-          <div className="p-1.5 rounded-md bg-slate-100 text-slate-800 border-slate-200">
+          <div className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700">
             <Package className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-slate-900 truncate hover:underline">
+              <span className="font-medium text-slate-900 dark:text-slate-100 truncate hover:underline">
                 {getComponentName(component)}
               </span>
               {component.serialNumber && (
@@ -180,14 +180,14 @@ function LazyComponentsLoader({
       
       {hasMore && (
         <div 
-          className="py-2 px-3 text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+          className="py-2 px-3 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors flex items-center gap-2"
           style={{ marginLeft: `${level * 24}px` }}
           onClick={() => setVisibleCount(prev => prev + 10)}
           data-testid={`load-more-components-${propertyId || spaceId}`}
         >
           <Package className="h-4 w-4" />
           <span>Show {Math.min(10, filteredComponents.length - visibleCount)} more components</span>
-          <span className="text-slate-400">({filteredComponents.length - visibleCount} remaining)</span>
+          <span className="text-slate-400 dark:text-slate-500">({filteredComponents.length - visibleCount} remaining)</span>
         </div>
       )}
     </>
@@ -219,11 +219,11 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
   };
   
   const typeColors: Record<string, string> = {
-    scheme: 'bg-blue-100 text-blue-800 border-blue-200',
-    block: 'bg-amber-100 text-amber-800 border-amber-200',
-    property: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    space: 'bg-cyan-100 text-cyan-800 border-cyan-200',
-    component: 'bg-slate-100 text-slate-800 border-slate-200',
+    scheme: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-700',
+    block: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-700',
+    property: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700',
+    space: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700',
+    component: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
   };
   
   const typeIcons: Record<string, React.ReactNode> = {
@@ -253,8 +253,8 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
       <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
         <div 
           className={cn(
-            "flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer",
-            level === 0 && "bg-slate-50"
+            "flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group cursor-pointer",
+            level === 0 && "bg-slate-50 dark:bg-slate-800/50"
           )}
           style={{ marginLeft: `${level * 24}px` }}
           onClick={handleClick}
@@ -280,7 +280,7 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-slate-900 truncate hover:underline">{node.name}</span>
+              <span className="font-medium text-slate-900 dark:text-slate-100 truncate hover:underline">{node.name}</span>
               {node.reference && (
                 <span className="text-xs text-slate-500">({node.reference})</span>
               )}
@@ -288,7 +288,7 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
           </div>
           
           {node.linkStatus === 'UNVERIFIED' && (
-            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+            <Badge variant="outline" className="text-xs bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-700">
               Unverified
             </Badge>
           )}
@@ -328,14 +328,14 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
               {/* Load more inline components button */}
               {hasMoreComponents && (
                 <div 
-                  className="py-2 px-3 ml-6 text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+                  className="py-2 px-3 ml-6 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors flex items-center gap-2"
                   style={{ marginLeft: `${(level + 1) * 24}px` }}
                   onClick={() => setVisibleComponentCount(prev => prev + 10)}
                   data-testid={`load-more-components-${node.id}`}
                 >
                   <Package className="h-4 w-4" />
                   <span>Show {Math.min(10, componentChildren.length - visibleComponentCount)} more components</span>
-                  <span className="text-slate-400">({componentChildren.length - visibleComponentCount} remaining)</span>
+                  <span className="text-slate-400 dark:text-slate-500">({componentChildren.length - visibleComponentCount} remaining)</span>
                 </div>
               )}
               
@@ -358,11 +358,11 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
 
 function GridCard({ node }: { node: HierarchyNode }) {
   const typeColors: Record<string, string> = {
-    scheme: 'border-l-blue-500 bg-blue-50/50',
-    block: 'border-l-amber-500 bg-amber-50/50',
-    property: 'border-l-emerald-500 bg-emerald-50/50',
-    space: 'border-l-cyan-500 bg-cyan-50/50',
-    component: 'border-l-slate-500 bg-slate-50/50',
+    scheme: 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-900/20',
+    block: 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/20',
+    property: 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20',
+    space: 'border-l-cyan-500 bg-cyan-50/50 dark:bg-cyan-900/20',
+    component: 'border-l-slate-500 bg-slate-50/50 dark:bg-slate-800/50',
   };
   
   const typeIcons: Record<string, React.ReactNode> = {
@@ -377,11 +377,11 @@ function GridCard({ node }: { node: HierarchyNode }) {
     <Card className={cn("border-l-4 hover:shadow-md transition-shadow", typeColors[node.type])}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-white shadow-sm">
+          <div className="p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
             {typeIcons[node.type]}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-slate-900 truncate">{node.name}</h4>
+            <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate">{node.name}</h4>
             {node.reference && (
               <p className="text-sm text-slate-500">{node.reference}</p>
             )}
@@ -449,17 +449,17 @@ function VisualHierarchy({ hierarchyData, viewMode, onNodeClick }: { hierarchyDa
     };
 
     const statusColors: Record<string, string> = {
-      COMPLIANT: 'bg-green-100 text-green-800',
-      NON_COMPLIANT: 'bg-red-100 text-red-800',
-      EXPIRING_SOON: 'bg-amber-100 text-amber-800',
-      UNKNOWN: 'bg-gray-100 text-gray-800',
+      COMPLIANT: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
+      NON_COMPLIANT: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
+      EXPIRING_SOON: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
+      UNKNOWN: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300',
     };
 
     return (
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50">
+            <TableRow className="bg-slate-50 dark:bg-slate-800/50">
               <TableHead className="w-8"></TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
@@ -940,7 +940,7 @@ export default function PropertyHierarchy() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-muted/30">
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header title="Property Hierarchy" />
@@ -949,20 +949,20 @@ export default function PropertyHierarchy() {
             <div className="mb-3 md:mb-6">
               <div className="flex items-center gap-2 mb-1 md:mb-2">
                 <TreePine className="h-5 w-5 md:h-6 md:w-6 text-emerald-600" />
-                <h1 className="text-xl md:text-2xl font-bold text-gray-900">Property Hierarchy</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-foreground">Property Hierarchy</h1>
               </div>
-              <p className="text-sm md:text-base text-gray-600 hidden md:block">
+              <p className="text-sm md:text-base text-muted-foreground hidden md:block">
                 Manage your property portfolio structure following the UKHDS 5-level asset hierarchy.
               </p>
-              <div className="hidden md:block mt-2 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <div className="hidden md:block mt-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                 <div className="flex items-start gap-2">
-                  <Info className="h-5 w-5 text-emerald-600 mt-0.5" />
-                  <div className="text-sm text-emerald-800">
+                  <Info className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                  <div className="text-sm text-emerald-800 dark:text-emerald-300">
                     <strong>UKHDS Asset Hierarchy:</strong> Organisation → Scheme (Site/Estate) → Block (Building) → Property (Dwelling/Home) → Space (Room) → Component (Asset)
                   </div>
                 </div>
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="text-xs text-blue-800">
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-xs text-blue-800 dark:text-blue-300">
                     <strong>Terminology Note:</strong> In UKHDS, "Property" represents the Dwelling layer - the individual lettable home (flat, house). Spaces can attach to properties (rooms like Kitchen, Bedroom), blocks (communal areas like Stairwell), or schemes (estate-wide spaces).
                   </div>
                 </div>
@@ -970,46 +970,46 @@ export default function PropertyHierarchy() {
             </div>
 
             <div className="flex md:grid md:grid-cols-6 gap-2 md:gap-3 mb-3 md:mb-6 overflow-x-auto scrollbar-hide pb-1">
-              <Card className="bg-purple-50 border-purple-200 shrink-0 w-20 md:w-auto">
+              <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 shrink-0 w-20 md:w-auto">
                 <CardContent className="p-2 md:p-4 text-center">
-                  <Building2 className="h-4 w-4 md:h-6 md:w-6 text-purple-600 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-purple-900">{totalCounts.organisations}</div>
-                  <div className="text-xs md:text-sm text-purple-600 truncate">Orgs</div>
+                  <Building2 className="h-4 w-4 md:h-6 md:w-6 text-purple-600 dark:text-purple-400 mx-auto mb-1 md:mb-2" />
+                  <div className="text-lg md:text-2xl font-bold text-purple-900 dark:text-purple-100">{totalCounts.organisations}</div>
+                  <div className="text-xs md:text-sm text-purple-600 dark:text-purple-400 truncate">Orgs</div>
                 </CardContent>
               </Card>
-              <Card className="bg-blue-50 border-blue-200 shrink-0 w-20 md:w-auto">
+              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 shrink-0 w-20 md:w-auto">
                 <CardContent className="p-2 md:p-4 text-center">
-                  <MapPin className="h-4 w-4 md:h-6 md:w-6 text-blue-600 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-blue-900">{totalCounts.schemes}</div>
-                  <div className="text-xs md:text-sm text-blue-600">Schemes</div>
+                  <MapPin className="h-4 w-4 md:h-6 md:w-6 text-blue-600 dark:text-blue-400 mx-auto mb-1 md:mb-2" />
+                  <div className="text-lg md:text-2xl font-bold text-blue-900 dark:text-blue-100">{totalCounts.schemes}</div>
+                  <div className="text-xs md:text-sm text-blue-600 dark:text-blue-400">Schemes</div>
                 </CardContent>
               </Card>
-              <Card className="bg-amber-50 border-amber-200 shrink-0 w-20 md:w-auto">
+              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 shrink-0 w-20 md:w-auto">
                 <CardContent className="p-2 md:p-4 text-center">
-                  <Building className="h-4 w-4 md:h-6 md:w-6 text-amber-600 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-amber-900">{totalCounts.blocks}</div>
-                  <div className="text-xs md:text-sm text-amber-600">Blocks</div>
+                  <Building className="h-4 w-4 md:h-6 md:w-6 text-amber-600 dark:text-amber-400 mx-auto mb-1 md:mb-2" />
+                  <div className="text-lg md:text-2xl font-bold text-amber-900 dark:text-amber-100">{totalCounts.blocks}</div>
+                  <div className="text-xs md:text-sm text-amber-600 dark:text-amber-400">Blocks</div>
                 </CardContent>
               </Card>
-              <Card className="bg-emerald-50 border-emerald-200 shrink-0 w-24 md:w-auto md:col-span-2">
+              <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 shrink-0 w-24 md:w-auto md:col-span-2">
                 <CardContent className="p-2 md:p-4 text-center">
-                  <Home className="h-4 w-4 md:h-6 md:w-6 text-emerald-600 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-emerald-900">{totalCounts.properties}</div>
-                  <div className="text-xs md:text-sm text-emerald-600">Dwellings</div>
+                  <Home className="h-4 w-4 md:h-6 md:w-6 text-emerald-600 dark:text-emerald-400 mx-auto mb-1 md:mb-2" />
+                  <div className="text-lg md:text-2xl font-bold text-emerald-900 dark:text-emerald-100">{totalCounts.properties}</div>
+                  <div className="text-xs md:text-sm text-emerald-600 dark:text-emerald-400">Dwellings</div>
                 </CardContent>
               </Card>
-              <Card className="bg-cyan-50 border-cyan-200 shrink-0 w-20 md:w-auto">
+              <Card className="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 shrink-0 w-20 md:w-auto">
                 <CardContent className="p-2 md:p-3 text-center">
-                  <FolderTree className="h-4 w-4 md:h-5 md:w-5 text-cyan-600 mx-auto mb-1" />
-                  <div className="text-lg md:text-xl font-bold text-cyan-900">{totalCounts.spaces}</div>
-                  <div className="text-xs text-cyan-600">Spaces</div>
+                  <FolderTree className="h-4 w-4 md:h-5 md:w-5 text-cyan-600 dark:text-cyan-400 mx-auto mb-1" />
+                  <div className="text-lg md:text-xl font-bold text-cyan-900 dark:text-cyan-100">{totalCounts.spaces}</div>
+                  <div className="text-xs text-cyan-600 dark:text-cyan-400">Spaces</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 border-slate-200 shrink-0 w-24 md:w-auto">
+              <Card className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0 w-24 md:w-auto">
                 <CardContent className="p-2 md:p-3 text-center">
-                  <Package className="h-4 w-4 md:h-5 md:w-5 text-slate-600 mx-auto mb-1" />
-                  <div className="text-lg md:text-xl font-bold text-slate-900">{totalCounts.components}</div>
-                  <div className="text-xs text-slate-600">Components</div>
+                  <Package className="h-4 w-4 md:h-5 md:w-5 text-slate-600 dark:text-slate-400 mx-auto mb-1" />
+                  <div className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100">{totalCounts.components}</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400">Components</div>
                 </CardContent>
               </Card>
             </div>
@@ -1040,7 +1040,7 @@ export default function PropertyHierarchy() {
                     </div>
                     
                     {showVisualView && (
-                      <div className="flex bg-slate-100 rounded-lg p-1">
+                      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
                         <Button
                           variant={viewMode === 'tree' ? 'secondary' : 'ghost'}
                           size="sm"
