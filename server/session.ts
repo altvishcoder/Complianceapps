@@ -1,52 +1,9 @@
-import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
-import type { Express, Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from './auth';
 import { fromNodeHeaders } from 'better-auth/node';
-
-const PgSession = connectPgSimple(session);
-
-declare module 'express-session' {
-  interface SessionData {
-    userId: string;
-    username: string;
-    role: string;
-    organisationId: string | null;
-  }
-}
-
-export function setupSession(app: Express) {
-  const sessionSecret = process.env.SESSION_SECRET;
-  
-  if (!sessionSecret) {
-    console.warn('[SECURITY WARNING] SESSION_SECRET environment variable not set. Using generated fallback - this is NOT secure for production!');
-  }
-  
-  const secret = sessionSecret || require('crypto').randomBytes(32).toString('hex');
-  
-  app.use(
-    session({
-      store: new PgSession({
-        conString: process.env.DATABASE_URL,
-        tableName: 'user_sessions',
-        createTableIfMissing: true,
-      }),
-      secret: secret,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000,
-        sameSite: 'lax',
-      },
-      name: 'compliance.sid',
-    })
-  );
-}
 
 export interface AuthenticatedRequest extends Request {
   user?: {
