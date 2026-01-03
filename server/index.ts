@@ -1,4 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import compression from "compression";
+import { v4 as uuidv4 } from "uuid";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -9,12 +12,23 @@ import { initSentry, setupSentryErrorHandler } from "./sentry";
 import { setupSession } from "./session";
 import { startLogRotationScheduler } from "./services/log-rotation";
 import { createGlobalRateLimiter, seedApiLimitSettings } from "./services/api-limits";
+import { loadSecurityConfig, loadCompressionConfig } from "./services/middleware-config";
 
 const app = express();
 const httpServer = createServer(app);
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 // Trust proxy for proper rate limiting behind Replit's load balancer
 app.set('trust proxy', 1);
+
+// Correlation ID middleware for request tracing
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const correlationId = req.headers['x-correlation-id'] as string || uuidv4();
+  req.headers['x-correlation-id'] = correlationId;
+  res.setHeader('x-correlation-id', correlationId);
+  next();
+});
 
 declare module "http" {
   interface IncomingMessage {
@@ -54,6 +68,49 @@ app.use(httpLogger);
   
   // Seed API limit settings
   await seedApiLimitSettings();
+  
+  // Load security and compression config from Factory Settings
+  const [securityConfig, compressionConfig] = await Promise.all([
+    loadSecurityConfig(),
+    loadCompressionConfig(),
+  ]);
+  
+  // Apply helmet security headers - strict in production, relaxed in development
+  app.use(helmet({
+    contentSecurityPolicy: isDevelopment ? false : (securityConfig.cspEnabled ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://unpkg.com"],
+        styleSrc: ["'self'", "https://unpkg.com", "https://fonts.googleapis.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        connectSrc: ["'self'", "https:", "wss:"],
+        frameSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    } : false),
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    strictTransportSecurity: {
+      maxAge: securityConfig.hstsMaxAge,
+      includeSubDomains: securityConfig.hstsIncludeSubdomains,
+      preload: securityConfig.hstsPreload,
+    },
+    xXssProtection: securityConfig.xssProtection,
+  }));
+  
+  // Apply response compression with configurable threshold
+  app.use(compression({
+    threshold: compressionConfig.threshold,
+    level: compressionConfig.level,
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    }
+  }));
+  
+  logger.info({ securityConfig, compressionConfig }, 'Middleware configured from Factory Settings');
   
   // Initialize pg-boss job queue
   try {
