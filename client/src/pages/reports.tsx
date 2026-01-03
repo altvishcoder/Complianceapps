@@ -101,16 +101,14 @@ export default function Reports() {
                 </Alert>
               ) : tsmReport ? (
                 <>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold">TSM Building Safety Metrics</h2>
-                      <p className="text-muted-foreground">
-                        Report generated: {new Date(tsmReport.reportDate).toLocaleDateString()}
-                      </p>
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      Report generated: {new Date(tsmReport.reportDate).toLocaleDateString()}
+                    </p>
                     <Button onClick={downloadCSV} data-testid="button-download-csv">
                       <Download className="h-4 w-4 mr-2" />
-                      Export CSV
+                      <span className="hidden sm:inline">Export CSV</span>
+                      <span className="sm:hidden">Export</span>
                     </Button>
                   </div>
                   
