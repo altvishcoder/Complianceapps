@@ -201,16 +201,17 @@ export default function AdminNavigationManagement() {
       <Sidebar />
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         <Header title="Navigation Management" />
-        <main className="flex-1 overflow-auto p-6">
-          <div className="space-y-6">
-            <div className="flex justify-between items-start">
+        <main className="flex-1 overflow-auto p-4 md:p-6">
+          <div className="space-y-4">
+            <div className="flex justify-between items-start gap-3">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2" data-testid="text-page-title">
-                  <Navigation className="h-6 w-6" />
-                  Navigation Management
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2" data-testid="text-page-title">
+                  <Navigation className="h-5 w-5 md:h-6 md:w-6" />
+                  <span className="hidden sm:inline">Navigation Management</span>
+                  <span className="sm:hidden">Navigation</span>
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Control which roles can see each navigation item. Empty selection means visible to all authenticated users.
+                <p className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
+                  Role visibility controls for navigation items.
                 </p>
               </div>
               <Button 
@@ -234,8 +235,8 @@ export default function AdminNavigationManagement() {
                   <Settings className="h-5 w-5" />
                   Role Visibility Matrix
                 </CardTitle>
-                <CardDescription>
-                  Check the roles that should have access to each navigation item. Items with no roles selected are visible to everyone.
+                <CardDescription className="text-sm hidden sm:block">
+                  Check roles for access. No selection = visible to all.
                 </CardDescription>
               </CardHeader>
               <CardContent>

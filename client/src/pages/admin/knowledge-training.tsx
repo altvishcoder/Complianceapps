@@ -203,38 +203,38 @@ export default function KnowledgeTrainingPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Knowledge Training" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+      <div className="flex items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Knowledge Training</h1>
-          <p className="text-muted-foreground">
-            Add and manage knowledge documents to train the AI Assistant
+          <h1 className="text-xl md:text-2xl font-bold">Knowledge Training</h1>
+          <p className="text-sm text-muted-foreground hidden sm:block">
+            Manage AI Assistant knowledge documents
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/knowledge'] })}
             disabled={isFetching}
             data-testid="button-refresh-knowledge"
+            title="Refresh"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <span className="sr-only">Refresh</span>
           </Button>
-          <Button onClick={openCreateDialog} data-testid="button-add-knowledge">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Knowledge
+          <Button onClick={openCreateDialog} size="sm" data-testid="button-add-knowledge">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add</span>
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Knowledge Base</CardTitle>
-          <CardDescription>
-            Documents added here will be used by the AI Assistant to answer user questions.
-            The system uses semantic similarity matching to find relevant content.
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Knowledge Base</CardTitle>
+          <CardDescription className="text-sm hidden sm:block">
+            Documents used by AI Assistant for semantic matching.
           </CardDescription>
         </CardHeader>
         <CardContent>
