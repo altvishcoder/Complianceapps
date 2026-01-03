@@ -523,7 +523,7 @@ export default function ComplianceCalendar() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Compliance Calendar" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
           <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
             <div className="hidden sm:block">
               <h1 className="text-xl md:text-2xl font-bold">Compliance Calendar</h1>
@@ -600,13 +600,13 @@ export default function ComplianceCalendar() {
 
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Calendar</CardTitle>
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Calendar</CardTitle>
                   <div className="flex gap-2">
                     <Select value={filterType} onValueChange={setFilterType}>
-                      <SelectTrigger className="w-40" data-testid="select-filter-type">
-                        <SelectValue placeholder="Filter by type" />
+                      <SelectTrigger className="w-28 sm:w-40 h-9" data-testid="select-filter-type">
+                        <SelectValue placeholder="Type" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
@@ -621,8 +621,8 @@ export default function ComplianceCalendar() {
                       </SelectContent>
                     </Select>
                     <Select value={filterStream} onValueChange={setFilterStream}>
-                      <SelectTrigger className="w-40" data-testid="select-filter-stream">
-                        <SelectValue placeholder="Filter by stream" />
+                      <SelectTrigger className="w-28 sm:w-40 h-9" data-testid="select-filter-stream">
+                        <SelectValue placeholder="Stream" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Streams</SelectItem>
@@ -634,24 +634,24 @@ export default function ComplianceCalendar() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {showHeatmap && (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground border-l pl-4" data-testid="heatmap-legend">
-                      <span className="font-medium">Heatmap:</span>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 rounded bg-red-400/50" />
-                        <span>Expired</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 rounded bg-amber-400/50" />
-                        <span>Expiring</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 rounded bg-green-400/35" />
-                        <span>Compliant</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
+                {showHeatmap && (
+                  <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground border-t pt-2 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-4 overflow-x-auto" data-testid="heatmap-legend">
+                    <span className="font-medium shrink-0">Heatmap:</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-red-400/50" />
+                      <span>Expired</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-amber-400/50" />
+                      <span>Expiring</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-green-400/35" />
+                      <span>Compliant</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
