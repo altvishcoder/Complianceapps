@@ -554,60 +554,60 @@ export default function ComplianceCalendar() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Card>
+            <Card className="border-border bg-card">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Events</p>
-                    <p className="text-2xl font-bold" data-testid="stat-total-events">{stats.total}</p>
+                    <p className="text-2xl font-bold text-foreground" data-testid="stat-total-events">{stats.total}</p>
                   </div>
                   <CalendarIcon className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-amber-200 bg-amber-50/50">
+            <Card className="border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/20">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-amber-600">Expiring Soon</p>
-                    <p className="text-2xl font-bold text-amber-700" data-testid="stat-expiring-soon">{stats.expiringSoon}</p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400">Expiring Soon</p>
+                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-300" data-testid="stat-expiring-soon">{stats.expiringSoon}</p>
                   </div>
                   <Clock className="h-8 w-8 text-amber-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-red-200 bg-red-50/50">
+            <Card className="border-red-500/50 bg-red-500/10 dark:bg-red-500/20">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-red-600">Expired</p>
-                    <p className="text-2xl font-bold text-red-700" data-testid="stat-expired">{stats.expired}</p>
+                    <p className="text-sm text-red-600 dark:text-red-400">Expired</p>
+                    <p className="text-2xl font-bold text-red-700 dark:text-red-300" data-testid="stat-expired">{stats.expired}</p>
                   </div>
                   <AlertTriangle className="h-8 w-8 text-red-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-emerald-200 bg-emerald-50/50">
+            <Card className="border-emerald-500/50 bg-emerald-500/10 dark:bg-emerald-500/20">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-emerald-600">Compliant</p>
-                    <p className="text-2xl font-bold text-emerald-700" data-testid="stat-compliant">{stats.compliant}</p>
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400">Compliant</p>
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300" data-testid="stat-compliant">{stats.compliant}</p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-emerald-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-purple-200 bg-purple-50/50">
+            <Card className="border-purple-500/50 bg-purple-500/10 dark:bg-purple-500/20">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-purple-600">Legislative</p>
-                    <p className="text-2xl font-bold text-purple-700" data-testid="stat-legislative">{stats.legislative}</p>
+                    <p className="text-sm text-purple-600 dark:text-purple-400">Legislative</p>
+                    <p className="text-2xl font-bold text-purple-700 dark:text-purple-300" data-testid="stat-legislative">{stats.legislative}</p>
                   </div>
                   <Landmark className="h-8 w-8 text-purple-500" />
                 </div>
