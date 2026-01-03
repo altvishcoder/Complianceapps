@@ -370,6 +370,70 @@ export default function SystemHealthPage() {
               </div>
             </div>
 
+            <div 
+              className={`rounded-xl p-4 md:p-6 border-2 transition-all ${
+                healthLoading || queueLoading 
+                  ? 'bg-muted/50 border-muted-foreground/20' 
+                  : allHealthy 
+                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/40 dark:to-green-950/40 border-emerald-400 dark:border-emerald-600' 
+                    : 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/40 dark:to-orange-950/40 border-red-400 dark:border-red-600'
+              }`}
+              data-testid="overall-system-status"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className={`p-3 md:p-4 rounded-full ${
+                    healthLoading || queueLoading 
+                      ? 'bg-muted' 
+                      : allHealthy 
+                        ? 'bg-emerald-500' 
+                        : 'bg-red-500'
+                  }`}>
+                    {healthLoading || queueLoading ? (
+                      <RefreshCcw className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground animate-spin" />
+                    ) : allHealthy ? (
+                      <CheckCircle2 className="h-6 w-6 md:h-8 md:w-8 text-white" />
+                    ) : (
+                      <AlertCircle className="h-6 w-6 md:h-8 md:w-8 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className={`text-lg md:text-2xl font-bold ${
+                      healthLoading || queueLoading 
+                        ? 'text-muted-foreground' 
+                        : allHealthy 
+                          ? 'text-emerald-700 dark:text-emerald-300' 
+                          : 'text-red-700 dark:text-red-300'
+                    }`}>
+                      {healthLoading || queueLoading 
+                        ? 'Checking Systems...' 
+                        : allHealthy 
+                          ? 'All Systems Operational' 
+                          : 'System Issues Detected'}
+                    </h3>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      Last checked: {lastChecked.toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden md:flex items-center gap-4">
+                  {!healthLoading && !queueLoading && (
+                    <div className="flex gap-2">
+                      <Badge className={healthStatus?.database ? 'bg-emerald-500' : 'bg-red-500'}>
+                        <Database className="h-3 w-3 mr-1" /> DB
+                      </Badge>
+                      <Badge className={healthStatus?.api ? 'bg-emerald-500' : 'bg-red-500'}>
+                        <Server className="h-3 w-3 mr-1" /> API
+                      </Badge>
+                      <Badge className={queueHealthy ? 'bg-emerald-500' : 'bg-red-500'}>
+                        <Zap className="h-3 w-3 mr-1" /> Jobs
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-2 md:gap-4">
               <Card data-testid="card-database-status" className="p-2 md:p-0">
                 <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
