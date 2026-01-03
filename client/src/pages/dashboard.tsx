@@ -514,51 +514,57 @@ export default function Dashboard() {
                 )}
               </CardHeader>
               <CardContent className="space-y-3">
-                {!hasAnyBreaches ? (
-                  <div className="flex flex-col items-center justify-center py-4 text-center">
-                    <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
-                    <p className="text-muted-foreground text-sm">No timescale violations</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Link href="/actions?awaabs=true&phase=1&from=/dashboard" className="block">
-                      <div className="flex items-center justify-between p-3 rounded-lg border-2 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors cursor-pointer">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-red-600 hover:bg-red-700 text-xs">NOW IN FORCE</Badge>
-                            <span className="text-sm font-bold">Phase 1: Damp & Mould</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">Strict timescales apply - respond within 14 days</span>
+                <div className="space-y-2">
+                  <Link href="/actions?awaabs=true&phase=1&from=/dashboard" className="block">
+                    <div className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors cursor-pointer ${
+                      (awaabsData?.phase1?.count || 0) > 0 
+                        ? 'border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950/50' 
+                        : 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 hover:bg-green-100 dark:hover:bg-green-950/30'
+                    }`}>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-red-600 hover:bg-red-700 text-xs">NOW IN FORCE</Badge>
+                          <span className="text-sm font-bold">Phase 1: Damp & Mould</span>
                         </div>
+                        <span className="text-xs text-muted-foreground">Strict timescales - respond within 14 days</span>
+                      </div>
+                      <div className="flex flex-col items-end">
                         <span className={`text-2xl font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {awaabsData?.phase1?.count || 0}
                         </span>
+                        <span className="text-xs text-muted-foreground">breaches</span>
                       </div>
-                    </Link>
-                    <Link href="/actions?awaabs=true&phase=2&from=/dashboard" className="block">
-                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">Preview</Badge>
-                          <span className="text-sm font-medium">Phase 2: Fire, Electrical, Falls</span>
-                        </div>
-                        <span className={`text-lg font-bold ${(awaabsData?.phase2?.count || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                    </div>
+                  </Link>
+                  <Link href="/actions?awaabs=true&phase=2&from=/dashboard" className="block">
+                    <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">2026</Badge>
+                        <span className="text-sm font-medium">Phase 2: Fire, Electrical, Falls</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-lg font-bold ${(awaabsData?.phase2?.count || 0) > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
                           {awaabsData?.phase2?.count || 0}
                         </span>
+                        <span className="text-xs text-muted-foreground">breaches</span>
                       </div>
-                    </Link>
-                    <Link href="/actions?awaabs=true&phase=3&from=/dashboard" className="block">
-                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer opacity-60">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">Future</Badge>
-                          <span className="text-sm font-medium">Phase 3: All HHSRS</span>
-                        </div>
-                        <span className="text-lg font-bold text-slate-400">
+                    </div>
+                  </Link>
+                  <Link href="/actions?awaabs=true&phase=3&from=/dashboard" className="block">
+                    <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer opacity-60">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">2027</Badge>
+                        <span className="text-sm font-medium">Phase 3: All HHSRS</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold text-muted-foreground">
                           {awaabsData?.phase3?.count || 0}
                         </span>
+                        <span className="text-xs text-muted-foreground">breaches</span>
                       </div>
-                    </Link>
-                  </div>
-                )}
+                    </div>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </DraggableWidget>
