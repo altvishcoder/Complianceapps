@@ -4,6 +4,40 @@
 
 The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through Tier 4, with half-steps) to process compliance certificates. Each tier represents increasing complexity and cost, with automatic escalation based on confidence thresholds.
 
+## Pre-Tier Processing Pipeline
+
+Before the tiered extraction begins, documents pass through preprocessing stages:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PRE-EXTRACTION PIPELINE (FREE)                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────────────┐   │
+│  │ Pattern Detector│ → │ Format Detector │ → │ Certificate Type        │   │
+│  │ (filename/text) │   │ (PDF analysis)  │   │ Classification          │   │
+│  └─────────────────┘   └─────────────────┘   └─────────────────────────┘   │
+│         │                       │                       │                   │
+│         └───────────────────────┴───────────────────────┘                   │
+│                                 │                                           │
+│                     ┌───────────┴───────────┐                               │
+│                     │                       │                               │
+│              ┌──────┴──────┐       ┌────────┴────────┐                      │
+│              │ Scanned?    │       │ Native PDF?     │                      │
+│              │ → QR/EXIF   │       │ → Text Extract  │                      │
+│              └─────────────┘       └─────────────────┘                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Pre-Tier Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Pattern Detector | `pattern-detector.ts` | Matches filename/text against 84 detection patterns to identify certificate type |
+| Format Detector | `format-detector.ts` | Analyzes PDF structure (native vs scanned), extracts text layer, calculates quality |
+| QR/Metadata Extractor | `qr-metadata.ts` | Extracts QR codes and EXIF metadata from scanned documents |
+
 ## Tier Architecture
 
 ```
@@ -13,9 +47,9 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 │                                                                             │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
 │  │   Tier 0    │ → │  Tier 0.5   │ → │   Tier 1    │ → │  Tier 1.5   │     │
-│  │   Format    │   │  QR/Meta    │   │  Template   │   │ Claude Text │     │
-│  │  Detection  │   │  Extraction │   │  Matching   │   │ Enhancement │     │
-│  │   (FREE)    │   │   (FREE)    │   │   (FREE)    │   │  (~$0.003)  │     │
+│  │   Format    │   │  QR/Meta    │   │  Template   │   │ Claude Haiku│     │
+│  │  Detection  │   │  Extraction │   │  Matching   │   │   (Text)    │     │
+│  │   (FREE)    │   │   (FREE)    │   │   (FREE)    │   │ (~$0.002)   │     │
 │  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
 │         │                 │                 │                 │             │
 │         └─────────────────┴─────────────────┴─────────────────┘             │
@@ -24,8 +58,8 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 │                    │                               │                        │
 │             ┌──────┴──────┐               ┌───────┴───────┐                 │
 │             │   Tier 2    │               │    Tier 3     │                 │
-│             │ Azure DI    │               │ Claude Vision │                 │
-│             │ (~$0.0015)  │               │  (~$0.01)     │                 │
+│             │ Azure DI    │               │ Claude Sonnet │                 │
+│             │ (~$0.001)   │               │  (~$0.015)    │                 │
 │             └─────────────┘               └───────────────┘                 │
 │                    │                               │                        │
 │                    └───────────────┬───────────────┘                        │
@@ -84,7 +118,7 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 - Oil/LPG/Solid Fuel (OFTEC, HETAS)
 - And more...
 
-### Tier 1.5: Claude Text Enhancement (~$0.003/doc)
+### Tier 1.5: Claude Haiku Text Enhancement (~$0.002/doc)
 **File**: `server/services/extraction/claude-text.ts`
 **Function**: `extractWithClaudeText(text, documentType)`
 
@@ -93,7 +127,12 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 - Lower cost than Vision tier
 - Requires AI_EXTRACTION_ENABLED=true
 
-### Tier 2: Azure Document Intelligence (~$0.0015/page)
+**Cost Breakdown** (Claude 3.5 Haiku, Jan 2026):
+- Input: $0.25/million tokens (~1K tokens/doc = $0.00025)
+- Output: $1.25/million tokens (~1.5K tokens/doc = $0.002)
+- **Total: ~$0.002/document**
+
+### Tier 2: Azure Document Intelligence (~$0.001/page)
 **File**: `server/services/extraction/azure-di.ts`
 **Function**: `extractWithAzureDocumentIntelligence(buffer, mimeType)`
 
@@ -102,7 +141,12 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 - Cost-effective for multi-page PDFs
 - Requires AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and KEY
 
-### Tier 3: Claude Vision (~$0.01/doc)
+**Cost Breakdown** (Azure DI Layout, Jan 2026):
+- Per page: $0.001 (prebuilt-layout model)
+- Average 3-page certificate: ~$0.003
+- **Total: ~$0.001/page**
+
+### Tier 3: Claude Sonnet Vision (~$0.015/doc)
 **File**: `server/services/extraction/claude-vision.ts`
 **Functions**: `extractWithClaudeVision()`, `extractWithClaudeVisionFromPDF()`
 
@@ -110,6 +154,11 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 - Best for scanned documents and complex layouts
 - Highest accuracy but highest cost
 - Requires ANTHROPIC_API_KEY
+
+**Cost Breakdown** (Claude Sonnet, Jan 2026):
+- Input: $3.00/million tokens + ~$0.01/image
+- Output: $15.00/million tokens (~0.5K tokens = $0.008)
+- **Total: ~$0.015/document**
 
 ### Tier 4: Human Review (FREE but manual)
 **File**: Queue stored in `humanReviewQueue` table
@@ -207,12 +256,15 @@ The ComplianceAI extraction service uses a 6-tier architecture (Tier 0 through T
 | File | Purpose |
 |------|---------|
 | `server/services/extraction/orchestrator.ts` | Main entry point, tier coordination |
+| `server/services/extraction/pattern-detector.ts` | Certificate type detection from filename/text patterns (Pre-tier) |
 | `server/services/extraction/format-detector.ts` | Document format analysis (Tier 0) |
 | `server/services/extraction/qr-metadata.ts` | QR/EXIF extraction (Tier 0.5) |
 | `server/services/extraction/template-patterns.ts` | Regex pattern matching (Tier 1) |
-| `server/services/extraction/claude-text.ts` | Claude text enhancement (Tier 1.5) |
+| `server/services/extraction/claude-text.ts` | Claude Haiku text enhancement (Tier 1.5) |
 | `server/services/extraction/azure-di.ts` | Azure Document Intelligence (Tier 2) |
-| `server/services/extraction/claude-vision.ts` | Claude Vision extraction (Tier 3) |
+| `server/services/extraction/claude-vision.ts` | Claude Sonnet Vision extraction (Tier 3) |
+| `server/services/extraction/outcome-evaluator.ts` | Compliance outcome evaluation (Post-extraction) |
+| `server/services/extraction/classification-linker.ts` | Classification code linking & remedial action generation (Post-extraction) |
 | `server/services/confidence-scoring.ts` | Confidence calculation logic |
 
 ## Configuration (Factory Settings)
@@ -252,3 +304,66 @@ Key metrics:
 - Confidence distribution
 - Escalation rates
 - Human review queue depth
+
+## Post-Extraction Pipeline
+
+After extraction completes, the following post-processing occurs:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     POST-EXTRACTION PIPELINE (FREE)                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────┐   │
+│  │  Outcome Evaluator  │ → │ Classification      │ → │ Remedial Action │   │
+│  │  (27 rules + UK law)│   │ Linker (70 codes)   │   │ Generation      │   │
+│  └─────────────────────┘   └─────────────────────┘   └─────────────────┘   │
+│         │                           │                         │             │
+│         └───────────────────────────┴─────────────────────────┘             │
+│                                     │                                       │
+│                        ┌────────────┴────────────┐                          │
+│                        │  Data Flywheel          │                          │
+│                        │  (ML Training Feedback) │                          │
+│                        └─────────────────────────┘                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Outcome Evaluator
+**File**: `server/services/extraction/outcome-evaluator.ts`
+
+Evaluates extracted data against 27 outcome rules to determine compliance status:
+- **SATISFACTORY**: Certificate passes all checks
+- **SATISFACTORY_WITH_OBSERVATIONS**: Minor issues noted
+- **UNSATISFACTORY**: Non-compliant, requires remedial action
+- **UNDETERMINED**: Insufficient data for determination
+
+Rules reference UK legislation including:
+- Gas Safety (Installation and Use) Regulations 1998
+- BS 7671 (Electrical Wiring Regulations)
+- Regulatory Reform (Fire Safety) Order 2005
+- Control of Asbestos Regulations 2012
+- LOLER 1998, Building Safety Act 2022
+
+### Classification Linker
+**File**: `server/services/extraction/classification-linker.ts`
+
+Links extraction results to 70 classification codes:
+- Matches defects/outcomes to classification codes
+- Auto-creates remedial actions when `autoCreateAction=true`
+- Applies severity and cost estimates from configuration
+- Calculates due dates based on timeframe rules
+
+## Cost Summary
+
+| Tier | Service | Cost per Unit | Typical Doc Cost |
+|------|---------|---------------|------------------|
+| 0 | Format Detection | FREE | $0.00 |
+| 0.5 | QR/EXIF | FREE | $0.00 |
+| 1 | Template Matching | FREE | $0.00 |
+| 1.5 | Claude Haiku (text) | $0.25/$1.25 per MTok | ~$0.002 |
+| 2 | Azure DI Layout | $0.001/page | ~$0.003 |
+| 3 | Claude Sonnet (vision) | $3/$15 per MTok + image | ~$0.015 |
+| 4 | Human Review | FREE (labor cost) | N/A |
+
+**Average cost per certificate**: $0.005-$0.010 (depending on tier escalation)
