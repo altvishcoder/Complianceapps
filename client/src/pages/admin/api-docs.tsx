@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileJson, Book, Code, RefreshCw, CheckCircle2, Clock } from "lucide-react";
+import { ExternalLink, FileJson, Code, RefreshCw, Clock, Server, Key } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -72,130 +72,67 @@ export default function ApiDocs() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="API Documentation" />
-        <main id="main-content" className="flex-1 overflow-hidden p-6" role="main" aria-label="API documentation content" data-testid="api-docs-page">
-          <div className="flex items-center justify-between mb-4">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="API documentation content" data-testid="api-docs-page">
+          <div className="flex items-start sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">API Documentation</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">API Documentation</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
                 Interactive API reference with OpenAPI 3.0 specification
               </p>
-              {status && (
-                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Last updated: {formatDate(status.lastGenerated)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {status.endpointCount} endpoints
-                  </span>
-                  <Badge variant="secondary">v{status.version}</Badge>
-                </div>
-              )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <Button 
                 variant="outline" 
+                size="icon"
                 onClick={() => refreshMutation.mutate()}
                 disabled={refreshMutation.isPending}
                 data-testid="button-refresh-docs"
+                title="Refresh Docs"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
-                {refreshMutation.isPending ? 'Refreshing...' : 'Refresh Docs'}
+                <RefreshCw className={`h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+                <span className="sr-only">Refresh Docs</span>
               </Button>
-              <Button variant="outline" asChild data-testid="button-openapi-spec">
+              <Button variant="outline" size="icon" asChild data-testid="button-openapi-spec" title="OpenAPI Spec">
                 <a href="/api/openapi.json" target="_blank" rel="noopener noreferrer">
-                  <FileJson className="mr-2 h-4 w-4" />
-                  OpenAPI Spec
+                  <FileJson className="h-4 w-4" />
+                  <span className="sr-only">OpenAPI Spec</span>
                 </a>
               </Button>
-              <Button variant="outline" asChild data-testid="button-fullscreen">
+              <Button variant="outline" size="icon" asChild data-testid="button-fullscreen" title="Open Fullscreen">
                 <a href="/api/docs" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open Fullscreen
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="sr-only">Open Fullscreen</span>
                 </a>
               </Button>
             </div>
           </div>
 
-          <div className="grid gap-4 mb-4 md:grid-cols-3">
-            <Card data-testid="card-api-overview">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Book className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">API Overview</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Base URL</span>
-                    <Badge variant="secondary">/api</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Version</span>
-                    <Badge variant="secondary">1.0.0</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Format</span>
-                    <Badge variant="secondary">JSON</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card data-testid="card-auth-info">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Code className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Authentication</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Type</span>
-                    <Badge variant="secondary">Session Cookie</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Login</span>
-                    <Badge variant="outline">POST /api/auth/login</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Ingestion API</span>
-                    <Badge variant="outline">Bearer Token</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card data-testid="card-endpoints-summary">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <FileJson className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Endpoints</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Properties</span>
-                    <Badge variant="secondary">CRUD</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Certificates</span>
-                    <Badge variant="secondary">CRUD + Upload</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Configuration</span>
-                    <Badge variant="secondary">Read/Write</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
+            <Badge variant="outline" className="flex items-center gap-1" data-testid="badge-endpoints">
+              <Server className="h-3 w-3" />
+              {status?.endpointCount ?? 0} endpoints
+            </Badge>
+            <Badge variant="outline" className="flex items-center gap-1" data-testid="badge-version">
+              <FileJson className="h-3 w-3" />
+              v{status?.version ?? "1.0.0"}
+            </Badge>
+            <Badge variant="outline" className="flex items-center gap-1" data-testid="badge-auth">
+              <Key className="h-3 w-3" />
+              Session + Bearer
+            </Badge>
+            <Badge variant="outline" className="flex items-center gap-1" data-testid="badge-format">
+              <Code className="h-3 w-3" />
+              JSON / REST
+            </Badge>
+            {status?.lastGenerated && (
+              <Badge variant="secondary" className="flex items-center gap-1 hidden sm:flex" data-testid="badge-updated">
+                <Clock className="h-3 w-3" />
+                Updated: {formatDate(status.lastGenerated)}
+              </Badge>
+            )}
           </div>
 
-          <Card className="h-[calc(100vh-320px)]" data-testid="card-swagger-embed">
+          <Card className="mt-4 h-[calc(100vh-280px)] md:h-[calc(100vh-300px)]" data-testid="card-swagger-embed">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Interactive API Explorer</CardTitle>
               <CardDescription>Test API endpoints directly from this page</CardDescription>
