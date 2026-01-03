@@ -14,7 +14,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { componentsApi, componentTypesApi, propertiesApi, type EnrichedComponent } from "@/lib/api";
-import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil } from "lucide-react";
+import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil, Settings, AlertTriangle, Clock } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { ComponentTypePicker } from "@/components/ComponentTypePicker";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useSearch } from "wouter";
@@ -90,6 +91,7 @@ export default function ComponentsPage() {
   const components = componentsResponse?.data || [];
   const totalComponents = componentsResponse?.total || 0;
   const totalPages = componentsResponse?.totalPages || 1;
+  const conditionSummary = componentsResponse?.conditionSummary || { CRITICAL: 0, POOR: 0, FAIR: 0, GOOD: 0, UNKNOWN: 0 };
   
   // Auto-adjust page if current page exceeds total pages (e.g., after deletion)
   useEffect(() => {
@@ -274,10 +276,10 @@ export default function ComponentsPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Components & Assets" />
         <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Components and assets content">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Components & Assets</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-2xl sm:text-3xl font-bold">Components & Assets</h1>
+              <p className="text-sm text-muted-foreground">
                 Manage equipment, appliances, and building components
               </p>
             </div>
@@ -432,14 +434,41 @@ export default function ComponentsPage() {
         </Dialog>
       </div>
       
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>HACT Asset Registry</AlertTitle>
-        <AlertDescription>
-          Components are assets within properties that require compliance inspections. 
-          Link components to certificates to track their inspection history and compliance status.
-        </AlertDescription>
-      </Alert>
+      {/* Hero Stats Grid */}
+      <HeroStatsGrid stats={[
+        {
+          title: "Total Components",
+          value: totalComponents,
+          icon: Settings,
+          riskLevel: "good",
+          subtitle: "registered assets",
+          testId: "stat-total-components"
+        },
+        {
+          title: "Critical Condition",
+          value: conditionSummary.CRITICAL,
+          icon: AlertTriangle,
+          riskLevel: "critical",
+          subtitle: "require attention",
+          testId: "stat-critical-components"
+        },
+        {
+          title: "Poor Condition",
+          value: conditionSummary.POOR,
+          icon: Clock,
+          riskLevel: "high",
+          subtitle: "needs maintenance",
+          testId: "stat-poor-components"
+        },
+        {
+          title: "Good Condition",
+          value: conditionSummary.GOOD,
+          icon: CheckCircle,
+          riskLevel: "good",
+          subtitle: "healthy assets",
+          testId: "stat-good-components"
+        }
+      ]} />
       
       <Card>
         <CardHeader>

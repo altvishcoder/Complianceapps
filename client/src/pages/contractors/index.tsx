@@ -29,6 +29,7 @@ import {
   Award,
   ClipboardCheck
 } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { useState, useEffect } from "react";
 import { 
   Dialog,
@@ -346,7 +347,43 @@ export default function ContractorsPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Contractor Verification" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Contractor verification content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Contractor verification content">
+          
+          {/* Hero Stats Grid */}
+          <HeroStatsGrid stats={[
+            {
+              title: "Total Contractors",
+              value: contractors.length,
+              icon: Users,
+              riskLevel: "good",
+              subtitle: "registered suppliers",
+              testId: "stat-total-contractors"
+            },
+            {
+              title: "Verified",
+              value: approvedCount,
+              icon: ShieldCheck,
+              riskLevel: "good",
+              subtitle: "approved contractors",
+              testId: "stat-verified-contractors"
+            },
+            {
+              title: "Pending Verification",
+              value: pendingCount,
+              icon: Clock,
+              riskLevel: pendingCount > 5 ? "high" : "medium",
+              subtitle: "awaiting review",
+              testId: "stat-pending-contractors"
+            },
+            {
+              title: "Expired Certs",
+              value: expiredCertCount,
+              icon: AlertTriangle,
+              riskLevel: expiredCertCount > 0 ? "critical" : "good",
+              subtitle: "need renewal",
+              testId: "stat-expired-certs"
+            }
+          ]} />
           
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">

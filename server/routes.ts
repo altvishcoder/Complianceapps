@@ -5822,6 +5822,16 @@ export async function registerRoutes(
       }
       
       const total = filtered.length;
+      
+      // Compute condition summary from all filtered components (not just paginated slice)
+      const conditionSummary = {
+        CRITICAL: filtered.filter(c => c.condition === 'CRITICAL').length,
+        POOR: filtered.filter(c => c.condition === 'POOR').length,
+        FAIR: filtered.filter(c => c.condition === 'FAIR').length,
+        GOOD: filtered.filter(c => c.condition === 'GOOD').length,
+        UNKNOWN: filtered.filter(c => !c.condition || c.condition === 'UNKNOWN').length,
+      };
+      
       const paginatedComponents = filtered.slice(offset, offset + limit);
       
       // Batch fetch properties for the paginated results
@@ -5840,7 +5850,7 @@ export async function registerRoutes(
         property: comp.propertyId ? propertyMap.get(comp.propertyId) : undefined
       }));
       
-      res.json({ data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) });
+      res.json({ data: enriched, total, page, limit, totalPages: Math.ceil(total / limit), conditionSummary });
     } catch (error) {
       console.error("Error fetching components:", error);
       res.status(500).json({ error: "Failed to fetch components" });

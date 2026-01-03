@@ -2,7 +2,8 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers, Play, Pause, RotateCcw, Zap, Clock, ListOrdered } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, BrainCircuit, X, Calendar, User, MapPin, Scan, FileSearch, Layers, Play, Pause, RotateCcw, Zap, Clock, ListOrdered, Files, XCircle } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import generatedImage from '@assets/generated_images/abstract_digital_network_background_for_ai_interface.png';
@@ -591,7 +592,43 @@ export default function Ingestion() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Cert Hub - Advanced Document Center" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Certificate hub content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Certificate hub content">
+          
+          {/* Hero Stats Grid */}
+          <HeroStatsGrid stats={[
+            {
+              title: "Recent Uploads",
+              value: recentCertificates.length,
+              icon: Files,
+              riskLevel: "good",
+              subtitle: "documents processed",
+              testId: "stat-recent-uploads"
+            },
+            {
+              title: "Batch Queue",
+              value: batchFiles.filter(f => f.status === 'pending' || f.status === 'uploading' || f.status === 'processing').length,
+              icon: Clock,
+              riskLevel: "medium",
+              subtitle: "in progress",
+              testId: "stat-batch-queue"
+            },
+            {
+              title: "Completed",
+              value: batchFiles.filter(f => f.status === 'complete').length,
+              icon: CheckCircle2,
+              riskLevel: "good",
+              subtitle: "successfully processed",
+              testId: "stat-completed"
+            },
+            {
+              title: "Failed",
+              value: batchFiles.filter(f => f.status === 'error').length,
+              icon: XCircle,
+              riskLevel: batchFiles.filter(f => f.status === 'error').length > 0 ? "critical" : "good",
+              subtitle: "need attention",
+              testId: "stat-failed"
+            }
+          ]} />
           
           <Tabs defaultValue="upload" className="w-full">
             <div className="flex justify-between items-center mb-4">

@@ -20,6 +20,16 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export interface ComponentsResponse extends PaginatedResponse<EnrichedComponent> {
+  conditionSummary: {
+    CRITICAL: number;
+    POOR: number;
+    FAIR: number;
+    GOOD: number;
+    UNKNOWN: number;
+  };
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -543,7 +553,7 @@ export const componentsApi = {
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.search) params.append("search", filters.search);
     const query = params.toString() ? `?${params}` : "";
-    return fetchJSON<PaginatedResponse<EnrichedComponent>>(`${API_BASE}/components${query}`);
+    return fetchJSON<ComponentsResponse>(`${API_BASE}/components${query}`);
   },
   
   get: (id: string) => fetchJSON<EnrichedComponent>(`${API_BASE}/components/${id}`),

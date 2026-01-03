@@ -17,8 +17,9 @@ import {
   FileText, Download, Filter, Search, Calendar as CalendarIcon, 
   BarChart3, PieChart, TrendingUp, Building2, FileCheck, 
   AlertTriangle, Clock, CheckCircle, XCircle, Loader2, RefreshCw,
-  Play, Edit, Trash2, Eye, Mail, Copy, Save, Plus, Pause, ChevronRight
+  Play, Edit, Trash2, Eye, Mail, Copy, Save, Plus, Pause, ChevronRight, Files
 } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
@@ -567,23 +568,59 @@ export default function Reports() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Reports" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold">Reporting Centre</h1>
-              <p className="text-muted-foreground">Generate, schedule, and manage compliance reports</p>
+              <p className="text-sm text-muted-foreground">Generate, schedule, and manage compliance reports</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-reports">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+              <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-reports">
+                <RefreshCw className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
-              <Button variant="outline" onClick={() => handleExport('csv')} data-testid="button-export-csv">
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
+              <Button variant="outline" size="sm" onClick={() => handleExport('csv')} data-testid="button-export-csv">
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Export CSV</span>
               </Button>
             </div>
           </div>
+          
+          {/* Hero Stats Grid */}
+          <HeroStatsGrid stats={[
+            {
+              title: "Total Reports",
+              value: recentReports.length,
+              icon: Files,
+              riskLevel: "good",
+              subtitle: "generated reports",
+              testId: "stat-total-reports"
+            },
+            {
+              title: "Scheduled",
+              value: scheduledReports.filter((r: any) => r.isActive).length,
+              icon: Clock,
+              riskLevel: "medium",
+              subtitle: "active schedules",
+              testId: "stat-scheduled"
+            },
+            {
+              title: "Templates",
+              value: reportTemplates.length,
+              icon: FileText,
+              riskLevel: "good",
+              subtitle: "available templates",
+              testId: "stat-templates"
+            },
+            {
+              title: "Compliance Rate",
+              value: Math.round((summary.compliant / Math.max(summary.total, 1)) * 100),
+              icon: CheckCircle,
+              riskLevel: summary.compliant / Math.max(summary.total, 1) >= 0.9 ? "good" : summary.compliant / Math.max(summary.total, 1) >= 0.7 ? "medium" : "critical",
+              subtitle: "% certificates valid",
+              testId: "stat-compliance-rate"
+            }
+          ]} />
 
           {/* Stream Filter Badges */}
           <Card>
