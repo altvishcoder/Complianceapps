@@ -936,48 +936,82 @@ export async function submitPredictionFeedback(
 }
 
 export async function getModelMetrics(organisationId: string): Promise<{
-  model: typeof mlModels.$inferSelect | null;
-  totalPredictions: number;
-  feedbackCount: number;
-  accuracy: number;
+  model: {
+    accuracy: number | null;
+    totalPredictions: number;
+    correctPredictions: number;
+    trainingAccuracy: string | null;
+    status: string;
+  } | null;
+  feedbackStats: {
+    total: number;
+    correct: number;
+    incorrect: number;
+  };
+  trainingReady: boolean;
   recentTrainingRuns: Array<typeof mlTrainingRuns.$inferSelect>;
 }> {
-  const model = await getOrCreateModel(organisationId);
+  const modelData = await getOrCreateModel(organisationId);
   
-  if (!model) {
+  if (!modelData) {
     return {
       model: null,
-      totalPredictions: 0,
-      feedbackCount: 0,
-      accuracy: 0,
+      feedbackStats: { total: 0, correct: 0, incorrect: 0 },
+      trainingReady: false,
       recentTrainingRuns: [],
     };
   }
 
   const predictions = await db.select({ count: count() })
     .from(mlPredictions)
-    .where(eq(mlPredictions.modelId, model.id));
+    .where(eq(mlPredictions.modelId, modelData.id));
 
-  const feedbacks = await db.select({ count: count() })
+  const totalPredictions = predictions[0]?.count || 0;
+
+  const correctFeedbacks = await db.select({ count: count() })
     .from(mlFeedback)
     .innerJoin(mlPredictions, eq(mlFeedback.predictionId, mlPredictions.id))
-    .where(eq(mlPredictions.modelId, model.id));
+    .where(and(
+      eq(mlPredictions.modelId, modelData.id),
+      eq(mlFeedback.feedbackType, 'CORRECT')
+    ));
+
+  const incorrectFeedbacks = await db.select({ count: count() })
+    .from(mlFeedback)
+    .innerJoin(mlPredictions, eq(mlFeedback.predictionId, mlPredictions.id))
+    .where(and(
+      eq(mlPredictions.modelId, modelData.id),
+      eq(mlFeedback.feedbackType, 'INCORRECT')
+    ));
 
   const trainingRuns = await db.select()
     .from(mlTrainingRuns)
-    .where(eq(mlTrainingRuns.modelId, model.id))
+    .where(eq(mlTrainingRuns.modelId, modelData.id))
     .orderBy(desc(mlTrainingRuns.startedAt))
     .limit(10);
 
-  const accuracy = model.correctPredictions && model.feedbackCount 
-    ? (model.correctPredictions / model.feedbackCount) * 100 
-    : 0;
+  const correctCount = correctFeedbacks[0]?.count || 0;
+  const incorrectCount = incorrectFeedbacks[0]?.count || 0;
+  const totalFeedback = correctCount + incorrectCount;
+  
+  const accuracy = totalFeedback > 0 
+    ? correctCount / totalFeedback 
+    : (modelData.trainingAccuracy ? parseFloat(modelData.trainingAccuracy) / 100 : null);
 
   return {
-    model,
-    totalPredictions: predictions[0]?.count || 0,
-    feedbackCount: feedbacks[0]?.count || 0,
-    accuracy,
+    model: {
+      accuracy,
+      totalPredictions,
+      correctPredictions: correctCount,
+      trainingAccuracy: modelData.trainingAccuracy,
+      status: modelData.status,
+    },
+    feedbackStats: {
+      total: totalFeedback,
+      correct: correctCount,
+      incorrect: incorrectCount,
+    },
+    trainingReady: totalFeedback >= 10,
     recentTrainingRuns: trainingRuns,
   };
 }
