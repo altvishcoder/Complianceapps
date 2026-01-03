@@ -202,7 +202,7 @@ export default function CertificateUpload() {
           <Card>
             <CardHeader>
               <CardTitle>New Document Upload</CardTitle>
-              <CardDescription>Upload compliance certificates for AI analysis and extraction using Claude Vision. You can select multiple files at once.</CardDescription>
+              <CardDescription>Upload compliance certificates for AI analysis and extraction. You can select multiple files at once.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               

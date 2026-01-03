@@ -124,7 +124,7 @@ export default function HelpPage() {
                         <div className="p-3 border rounded-lg text-center">
                           <Brain className="h-6 w-6 mx-auto mb-2 text-primary" />
                           <h5 className="font-medium text-sm">AI Document Extraction</h5>
-                          <p className="text-xs text-muted-foreground">Claude Vision powered</p>
+                          <p className="text-xs text-muted-foreground">AI-powered extraction</p>
                         </div>
                         <div className="p-3 border rounded-lg text-center">
                           <Radar className="h-6 w-6 mx-auto mb-2 text-primary" />
@@ -435,7 +435,7 @@ export default function HelpPage() {
                         <AccordionItem value="extraction">
                           <AccordionTrigger>AI Document Extraction</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>When you upload a certificate, our AI (Claude Vision) extracts:</p>
+                            <p>When you upload a certificate, our AI automatically extracts:</p>
                             <ul className="list-disc ml-6 space-y-1">
                               <li><strong>Certificate Type</strong> - Automatically detected from 80+ types</li>
                               <li><strong>Property Address</strong> - Matched to your portfolio</li>

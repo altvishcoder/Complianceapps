@@ -26,7 +26,7 @@ const SOURCE_LABELS: Record<string, string> = {
   faq: 'FAQ Cache',
   database: 'Database Queries',
   rag: 'RAG Search',
-  llm: 'LLM (Claude)',
+  llm: 'LLM',
 };
 
 const SOURCE_ICONS: Record<string, any> = {
@@ -309,7 +309,7 @@ export default function ChatbotAnalyticsPage() {
                     { layer: 0, name: 'Intent Classification', desc: 'Keyword-based routing', icon: Zap, cost: 'Free', color: '#22c55e' },
                     { layer: 1, name: 'FAQ Cache', desc: 'TF-IDF semantic matching', icon: BookOpen, cost: 'Free', color: '#3b82f6' },
                     { layer: 2, name: 'Database Queries', desc: 'Property/certificate lookups', icon: Database, cost: 'Free', color: '#f59e0b' },
-                    { layer: 3, name: 'LLM Handler', desc: 'Claude 3.5 Haiku', icon: Brain, cost: '~$0.001/query', color: '#8b5cf6' },
+                    { layer: 3, name: 'LLM Handler', desc: 'AI Language Model', icon: Brain, cost: '~$0.001/query', color: '#8b5cf6' },
                     { layer: 4, name: 'Enhancement', desc: 'Context-aware suggestions', icon: HelpCircle, cost: 'Free', color: '#06b6d4' },
                   ].map((item) => {
                     const Icon = item.icon;
@@ -346,7 +346,7 @@ export default function ChatbotAnalyticsPage() {
                     <li><strong>Layer 1 - FAQ Cache:</strong> TF-IDF semantic matching against 45+ compliance FAQs with question variations (0 tokens)</li>
                     <li><strong>Layer 2 - Database Queries:</strong> Natural language property/certificate lookups directly against PostgreSQL (0 tokens)</li>
                     <li><strong>Layer 2.5 - RAG Search:</strong> Semantic search against knowledge base documents for trained content (0 tokens)</li>
-                    <li><strong>Layer 3 - LLM Handler:</strong> Only complex queries reach Claude 3.5 Haiku with 256 max tokens</li>
+                    <li><strong>Layer 3 - LLM Handler:</strong> Only complex queries reach the AI language model with 256 max tokens</li>
                     <li><strong>Layer 4 - Enhancement:</strong> Context-aware follow-up suggestions based on detected topics (0 tokens)</li>
                   </ol>
                 </div>
