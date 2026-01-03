@@ -9810,6 +9810,42 @@ export async function registerRoutes(
     }
   });
 
+  // Get pattern analysis results
+  app.get("/api/ml/pattern-analysis", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { runPatternAnalysis } = await import('./services/pattern-analysis');
+      const result = await runPatternAnalysis();
+      res.json(result);
+    } catch (error) {
+      console.error("Error running pattern analysis:", error);
+      res.status(500).json({ error: "Failed to run pattern analysis" });
+    }
+  });
+
+  // Get pattern analysis summary
+  app.get("/api/ml/pattern-analysis/summary", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { getPatternSummary } = await import('./services/pattern-analysis');
+      const summary = await getPatternSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Error getting pattern summary:", error);
+      res.status(500).json({ error: "Failed to get pattern summary" });
+    }
+  });
+
+  // Trigger pattern analysis job manually
+  app.post("/api/ml/pattern-analysis/trigger", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { triggerPatternAnalysis } = await import('./job-queue');
+      const jobId = await triggerPatternAnalysis();
+      res.json({ success: true, jobId, message: "Pattern analysis job triggered" });
+    } catch (error) {
+      console.error("Error triggering pattern analysis:", error);
+      res.status(500).json({ error: "Failed to trigger pattern analysis" });
+    }
+  });
+
   // ==================== Cache Administration API ====================
 
   // Seed cache regions on startup

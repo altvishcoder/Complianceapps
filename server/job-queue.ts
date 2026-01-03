@@ -4,6 +4,7 @@ import { processExtractionAndSave } from "./extraction";
 import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { enqueueWebhookEvent } from "./webhook-worker";
 import { jobLogger } from "./logger";
+import { runPatternAnalysis } from "./services/pattern-analysis";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -22,6 +23,7 @@ export const QUEUE_NAMES = {
   CERTIFICATE_WATCHDOG: "certificate-watchdog",
   REPORTING_REFRESH: "reporting-refresh",
   SCHEDULED_REPORT: "scheduled-report",
+  PATTERN_ANALYSIS: "pattern-analysis",
 } as const;
 
 interface IngestionJobData {
@@ -197,6 +199,33 @@ async function registerWorkers(): Promise<void> {
   );
   
   jobLogger.info("Scheduled report worker registered");
+
+  await boss.createQueue(QUEUE_NAMES.PATTERN_ANALYSIS);
+  
+  await boss.work(
+    QUEUE_NAMES.PATTERN_ANALYSIS,
+    async () => {
+      try {
+        const result = await runPatternAnalysis();
+        jobLogger.info({ 
+          patternsIdentified: result.patternsIdentified,
+          totalCorrections: result.totalCorrectionsAnalyzed 
+        }, "Pattern analysis job completed");
+      } catch (error) {
+        jobLogger.error({ error }, "Pattern analysis job failed");
+        throw error;
+      }
+    }
+  );
+  
+  await boss.schedule(
+    QUEUE_NAMES.PATTERN_ANALYSIS,
+    '0 */4 * * *',
+    {},
+    { tz: 'UTC' }
+  );
+  
+  jobLogger.info("Pattern analysis worker registered and scheduled every 4 hours");
 
   jobLogger.info("Workers registered for all queues");
 }
@@ -452,6 +481,21 @@ export async function triggerWatchdogNow(): Promise<string | null> {
   const jobId = await boss.send(QUEUE_NAMES.CERTIFICATE_WATCHDOG, {}, { 
     singletonKey: 'manual-watchdog-trigger',
     singletonSeconds: 60 // Prevent duplicate manual triggers within 60 seconds
+  });
+  
+  return jobId;
+}
+
+// Trigger pattern analysis job manually
+export async function triggerPatternAnalysis(): Promise<string | null> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  jobLogger.info("Manually triggering pattern analysis");
+  const jobId = await boss.send(QUEUE_NAMES.PATTERN_ANALYSIS, {}, {
+    singletonKey: 'manual-pattern-analysis-trigger',
+    singletonSeconds: 300 // Prevent duplicate manual triggers within 5 minutes
   });
   
   return jobId;

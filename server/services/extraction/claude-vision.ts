@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractedCertificateData } from './types';
 import { logger } from '../../logger';
 import { circuitBreaker, withRetry } from '../circuit-breaker';
+import { preprocessForClaudeVision } from '../image-preprocessing';
 
 const anthropic = new Anthropic();
 
@@ -74,13 +75,14 @@ export async function extractWithClaudeVision(
   const startTime = Date.now();
   
   try {
-    const base64Image = imageBuffer.toString('base64');
+    const preprocessed = await preprocessForClaudeVision(imageBuffer, mimeType);
+    const base64Image = preprocessed.base64;
     
     const supportedTypes: MediaType[] = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     let mediaType: MediaType = "image/jpeg";
     
-    if (supportedTypes.includes(mimeType as MediaType)) {
-      mediaType = mimeType as MediaType;
+    if (supportedTypes.includes(preprocessed.mimeType as MediaType)) {
+      mediaType = preprocessed.mimeType as MediaType;
     }
 
     const contextPrompt = certificateType 
