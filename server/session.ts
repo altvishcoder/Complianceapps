@@ -4,6 +4,8 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { auth } from './auth';
+import { fromNodeHeaders } from 'better-auth/node';
 
 const PgSession = connectPgSimple(session);
 
@@ -38,7 +40,7 @@ export function setupSession(app: Express) {
       cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax',
       },
       name: 'compliance.sid',
@@ -57,30 +59,47 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
+async function getBetterAuthSession(req: Request): Promise<{ userId: string } | null> {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    if (session?.user?.id) {
+      return { userId: session.user.id };
+    }
+    return null;
+  } catch (error) {
+    console.error('BetterAuth session error:', error);
+    return null;
+  }
+}
+
 export async function requireAuth(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) {
-  // Only accept session-based authentication for security
-  // The X-User-Id header fallback has been removed to prevent bypass attacks
-  if (req.session?.userId) {
-    try {
-      const [user] = await db.select().from(users).where(eq(users.id, req.session.userId));
-      if (user) {
-        req.user = {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          organisationId: user.organisationId,
-        };
-        return next();
-      }
-    } catch (error) {
-      console.error('Session auth error:', error);
+  const betterAuthSession = await getBetterAuthSession(req);
+  
+  if (!betterAuthSession?.userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const [user] = await db.select().from(users).where(eq(users.id, betterAuthSession.userId));
+    if (user) {
+      req.user = {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organisationId: user.organisationId,
+      };
+      return next();
     }
+  } catch (error) {
+    console.error('Session auth error:', error);
   }
   
   return res.status(401).json({ error: 'Authentication required' });
@@ -91,10 +110,11 @@ export async function optionalAuth(
   res: Response,
   next: NextFunction
 ) {
-  // Only accept session-based authentication for security
-  if (req.session?.userId) {
+  const betterAuthSession = await getBetterAuthSession(req);
+
+  if (betterAuthSession?.userId) {
     try {
-      const [user] = await db.select().from(users).where(eq(users.id, req.session.userId));
+      const [user] = await db.select().from(users).where(eq(users.id, betterAuthSession.userId));
       if (user) {
         req.user = {
           id: user.id,

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useLocation } from 'wouter';
+import { authClient } from '@/lib/auth-client';
 
 interface User {
   id: string;
@@ -14,7 +15,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -29,13 +30,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include',
-      });
+      const session = await authClient.getSession();
       
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
+      if (session?.data?.user) {
+        const u = session.data.user as {
+          id: string;
+          email: string;
+          name: string | null;
+          username?: string;
+          role?: string;
+          organisationId?: string;
+        };
+        setUser({
+          id: u.id,
+          username: u.username || u.email,
+          name: u.name,
+          email: u.email,
+          role: u.role || 'VIEWER',
+          organisationId: u.organisationId || 'default-org',
+        });
       } else {
         setUser(null);
       }
@@ -50,34 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ username, password }),
+      const result = await authClient.signIn.email({
+        email,
+        password,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setUser(data.user);
-        return { success: true };
-      } else {
-        return { success: false, error: data.error || 'Login failed' };
+      if (result.error) {
+        return { success: false, error: result.error.message || 'Login failed' };
       }
-    } catch {
+
+      await refreshUser();
+      return { success: true };
+    } catch (err) {
       return { success: false, error: 'Network error' };
     }
-  }, []);
+  }, [refreshUser]);
 
   const logout = useCallback(async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await authClient.signOut();
     } finally {
       setUser(null);
       setLocation('/login');

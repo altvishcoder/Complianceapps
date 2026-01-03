@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,7 +38,7 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
     
-    const result = await login(username, password);
+    const result = await login(email, password);
     
     if (result.success) {
       setLocation("/dashboard");
@@ -74,14 +74,15 @@ export default function LoginPage() {
                 </Alert>
               )}
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input 
-                  id="username" 
-                  type="text" 
-                  placeholder="Enter your username" 
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email" 
+                  type="email" 
+                  placeholder="Enter your email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required 
+                  data-testid="input-email"
                 />
               </div>
               <div className="space-y-2">
@@ -132,8 +133,8 @@ export default function LoginPage() {
         <div className="bg-slate-950 text-slate-300 p-4 rounded-md text-xs font-mono space-y-2 border border-slate-800">
           <p className="font-bold text-slate-100 border-b border-slate-800 pb-1 mb-2">Demo Credentials</p>
           <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
-             <span>Super Admin:</span>
-             <span className="text-emerald-400">superadmin</span>
+             <span>Email:</span>
+             <span className="text-emerald-400">superadmin@complianceai.co.uk</span>
           </div>
           <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
              <span>Password:</span>
