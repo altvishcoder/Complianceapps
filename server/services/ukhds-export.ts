@@ -1,7 +1,7 @@
 import { storage } from "../storage";
 import { db } from "../db";
 import { 
-  organisations, schemes, blocks, properties, units, components, 
+  organisations, schemes, blocks, properties, spaces, components, 
   certificates, certificateVersions, remedialActions, auditEvents, auditFieldChanges
 } from "@shared/schema";
 import { eq, and, gte, lte, inArray, isNull, desc } from "drizzle-orm";
@@ -208,27 +208,27 @@ export async function generateUKHDSExport(exportJob: UkhdsExport): Promise<UKHDS
         };
         
         if (exportJob.includeComponents) {
-          const propertyUnits = await db.select().from(units)
+          const propertySpaces = await db.select().from(spaces)
             .where(
               and(
-                eq(units.propertyId, property.id),
-                isNull(units.deletedAt)
+                eq(spaces.propertyId, property.id),
+                eq(spaces.linkStatus, 'VERIFIED')
               )
             );
           
           const ukhdsUnits: UKHDSUnit[] = [];
           
-          for (const unit of propertyUnits) {
+          for (const space of propertySpaces) {
             totalRecords++;
-            const unitComponents = await db.select().from(components)
+            const spaceComponents = await db.select().from(components)
               .where(
                 and(
-                  eq(components.unitId, unit.id),
-                  isNull(components.deletedAt)
+                  eq(components.spaceId, space.id),
+                  eq(components.isActive, true)
                 )
               );
             
-            const ukhdsComponents: UKHDSComponent[] = unitComponents.map(c => {
+            const ukhdsComponents: UKHDSComponent[] = spaceComponents.map(c => {
               totalRecords++;
               return {
                 id: c.id,
@@ -239,15 +239,15 @@ export async function generateUKHDSExport(exportJob: UkhdsExport): Promise<UKHDS
                 installDate: c.installDate || undefined,
                 lastServiceDate: c.lastInspectionDate || undefined,
                 nextServiceDate: c.nextServiceDue || undefined,
-                status: c.condition || 'UNKNOWN',
+                status: c.complianceStatus || 'UNKNOWN',
                 location: c.location || undefined,
               };
             });
             
             ukhdsUnits.push({
-              id: unit.id,
-              name: unit.name,
-              floor: unit.floor || undefined,
+              id: space.id,
+              name: space.name,
+              floor: space.floor || undefined,
               components: ukhdsComponents,
             });
           }
@@ -258,8 +258,8 @@ export async function generateUKHDSExport(exportJob: UkhdsExport): Promise<UKHDS
             .where(
               and(
                 eq(components.propertyId, property.id),
-                isNull(components.unitId),
-                isNull(components.deletedAt)
+                isNull(components.spaceId),
+                eq(components.isActive, true)
               )
             );
           
@@ -274,7 +274,7 @@ export async function generateUKHDSExport(exportJob: UkhdsExport): Promise<UKHDS
               installDate: c.installDate || undefined,
               lastServiceDate: c.lastInspectionDate || undefined,
               nextServiceDate: c.nextServiceDue || undefined,
-              status: c.condition || 'UNKNOWN',
+              status: c.complianceStatus || 'UNKNOWN',
               location: c.location || undefined,
             };
           });
