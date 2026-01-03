@@ -176,9 +176,9 @@ export default function ActionsPage() {
             <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
           )}
           
-          <div className="flex flex-col md:flex-row gap-4 justify-between">
-            <div className="flex gap-4 flex-1">
-              <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Search actions..." 
@@ -189,7 +189,8 @@ export default function ActionsPage() {
                 />
               </div>
               <Select value={activeFilter} onValueChange={(v) => setActiveFilter(v as FilterType)}>
-                <SelectTrigger className="w-[180px]" data-testid="select-filter-status">
+                <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-filter-status">
+                  <Filter className="h-4 w-4 mr-2 sm:hidden" />
                   <SelectValue placeholder="Filter by Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,32 +204,34 @@ export default function ActionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2 flex-wrap items-center">
-              {typeFilter && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2"
-                  onClick={() => setTypeFilter(null)}
-                  aria-label={`Remove type filter: ${typeFilter.replace(/_/g, ' ')}`}
-                  data-testid="chip-type-filter"
-                >
-                  Type: {typeFilter.replace(/_/g, ' ')}
-                  <X className="h-3 w-3" aria-hidden="true" />
-                </Button>
-              )}
-              {activeFilter !== 'all' && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setActiveFilter('all')}
-                  aria-label="Clear status filter"
-                  data-testid="button-clear-filter"
-                >
-                  Clear Filter
-                </Button>
-              )}
-              <Button onClick={() => toast({ title: "Export Started", description: "Downloading CSV..." })} data-testid="button-export">
+            <div className="flex gap-2 flex-wrap items-center justify-between">
+              <div className="flex gap-2 flex-wrap">
+                {typeFilter && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2"
+                    onClick={() => setTypeFilter(null)}
+                    aria-label={`Remove type filter: ${typeFilter.replace(/_/g, ' ')}`}
+                    data-testid="chip-type-filter"
+                  >
+                    Type: {typeFilter.replace(/_/g, ' ')}
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </Button>
+                )}
+                {activeFilter !== 'all' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setActiveFilter('all')}
+                    aria-label="Clear status filter"
+                    data-testid="button-clear-filter"
+                  >
+                    Clear Filter
+                  </Button>
+                )}
+              </div>
+              <Button size="sm" className="sm:size-default" onClick={() => toast({ title: "Export Started", description: "Downloading CSV..." })} data-testid="button-export">
                 Export List
               </Button>
             </div>
@@ -366,9 +369,9 @@ export default function ActionsPage() {
                 ))}
                 
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems} actions
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground text-center sm:text-left">
+                      Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems}
                       {isFetching && <Loader2 className="h-4 w-4 animate-spin inline ml-2" />}
                     </div>
                     <div className="flex items-center gap-2">
@@ -380,10 +383,10 @@ export default function ActionsPage() {
                         data-testid="pagination-prev"
                       >
                         <ChevronLeft className="h-4 w-4" />
-                        Previous
+                        <span className="hidden sm:inline">Previous</span>
                       </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {page} of {totalPages}
+                      <span className="text-sm text-muted-foreground min-w-[80px] text-center">
+                        {page} / {totalPages}
                       </span>
                       <Button
                         variant="outline"
@@ -392,7 +395,7 @@ export default function ActionsPage() {
                         disabled={page >= totalPages}
                         data-testid="pagination-next"
                       >
-                        Next
+                        <span className="hidden sm:inline">Next</span>
                         <ChevronRight className="h-4 w-4" />
                       </Button>
                     </div>

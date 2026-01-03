@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
+import { HeroStatsGrid } from '@/components/dashboard/HeroStats';
 import { 
-  Check, X, AlertTriangle, Eye, Edit2, FileText, Clock,
-  ChevronLeft, ChevronRight, RefreshCw, Save, Tag, Search, ExternalLink, ImageIcon
+  Check, X, AlertTriangle, Eye, Edit2, FileText, Clock, Filter,
+  ChevronLeft, ChevronRight, RefreshCw, Save, Tag, Search, ExternalLink, ImageIcon,
+  CheckCircle2, XCircle, ClipboardList
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -252,37 +255,79 @@ export default function HumanReviewPage() {
     );
   });
   
+  const heroStats = useMemo(() => {
+    const awaitingReview = runs.filter(r => r.status === 'AWAITING_REVIEW').length;
+    const lowConfidence = runs.filter(r => r.confidence < 0.7).length;
+    const approved = runs.filter(r => r.status === 'APPROVED').length;
+    const rejected = runs.filter(r => r.status === 'REJECTED').length;
+    return { awaitingReview, lowConfidence, approved, rejected };
+  }, [runs]);
+  
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen bg-muted/30">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8 space-y-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Eye className="w-7 h-7" />
-                Human Review
-              </h1>
-              <p className="text-muted-foreground">Review and correct AI extractions to improve the model</p>
-            </div>
-            <div className="flex gap-2">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Human Review" />
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="Human review content">
+          
+          <div className="flex flex-col sm:flex-row gap-3 justify-between">
+            <div className="flex gap-2 flex-wrap">
               <Button 
                 variant="outline" 
+                size="sm"
                 onClick={() => resetApprovalsMutation.mutate()}
                 disabled={resetApprovalsMutation.isPending}
                 data-testid="button-reset-approvals"
               >
-                Reset Approvals to Review
+                Reset Approvals
               </Button>
-              <Button variant="outline" onClick={() => refetch()}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
             </div>
           </div>
           
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1 max-w-sm">
+          <HeroStatsGrid
+            stats={[
+              {
+                title: "Awaiting Review",
+                value: heroStats.awaitingReview,
+                subtitle: "need triage",
+                icon: ClipboardList,
+                riskLevel: heroStats.awaitingReview > 10 ? "critical" : heroStats.awaitingReview > 5 ? "high" : "medium",
+                testId: "hero-awaiting-review",
+              },
+              {
+                title: "Low Confidence",
+                value: heroStats.lowConfidence,
+                subtitle: "< 70% confidence",
+                icon: AlertTriangle,
+                riskLevel: heroStats.lowConfidence > 5 ? "critical" : heroStats.lowConfidence > 0 ? "high" : "good",
+                testId: "hero-low-confidence",
+              },
+              {
+                title: "Approved",
+                value: heroStats.approved,
+                subtitle: "validated",
+                icon: CheckCircle2,
+                riskLevel: "good",
+                testId: "hero-approved",
+              },
+              {
+                title: "Rejected",
+                value: heroStats.rejected,
+                subtitle: "need reprocessing",
+                icon: XCircle,
+                riskLevel: heroStats.rejected > 5 ? "high" : "low",
+                testId: "hero-rejected",
+              },
+            ]}
+          />
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by file, address..."
@@ -293,7 +338,8 @@ export default function HumanReviewPage() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48" data-testid="select-status-filter">
+              <SelectTrigger className="w-full sm:w-48" data-testid="select-status-filter">
+                <Filter className="w-4 h-4 mr-2 sm:hidden" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -319,8 +365,7 @@ export default function HumanReviewPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {/* Bulk actions bar */}
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
                   <Checkbox 
                     checked={selectedRunIds.size === filteredRuns.length && filteredRuns.length > 0}
@@ -328,7 +373,7 @@ export default function HumanReviewPage() {
                     data-testid="checkbox-select-all"
                   />
                   <span className="text-sm text-muted-foreground">
-                    {selectedRunIds.size} of {filteredRuns.length} selected
+                    {selectedRunIds.size} / {filteredRuns.length} selected
                   </span>
                 </div>
                 {selectedRunIds.size > 0 && (
@@ -339,8 +384,8 @@ export default function HumanReviewPage() {
                       disabled={bulkApproveMutation.isPending}
                       data-testid="button-bulk-approve"
                     >
-                      <Check className="w-4 h-4 mr-1" />
-                      Approve All
+                      <Check className="w-4 h-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Approve All</span>
                     </Button>
                     <Button
                       size="sm"
@@ -349,40 +394,61 @@ export default function HumanReviewPage() {
                       disabled={bulkRejectMutation.isPending}
                       data-testid="button-bulk-reject"
                     >
-                      <X className="w-4 h-4 mr-1" />
-                      Reject All
+                      <X className="w-4 h-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Reject All</span>
                     </Button>
                   </div>
                 )}
               </div>
               
-              <div className="grid gap-4">
+              <div className="grid gap-3">
               {filteredRuns.map((run) => (
                 <Card 
                   key={run.id} 
                   className={`cursor-pointer hover:border-primary transition-colors ${selectedRunIds.has(run.id) ? 'border-primary' : ''}`}
                   data-testid={`card-extraction-${run.id}`}
                 >
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-start gap-3 flex-1">
                         <Checkbox 
                           checked={selectedRunIds.has(run.id)}
                           onCheckedChange={() => toggleRunSelection(run.id)}
                           onClick={(e) => e.stopPropagation()}
+                          className="mt-1"
                           data-testid={`checkbox-select-${run.id}`}
                         />
-                        <div onClick={() => setSelectedRun(run)} className="flex items-center gap-4 flex-1">
-                          <FileText className="w-10 h-10 text-muted-foreground" />
-                          <div>
-                            <h3 className="font-medium">{run.certificate?.fileName || 'Unknown file'}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {run.certificate?.property?.addressLine1}, {run.certificate?.property?.postcode}
-                            </p>
+                        <div onClick={() => setSelectedRun(run)} className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2">
+                            <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium text-sm sm:text-base truncate">{run.certificate?.fileName || 'Unknown file'}</h3>
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                                {run.certificate?.property?.addressLine1}, {run.certificate?.property?.postcode}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 mt-2 sm:hidden">
+                                <Badge variant="outline" className="text-xs">{run.documentType.replace(/_/g, ' ')}</Badge>
+                                <div className="flex items-center gap-1">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    run.confidence >= 0.9 ? 'bg-green-500' : 
+                                    run.confidence >= 0.7 ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`} />
+                                  <span className="text-xs font-medium">{(run.confidence * 100).toFixed(0)}%</span>
+                                </div>
+                                <Badge className={`text-xs ${
+                                  run.status === 'APPROVED' ? 'bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300' :
+                                  run.status === 'REJECTED' ? 'bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300' :
+                                  run.status === 'AWAITING_REVIEW' ? 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' :
+                                  'bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300'
+                                }`}>
+                                  {run.status.replace(/_/g, ' ')}
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="hidden sm:flex items-center gap-4">
                         <Badge variant="outline">{run.documentType.replace(/_/g, ' ')}</Badge>
                         <div className="text-right">
                           <div className="flex items-center gap-1">
@@ -397,19 +463,19 @@ export default function HumanReviewPage() {
                           </p>
                         </div>
                         <Badge className={
-                          run.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                          run.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                          run.status === 'AWAITING_REVIEW' ? 'bg-amber-100 text-amber-800' :
-                          'bg-gray-100 text-gray-800'
+                          run.status === 'APPROVED' ? 'bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300' :
+                          run.status === 'REJECTED' ? 'bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300' :
+                          run.status === 'AWAITING_REVIEW' ? 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' :
+                          'bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300'
                         }>
                           {run.status.replace(/_/g, ' ')}
                         </Badge>
                       </div>
                     </div>
                     {run.validationErrors && run.validationErrors.length > 0 && (
-                      <div className="mt-2 flex gap-1">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-xs text-yellow-600">
+                      <div className="mt-2 flex gap-1 ml-9 sm:ml-0">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
+                        <span className="text-xs text-yellow-600 dark:text-yellow-400">
                           {run.validationErrors.length} validation issue(s)
                         </span>
                       </div>
@@ -420,7 +486,7 @@ export default function HumanReviewPage() {
               </div>
             </div>
           )}
-        </div>
+        </main>
         
         <Sheet open={!!selectedRun} onOpenChange={(open) => !open && setSelectedRun(null)}>
           <SheetContent className="sm:max-w-3xl overflow-y-auto">
@@ -653,7 +719,7 @@ export default function HumanReviewPage() {
             )}
           </SheetContent>
         </Sheet>
-      </main>
+      </div>
     </div>
   );
 }
