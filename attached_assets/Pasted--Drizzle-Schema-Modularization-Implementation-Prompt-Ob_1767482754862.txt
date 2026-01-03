@@ -1,0 +1,415 @@
+# Drizzle Schema Modularization - Implementation Prompt
+
+## Objective
+
+Refactor the monolithic `shared/schema.ts` (88+ tables) into a modular, maintainable structure that works correctly at runtime with Drizzle ORM.
+
+## Critical Constraint
+
+**DO NOT define relations in the same files as tables.** This causes circular dependency failures at runtime. Relations MUST be centralized in a single file that imports all tables.
+
+-----
+
+## Target Folder Structure
+
+```
+shared/
+├── schema/
+│   ├── index.ts                    # Master barrel export (the new entry point)
+│   │
+│   ├── tables/
+│   │   ├── index.ts                # Barrel export for all tables
+│   │   ├── compliance.ts           # Gas, electrical, fire safety, certificates
+│   │   ├── properties.ts           # Properties, blocks, schemes, addresses
+│   │   ├── tenants.ts              # Tenants, household members, contacts
+│   │   ├── tenancies.ts            # Tenancies, rent accounts, charges
+│   │   ├── repairs.ts              # Repairs, jobs, contractors, appointments
+│   │   ├── assets.ts               # Components, attributes, surveys
+│   │   ├── documents.ts            # Documents, attachments, certificates storage
+│   │   ├── users.ts                # Users, roles, permissions, audit
+│   │   ├── workflows.ts            # Tasks, approvals, notifications
+│   │   └── lookups.ts              # Reference data, enums, configuration
+│   │
+│   ├── relations.ts                # ALL relations defined here (single file)
+│   │
+│   ├── schemas/
+│   │   ├── index.ts                # Barrel export for insert schemas
+│   │   └── [mirror table files]    # createInsertSchema definitions
+│   │
+│   └── types/
+│       └── index.ts                # All inferred types exported
+│
+└── schema.ts                       # DEPRECATED - redirect import to schema/index.ts
+```
+
+-----
+
+## Step-by-Step Implementation
+
+### Step 1: Analyze Current Schema
+
+Before making changes, analyze `shared/schema.ts` and categorize each table into one of these domains:
+
+- **compliance**: certificates, inspections, safety records, compliance status
+- **properties**: properties, blocks, estates, schemes, addresses, hierarchy
+- **tenants**: tenants, household members, contacts, vulnerabilities
+- **tenancies**: tenancies, rent accounts, charges, payments, arrears
+- **repairs**: repairs, jobs, contractors, appointments, materials
+- **assets**: components, attributes, surveys, conditions
+- **documents**: documents, attachments, file storage references
+- **users**: users, roles, permissions, sessions, audit logs
+- **workflows**: tasks, approvals, notifications, queues
+- **lookups**: reference data, dropdown values, configuration
+
+List out which tables belong to which domain before writing any code.
+
+### Step 2: Create Table Module Files
+
+For each domain file (e.g., `shared/schema/tables/compliance.ts`):
+
+```typescript
+// shared/schema/tables/compliance.ts
+import { pgTable, text, timestamp, integer, boolean, uuid, jsonb } from 'drizzle-orm/pg-core';
+
+// ============================================
+// GAS SAFETY CERTIFICATES
+// ============================================
+export const gasCertificates = pgTable('gas_certificates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').notNull(),
+  certificateNumber: text('certificate_number').notNull(),
+  issueDate: timestamp('issue_date').notNull(),
+  expiryDate: timestamp('expiry_date').notNull(),
+  engineerName: text('engineer_name'),
+  engineerRegistration: text('engineer_registration'),
+  status: text('status').notNull().default('valid'),
+  documentUrl: text('document_url'),
+  extractedData: jsonb('extracted_data'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================
+// ELECTRICAL CERTIFICATES (EICR)
+// ============================================
+export const electricalCertificates = pgTable('electrical_certificates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').notNull(),
+  // ... rest of columns
+});
+
+// ============================================
+// FIRE SAFETY CERTIFICATES
+// ============================================
+export const fireSafetyCertificates = pgTable('fire_safety_certificates', {
+  // ...
+});
+
+// Continue for all compliance-related tables...
+
+// DO NOT define relations here - they go in relations.ts
+```
+
+**Rules for table files:**
+
+- Import only from `drizzle-orm/pg-core`
+- DO NOT import from other table files
+- DO NOT define relations
+- Export each table as a named export
+- Group related tables with comment headers
+
+### Step 3: Create Tables Barrel Export
+
+```typescript
+// shared/schema/tables/index.ts
+
+// Re-export all tables from domain modules
+export * from './compliance';
+export * from './properties';
+export * from './tenants';
+export * from './tenancies';
+export * from './repairs';
+export * from './assets';
+export * from './documents';
+export * from './users';
+export * from './workflows';
+export * from './lookups';
+```
+
+### Step 4: Create Centralized Relations File
+
+This is the critical file that prevents circular dependencies:
+
+```typescript
+// shared/schema/relations.ts
+import { relations } from 'drizzle-orm';
+
+// Import ALL tables from the barrel export
+import {
+  // Compliance
+  gasCertificates,
+  electricalCertificates,
+  fireSafetyCertificates,
+  
+  // Properties
+  properties,
+  blocks,
+  schemes,
+  addresses,
+  
+  // Tenants
+  tenants,
+  householdMembers,
+  contacts,
+  
+  // Tenancies
+  tenancies,
+  rentAccounts,
+  
+  // ... import ALL tables
+} from './tables';
+
+// ============================================
+// PROPERTY RELATIONS
+// ============================================
+export const propertiesRelations = relations(properties, ({ one, many }) => ({
+  block: one(blocks, {
+    fields: [properties.blockId],
+    references: [blocks.id],
+  }),
+  scheme: one(schemes, {
+    fields: [properties.schemeId],
+    references: [schemes.id],
+  }),
+  address: one(addresses, {
+    fields: [properties.addressId],
+    references: [addresses.id],
+  }),
+  tenancies: many(tenancies),
+  gasCertificates: many(gasCertificates),
+  electricalCertificates: many(electricalCertificates),
+  fireSafetyCertificates: many(fireSafetyCertificates),
+}));
+
+export const blocksRelations = relations(blocks, ({ one, many }) => ({
+  scheme: one(schemes, {
+    fields: [blocks.schemeId],
+    references: [schemes.id],
+  }),
+  properties: many(properties),
+}));
+
+// ============================================
+// COMPLIANCE RELATIONS
+// ============================================
+export const gasCertificatesRelations = relations(gasCertificates, ({ one }) => ({
+  property: one(properties, {
+    fields: [gasCertificates.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const electricalCertificatesRelations = relations(electricalCertificates, ({ one }) => ({
+  property: one(properties, {
+    fields: [electricalCertificates.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+// ============================================
+// TENANT RELATIONS
+// ============================================
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  tenancies: many(tenancies),
+  householdMembers: many(householdMembers),
+  contacts: many(contacts),
+}));
+
+export const tenanciesRelations = relations(tenancies, ({ one, many }) => ({
+  property: one(properties, {
+    fields: [tenancies.propertyId],
+    references: [properties.id],
+  }),
+  tenant: one(tenants, {
+    fields: [tenancies.tenantId],
+    references: [tenants.id],
+  }),
+  rentAccount: one(rentAccounts, {
+    fields: [tenancies.rentAccountId],
+    references: [rentAccounts.id],
+  }),
+}));
+
+// Continue for ALL relations in the system...
+```
+
+### Step 5: Create Insert Schemas
+
+```typescript
+// shared/schema/schemas/compliance.ts
+import { createInsertSchema } from 'drizzle-zod';
+import { 
+  gasCertificates, 
+  electricalCertificates,
+  fireSafetyCertificates 
+} from '../tables/compliance';
+
+export const insertGasCertificateSchema = createInsertSchema(gasCertificates);
+export const insertElectricalCertificateSchema = createInsertSchema(electricalCertificates);
+export const insertFireSafetyCertificateSchema = createInsertSchema(fireSafetyCertificates);
+
+// Barrel export
+// shared/schema/schemas/index.ts
+export * from './compliance';
+export * from './properties';
+// ... etc
+```
+
+### Step 6: Create Types Export
+
+```typescript
+// shared/schema/types/index.ts
+import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import type {
+  gasCertificates,
+  electricalCertificates,
+  properties,
+  tenants,
+  tenancies,
+  // ... all tables
+} from '../tables';
+
+// Select types (for reading from DB)
+export type GasCertificate = InferSelectModel<typeof gasCertificates>;
+export type ElectricalCertificate = InferSelectModel<typeof electricalCertificates>;
+export type Property = InferSelectModel<typeof properties>;
+export type Tenant = InferSelectModel<typeof tenants>;
+export type Tenancy = InferSelectModel<typeof tenancies>;
+// ... all types
+
+// Insert types (for writing to DB)
+export type NewGasCertificate = InferInsertModel<typeof gasCertificates>;
+export type NewElectricalCertificate = InferInsertModel<typeof electricalCertificates>;
+export type NewProperty = InferInsertModel<typeof properties>;
+export type NewTenant = InferInsertModel<typeof tenants>;
+export type NewTenancy = InferInsertModel<typeof tenancies>;
+// ... all types
+```
+
+### Step 7: Create Master Barrel Export
+
+```typescript
+// shared/schema/index.ts
+
+// Export all tables
+export * from './tables';
+
+// Export all relations
+export * from './relations';
+
+// Export all insert schemas
+export * from './schemas';
+
+// Export all types
+export * from './types';
+```
+
+### Step 8: Update Legacy Schema File
+
+```typescript
+// shared/schema.ts (the original file)
+
+// Redirect all imports to the new modular structure
+// This maintains backward compatibility with existing imports
+
+export * from './schema/index';
+
+// DEPRECATED: This file is maintained for backward compatibility.
+// Import from 'shared/schema' or 'shared/schema/index' instead.
+```
+
+### Step 9: Update Drizzle Config
+
+```typescript
+// drizzle.config.ts
+import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  schema: './shared/schema/index.ts',  // Point to new barrel export
+  out: './drizzle',
+  dialect: 'postgresql',
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,
+  },
+});
+```
+
+-----
+
+## Validation Checklist
+
+After implementation, verify:
+
+- [ ] `npm run db:push` or `drizzle-kit push` completes without errors
+- [ ] `npm run db:generate` creates migration files correctly
+- [ ] Application starts without circular dependency errors
+- [ ] All existing queries continue to work
+- [ ] Relations resolve correctly (test with a `with` clause query)
+- [ ] TypeScript compilation succeeds with no errors
+- [ ] Insert schemas validate correctly
+
+## Test Query
+
+Run this to verify relations work:
+
+```typescript
+import { db } from './db';
+import { properties, gasCertificates } from './schema';
+
+const result = await db.query.properties.findFirst({
+  with: {
+    gasCertificates: true,
+    block: true,
+    tenancies: {
+      with: {
+        tenant: true,
+      },
+    },
+  },
+});
+
+console.log(result);
+```
+
+-----
+
+## Common Pitfalls to Avoid
+
+1. **DO NOT** import tables into other table files
+1. **DO NOT** define relations in table files
+1. **DO NOT** use default exports - use named exports only
+1. **DO NOT** create index.ts files that re-export relations before tables are fully loaded
+1. **DO** ensure the relations file imports from the tables barrel, not individual files
+1. **DO** test incrementally - migrate one domain at a time
+
+-----
+
+## Rollback Plan
+
+If issues occur:
+
+1. Keep the original `shared/schema.ts` as backup before starting
+1. The new structure re-exports everything, so existing imports should continue to work
+1. If critical issues arise, restore the original file and delete the schema/ folder
+
+-----
+
+## Expected Outcome
+
+- Monolithic 3000+ line file split into ~12-15 manageable files
+- Each domain file is 100-300 lines
+- Clear separation of concerns
+- No circular dependency issues
+- Full backward compatibility with existing code
+- Easier onboarding for new developers
+- Simpler code reviews for schema changes
