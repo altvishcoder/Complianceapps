@@ -2215,7 +2215,7 @@ async function seedNavigation() {
     { id: "sec-command", slug: "command-centre", title: "Command Centre", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
     { id: "sec-regulatory", slug: "regulatory", title: "Regulatory", iconKey: "Shield", displayOrder: 2, defaultOpen: false, isSystem: true },
     { id: "sec-assets", slug: "asset-management", title: "Asset Management", iconKey: "FolderTree", displayOrder: 3, defaultOpen: false, isSystem: true },
-    { id: "sec-ops", slug: "operations", title: "Operations", iconKey: "Briefcase", displayOrder: 4, defaultOpen: true, isSystem: true },
+    { id: "sec-ops", slug: "operate", title: "Operate", iconKey: "Briefcase", displayOrder: 4, defaultOpen: true, isSystem: true },
     { id: "sec-contractor", slug: "contractor-management", title: "Contractor Management", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
     { id: "sec-staff", slug: "staff-dlo", title: "Staff & DLO", iconKey: "Briefcase", displayOrder: 6, defaultOpen: false, isSystem: true },
     { id: "sec-monitoring", slug: "monitoring", title: "Monitoring", iconKey: "MonitorCheck", displayOrder: 7, defaultOpen: false, requiresRole: "adminOrManager", isSystem: true },
@@ -2246,8 +2246,8 @@ async function seedNavigation() {
     { sectionId: "sec-assets", slug: "properties", name: "Properties", href: "/properties", iconKey: "Building2", displayOrder: 2, isSystem: true },
     { sectionId: "sec-assets", slug: "components", name: "Components", href: "/components", iconKey: "Package", displayOrder: 3, isSystem: true },
     
-    // Operations
-    { sectionId: "sec-ops", slug: "ingestion", name: "Ingestion", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 1, isSystem: true },
+    // Operate
+    { sectionId: "sec-ops", slug: "ingestion-hub", name: "Ingestion Hub", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 1, isSystem: true },
     { sectionId: "sec-ops", slug: "certificates", name: "Certificates", href: "/certificates", iconKey: "Files", displayOrder: 2, isSystem: true },
     { sectionId: "sec-command", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 6, isSystem: true },
     { sectionId: "sec-ops", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
