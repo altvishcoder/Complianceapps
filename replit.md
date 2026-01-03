@@ -101,6 +101,16 @@ Preferred communication style: Simple, everyday language.
 -   **Error Tracking**: Sentry integration for error monitoring.
 -   **System Health Monitoring**: Admin page to monitor database, API server, and job queue status.
 
+### Version Management
+-   **Current Version**: 0.9.0 (pre-release)
+-   **Version Source**: `shared/version.ts` exports APP_VERSION, APP_NAME, and RELEASE_NOTES
+-   **API Endpoints**:
+    - `GET /api/version` - Returns version, name, environment, build time, uptime, and release highlights
+    - `GET /api/version/releases` - Returns full release history
+-   **UI Display**: Version shown in sidebar footer and System Health page header
+-   **Changelog**: `CHANGELOG.md` follows Keep a Changelog format
+-   **Pre-1.0 Convention**: Minor version may include breaking changes, patch for features/fixes
+
 ## External Dependencies
 
 ### Database
