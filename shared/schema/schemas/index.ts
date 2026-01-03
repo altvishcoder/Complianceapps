@@ -82,6 +82,11 @@ import {
   knowledgeEmbeddings,
   aiSuggestions,
   videos,
+  systemLogs,
+  riskSnapshots,
+  cacheRegions,
+  cacheStats,
+  cacheClearAudit,
 } from "../tables";
 
 export const insertOrganisationSchema = createInsertSchema(organisations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -188,6 +193,12 @@ export const insertAiSuggestionSchema = createInsertSchema(aiSuggestions).omit({
 
 export const insertVideoSchema = createInsertSchema(videos).omit({ id: true, createdAt: true, updatedAt: true });
 
+export const insertSystemLogSchema = createInsertSchema(systemLogs).omit({ id: true });
+export const insertRiskSnapshotSchema = createInsertSchema(riskSnapshots).omit({ id: true, calculatedAt: true });
+export const insertCacheRegionSchema = createInsertSchema(cacheRegions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCacheStatsSchema = createInsertSchema(cacheStats).omit({ id: true, createdAt: true });
+export const insertCacheClearAuditSchema = createInsertSchema(cacheClearAudit).omit({ id: true, createdAt: true });
+
 export type InsertOrganisation = z.infer<typeof insertOrganisationSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;
@@ -268,3 +279,8 @@ export type InsertChatbotAnalytics = z.infer<typeof insertChatbotAnalyticsSchema
 export type InsertKnowledgeEmbedding = z.infer<typeof insertKnowledgeEmbeddingSchema>;
 export type InsertAiSuggestion = z.infer<typeof insertAiSuggestionSchema>;
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
+export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
+export type InsertRiskSnapshot = z.infer<typeof insertRiskSnapshotSchema>;
+export type InsertCacheRegion = z.infer<typeof insertCacheRegionSchema>;
+export type InsertCacheStats = z.infer<typeof insertCacheStatsSchema>;
+export type InsertCacheClearAudit = z.infer<typeof insertCacheClearAuditSchema>;

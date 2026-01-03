@@ -82,6 +82,11 @@ import {
   knowledgeEmbeddings,
   aiSuggestions,
   videos,
+  systemLogs,
+  riskSnapshots,
+  cacheRegions,
+  cacheStats,
+  cacheClearAudit,
 } from "../tables";
 
 export type Organisation = typeof organisations.$inferSelect;
@@ -167,3 +172,11 @@ export type ChatbotAnalytics = typeof chatbotAnalytics.$inferSelect;
 export type KnowledgeEmbedding = typeof knowledgeEmbeddings.$inferSelect;
 export type AiSuggestion = typeof aiSuggestions.$inferSelect;
 export type Video = typeof videos.$inferSelect;
+export type SystemLog = typeof systemLogs.$inferSelect;
+export type RiskSnapshot = typeof riskSnapshots.$inferSelect;
+export type CacheRegion = typeof cacheRegions.$inferSelect;
+export type CacheStats = typeof cacheStats.$inferSelect;
+export type CacheClearAudit = typeof cacheClearAudit.$inferSelect;
+
+export type CacheLayer = 'CLIENT' | 'API' | 'DATABASE' | 'MEMORY' | 'SESSION';
+export type CacheClearScope = 'REGION' | 'CATEGORY' | 'LAYER' | 'ALL';
