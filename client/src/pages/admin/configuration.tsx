@@ -449,6 +449,9 @@ export default function Configuration() {
         ? prev.filter(id => id !== streamId)
         : [...prev, streamId]
     );
+    if (window.innerWidth < 768) {
+      setShowStreamFilters(false);
+    }
   };
 
   const clearStreamFilters = () => setSelectedStreamFilters([]);
