@@ -157,7 +157,7 @@ export default function JobsManagement() {
                 Jobs Management
               </h1>
               <p className="text-slate-600 dark:text-slate-400 mt-1">
-                Monitor and manage all background jobs powered by pg-boss
+                Monitor and manage all scheduled and on-demand background tasks
               </p>
             </div>
             <Button 
@@ -252,7 +252,7 @@ export default function JobsManagement() {
                     Scheduled Jobs
                   </CardTitle>
                   <CardDescription>
-                    Jobs that run on a cron schedule
+                    Automated tasks that run at regular intervals
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -333,7 +333,7 @@ export default function JobsManagement() {
                         {selectedJobData.scheduleType === 'scheduled' && (
                           <>
                             <div>
-                              <p className="text-muted-foreground">Cron Expression</p>
+                              <p className="text-muted-foreground">Schedule</p>
                               <p className="font-mono text-xs">{selectedJobData.cron}</p>
                             </div>
                             <div>
