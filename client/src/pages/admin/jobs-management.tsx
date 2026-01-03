@@ -56,58 +56,50 @@ function JobCard({ job, isSelected, onClick }: { job: ScheduledJobInfo; isSelect
       onClick={onClick}
       data-testid={`card-job-${job.name}`}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-semibold text-sm">{job.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+      <CardContent className="p-3">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold text-sm truncate">{job.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
               {job.scheduleType === 'on-demand' ? (
-                <Badge variant="outline" className="text-xs"><Zap className="w-3 h-3 mr-1" />On-Demand</Badge>
+                <Badge variant="outline" className="text-xs shrink-0"><Zap className="w-3 h-3 mr-1" />On-Demand</Badge>
               ) : job.isActive ? (
-                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs">
+                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs shrink-0">
                   <Calendar className="w-3 h-3 mr-1" />Scheduled
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                <Badge variant="secondary" className="text-xs shrink-0">Inactive</Badge>
               )}
             </div>
-            
-            {job.description && (
-              <p className="text-xs text-muted-foreground mb-2">{job.description}</p>
-            )}
-            
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              {job.scheduleType === 'scheduled' && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  <span className="font-mono">{job.cron}</span>
-                </div>
-              )}
-              {job.lastRun && (
-                <div className="flex items-center gap-1">
-                  <Timer className="w-3 h-3" />
-                  <span>Last: {new Date(job.lastRun).toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 shrink-0">
               {recentStates.map((run) => (
                 <div key={run.id} title={`${run.state} - ${new Date(run.createdOn).toLocaleString()}`}>
                   {getStateIcon(run.state)}
                 </div>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs justify-end">
-              {stateCounts.pending > 0 && <span className="text-yellow-600">{stateCounts.pending} pending</span>}
-              {stateCounts.active > 0 && <span className="text-blue-600">{stateCounts.active} active</span>}
-              <span className="text-green-600">{stateCounts.completed} done</span>
-              {stateCounts.failed > 0 && <span className="text-red-600">{stateCounts.failed} failed</span>}
-              {stateCounts.retry > 0 && <span className="text-orange-600">{stateCounts.retry} retry</span>}
-              {stateCounts.expired > 0 && <span className="text-gray-500">{stateCounts.expired} expired</span>}
-              {stateCounts.cancelled > 0 && <span className="text-gray-500">{stateCounts.cancelled} cancelled</span>}
+          </div>
+          
+          {job.description && (
+            <p className="text-xs text-muted-foreground">{job.description}</p>
+          )}
+          
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              {job.scheduleType === 'scheduled' && (
+                <span className="font-mono">{job.cron}</span>
+              )}
+              {job.lastRun && (
+                <span>Last: {new Date(job.lastRun).toLocaleDateString()}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {stateCounts.pending > 0 && <Badge variant="outline" className="text-yellow-600 border-yellow-300 text-[10px] px-1.5 py-0">{stateCounts.pending} pending</Badge>}
+              {stateCounts.active > 0 && <Badge variant="outline" className="text-blue-600 border-blue-300 text-[10px] px-1.5 py-0">{stateCounts.active} active</Badge>}
+              <Badge variant="outline" className="text-green-600 border-green-300 text-[10px] px-1.5 py-0">{stateCounts.completed} done</Badge>
+              {stateCounts.failed > 0 && <Badge variant="outline" className="text-red-600 border-red-300 text-[10px] px-1.5 py-0">{stateCounts.failed} failed</Badge>}
+              {stateCounts.retry > 0 && <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px] px-1.5 py-0">{stateCounts.retry} retry</Badge>}
+              {(stateCounts.expired > 0 || stateCounts.cancelled > 0) && <Badge variant="outline" className="text-gray-500 border-gray-300 text-[10px] px-1.5 py-0">{stateCounts.expired + stateCounts.cancelled} other</Badge>}
             </div>
           </div>
         </div>
@@ -157,7 +149,7 @@ export default function JobsManagement() {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
       <Sidebar />
-      <main className="flex-1 ml-64 p-6">
+      <main className="flex-1 p-6 lg:ml-64">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -179,7 +171,7 @@ export default function JobsManagement() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
