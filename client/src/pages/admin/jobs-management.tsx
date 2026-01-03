@@ -25,6 +25,8 @@ interface ScheduledJobInfo {
     completed: number;
     failed: number;
     retry: number;
+    expired: number;
+    cancelled: number;
   };
   recentJobs: Array<{
     id: string;
@@ -104,6 +106,8 @@ function JobCard({ job, isSelected, onClick }: { job: ScheduledJobInfo; isSelect
               <span className="text-green-600">{stateCounts.completed} done</span>
               {stateCounts.failed > 0 && <span className="text-red-600">{stateCounts.failed} failed</span>}
               {stateCounts.retry > 0 && <span className="text-orange-600">{stateCounts.retry} retry</span>}
+              {stateCounts.expired > 0 && <span className="text-gray-500">{stateCounts.expired} expired</span>}
+              {stateCounts.cancelled > 0 && <span className="text-gray-500">{stateCounts.cancelled} cancelled</span>}
             </div>
           </div>
         </div>

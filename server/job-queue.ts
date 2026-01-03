@@ -571,6 +571,8 @@ export interface ScheduledJobInfo {
     completed: number;
     failed: number;
     retry: number;
+    expired: number;
+    cancelled: number;
   };
   recentJobs: Array<{
     id: string;
@@ -632,13 +634,15 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         startedOn: job.started_on ? new Date(job.started_on).toISOString() : null,
       }));
       
-      const stateCounts = { pending: 0, active: 0, completed: 0, failed: 0, retry: 0 };
+      const stateCounts = { pending: 0, active: 0, completed: 0, failed: 0, retry: 0, expired: 0, cancelled: 0 };
       (stateCountsResult.rows as any[]).forEach(row => {
         if (row.state === 'created') stateCounts.pending = row.count;
         else if (row.state === 'active') stateCounts.active = row.count;
         else if (row.state === 'completed') stateCounts.completed = row.count;
         else if (row.state === 'failed') stateCounts.failed = row.count;
         else if (row.state === 'retry') stateCounts.retry = row.count;
+        else if (row.state === 'expired') stateCounts.expired = row.count;
+        else if (row.state === 'cancelled') stateCounts.cancelled = row.count;
       });
       
       const lastJob = recentJobs[0];
@@ -668,7 +672,7 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         nextRun: null,
         isActive: queue.scheduleType === 'on-demand',
         scheduleType: queue.scheduleType,
-        stateCounts: { pending: 0, active: 0, completed: 0, failed: 0, retry: 0 },
+        stateCounts: { pending: 0, active: 0, completed: 0, failed: 0, retry: 0, expired: 0, cancelled: 0 },
         recentJobs: [],
         description: queue.description,
       });
