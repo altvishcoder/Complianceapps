@@ -2,12 +2,13 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { HeroStatsGrid } from '@/components/dashboard/HeroStats';
 import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend } from '@/components/maps';
 import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Building2, MapPinned, Home } from 'lucide-react';
+import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Building2, MapPinned, Home, CheckCircle, Clock, Shield } from 'lucide-react';
 import { Link } from 'wouter';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -175,54 +176,51 @@ export default function MapsIndexPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card data-testid="card-total-properties">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {aggregationLevel === 'property' ? 'Total Properties' : 
-                     aggregationLevel === 'scheme' ? 'Total Schemes' : 'Total Wards'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{riskSummary.total}</p>
-                </CardContent>
-              </Card>
-              <Card data-testid="card-high-risk">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-red-600">High Risk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold text-red-600">{riskSummary.high}</p>
-                </CardContent>
-              </Card>
-              <Card data-testid="card-medium-risk">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-amber-600">Medium Risk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold text-amber-600">{riskSummary.medium}</p>
-                </CardContent>
-              </Card>
-              <Card data-testid="card-avg-score">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Average Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{riskSummary.avgScore}%</p>
-                </CardContent>
-              </Card>
-            </div>
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: aggregationLevel === 'property' ? 'Total Properties' : 
+                         aggregationLevel === 'scheme' ? 'Total Schemes' : 'Total Wards',
+                  value: riskSummary.total,
+                  icon: MapPin,
+                  riskLevel: "good",
+                  testId: "stat-total-properties",
+                },
+                {
+                  title: "High Risk",
+                  value: riskSummary.high,
+                  icon: AlertTriangle,
+                  riskLevel: riskSummary.high > 0 ? "critical" : "good",
+                  testId: "stat-high-risk",
+                },
+                {
+                  title: "Medium Risk",
+                  value: riskSummary.medium,
+                  icon: Clock,
+                  riskLevel: riskSummary.medium > 5 ? "high" : "medium",
+                  testId: "stat-medium-risk",
+                },
+                {
+                  title: "Average Score",
+                  value: riskSummary.avgScore,
+                  subtitle: "%",
+                  icon: Shield,
+                  riskLevel: riskSummary.avgScore >= 85 ? "good" : riskSummary.avgScore >= 70 ? "medium" : "critical",
+                  testId: "stat-avg-score",
+                },
+              ]}
+            />
 
             {geocodingStatus && geocodingStatus.notGeocoded > 0 && (
-              <Card className="bg-amber-50 border-amber-200">
+              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
                 <CardContent className="py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <MapPin className="h-5 w-5 text-amber-600" />
+                    <MapPin className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     <div>
-                      <p className="font-medium text-amber-800">
+                      <p className="font-medium text-amber-800 dark:text-amber-300">
                         {geocodingStatus.geocoded} of {geocodingStatus.total} properties have map coordinates
                       </p>
-                      <p className="text-sm text-amber-600">
+                      <p className="text-sm text-amber-600 dark:text-amber-400">
                         {geocodingStatus.canAutoGeocode} properties can be auto-geocoded from their postcodes
                       </p>
                     </div>
