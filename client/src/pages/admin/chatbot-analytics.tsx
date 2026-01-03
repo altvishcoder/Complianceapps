@@ -92,34 +92,35 @@ export default function ChatbotAnalyticsPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="AI Assistant Analytics" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+          <div className="flex items-start sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold">AI Assistant Analytics</h1>
-              <p className="text-muted-foreground">
-                Monitor chatbot usage and cost optimization performance
+              <h1 className="text-xl md:text-2xl font-bold">AI Assistant Analytics</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Monitor chatbot usage and cost optimization
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/assistant/analytics'] })}
                 disabled={isFetching}
                 data-testid="button-refresh-analytics"
+                title="Refresh"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-                Refresh
+                <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                <span className="sr-only">Refresh</span>
               </Button>
               <Select value={days} onValueChange={setDays}>
-                <SelectTrigger className="w-36" data-testid="select-days">
+                <SelectTrigger className="w-28 sm:w-36" data-testid="select-days">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Last 24 hours</SelectItem>
-                  <SelectItem value="7">Last 7 days</SelectItem>
-                  <SelectItem value="30">Last 30 days</SelectItem>
-                  <SelectItem value="90">Last 90 days</SelectItem>
+                  <SelectItem value="1">24 hours</SelectItem>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="90">90 days</SelectItem>
                 </SelectContent>
               </Select>
             </div>
