@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
+import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw, FileWarning, Zap } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,7 +61,7 @@ interface WidgetConfig {
 }
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
-  { id: 'stats', name: 'Key Statistics', visible: true },
+  { id: 'stats', name: 'Risk Overview', visible: true },
   { id: 'charts', name: 'Compliance & Hazard Charts', visible: true },
   { id: 'quick-actions', name: 'Quick Actions', visible: true },
   { id: 'summary', name: 'Summary', visible: true },
@@ -237,47 +238,55 @@ export default function Dashboard() {
   const renderWidget = (widgetId: WidgetId) => {
     switch (widgetId) {
       case 'stats':
+        const phase1Breaches = stats?.awaabsLaw?.phase1?.count || 0;
+        const immediateHazards = stats?.immediateHazards || 0;
+        const expiringCount = stats?.expiringCertificates?.length || 0;
+        const overdueActions = stats?.urgentActions?.filter(a => new Date(a.dueDate) < new Date()).length || 0;
+        
         return (
           <DraggableWidget key={widgetId} widgetId={widgetId} isConfiguring={isConfiguring}>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <StatsCard 
-                title="Overall Compliance" 
-                value={`${stats?.overallCompliance || '0'}%`}
-                description="Across all asset groups"
-                icon={CheckCircle2}
-                status={parseFloat(stats?.overallCompliance || '0') >= 90 ? "success" : "warning"}
-                href="/certificates?from=/dashboard"
-                data-testid="stat-overall-compliance"
-              />
-              <StatsCard 
-                title="Active Hazards" 
-                value={String(stats?.activeHazards || 0)}
-                description={`${stats?.immediateHazards || 0} requiring immediate action`}
-                icon={AlertTriangle}
-                trend={stats?.activeHazards ? "down" : undefined}
-                trendValue={String(stats?.immediateHazards || 0)}
-                status={stats?.activeHazards ? "danger" : "success"}
-                href="/actions?status=OPEN&from=/dashboard"
-                data-testid="stat-active-hazards"
-              />
-              <StatsCard 
-                title="Awaab's Law Breaches" 
-                value={String(stats?.awaabsLawBreaches || 0)}
-                description="Timescale violations"
-                icon={Clock}
-                status={stats?.awaabsLawBreaches ? "danger" : "success"}
-                href="/actions?awaabs=true&from=/dashboard"
-                data-testid="stat-awaabs-law"
-              />
-              <StatsCard 
-                title="Pending Certificates" 
-                value={String(stats?.pendingCertificates || 0)}
-                description="In ingestion queue"
-                icon={FileText}
-                href="/certificates?status=PENDING&from=/dashboard"
-                data-testid="stat-pending-certs"
-              />
-            </div>
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: "Awaab's Law Phase 1",
+                  value: phase1Breaches,
+                  subtitle: "breaches",
+                  icon: Zap,
+                  riskLevel: phase1Breaches > 0 ? "critical" : "good",
+                  href: "/actions?awaabs=true&phase=1&from=/dashboard",
+                  slaInfo: "14-day response required",
+                  testId: "hero-awaabs-phase1",
+                },
+                {
+                  title: "Immediate Hazards",
+                  value: immediateHazards,
+                  subtitle: "need action now",
+                  icon: AlertTriangle,
+                  riskLevel: immediateHazards > 0 ? "critical" : "good",
+                  href: "/actions?severity=IMMEDIATE&from=/dashboard",
+                  slaInfo: "24-hour response SLA",
+                  testId: "hero-immediate-hazards",
+                },
+                {
+                  title: "Certs Expiring Soon",
+                  value: expiringCount,
+                  subtitle: "within 30 days",
+                  icon: FileWarning,
+                  riskLevel: expiringCount > 5 ? "high" : expiringCount > 0 ? "medium" : "good",
+                  href: "/certificates?expiring=30&from=/dashboard",
+                  testId: "hero-expiring-certs",
+                },
+                {
+                  title: "Overdue Actions",
+                  value: overdueActions,
+                  subtitle: "past due date",
+                  icon: Clock,
+                  riskLevel: overdueActions > 0 ? "high" : "good",
+                  href: "/actions?overdue=true&from=/dashboard",
+                  testId: "hero-overdue-actions",
+                },
+              ]}
+            />
           </DraggableWidget>
         );
         

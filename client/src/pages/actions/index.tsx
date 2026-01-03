@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,7 +22,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  Zap
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -132,6 +133,7 @@ export default function ActionsPage() {
   const emergencyCount = apiSeverity === 'IMMEDIATE' ? totalItems : 0;
   const inProgressCount = apiStatus === 'IN_PROGRESS' ? totalItems : 0;
   const resolvedCount = apiStatus === 'COMPLETED' ? totalItems : 0;
+  const overdueCount = remedialActions.filter(a => a.dueDate && new Date(a.dueDate) < new Date() && a.status === 'OPEN').length;
   
   const filteredActions = typeFilter 
     ? remedialActions.filter(action => action.certificate?.certificateType === typeFilter)
@@ -232,48 +234,48 @@ export default function ActionsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatsCard 
-              title="Total Open" 
-              value={String(totalOpen)}
-              description="Actions awaiting resolution"
-              icon={AlertTriangle}
-              status="info"
-              onClick={() => setActiveFilter(activeFilter === 'open' ? 'all' : 'open')}
-              isActive={activeFilter === 'open'}
-              data-testid="card-total-open"
-            />
-            <StatsCard 
-              title="Emergency" 
-              value={String(emergencyCount)}
-              description="Requiring immediate action"
-              icon={AlertOctagon}
-              status="danger"
-              onClick={() => setActiveFilter(activeFilter === 'emergency' ? 'all' : 'emergency')}
-              isActive={activeFilter === 'emergency'}
-              data-testid="card-emergency"
-            />
-            <StatsCard 
-              title="In Progress" 
-              value={String(inProgressCount)}
-              description="Currently being worked on"
-              icon={Wrench}
-              status="warning"
-              onClick={() => setActiveFilter(activeFilter === 'in_progress' ? 'all' : 'in_progress')}
-              isActive={activeFilter === 'in_progress'}
-              data-testid="card-in-progress"
-            />
-            <StatsCard 
-              title="Resolved (30d)" 
-              value={String(resolvedCount)}
-              description="Completed in last 30 days"
-              icon={CheckCircle2}
-              status="success"
-              onClick={() => setActiveFilter(activeFilter === 'resolved' ? 'all' : 'resolved')}
-              isActive={activeFilter === 'resolved'}
-              data-testid="card-resolved"
-            />
-          </div>
+          <HeroStatsGrid
+            stats={[
+              {
+                title: "Overdue Actions",
+                value: overdueCount,
+                subtitle: "past due date",
+                icon: Clock,
+                riskLevel: overdueCount > 0 ? "critical" : "good",
+                href: "/actions?overdue=true",
+                slaInfo: "Requires immediate attention",
+                testId: "hero-overdue-actions",
+              },
+              {
+                title: "Immediate/Emergency",
+                value: emergencyCount,
+                subtitle: "24hr SLA",
+                icon: AlertOctagon,
+                riskLevel: emergencyCount > 0 ? "critical" : "good",
+                href: "/actions?severity=IMMEDIATE",
+                slaInfo: "Must respond within 24 hours",
+                testId: "hero-emergency",
+              },
+              {
+                title: "In Progress",
+                value: inProgressCount,
+                subtitle: "being worked on",
+                icon: Wrench,
+                riskLevel: inProgressCount > 10 ? "medium" : "low",
+                href: "/actions?status=IN_PROGRESS",
+                testId: "hero-in-progress",
+              },
+              {
+                title: "Total Open",
+                value: totalOpen,
+                subtitle: "awaiting resolution",
+                icon: AlertTriangle,
+                riskLevel: totalOpen > 20 ? "medium" : "low",
+                href: "/actions?status=OPEN",
+                testId: "hero-total-open",
+              },
+            ]}
+          />
 
           <Card>
             <CardHeader>

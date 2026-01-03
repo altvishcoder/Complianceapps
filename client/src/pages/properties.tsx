@@ -1,14 +1,14 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload, ArrowLeft } from "lucide-react";
+import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload, ArrowLeft, Flame, Clock, FileWarning } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
@@ -320,34 +320,44 @@ export default function Properties() {
             <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
           )}
           
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-            <StatsCard 
-              title="Total Properties" 
-              value={totalProperties.toLocaleString()}
-              description="Across all schemes"
-              icon={Home}
-              data-testid="card-total-properties"
-            />
-            <StatsCard 
-              title="Total Blocks" 
-              value={String(blocks.length)}
-              description="Building groupings"
-              icon={Building2}
-              data-testid="card-total-blocks"
-            />
-            <StatsCard 
-              title="Schemes" 
-              value={String(schemes.length)}
-              description="Estate groupings"
-              icon={Layers}
-              data-testid="card-schemes"
-            />
-            <StatsCard 
-              title="This Page" 
-              value={isLoading ? "..." : String(filteredProperties.length)}
-              description={isLoading ? "Loading properties" : `of ${totalProperties.toLocaleString()} total`}
-              icon={AlertCircle}
-              data-testid="card-page-count"
+          <div className="mb-6">
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: "No Gas Safety Cert",
+                  value: properties.filter(p => p.hasGas && p.complianceStatus !== 'COMPLIANT').length,
+                  subtitle: "gas properties",
+                  icon: Flame,
+                  riskLevel: properties.filter(p => p.hasGas && p.complianceStatus !== 'COMPLIANT').length > 0 ? "critical" : "good",
+                  href: "/certificates?type=GAS_SAFETY&status=OVERDUE",
+                  testId: "hero-no-gas-cert",
+                },
+                {
+                  title: "Unverified",
+                  value: properties.filter(p => p.linkStatus === 'UNVERIFIED').length,
+                  subtitle: "need verification",
+                  icon: ShieldCheck,
+                  riskLevel: properties.filter(p => p.linkStatus === 'UNVERIFIED').length > 5 ? "medium" : properties.filter(p => p.linkStatus === 'UNVERIFIED').length > 0 ? "low" : "good",
+                  testId: "hero-unverified",
+                },
+                {
+                  title: "Non-Compliant",
+                  value: properties.filter(p => p.complianceStatus === 'NON_COMPLIANT' || p.complianceStatus === 'OVERDUE').length,
+                  subtitle: "properties",
+                  icon: AlertTriangle,
+                  riskLevel: properties.filter(p => p.complianceStatus === 'NON_COMPLIANT' || p.complianceStatus === 'OVERDUE').length > 0 ? "high" : "good",
+                  href: "/properties?status=NON_COMPLIANT",
+                  testId: "hero-non-compliant",
+                },
+                {
+                  title: "Total Properties",
+                  value: totalProperties,
+                  subtitle: `${schemes.length} schemes`,
+                  icon: Home,
+                  riskLevel: "low",
+                  testId: "hero-total-properties",
+                },
+              ]}
             />
           </div>
 
