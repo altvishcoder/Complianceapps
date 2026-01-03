@@ -523,12 +523,12 @@ export default function ComplianceCalendar() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Compliance Calendar" />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold">Compliance Calendar</h1>
-              <p className="text-muted-foreground">Track certificate expirations, legislative deadlines, and compliance events</p>
+              <h1 className="text-xl md:text-2xl font-bold">Compliance Calendar</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">Track certificate expirations, legislative deadlines, and compliance events</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant={showHeatmap ? "default" : "outline"} 
                 onClick={() => setShowHeatmap(!showHeatmap)} 

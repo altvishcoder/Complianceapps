@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { 
   Target,
@@ -63,52 +63,57 @@ export default function StaffSLAPage() {
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                <Target className="h-8 w-8 text-cyan-400" />
+              <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                <Target className="h-6 w-6 text-cyan-400" />
                 Staff SLA Tracking
               </h1>
-              <p className="text-slate-400 mt-1">
+              <p className="text-sm text-slate-400 hidden sm:block">
                 Monitor service level agreement compliance for DLO operatives
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <StatsCard
-                title="SLA Compliance"
-                value={`${slaComplianceRate}%`}
-                icon={Target}
-                description="On-time completion"
-                status="info"
-              />
-              <StatsCard
-                title="Completed On Time"
-                value={completedOnTime.length.toString()}
-                icon={CheckCircle2}
-                description="Met deadline"
-                status="success"
-              />
-              <StatsCard
-                title="Completed Late"
-                value={completedLate.length.toString()}
-                icon={Clock}
-                description="Missed deadline"
-                status="warning"
-              />
-              <StatsCard
-                title="Currently Overdue"
-                value={overdueActions.length.toString()}
-                icon={AlertTriangle}
-                description="Needs attention"
-                status="danger"
-              />
-              <StatsCard
-                title="Open Tasks"
-                value={openActions.length.toString()}
-                icon={Timer}
-                description="In progress"
-                status="info"
-              />
-            </div>
+            <HeroStatsGrid stats={[
+              {
+                title: "SLA Compliance",
+                value: slaComplianceRate,
+                icon: Target,
+                riskLevel: slaComplianceRate >= 90 ? "good" : slaComplianceRate >= 70 ? "medium" : "critical",
+                subtitle: "On-time completion",
+                testId: "stat-sla-compliance"
+              },
+              {
+                title: "Completed On Time",
+                value: completedOnTime.length,
+                icon: CheckCircle2,
+                riskLevel: "good",
+                subtitle: "Met deadline",
+                testId: "stat-completed-on-time"
+              },
+              {
+                title: "Completed Late",
+                value: completedLate.length,
+                icon: Clock,
+                riskLevel: completedLate.length > 5 ? "high" : completedLate.length > 0 ? "medium" : "good",
+                subtitle: "Missed deadline",
+                testId: "stat-completed-late"
+              },
+              {
+                title: "Currently Overdue",
+                value: overdueActions.length,
+                icon: AlertTriangle,
+                riskLevel: overdueActions.length > 0 ? "critical" : "good",
+                subtitle: "Needs attention",
+                testId: "stat-overdue"
+              },
+              {
+                title: "Open Tasks",
+                value: openActions.length,
+                icon: Timer,
+                riskLevel: "low",
+                subtitle: "In progress",
+                testId: "stat-open-tasks"
+              }
+            ]} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-slate-900/50 border-slate-700">

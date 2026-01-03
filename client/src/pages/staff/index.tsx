@@ -219,17 +219,17 @@ export default function StaffDirectoryPage() {
         <Header title="Staff Directory" />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                  <Briefcase className="h-8 w-8 text-blue-400" />
+                <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                  <Briefcase className="h-6 w-6 text-blue-400" />
                   Staff Directory
                 </h1>
-                <p className="text-slate-400 mt-1">
+                <p className="text-sm text-slate-400 hidden sm:block">
                   Manage internal staff members and DLO operatives
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={downloadTemplate} className="border-slate-600 text-slate-300" data-testid="button-download-template">
                   <Download className="h-4 w-4 mr-2" />
                   Template

@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -81,68 +82,57 @@ export default function StaffReportsPage() {
         <Header title="Staff Reports" />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                  <FileText className="h-8 w-8 text-purple-400" />
+                <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                  <FileText className="h-6 w-6 text-purple-400" />
                   Staff Reports
                 </h1>
-                <p className="text-slate-400 mt-1">
+                <p className="text-sm text-slate-400 hidden sm:block">
                   Generate and download DLO performance reports
                 </p>
               </div>
               <Button className="bg-purple-600 hover:bg-purple-700" data-testid="button-generate-all">
                 <Download className="h-4 w-4 mr-2" />
-                Export All Reports
+                <span className="hidden sm:inline">Export All Reports</span>
+                <span className="sm:hidden">Export</span>
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="bg-slate-900/50 border-slate-700">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <Users className="h-8 w-8 text-blue-400" />
-                    <div>
-                      <p className="text-2xl font-bold text-white">{staff.length}</p>
-                      <p className="text-sm text-slate-400">Total Staff</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-slate-900/50 border-slate-700">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="h-8 w-8 text-emerald-400" />
-                    <div>
-                      <p className="text-2xl font-bold text-white">{activeStaff.length}</p>
-                      <p className="text-sm text-slate-400">Active</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-slate-900/50 border-slate-700">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <BarChart3 className="h-8 w-8 text-purple-400" />
-                    <div>
-                      <p className="text-2xl font-bold text-white">{completedActions.length}</p>
-                      <p className="text-sm text-slate-400">Jobs Completed</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-slate-900/50 border-slate-700">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-8 w-8 text-cyan-400" />
-                    <div>
-                      <p className="text-2xl font-bold text-white">{certificates.length}</p>
-                      <p className="text-sm text-slate-400">Certificates Issued</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <HeroStatsGrid stats={[
+              {
+                title: "Total Staff",
+                value: staff.length,
+                icon: Users,
+                riskLevel: "good",
+                subtitle: "DLO team members",
+                testId: "stat-total-staff"
+              },
+              {
+                title: "Active",
+                value: activeStaff.length,
+                icon: TrendingUp,
+                riskLevel: "good",
+                subtitle: "Currently active",
+                testId: "stat-active-staff"
+              },
+              {
+                title: "Jobs Completed",
+                value: completedActions.length,
+                icon: BarChart3,
+                riskLevel: "good",
+                subtitle: "This period",
+                testId: "stat-jobs-completed"
+              },
+              {
+                title: "Certificates Issued",
+                value: certificates.length,
+                icon: Calendar,
+                riskLevel: "good",
+                subtitle: "All certificates",
+                testId: "stat-certificates-issued"
+              }
+            ]} />
 
             <Card className="bg-slate-900/50 border-slate-700">
               <CardHeader>

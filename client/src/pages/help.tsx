@@ -22,9 +22,9 @@ export default function HelpPage() {
           <ScrollArea className="h-full">
             <div className="p-6 max-w-5xl mx-auto space-y-6">
               
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight font-display">ComplianceAI User Guide</h1>
-                <p className="text-muted-foreground text-lg">
+              <div className="space-y-1">
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight font-display">ComplianceAI User Guide</h1>
+                <p className="text-sm text-muted-foreground hidden sm:block">
                   Complete guide to managing compliance for UK social housing organisations
                 </p>
               </div>

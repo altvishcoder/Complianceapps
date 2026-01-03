@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { 
   Users, 
@@ -68,51 +68,57 @@ export default function StaffDashboardPage() {
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                <BarChart3 className="h-8 w-8 text-blue-400" />
-                Staff Performance Dashboard
+              <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                <BarChart3 className="h-6 w-6 text-blue-400" />
+                Staff Performance
               </h1>
-              <p className="text-slate-400 mt-1">
+              <p className="text-sm text-slate-400 hidden sm:block">
                 Monitor DLO operative performance and workload distribution
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <StatsCard
-                title="Total Staff"
-                value={staff.length.toString()}
-                icon={Users}
-                description="DLO team members"
-                status="info"
-              />
-              <StatsCard
-                title="Active Operatives"
-                value={activeStaff.length.toString()}
-                icon={CheckCircle2}
-                description="Currently active"
-                status="success"
-              />
-              <StatsCard
-                title="Jobs Completed"
-                value={completedActions.length.toString()}
-                icon={Award}
-                description="This period"
-              />
-              <StatsCard
-                title="On-Time Rate"
-                value={actions.length > 0 ? `${Math.round(((actions.length - overdueActions.length) / actions.length) * 100)}%` : "N/A"}
-                icon={Target}
-                description="SLA compliance"
-                status="info"
-              />
-              <StatsCard
-                title="Overdue Tasks"
-                value={overdueActions.length.toString()}
-                icon={AlertTriangle}
-                description="Requires attention"
-                status="danger"
-              />
-            </div>
+            <HeroStatsGrid stats={[
+              {
+                title: "Total Staff",
+                value: staff.length,
+                icon: Users,
+                riskLevel: "good",
+                subtitle: "DLO team members",
+                testId: "stat-total-staff"
+              },
+              {
+                title: "Active Operatives",
+                value: activeStaff.length,
+                icon: CheckCircle2,
+                riskLevel: "good",
+                subtitle: "Currently active",
+                testId: "stat-active-operatives"
+              },
+              {
+                title: "Jobs Completed",
+                value: completedActions.length,
+                icon: Award,
+                riskLevel: "good",
+                subtitle: "This period",
+                testId: "stat-jobs-completed"
+              },
+              {
+                title: "On-Time Rate",
+                value: actions.length > 0 ? Math.round(((actions.length - overdueActions.length) / actions.length) * 100) : 0,
+                icon: Target,
+                riskLevel: actions.length > 0 && ((actions.length - overdueActions.length) / actions.length) >= 0.9 ? "good" : "medium",
+                subtitle: "SLA compliance",
+                testId: "stat-on-time-rate"
+              },
+              {
+                title: "Overdue Tasks",
+                value: overdueActions.length,
+                icon: AlertTriangle,
+                riskLevel: overdueActions.length > 0 ? "critical" : "good",
+                subtitle: "Requires attention",
+                testId: "stat-overdue-tasks"
+              }
+            ]} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-slate-900/50 border-slate-700">
