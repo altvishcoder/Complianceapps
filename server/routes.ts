@@ -287,7 +287,7 @@ export async function registerRoutes(
   
   // Modern authentication handler (session management, OAuth providers)
   // Handles: /api/auth/session, /api/auth/sign-in/*, /api/auth/sign-up/*, /api/auth/sign-out, /api/auth/callback/*
-  app.all("/api/auth/*splat", toNodeHandler(auth));
+  app.all("/api/auth/*", toNodeHandler(auth));
   
   // Hard-coded organisation ID for demo (in production this would come from auth)
   const ORG_ID = "default-org";

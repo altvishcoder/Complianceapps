@@ -21,7 +21,6 @@ export const auth = betterAuth({
   }),
 
   user: {
-    modelName: "users",
     fields: {
       emailVerified: "emailVerified",
     },
@@ -83,9 +82,7 @@ export const auth = betterAuth({
       ]
     : [],
 
-  trustedOrigins: [
-    process.env.APP_URL || "http://localhost:5000",
-  ],
+  trustedOrigins: ["*"],
 
   advanced: {
     cookiePrefix: "complianceai",

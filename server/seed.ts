@@ -1,8 +1,25 @@
 // Seed script for initial ComplianceAI data
 import { db } from "./db";
-import { organisations, schemes, blocks, properties, users, complianceStreams, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings, navigationSections, navigationItems, iconRegistry } from "@shared/schema";
+import { organisations, schemes, blocks, properties, users, accounts, complianceStreams, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings, navigationSections, navigationItems, iconRegistry } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
+
+// Helper function to create BetterAuth credential account for a user
+async function createCredentialAccount(userId: string, hashedPassword: string) {
+  const accountId = `acc_${userId}`;
+  const [existing] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  if (!existing) {
+    await db.insert(accounts).values({
+      id: accountId,
+      userId: userId,
+      accountId: userId,
+      providerId: "credential",
+      password: hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+}
 
 // Helper function to hash passwords
 async function hashPassword(password: string): Promise<string> {
@@ -55,11 +72,12 @@ export async function seedDatabase() {
     // Create default system accounts with proper role hierarchy
     // 1. Lashan Super User (highest privilege, only 1 per system)
     const [existingLashanUser] = await db.select().from(users).where(eq(users.id, LASHAN_SUPER_USER_ID));
+    const lashanPassword = await hashPassword("Lashan2025!Secure");
     if (!existingLashanUser) {
       await db.insert(users).values({
         id: LASHAN_SUPER_USER_ID,
         username: "lashan",
-        password: await hashPassword("Lashan2025!Secure"),
+        password: lashanPassword,
         email: "lashan@lashandigital.com",
         name: "Lashan Fernando",
         role: "LASHAN_SUPER_USER",
@@ -67,51 +85,58 @@ export async function seedDatabase() {
       });
       console.log("✓ Created Lashan Super User (username: lashan)");
     }
+    await createCredentialAccount(LASHAN_SUPER_USER_ID, lashanPassword);
     
     // 2. Super Admin (demo account, only 1 per system)
     const [existingSuperAdmin] = await db.select().from(users).where(eq(users.id, SUPER_ADMIN_ID));
+    const superAdminPassword = await hashPassword("SuperAdmin2025!");
     if (!existingSuperAdmin) {
       await db.insert(users).values({
         id: SUPER_ADMIN_ID,
         username: "superadmin",
-        password: await hashPassword("SuperAdmin2025!"),
+        password: superAdminPassword,
         email: "superadmin@complianceai.co.uk",
         name: "Super Administrator",
         role: "SUPER_ADMIN",
         organisationId: org.id
       });
-      console.log("✓ Created Super Admin (username: superadmin, password: SuperAdmin2025!)");
+      console.log("✓ Created Super Admin (email: superadmin@complianceai.co.uk, password: SuperAdmin2025!)");
     }
+    await createCredentialAccount(SUPER_ADMIN_ID, superAdminPassword);
     
     // 3. System Admin (can have multiple)
     const [existingSystemAdmin] = await db.select().from(users).where(eq(users.id, SYSTEM_ADMIN_ID));
+    const sysAdminPassword = await hashPassword("SysAdmin2025!");
     if (!existingSystemAdmin) {
       await db.insert(users).values({
         id: SYSTEM_ADMIN_ID,
         username: "sysadmin",
-        password: await hashPassword("SysAdmin2025!"),
+        password: sysAdminPassword,
         email: "sysadmin@complianceai.co.uk",
         name: "System Administrator",
         role: "SYSTEM_ADMIN",
         organisationId: org.id
       });
-      console.log("✓ Created System Admin (username: sysadmin, password: SysAdmin2025!)");
+      console.log("✓ Created System Admin (email: sysadmin@complianceai.co.uk, password: SysAdmin2025!)");
     }
+    await createCredentialAccount(SYSTEM_ADMIN_ID, sysAdminPassword);
     
     // 4. Compliance Manager (power user)
     const [existingComplianceManager] = await db.select().from(users).where(eq(users.id, COMPLIANCE_MANAGER_ID));
+    const compManagerPassword = await hashPassword("Manager2025!");
     if (!existingComplianceManager) {
       await db.insert(users).values({
         id: COMPLIANCE_MANAGER_ID,
         username: "compmanager",
-        password: await hashPassword("Manager2025!"),
+        password: compManagerPassword,
         email: "compmanager@complianceai.co.uk",
         name: "Compliance Manager",
         role: "COMPLIANCE_MANAGER",
         organisationId: org.id
       });
-      console.log("✓ Created Compliance Manager (username: compmanager, password: Manager2025!)");
+      console.log("✓ Created Compliance Manager (email: compmanager@complianceai.co.uk, password: Manager2025!)");
     }
+    await createCredentialAccount(COMPLIANCE_MANAGER_ID, compManagerPassword);
     
     // Only seed demo data if SEED_DEMO_DATA is true
     if (SEED_DEMO_DATA) {
@@ -143,16 +168,18 @@ async function seedDemoData(orgId: string) {
   
   for (const config of demoUserConfigs) {
     const [existing] = await db.select().from(users).where(eq(users.id, config.id));
+    const hashedPassword = await hashPassword(config.plainPassword);
     if (!existing) {
       const { plainPassword, ...userData } = config;
       await db.insert(users).values({
         ...userData,
-        password: await hashPassword(plainPassword),
+        password: hashedPassword,
         organisationId: orgId
       });
     }
+    await createCredentialAccount(config.id, hashedPassword);
   }
-  console.log("✓ Created demo users");
+  console.log("✓ Created demo users with BetterAuth accounts");
   
   // Create schemes if needed
   const existingSchemes = await db.select().from(schemes).where(eq(schemes.organisationId, orgId));
