@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -244,63 +245,41 @@ export default function RegulatoryEvidence() {
             </div>
 
             {/* Summary Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card data-testid="card-overall-compliance">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30">
-                      <Shield className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold text-green-600" data-testid="text-overall-percentage">{overallCompliance}%</p>
-                      <p className="text-sm text-muted-foreground">Overall Compliance</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card data-testid="card-valid-certificates">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                      <FileCheck className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold" data-testid="text-valid-count">6,148</p>
-                      <p className="text-sm text-muted-foreground">Valid Certificates</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card data-testid="card-active-exceptions">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                      <AlertOctagon className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold text-amber-600" data-testid="text-exception-count">{exceptions.length}</p>
-                      <p className="text-sm text-muted-foreground">Active Exceptions</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card data-testid="card-avg-response">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                      <Timer className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold" data-testid="text-response-time">2.3 days</p>
-                      <p className="text-sm text-muted-foreground">Avg Exception Response</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: "Overall Compliance",
+                  value: parseFloat(overallCompliance),
+                  subtitle: "%",
+                  icon: Shield,
+                  riskLevel: parseFloat(overallCompliance) >= 95 ? "good" : parseFloat(overallCompliance) >= 85 ? "medium" : "critical",
+                  testId: "stat-overall-compliance",
+                },
+                {
+                  title: "Valid Certificates",
+                  value: 6148,
+                  icon: FileCheck,
+                  riskLevel: "good",
+                  testId: "stat-valid-certificates",
+                },
+                {
+                  title: "Active Exceptions",
+                  value: exceptions.length,
+                  icon: AlertTriangle,
+                  riskLevel: exceptions.length > 10 ? "critical" : exceptions.length > 5 ? "high" : "medium",
+                  href: "/actions",
+                  testId: "stat-active-exceptions",
+                },
+                {
+                  title: "Avg Response Time",
+                  value: 2,
+                  subtitle: "days",
+                  icon: Clock,
+                  riskLevel: "low",
+                  testId: "stat-response-time",
+                },
+              ]}
+            />
 
             <Tabs defaultValue="evidence" className="space-y-6">
               <TabsList data-testid="tabs-regulatory">

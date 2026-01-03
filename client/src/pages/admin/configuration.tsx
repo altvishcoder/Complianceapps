@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -520,6 +521,40 @@ export default function Configuration() {
               </div>
               <Settings className="h-8 w-8 text-muted-foreground" />
             </div>
+
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: "Compliance Streams",
+                  value: complianceStreams.filter(s => s.isActive).length,
+                  subtitle: `of ${complianceStreams.length}`,
+                  icon: Layers,
+                  riskLevel: "good",
+                  testId: "stat-streams",
+                },
+                {
+                  title: "Certificate Types",
+                  value: certificateTypes.filter((t: CertificateType) => t.isActive).length,
+                  icon: FileText,
+                  riskLevel: "good",
+                  testId: "stat-cert-types",
+                },
+                {
+                  title: "Classification Codes",
+                  value: classificationCodes.length,
+                  icon: Tags,
+                  riskLevel: "low",
+                  testId: "stat-codes",
+                },
+                {
+                  title: "Extraction Schemas",
+                  value: extractionSchemas.filter((s: ExtractionSchema) => s.isActive).length,
+                  icon: Code,
+                  riskLevel: "good",
+                  testId: "stat-schemas",
+                },
+              ]}
+            />
 
             <Card className="bg-muted/30">
               <CardContent className="pt-4 pb-3">

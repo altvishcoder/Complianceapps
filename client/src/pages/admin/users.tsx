@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { 
   Users, 
   UserPlus,
@@ -17,7 +18,9 @@ import {
   Copy,
   Eye,
   EyeOff,
-  Settings
+  Settings,
+  UserCheck,
+  UserX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -325,6 +328,39 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
             </div>
+
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: "Total Users",
+                  value: users.length,
+                  icon: Users,
+                  riskLevel: "good",
+                  testId: "stat-total-users",
+                },
+                {
+                  title: "Administrators",
+                  value: users.filter(u => ["LASHAN_SUPER_USER", "SUPER_ADMIN", "SYSTEM_ADMIN"].includes(u.role)).length,
+                  icon: Shield,
+                  riskLevel: "low",
+                  testId: "stat-admins",
+                },
+                {
+                  title: "Managers",
+                  value: users.filter(u => ["COMPLIANCE_MANAGER", "ADMIN", "MANAGER"].includes(u.role)).length,
+                  icon: UserCheck,
+                  riskLevel: "good",
+                  testId: "stat-managers",
+                },
+                {
+                  title: "Viewers",
+                  value: users.filter(u => ["OFFICER", "VIEWER"].includes(u.role)).length,
+                  icon: Eye,
+                  riskLevel: "good",
+                  testId: "stat-viewers",
+                },
+              ]}
+            />
 
             <Tabs defaultValue="users" className="space-y-4">
               <TabsList>
