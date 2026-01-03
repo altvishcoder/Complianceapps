@@ -234,11 +234,11 @@ export default function CompliancePage() {
 
           {/* Alert Cards for Urgent Issues */}
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className={urgentIssues > 0 ? "border-red-200 bg-red-50/50" : ""}>
+            <Card className={urgentIssues > 0 ? "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/20" : ""}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${urgentIssues > 0 ? 'bg-red-100' : 'bg-emerald-100'}`}>
-                    <AlertOctagon className={`h-5 w-5 ${urgentIssues > 0 ? 'text-red-600' : 'text-emerald-600'}`} />
+                  <div className={`p-2 rounded-lg ${urgentIssues > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                    <AlertOctagon className={`h-5 w-5 ${urgentIssues > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Urgent Issues</p>
@@ -253,11 +253,11 @@ export default function CompliancePage() {
               </CardContent>
             </Card>
 
-            <Card className={awaabsActions > 0 ? "border-orange-200 bg-orange-50/50" : ""}>
+            <Card className={awaabsActions > 0 ? "border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/20" : ""}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${awaabsActions > 0 ? 'bg-orange-100' : 'bg-emerald-100'}`}>
-                    <Scale className={`h-5 w-5 ${awaabsActions > 0 ? 'text-orange-600' : 'text-emerald-600'}`} />
+                  <div className={`p-2 rounded-lg ${awaabsActions > 0 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                    <Scale className={`h-5 w-5 ${awaabsActions > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Awaab's Law Risk</p>
@@ -272,11 +272,11 @@ export default function CompliancePage() {
               </CardContent>
             </Card>
 
-            <Card className={streamsNeedingAttention.length > 0 ? "border-amber-200 bg-amber-50/50" : ""}>
+            <Card className={streamsNeedingAttention.length > 0 ? "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20" : ""}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${streamsNeedingAttention.length > 0 ? 'bg-amber-100' : 'bg-emerald-100'}`}>
-                    <BarChart3 className={`h-5 w-5 ${streamsNeedingAttention.length > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
+                  <div className={`p-2 rounded-lg ${streamsNeedingAttention.length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                    <BarChart3 className={`h-5 w-5 ${streamsNeedingAttention.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Streams Below Target</p>

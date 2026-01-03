@@ -15,11 +15,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 const STATUS_COLUMNS = [
-  { id: 'OPEN', label: 'Open', icon: AlertCircle, color: 'bg-red-50 border-red-200', headerBg: 'bg-red-100' },
-  { id: 'IN_PROGRESS', label: 'In Progress', icon: Clock, color: 'bg-blue-50 border-blue-200', headerBg: 'bg-blue-100' },
-  { id: 'SCHEDULED', label: 'Scheduled', icon: Calendar, color: 'bg-amber-50 border-amber-200', headerBg: 'bg-amber-100' },
-  { id: 'COMPLETED', label: 'Completed', icon: CheckCircle, color: 'bg-emerald-50 border-emerald-200', headerBg: 'bg-emerald-100' },
-  { id: 'CANCELLED', label: 'Cancelled', icon: XCircle, color: 'bg-gray-50 border-gray-200', headerBg: 'bg-gray-100' },
+  { id: 'OPEN', label: 'Open', icon: AlertCircle, color: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800', headerBg: 'bg-red-100 dark:bg-red-900/30' },
+  { id: 'IN_PROGRESS', label: 'In Progress', icon: Clock, color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800', headerBg: 'bg-blue-100 dark:bg-blue-900/30' },
+  { id: 'SCHEDULED', label: 'Scheduled', icon: Calendar, color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', headerBg: 'bg-amber-100 dark:bg-amber-900/30' },
+  { id: 'COMPLETED', label: 'Completed', icon: CheckCircle, color: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800', headerBg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  { id: 'CANCELLED', label: 'Cancelled', icon: XCircle, color: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700', headerBg: 'bg-gray-100 dark:bg-gray-800' },
 ];
 
 const SEVERITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -276,11 +276,11 @@ export default function RemedialKanban() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Remedial Actions" />
-        <main id="main-content" className="flex-1 overflow-hidden p-6" role="main" aria-label="Remedial actions kanban board" data-testid="remedial-kanban-page">
-          <div className="flex items-center justify-between mb-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="Remedial actions kanban board" data-testid="remedial-kanban-page">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Remedial Actions Kanban</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">Remedial Actions Kanban</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
                 Track and manage remedial actions across your properties
               </p>
             </div>
