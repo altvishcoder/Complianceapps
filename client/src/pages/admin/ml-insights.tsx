@@ -28,6 +28,7 @@ import {
   Calculator,
   MessageSquare
 } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -270,77 +271,47 @@ export default function MLInsightsPage() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="rounded-lg p-4 border bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-l-emerald-500 border-emerald-200 dark:border-emerald-900" data-testid="stat-accuracy">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 rounded-md bg-emerald-500">
-                      <Target className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="text-sm font-medium text-muted-foreground truncate">Model Accuracy</span>
-                  </div>
-                  <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {modelMetrics?.model?.accuracy != null 
+              <HeroStatsGrid
+                stats={[
+                  {
+                    title: "Model Accuracy",
+                    value: modelMetrics?.model?.accuracy != null 
                       ? `${(modelMetrics.model.accuracy * 100).toFixed(1)}%`
-                      : '--'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{modelMetrics?.model?.correctPredictions || 0} verified</p>
-                </div>
-
-                <div className="rounded-lg p-4 border bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500 border-blue-200 dark:border-blue-900" data-testid="stat-predictions">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 rounded-md bg-blue-500">
-                      <Activity className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="text-sm font-medium text-muted-foreground truncate">Total Predictions</span>
-                  </div>
-                  <div className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">
-                    {(modelMetrics?.predictionStats?.total ?? 0).toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{(modelMetrics?.predictionStats?.avgConfidence ?? 0).toFixed(1)}% avg confidence</p>
-                </div>
-
-                <div className="rounded-lg p-4 border bg-purple-50 dark:bg-purple-950/40 border-l-4 border-l-purple-500 border-purple-200 dark:border-purple-900" data-testid="stat-feedback">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 rounded-md bg-purple-500">
-                      <MessageSquare className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="text-sm font-medium text-muted-foreground truncate">Human Feedback</span>
-                  </div>
-                  <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">
-                    {modelMetrics?.feedbackStats?.total ?? 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{modelMetrics?.feedbackStats?.correct ?? 0} correct, {modelMetrics?.feedbackStats?.incorrect ?? 0} incorrect</p>
-                </div>
-
-                <div className={`rounded-lg p-4 border border-l-4 ${
-                  modelMetrics?.model?.status === 'active' 
-                    ? 'bg-green-50 dark:bg-green-950/40 border-l-green-500 border-green-200 dark:border-green-900' 
-                    : modelMetrics?.model?.status === 'training'
-                    ? 'bg-blue-50 dark:bg-blue-950/40 border-l-blue-500 border-blue-200 dark:border-blue-900'
-                    : 'bg-amber-50 dark:bg-amber-950/40 border-l-amber-500 border-amber-200 dark:border-amber-900'
-                }`} data-testid="stat-status">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className={`p-1.5 rounded-md ${
-                      modelMetrics?.model?.status === 'active' ? 'bg-green-500' 
-                      : modelMetrics?.model?.status === 'training' ? 'bg-blue-500' : 'bg-amber-500'
-                    }`}>
-                      {modelMetrics?.model?.status === 'active' ? <CheckCircle className="h-4 w-4 text-white" /> 
-                       : modelMetrics?.model?.status === 'training' ? <RefreshCcw className="h-4 w-4 text-white animate-spin" /> 
-                       : <Clock className="h-4 w-4 text-white" />}
-                    </div>
-                    <span className="text-sm font-medium text-muted-foreground truncate">Model Status</span>
-                  </div>
-                  <div className={`text-2xl md:text-3xl font-bold ${
-                    modelMetrics?.model?.status === 'active' ? 'text-green-600 dark:text-green-400' 
-                    : modelMetrics?.model?.status === 'training' ? 'text-blue-600 dark:text-blue-400' 
-                    : 'text-amber-600 dark:text-amber-400'
-                  }`}>
-                    {modelMetrics?.model?.status === 'active' ? 'Active' : 
-                     modelMetrics?.model?.status === 'training' ? 'Training' : 'Pending'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">v{modelMetrics?.model?.version || '1.0.0'}</p>
-                </div>
-              </div>
+                      : '--',
+                    subtitle: `${modelMetrics?.model?.correctPredictions || 0} verified`,
+                    icon: Target,
+                    riskLevel: "good",
+                    testId: "stat-accuracy"
+                  },
+                  {
+                    title: "Total Predictions",
+                    value: modelMetrics?.predictionStats?.total ?? 0,
+                    subtitle: `${(modelMetrics?.predictionStats?.avgConfidence ?? 0).toFixed(1)}% avg confidence`,
+                    icon: Activity,
+                    riskLevel: "low",
+                    testId: "stat-predictions"
+                  },
+                  {
+                    title: "Human Feedback",
+                    value: modelMetrics?.feedbackStats?.total ?? 0,
+                    subtitle: `${modelMetrics?.feedbackStats?.correct ?? 0} correct, ${modelMetrics?.feedbackStats?.incorrect ?? 0} incorrect`,
+                    icon: MessageSquare,
+                    riskLevel: (modelMetrics?.feedbackStats?.total ?? 0) >= 10 ? "good" : "medium",
+                    testId: "stat-feedback"
+                  },
+                  {
+                    title: "Model Status",
+                    value: modelMetrics?.model?.status === 'active' ? 'Active' : 
+                           modelMetrics?.model?.status === 'training' ? 'Training' : 'Pending',
+                    subtitle: `v${modelMetrics?.model?.version || '1.0.0'}`,
+                    icon: modelMetrics?.model?.status === 'active' ? CheckCircle : 
+                          modelMetrics?.model?.status === 'training' ? Activity : Clock,
+                    riskLevel: modelMetrics?.model?.status === 'active' ? "good" : 
+                               modelMetrics?.model?.status === 'training' ? "low" : "medium",
+                    testId: "stat-status"
+                  }
+                ]}
+              />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card data-testid="card-confidence-tiers">

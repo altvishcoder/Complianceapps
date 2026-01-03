@@ -6,7 +6,7 @@ type RiskLevel = "critical" | "high" | "medium" | "low" | "good";
 
 interface HeroStatProps {
   title: string;
-  value: number;
+  value: number | string;
   subtitle?: string;
   icon: LucideIcon;
   riskLevel: RiskLevel;
@@ -93,7 +93,7 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick
 interface HeroStatsGridProps {
   stats: Array<{
     title: string;
-    value: number;
+    value: number | string;
     subtitle?: string;
     icon: LucideIcon;
     riskLevel: RiskLevel;
