@@ -1,0 +1,77 @@
+1. Extraction Service Overhaul
+Current Pain Points:
+
+Orchestrator coordinates multiple adapters with cross-module imports and shared mutable state
+Side effects (queue updates, storage writes) buried deep in call stack
+Adding new extraction tiers is risky, debugging is slow
+No deterministic test fixtures
+Phase 0: Inventory & Tracing (Low Risk)
+Document all call paths with sequence diagrams
+Capture sample traffic from production
+Build golden fixture library covering top 10 certificate types
+Success criteria: Documented flows, fixture library ready
+Rollback: N/A (read-only)
+Phase 1: Establish Domain Boundary (Medium Risk)
+Introduce ExtractionPipeline interface
+Separate IO adapters (storage/queue) from business logic
+Add dependency injection container
+Rollback: Keep old orchestrator as default; new interface unused
+Tests: Contract/unit tests for adapters, TypeScript build passes
+Phase 2: Build Modular Pipeline (Higher Risk)
+Implement tiers 0-4 as pure functions per stage
+Add central state machine for extraction flow
+Control via feature flag (Factory Setting)
+Rollback: Disable feature flag
+Tests: Replay fixtures through new pipeline, snapshot comparison, load tests
+Phase 3: Shadow Mode (Medium Risk)
+Run both pipelines in parallel
+Log divergence between old and new results
+Add alerting thresholds for anomalies
+Success criteria: <2% field divergence over 7 days
+Rollback: Toggle flag off
+Phase 4: Gradual Cutover (Medium Risk)
+Ramp traffic: 10% → 50% → 100%
+Monitor queue latency, confidence metrics, human-review volume
+Exit criteria: KPIs equal or better than baseline for 48h
+2. Schema Splitting
+Current Pain Points:
+
+shared/schema.ts is 1000+ lines with 40+ tables
+Slow IDE tooling, frequent merge conflicts
+Accidental tight coupling between unrelated domains
+Phase 0: Boundary Design (Low Risk)
+Group schema into logical modules:
+core-auth (users, sessions, roles)
+org-structure (schemes, blocks, properties)
+assets (components, spaces)
+extraction (extraction runs, confidence baselines)
+compliance (certificates, remedial actions)
+telemetry (audit logs, metrics)
+Create dependency map
+Success criteria: Module list approved
+Phase 1: Directory Structure (Medium Risk)
+Create shared/schema/{core,compliance,...} directories
+Move shared enums to shared/schema/base.ts
+Create barrel index maintaining current import paths
+Rollback: Keep original schema.ts, revert feature branch
+Tests: TypeScript build, lint checks
+Phase 2: Incremental Migration (Medium Risk)
+Move one module at a time
+Update imports in server/storage/tests
+Run drizzle-kit diff to verify no schema drift
+Rollback: Revert specific module move
+Tests: Unit/integration suites, e2e smoke, migration dry-run
+Phase 3: Cleanup (Low Risk)
+Delete legacy schema.ts once all imports corrected
+Update documentation
+Add ESLint rule to enforce module boundaries
+Success criteria: All tests pass, no import cycles
+Dependencies Between Efforts
+Extraction Phase	Depends On
+Phase 2+	Schema Phase 1 (clean module exports)
+Pipeline cutover	Schema extraction module complete
+Recommended Starting Point
+Start with Schema Phase 0-1 - Lower risk, immediate developer experience improvement
+Run Extraction Phase 0 in parallel - Gather fixtures and documentation
+Complete Schema Phase 2 before Extraction Phase 2 begins
+Would you like me to start implementing any of these phases?

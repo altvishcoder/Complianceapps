@@ -131,6 +131,18 @@ function CircuitBreakerStateBadge({ state }: { state: string }) {
 }
 
 function formatServiceName(name: string): string {
+  const serviceNameMap: Record<string, string> = {
+    'claude-vision': 'Document Vision',
+    'claude-text': 'Text Analysis',
+    'azure-di': 'Document Intelligence',
+    'object-storage': 'File Storage',
+    'webhook-delivery': 'Webhook Delivery',
+  };
+  
+  if (serviceNameMap[name]) {
+    return serviceNameMap[name];
+  }
+  
   return name
     .replace(/-/g, ' ')
     .split(' ')
