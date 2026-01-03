@@ -522,12 +522,15 @@ export default function Dashboard() {
                 ) : (
                   <div className="space-y-2">
                     <Link href="/actions?awaabs=true&phase=1&from=/dashboard" className="block">
-                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default" className="text-xs">Active</Badge>
-                          <span className="text-sm font-medium">Phase 1: Damp & Mould</span>
+                      <div className="flex items-center justify-between p-3 rounded-lg border-2 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors cursor-pointer">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-red-600 hover:bg-red-700 text-xs">NOW IN FORCE</Badge>
+                            <span className="text-sm font-bold">Phase 1: Damp & Mould</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Strict timescales apply - respond within 14 days</span>
                         </div>
-                        <span className={`text-lg font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className={`text-2xl font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {awaabsData?.phase1?.count || 0}
                         </span>
                       </div>
