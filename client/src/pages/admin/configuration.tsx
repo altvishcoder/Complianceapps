@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter, X, Settings } from "lucide-react";
+import { FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -51,6 +51,7 @@ export default function Configuration() {
   const [showRuleDialog, setShowRuleDialog] = useState(false);
   const [showNormRuleDialog, setShowNormRuleDialog] = useState(false);
   const [selectedStreamFilters, setSelectedStreamFilters] = useState<string[]>([]);
+  const [showStreamFilters, setShowStreamFilters] = useState(false);
 
   const userRole = user?.role || "";
   const isAuthorized = userRole === "super_admin" || userRole === "SUPER_ADMIN" || 
@@ -557,47 +558,51 @@ export default function Configuration() {
             />
 
             <Card className="bg-muted/30">
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <CardContent className="pt-3 pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 text-sm font-medium text-muted-foreground md:cursor-default"
+                    onClick={() => setShowStreamFilters(!showStreamFilters)}
+                    data-testid="button-toggle-filters"
+                  >
                     <Filter className="h-4 w-4" />
-                    Filter by Stream:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {complianceStreams.filter(s => s.isActive).map(stream => {
-                      const isSelected = selectedStreamFilters.includes(stream.id);
-                      const color = stream.colorCode || "#6366F1";
-                      return (
-                        <Badge
-                          key={stream.id}
-                          variant={isSelected ? "default" : "outline"}
-                          className="cursor-pointer transition-all hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          style={isSelected ? { backgroundColor: color, borderColor: color } : { borderColor: color, color: color }}
-                          onClick={() => toggleStreamFilter(stream.id)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStreamFilter(stream.id); } }}
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={isSelected}
-                          aria-label={`Filter by ${stream.name}`}
-                          data-testid={`filter-stream-${stream.code}`}
-                        >
-                          {stream.name}
-                        </Badge>
-                      );
-                    })}
-                  </div>
+                    <span>Filter by Stream</span>
+                    {selectedStreamFilters.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">{selectedStreamFilters.length}</Badge>
+                    )}
+                    <ChevronDown className={`h-4 w-4 md:hidden transition-transform ${showStreamFilters ? 'rotate-180' : ''}`} />
+                  </button>
                   {selectedStreamFilters.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={clearStreamFilters} className="gap-1" data-testid="button-clear-filters">
+                    <Button variant="outline" size="sm" onClick={clearStreamFilters} className="gap-1 h-7 text-xs" data-testid="button-clear-filters">
                       <X className="h-3 w-3" />
-                      Reset ({selectedStreamFilters.length})
+                      <span className="hidden sm:inline">Reset</span>
                     </Button>
                   )}
                 </div>
-                {selectedStreamFilters.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Showing {selectedStreamFilters.length} stream{selectedStreamFilters.length > 1 ? 's' : ''}: {selectedStreamFilters.map(id => complianceStreams.find(s => s.id === id)?.name).join(', ')}
-                  </p>
-                )}
+                <div className={`flex-wrap gap-2 mt-3 ${showStreamFilters ? 'flex' : 'hidden md:flex'}`}>
+                  {complianceStreams.filter(s => s.isActive).map(stream => {
+                    const isSelected = selectedStreamFilters.includes(stream.id);
+                    const color = stream.colorCode || "#6366F1";
+                    return (
+                      <Badge
+                        key={stream.id}
+                        variant={isSelected ? "default" : "outline"}
+                        className="cursor-pointer transition-all hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-xs"
+                        style={isSelected ? { backgroundColor: color, borderColor: color } : { borderColor: color, color: color }}
+                        onClick={() => toggleStreamFilter(stream.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStreamFilter(stream.id); } }}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelected}
+                        aria-label={`Filter by ${stream.name}`}
+                        data-testid={`filter-stream-${stream.code}`}
+                      >
+                        {stream.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
 
