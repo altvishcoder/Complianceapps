@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -553,67 +554,48 @@ export default function ComplianceCalendar() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Card className="border-border bg-card">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Events</p>
-                    <p className="text-2xl font-bold text-foreground" data-testid="stat-total-events">{stats.total}</p>
-                  </div>
-                  <CalendarIcon className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/20">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">Expiring Soon</p>
-                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-300" data-testid="stat-expiring-soon">{stats.expiringSoon}</p>
-                  </div>
-                  <Clock className="h-8 w-8 text-amber-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-red-500/50 bg-red-500/10 dark:bg-red-500/20">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-red-600 dark:text-red-400">Expired</p>
-                    <p className="text-2xl font-bold text-red-700 dark:text-red-300" data-testid="stat-expired">{stats.expired}</p>
-                  </div>
-                  <AlertTriangle className="h-8 w-8 text-red-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-emerald-500/50 bg-emerald-500/10 dark:bg-emerald-500/20">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-emerald-600 dark:text-emerald-400">Compliant</p>
-                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300" data-testid="stat-compliant">{stats.compliant}</p>
-                  </div>
-                  <CheckCircle className="h-8 w-8 text-emerald-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-purple-500/50 bg-purple-500/10 dark:bg-purple-500/20">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-purple-600 dark:text-purple-400">Legislative</p>
-                    <p className="text-2xl font-bold text-purple-700 dark:text-purple-300" data-testid="stat-legislative">{stats.legislative}</p>
-                  </div>
-                  <Landmark className="h-8 w-8 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <HeroStatsGrid stats={[
+            {
+              title: "Total Events",
+              value: stats.total,
+              icon: CalendarIcon,
+              riskLevel: "low",
+              subtitle: "All calendar events",
+              testId: "stat-total-events"
+            },
+            {
+              title: "Expiring Soon",
+              value: stats.expiringSoon,
+              icon: Clock,
+              riskLevel: stats.expiringSoon > 0 ? "high" : "good",
+              subtitle: "Within 30 days",
+              testId: "stat-expiring-soon"
+            },
+            {
+              title: "Expired",
+              value: stats.expired,
+              icon: AlertTriangle,
+              riskLevel: stats.expired > 0 ? "critical" : "good",
+              subtitle: "Requires action",
+              testId: "stat-expired"
+            },
+            {
+              title: "Compliant",
+              value: stats.compliant,
+              icon: CheckCircle,
+              riskLevel: "good",
+              subtitle: "Up to date",
+              testId: "stat-compliant"
+            },
+            {
+              title: "Legislative",
+              value: stats.legislative,
+              icon: Landmark,
+              riskLevel: "medium",
+              subtitle: "Regulatory deadlines",
+              testId: "stat-legislative"
+            }
+          ]} />
 
           <Card>
             <CardHeader className="pb-2">
