@@ -9,7 +9,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, Globe, Search, FileText, Scale, Plus, Edit, X, Check } from "lucide-react";
+import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, ChevronDown, Globe, Search, FileText, Scale, Plus, Edit, X, Check, Menu } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -124,6 +138,7 @@ export default function FactorySettings() {
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
   const [confirmDialog, setConfirmDialog] = useState<{ key: string; value: string } | null>(null);
   const [activeCategory, setActiveCategory] = useState("RATE_LIMITING");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
@@ -372,42 +387,44 @@ export default function FactorySettings() {
     }
 
     return (
-      <div className="flex items-center gap-2">
-        <Input
-          data-testid={`input-${setting.key}`}
-          type={setting.valueType === "number" ? "number" : "text"}
-          value={value}
-          onChange={(e) => handleValueChange(setting.key, e.target.value)}
-          disabled={!setting.isEditable}
-          className={`w-48 ${changed ? "border-amber-500" : ""}`}
-          min={setting.validationRules?.min}
-          max={setting.validationRules?.max}
-        />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Input
+            data-testid={`input-${setting.key}`}
+            type={setting.valueType === "number" ? "number" : "text"}
+            value={value}
+            onChange={(e) => handleValueChange(setting.key, e.target.value)}
+            disabled={!setting.isEditable}
+            className={`w-full sm:w-48 ${changed ? "border-amber-500" : ""}`}
+            min={setting.validationRules?.min}
+            max={setting.validationRules?.max}
+          />
+          {changed && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleSave(setting)}
+                disabled={updateMutation.isPending}
+                data-testid={`save-${setting.key}`}
+              >
+                {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => handleReset(setting.key)}
+                data-testid={`reset-${setting.key}`}
+              >
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
         {setting.validationRules && (
           <span className="text-xs text-muted-foreground">
             ({setting.validationRules.min} - {setting.validationRules.max})
           </span>
-        )}
-        {changed && (
-          <>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleSave(setting)}
-              disabled={updateMutation.isPending}
-              data-testid={`save-${setting.key}`}
-            >
-              {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleReset(setting.key)}
-              data-testid={`reset-${setting.key}`}
-            >
-              <RotateCcw className="h-3 w-3" />
-            </Button>
-          </>
         )}
       </div>
     );
@@ -494,23 +511,23 @@ export default function FactorySettings() {
                       <CardContent className="py-2">
                         <div className="space-y-2">
                           {patterns.map((pattern) => (
-                            <div key={pattern.id} className="flex items-center justify-between p-2 rounded bg-muted/50 text-sm">
-                              <div className="flex items-center gap-3 flex-1">
-                                <Badge variant={pattern.patternType === 'FILENAME' ? 'default' : 'secondary'} className="text-xs">
+                            <div key={pattern.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded bg-muted/50 text-sm gap-2">
+                              <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                                <Badge variant={pattern.patternType === 'FILENAME' ? 'default' : 'secondary'} className="text-xs shrink-0">
                                   {pattern.patternType}
                                 </Badge>
-                                <code className="bg-background px-2 py-0.5 rounded text-xs font-mono">
+                                <code className="bg-background px-2 py-0.5 rounded text-xs font-mono break-all">
                                   {pattern.pattern}
                                 </code>
                                 <span className="text-muted-foreground text-xs">{pattern.matcherType}</span>
                                 {pattern.isSystem && (
-                                  <Badge variant="outline" className="text-xs">
+                                  <Badge variant="outline" className="text-xs shrink-0">
                                     <Lock className="h-3 w-3 mr-1" />
                                     System
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <Badge variant="outline" className="text-xs">P{pattern.priority}</Badge>
                                 <Switch
                                   checked={pattern.isActive}
@@ -662,7 +679,7 @@ export default function FactorySettings() {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Card className="border-2">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -804,10 +821,10 @@ export default function FactorySettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {settings.map((setting) => (
-            <div key={setting.key} className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 border-b last:border-0">
+            <div key={setting.key} className="space-y-3 pb-4 border-b last:border-0">
               <div>
-                <Label className="font-medium">{setting.key.replace(/_/g, " ")}</Label>
-                <p className="text-sm text-muted-foreground mt-1">
+                <Label className="font-medium text-sm sm:text-base">{setting.key.replace(/_/g, " ")}</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   {setting.description}
                 </p>
                 {!setting.isEditable && (
@@ -817,7 +834,7 @@ export default function FactorySettings() {
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center">
+              <div className="w-full">
                 {renderSettingInput(setting)}
               </div>
             </div>
@@ -846,14 +863,91 @@ export default function FactorySettings() {
     );
   }
 
+  const CategoryNavContent = ({ onSelect }: { onSelect?: () => void }) => (
+    <nav className="p-2 space-y-1">
+      {allCategories.map((cat) => {
+        const Icon = categoryIcons[cat] || Settings;
+        const isActive = activeCategory === cat;
+        const settingsCount = data?.grouped?.[cat]?.length || 0;
+        
+        return (
+          <button
+            key={cat}
+            onClick={() => {
+              setActiveCategory(cat);
+              onSelect?.();
+            }}
+            data-testid={`nav-${cat.toLowerCase()}`}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors text-left",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="flex-1 truncate">{categoryLabels[cat] || cat}</span>
+            {settingsCount > 0 && !isActive && (
+              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                {settingsCount}
+              </Badge>
+            )}
+            {isActive && <ChevronRight className="h-4 w-4 shrink-0" />}
+          </button>
+        );
+      })}
+    </nav>
+  );
+
+  const ActiveIcon = categoryIcons[activeCategory] || Settings;
+
   return (
     <div className="flex h-screen overflow-hidden" data-testid="page-factory-settings">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Factory Settings" />
         <main id="main-content" className="flex-1 overflow-hidden" role="main" aria-label="Factory settings content">
-          <div className="h-full flex">
-            <aside className="w-64 border-r bg-muted/30 flex flex-col">
+          <div className="h-full flex flex-col lg:flex-row">
+            {/* Mobile Category Selector */}
+            <div className="lg:hidden border-b bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Menu className="h-4 w-4" />
+                      <span className="sr-only sm:not-sr-only">Categories</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[280px] p-0">
+                    <SheetHeader className="p-4 border-b">
+                      <SheetTitle className="flex items-center gap-2">
+                        <Settings className="h-5 w-5 text-primary" />
+                        Settings Categories
+                      </SheetTitle>
+                    </SheetHeader>
+                    <ScrollArea className="h-[calc(100vh-80px)]">
+                      <CategoryNavContent onSelect={() => setMobileMenuOpen(false)} />
+                    </ScrollArea>
+                  </SheetContent>
+                </Sheet>
+                
+                {/* Current category indicator on mobile */}
+                <div className="flex-1 flex items-center gap-2 px-2 py-1.5 bg-primary/10 rounded-md">
+                  <ActiveIcon className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium truncate">
+                    {categoryLabels[activeCategory] || activeCategory}
+                  </span>
+                </div>
+                
+                <Badge variant="outline" className="border-emerald-500 text-emerald-600 text-xs hidden sm:flex">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Super User
+                </Badge>
+              </div>
+            </div>
+
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:flex w-64 border-r bg-muted/30 flex-col shrink-0">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-2">
                   <Settings className="h-5 w-5 text-primary" />
@@ -861,36 +955,7 @@ export default function FactorySettings() {
                 </div>
               </div>
               <ScrollArea className="flex-1">
-                <nav className="p-2 space-y-1">
-                  {allCategories.map((cat) => {
-                    const Icon = categoryIcons[cat] || Settings;
-                    const isActive = activeCategory === cat;
-                    const settingsCount = data?.grouped?.[cat]?.length || 0;
-                    
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setActiveCategory(cat)}
-                        data-testid={`nav-${cat.toLowerCase()}`}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors text-left",
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        <span className="flex-1 truncate">{categoryLabels[cat] || cat}</span>
-                        {settingsCount > 0 && !isActive && (
-                          <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                            {settingsCount}
-                          </Badge>
-                        )}
-                        {isActive && <ChevronRight className="h-4 w-4 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </nav>
+                <CategoryNavContent />
               </ScrollArea>
               <div className="p-4 border-t">
                 <Badge variant="outline" className="w-full justify-center border-emerald-500 text-emerald-600 py-1">
@@ -900,9 +965,10 @@ export default function FactorySettings() {
               </div>
             </aside>
 
+            {/* Main Content */}
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-6">
-                <div>
+              <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+                <div className="hidden lg:block">
                   <h1 className="text-2xl font-bold text-foreground">
                     {categoryLabels[activeCategory] || activeCategory}
                   </h1>
