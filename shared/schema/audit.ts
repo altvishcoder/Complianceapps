@@ -52,7 +52,23 @@ export const auditFieldChanges = pgTable("audit_field_changes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const logLevelEnum = pgEnum('log_level', ['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
+export const logSourceEnum = pgEnum('log_source', ['api', 'job-queue', 'extraction', 'webhook', 'http', 'system']);
+
+export const systemLogs = pgTable("system_logs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  level: logLevelEnum("level").notNull(),
+  source: logSourceEnum("source").notNull().default('system'),
+  message: text("message").notNull(),
+  context: json("context"),
+  requestId: text("request_id"),
+  userId: varchar("user_id"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type InsertAuditEvent = Omit<AuditEvent, 'id' | 'createdAt'>;
 export type AuditFieldChange = typeof auditFieldChanges.$inferSelect;
 export type InsertAuditFieldChange = Omit<AuditFieldChange, 'id' | 'createdAt'>;
+export type SystemLog = typeof systemLogs.$inferSelect;
+export type InsertSystemLog = Omit<SystemLog, 'id'>;

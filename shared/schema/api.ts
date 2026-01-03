@@ -9,6 +9,18 @@ export const webhookAuthTypeEnum = pgEnum('webhook_auth_type', ['NONE', 'API_KEY
 export const webhookStatusEnum = pgEnum('webhook_status', ['ACTIVE', 'PAUSED', 'FAILED', 'DISABLED']);
 export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', ['PENDING', 'SENT', 'FAILED', 'RETRYING']);
 
+export const ingestionBatches = pgTable("ingestion_batches", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  name: text("name"),
+  totalFiles: integer("total_files").notNull().default(0),
+  completedFiles: integer("completed_files").notNull().default(0),
+  failedFiles: integer("failed_files").notNull().default(0),
+  status: text("status").notNull().default('PENDING'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const apiClients = pgTable("api_clients", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
@@ -154,6 +166,38 @@ export const apiKeys = pgTable("api_keys", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const ingestionJobs = pgTable("ingestion_jobs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  apiClientId: varchar("api_client_id").references(() => apiClients.id),
+  uploadSessionId: varchar("upload_session_id").references(() => uploadSessions.id),
+  batchId: varchar("batch_id").references(() => ingestionBatches.id),
+  channel: ingestionChannelEnum("channel").notNull().default('MANUAL_UPLOAD'),
+  certificateType: text("certificate_type").notNull(),
+  propertyUprn: text("property_uprn"),
+  propertyId: varchar("property_id"),
+  fileName: text("file_name").notNull(),
+  objectPath: text("object_path"),
+  status: ingestionJobStatusEnum("status").notNull().default('QUEUED'),
+  progress: integer("progress").notNull().default(0),
+  statusMessage: text("status_message"),
+  certificateId: varchar("certificate_id"),
+  extractionId: varchar("extraction_id"),
+  errorDetails: json("error_details"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  nextRetryAt: timestamp("next_retry_at"),
+  webhookUrl: text("webhook_url"),
+  webhookDelivered: boolean("webhook_delivered").notNull().default(false),
+  idempotencyKey: text("idempotency_key").unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export type IngestionBatch = typeof ingestionBatches.$inferSelect;
+export type IngestionJob = typeof ingestionJobs.$inferSelect;
 export type ApiClient = typeof apiClients.$inferSelect;
 export type UploadSession = typeof uploadSessions.$inferSelect;
 export type RateLimitEntry = typeof rateLimitEntries.$inferSelect;

@@ -337,6 +337,66 @@ export const iconRegistry = pgTable("icon_registry", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const cacheLayerEnum = pgEnum('cache_layer', ['CLIENT', 'API', 'DATABASE', 'MEMORY', 'SESSION']);
+export const cacheClearScopeEnum = pgEnum('cache_clear_scope', ['REGION', 'CATEGORY', 'LAYER', 'ALL']);
+export const cacheClearStatusEnum = pgEnum('cache_clear_status', ['SUCCESS', 'PARTIAL', 'FAILED', 'DRY_RUN']);
+
+export const cacheRegions = pgTable("cache_regions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  layer: cacheLayerEnum("layer").notNull(),
+  category: text("category").notNull(),
+  queryKeyPattern: text("query_key_pattern"),
+  cacheKeyPattern: text("cache_key_pattern"),
+  autoRefreshSeconds: integer("auto_refresh_seconds"),
+  isAutoCleared: boolean("is_auto_cleared").notNull().default(false),
+  isProtected: boolean("is_protected").notNull().default(false),
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  metadata: json("metadata"),
+  lastClearedAt: timestamp("last_cleared_at"),
+  lastClearedBy: varchar("last_cleared_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const cacheStats = pgTable("cache_stats", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  regionId: varchar("region_id").references(() => cacheRegions.id, { onDelete: 'cascade' }).notNull(),
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  hitCount: integer("hit_count").notNull().default(0),
+  missCount: integer("miss_count").notNull().default(0),
+  evictionCount: integer("eviction_count").notNull().default(0),
+  estimatedEntries: integer("estimated_entries").notNull().default(0),
+  estimatedSizeBytes: integer("estimated_size_bytes").notNull().default(0),
+  avgResponseTimeMs: real("avg_response_time_ms"),
+  source: text("source").notNull().default('system'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const cacheClearAudit = pgTable("cache_clear_audit", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  scope: cacheClearScopeEnum("scope").notNull(),
+  scopeIdentifier: text("scope_identifier"),
+  initiatedBy: varchar("initiated_by").references(() => users.id).notNull(),
+  initiatorRole: text("initiator_role").notNull(),
+  initiatorIp: text("initiator_ip"),
+  reason: text("reason").notNull(),
+  confirmationToken: text("confirmation_token"),
+  isDryRun: boolean("is_dry_run").notNull().default(false),
+  status: cacheClearStatusEnum("status").notNull(),
+  affectedRegions: json("affected_regions"),
+  totalEntriesCleared: integer("total_entries_cleared").notNull().default(0),
+  executionTimeMs: integer("execution_time_ms"),
+  beforeState: json("before_state"),
+  afterState: json("after_state"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type NavigationSection = typeof navigationSections.$inferSelect;
 export type InsertNavigationSection = Omit<NavigationSection, 'id' | 'createdAt' | 'updatedAt'>;
 export type NavigationItem = typeof navigationItems.$inferSelect;
@@ -345,3 +405,11 @@ export type NavigationItemRole = typeof navigationItemRoles.$inferSelect;
 export type IconRegistryEntry = typeof iconRegistry.$inferSelect;
 export type InsertIconRegistryEntry = Omit<IconRegistryEntry, 'id' | 'createdAt'>;
 export type NavigationItemWithRoles = NavigationItem & { allowedRoles: string[] };
+export type CacheRegion = typeof cacheRegions.$inferSelect;
+export type InsertCacheRegion = Omit<CacheRegion, 'id' | 'createdAt' | 'updatedAt'>;
+export type CacheStats = typeof cacheStats.$inferSelect;
+export type InsertCacheStats = Omit<CacheStats, 'id' | 'createdAt'>;
+export type CacheClearAudit = typeof cacheClearAudit.$inferSelect;
+export type InsertCacheClearAudit = Omit<CacheClearAudit, 'id' | 'createdAt'>;
+export type CacheLayer = 'CLIENT' | 'API' | 'DATABASE' | 'MEMORY' | 'SESSION';
+export type CacheClearScope = 'REGION' | 'CATEGORY' | 'LAYER' | 'ALL';
