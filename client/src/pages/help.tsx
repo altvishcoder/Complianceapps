@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,10 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Home, Building2, FileText, AlertTriangle, Map, Users, Settings, 
   Upload, CheckCircle2, Clock, Shield, BarChart3, Wrench, BookOpen,
-  Search, HelpCircle, Layers
+  Search, HelpCircle, Layers, Brain, MessageSquare, Activity, Target,
+  Calendar, TrendingUp, Radar, Eye, Video, Database, Bot, Cog
 } from "lucide-react";
 
 export default function HelpPage() {
+  useEffect(() => {
+    document.title = "Help & User Guide - ComplianceAI";
+  }, []);
+
   return (
     <div className="flex h-screen bg-muted/30">
       <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -20,7 +26,7 @@ export default function HelpPage() {
         <Header title="Help & User Guide" />
         <main id="main-content" className="flex-1 overflow-hidden" role="main" aria-label="Help content">
           <ScrollArea className="h-full">
-            <div className="p-6 max-w-5xl mx-auto space-y-6">
+            <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
               
               <div className="space-y-1">
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight font-display">ComplianceAI User Guide</h1>
@@ -30,16 +36,16 @@ export default function HelpPage() {
               </div>
 
               <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList className="flex-wrap h-auto gap-1">
-                  <TabsTrigger value="overview" className="gap-2"><BookOpen className="h-4 w-4" /> Overview</TabsTrigger>
-                  <TabsTrigger value="dashboard" className="gap-2"><Home className="h-4 w-4" /> Dashboard</TabsTrigger>
-                  <TabsTrigger value="properties" className="gap-2"><Building2 className="h-4 w-4" /> Properties</TabsTrigger>
-                  <TabsTrigger value="certificates" className="gap-2"><FileText className="h-4 w-4" /> Certificates</TabsTrigger>
-                  <TabsTrigger value="actions" className="gap-2"><AlertTriangle className="h-4 w-4" /> Actions</TabsTrigger>
-                  <TabsTrigger value="maps" className="gap-2"><Map className="h-4 w-4" /> Risk Maps</TabsTrigger>
-                  <TabsTrigger value="admin" className="gap-2"><Settings className="h-4 w-4" /> Admin</TabsTrigger>
+                <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+                  <TabsTrigger value="overview" className="text-xs sm:text-sm gap-1"><BookOpen className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Overview</span></TabsTrigger>
+                  <TabsTrigger value="command" className="text-xs sm:text-sm gap-1"><Home className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Command</span></TabsTrigger>
+                  <TabsTrigger value="assets" className="text-xs sm:text-sm gap-1"><Building2 className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Assets</span></TabsTrigger>
+                  <TabsTrigger value="operations" className="text-xs sm:text-sm gap-1"><FileText className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Ops</span></TabsTrigger>
+                  <TabsTrigger value="ai" className="text-xs sm:text-sm gap-1"><Brain className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">AI</span></TabsTrigger>
+                  <TabsTrigger value="admin" className="text-xs sm:text-sm gap-1"><Settings className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Admin</span></TabsTrigger>
                 </TabsList>
 
+                {/* OVERVIEW TAB */}
                 <TabsContent value="overview" className="space-y-6">
                   <Card>
                     <CardHeader>
@@ -57,94 +63,177 @@ export default function HelpPage() {
                         <div className="p-4 border rounded-lg space-y-2">
                           <h4 className="font-semibold flex items-center gap-2">
                             <Layers className="h-4 w-4 text-blue-500" />
-                            Asset Hierarchy
+                            UKHDS 5-Level Asset Hierarchy
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            Properties are organised following the HACT/UKHDS 5-level hierarchy:
+                            Properties are organised following the UK Housing Data Standards hierarchy:
                           </p>
                           <ul className="text-sm space-y-1 ml-4">
-                            <li><strong>Organisation</strong> → Housing Association</li>
-                            <li><strong>Scheme</strong> → Estate or development</li>
-                            <li><strong>Block</strong> → Individual building</li>
-                            <li><strong>Property</strong> → Residential unit</li>
-                            <li><strong>Component</strong> → Equipment (boiler, alarms)</li>
+                            <li><strong>Organisation</strong> → Your housing association (implicit)</li>
+                            <li><strong>Scheme</strong> → Estate, development, or site</li>
+                            <li><strong>Block</strong> → Physical building structure</li>
+                            <li><strong>Dwelling (Property)</strong> → The lettable home</li>
+                            <li><strong>Space</strong> → Rooms and communal areas</li>
+                            <li><strong>Component</strong> → Equipment (boilers, alarms, lifts)</li>
                           </ul>
                         </div>
                         <div className="p-4 border rounded-lg space-y-2">
                           <h4 className="font-semibold flex items-center gap-2">
                             <Shield className="h-4 w-4 text-green-500" />
-                            Compliance Streams
+                            16 Compliance Streams
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            Track certificates across all major compliance areas:
+                            Track certificates across all major UK compliance areas:
                           </p>
-                          <ul className="text-sm space-y-1 ml-4">
-                            <li><strong>Gas Safety</strong> - CP12/LGSR certificates</li>
-                            <li><strong>Electrical</strong> - EICR reports</li>
-                            <li><strong>Fire Risk</strong> - FRA assessments</li>
-                            <li><strong>Energy</strong> - EPC ratings</li>
-                            <li><strong>Asbestos</strong> - Management surveys</li>
-                            <li><strong>Legionella</strong> - Risk assessments</li>
+                          <ul className="text-sm space-y-1 ml-4 grid grid-cols-2">
+                            <li>Gas & Heating</li>
+                            <li>Electrical</li>
+                            <li>Fire Safety</li>
+                            <li>Energy (EPC)</li>
+                            <li>Asbestos</li>
+                            <li>Water Safety</li>
+                            <li>Lifting Equipment</li>
+                            <li>Building Safety</li>
+                            <li>External Areas</li>
+                            <li>Security</li>
+                            <li>HRB-specific</li>
+                            <li>Housing Health</li>
+                            <li>Accessibility</li>
+                            <li>Pest Control</li>
+                            <li>Waste</li>
+                            <li>Communal</li>
                           </ul>
                         </div>
                       </div>
                       
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h4 className="font-semibold text-blue-800 mb-2">AI-Powered Extraction</h4>
-                        <p className="text-sm text-blue-700">
-                          When you upload compliance certificates, our AI automatically extracts key data including 
-                          expiry dates, outcomes, contractor details, and any defects that need attention. This 
-                          creates remedial actions automatically for issues found.
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">AI-Powered Platform</h4>
+                        <p className="text-sm text-blue-700 dark:text-blue-400">
+                          ComplianceAI uses advanced AI to automatically extract data from uploaded certificates,
+                          predict compliance risks, and provide intelligent assistance via the chatbot. The system
+                          supports 80 certificate types across all compliance streams with 45 extraction schemas.
                         </p>
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-3">
+                        <div className="p-3 border rounded-lg text-center">
+                          <FileText className="h-6 w-6 mx-auto mb-2 text-primary" />
+                          <h5 className="font-medium text-sm">80+ Certificate Types</h5>
+                          <p className="text-xs text-muted-foreground">CP12, EICR, FRA, EPC, and more</p>
+                        </div>
+                        <div className="p-3 border rounded-lg text-center">
+                          <Brain className="h-6 w-6 mx-auto mb-2 text-primary" />
+                          <h5 className="font-medium text-sm">AI Document Extraction</h5>
+                          <p className="text-xs text-muted-foreground">Claude Vision powered</p>
+                        </div>
+                        <div className="p-3 border rounded-lg text-center">
+                          <Radar className="h-6 w-6 mx-auto mb-2 text-primary" />
+                          <h5 className="font-medium text-sm">Predictive Risk Radar</h5>
+                          <p className="text-xs text-muted-foreground">ML-powered forecasting</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" />
+                        User Roles
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive">Super Admin</Badge>
+                          <span>Full system access including factory settings and configuration</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-orange-500">System Admin</Badge>
+                          <span>User management, system health, and API configuration</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-500">Compliance Manager</Badge>
+                          <span>Certificate upload, property management, remedial actions</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-500">Manager</Badge>
+                          <span>View and edit properties, certificates, and actions</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">Officer</Badge>
+                          <span>Day-to-day operations and certificate processing</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">Viewer</Badge>
+                          <span>Read-only access to reports and dashboards</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="dashboard" className="space-y-6">
+                {/* COMMAND CENTRE TAB */}
+                <TabsContent value="command" className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Home className="h-5 w-5 text-primary" />
-                        Dashboard
+                        Command Centre
                       </CardTitle>
-                      <CardDescription>Your compliance overview at a glance</CardDescription>
+                      <CardDescription>Your compliance overview and control hub</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="stats">
-                          <AccordionTrigger>Compliance Statistics</AccordionTrigger>
+                        <AccordionItem value="overview">
+                          <AccordionTrigger>Overview Dashboard</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>The dashboard displays key metrics:</p>
+                            <p>The main dashboard displays key metrics using colour-coded cards:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Total Properties</strong> - Number of properties in your portfolio</li>
-                              <li><strong>Compliance Rate</strong> - Percentage of properties with valid certificates</li>
-                              <li><strong>Expiring Soon</strong> - Certificates due within 30 days</li>
-                              <li><strong>Overdue</strong> - Properties with expired certificates</li>
-                              <li><strong>Open Actions</strong> - Remedial work awaiting completion</li>
+                              <li><Badge variant="destructive">Critical</Badge> Overdue certificates requiring immediate attention</li>
+                              <li><Badge className="bg-orange-500">High</Badge> Expiring within 7 days</li>
+                              <li><Badge className="bg-amber-500">Medium</Badge> Expiring within 30 days</li>
+                              <li><Badge className="bg-blue-500">Low</Badge> Items pending review</li>
+                              <li><Badge className="bg-emerald-500">Good</Badge> Compliant properties</li>
                             </ul>
+                            <p className="mt-2">Click any card to drill down to the relevant data.</p>
                           </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="charts">
-                          <AccordionTrigger>Charts and Trends</AccordionTrigger>
+                        <AccordionItem value="analytics">
+                          <AccordionTrigger>Analytics</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>Visual representations of your compliance data:</p>
+                            <p>Detailed analysis of your compliance data:</p>
                             <ul className="list-disc ml-6 space-y-1">
                               <li><strong>Compliance by Stream</strong> - See which areas need attention</li>
                               <li><strong>Monthly Trends</strong> - Track improvements over time</li>
-                              <li><strong>Action Status</strong> - Monitor remedial work progress</li>
+                              <li><strong>Property Distribution</strong> - Breakdown by scheme and block</li>
+                              <li><strong>Action Completion Rates</strong> - Monitor remedial work progress</li>
                             </ul>
                           </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="alerts">
-                          <AccordionTrigger>Alerts and Notifications</AccordionTrigger>
+                        <AccordionItem value="ingestion">
+                          <AccordionTrigger>Ingestion Dashboard</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>Stay informed about critical items:</p>
+                            <p>Monitor document processing status:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Red alerts</strong> - Overdue certificates requiring immediate attention</li>
-                              <li><strong>Amber alerts</strong> - Certificates expiring within 30 days</li>
-                              <li><strong>Blue notices</strong> - Pending reviews and approvals</li>
+                              <li><strong>Queue Status</strong> - Documents awaiting processing</li>
+                              <li><strong>Processing</strong> - Currently being extracted by AI</li>
+                              <li><strong>Completed</strong> - Successfully processed today</li>
+                              <li><strong>Failed</strong> - Documents requiring attention</li>
                             </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="reporting">
+                          <AccordionTrigger>Reporting</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Generate and export compliance reports:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Compliance Summary</strong> - Overall status report</li>
+                              <li><strong>Expiry Report</strong> - Upcoming certificate renewals</li>
+                              <li><strong>Remedial Actions</strong> - Outstanding work summary</li>
+                              <li><strong>Audit Trail</strong> - System activity log</li>
+                            </ul>
+                            <p className="mt-2">Reports can be exported to PDF or Excel format.</p>
                           </AccordionContent>
                         </AccordionItem>
                       </Accordion>
@@ -152,65 +241,68 @@ export default function HelpPage() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="properties" className="space-y-6">
+                {/* ASSETS TAB */}
+                <TabsContent value="assets" className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Building2 className="h-5 w-5 text-primary" />
-                        Property Management
+                        Asset Management
                       </CardTitle>
-                      <CardDescription>Managing your property portfolio</CardDescription>
+                      <CardDescription>Managing your property portfolio and components</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="view">
-                          <AccordionTrigger>Viewing Properties</AccordionTrigger>
+                        <AccordionItem value="hierarchy">
+                          <AccordionTrigger>Property Hierarchy</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>The Properties page shows all residential units:</p>
+                            <p>Manage your organisation's asset structure (Admin/Manager only):</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Schemes</strong> - Create estates, developments, or sites</li>
+                              <li><strong>Blocks</strong> - Add buildings within schemes</li>
+                              <li><strong>Properties</strong> - Residential units within blocks</li>
+                              <li><strong>Spaces</strong> - Rooms (in properties) or communal areas (in blocks/schemes)</li>
+                            </ul>
+                            <p className="mt-2">Use the tree view to navigate and expand the hierarchy.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="properties">
+                          <AccordionTrigger>Properties (Dwellings)</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>View and manage residential units:</p>
                             <ul className="list-disc ml-6 space-y-1">
                               <li><strong>Search</strong> - Find by address, postcode, or UPRN</li>
-                              <li><strong>Filter by Scheme</strong> - View properties within a specific estate</li>
-                              <li><strong>Filter by Block</strong> - Narrow down to a building</li>
-                              <li><strong>Filter by Status</strong> - See compliant, non-compliant, or pending review</li>
+                              <li><strong>Filter</strong> - By scheme, block, compliance status</li>
+                              <li><strong>Add Property</strong> - Create new units manually</li>
+                              <li><strong>Bulk Import</strong> - Upload via CSV from Data Import</li>
                             </ul>
+                            <p className="mt-2">Each property shows its compliance status across all streams.</p>
                           </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="add">
-                          <AccordionTrigger>Adding Properties</AccordionTrigger>
+                        <AccordionItem value="components">
+                          <AccordionTrigger>Components (Assets)</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>To add a new property:</p>
-                            <ol className="list-decimal ml-6 space-y-1">
-                              <li>Click the <strong>"Add Property"</strong> button</li>
-                              <li>Select the Scheme (estate) and Block (building)</li>
-                              <li>Enter the address details and postcode</li>
-                              <li>Set property type, bedrooms, and tenure</li>
-                              <li>Click <strong>"Create Property"</strong></li>
-                            </ol>
-                            <p className="mt-2">Properties can also be imported in bulk via CSV from the Admin section.</p>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="edit">
-                          <AccordionTrigger>Editing Location Data</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>For Risk Maps to work, properties need coordinates:</p>
-                            <ol className="list-decimal ml-6 space-y-1">
-                              <li>Properties are automatically geocoded from their postcode</li>
-                              <li>If automatic geocoding fails, click the <strong>edit icon</strong> on a property</li>
-                              <li>Enter the latitude and longitude manually</li>
-                              <li>Tip: Find coordinates on Google Maps by right-clicking on the location</li>
-                            </ol>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="review">
-                          <AccordionTrigger>Bulk Actions and Review</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>When properties are created via AI extraction, they need review:</p>
+                            <p>Track equipment and assets requiring compliance:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li>Select multiple properties using checkboxes</li>
-                              <li><strong>Approve</strong> - Mark as verified and accurate</li>
-                              <li><strong>Reject</strong> - Remove incorrect properties</li>
-                              <li><strong>Delete</strong> - Permanently remove selected properties</li>
+                              <li><strong>Boilers</strong> - Gas appliances with CP12 requirements</li>
+                              <li><strong>Consumer Units</strong> - Electrical installations needing EICR</li>
+                              <li><strong>Smoke Alarms</strong> - Fire detection equipment</li>
+                              <li><strong>Lifts</strong> - LOLER inspection requirements</li>
+                              <li><strong>Water Systems</strong> - Legionella risk assessments</li>
                             </ul>
+                            <p className="mt-2">Components link certificates to specific equipment, not just properties.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="spaces">
+                          <AccordionTrigger>Spaces</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Spaces can be attached at three levels:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Property-level</strong> - Rooms within a dwelling (Kitchen, Bedroom)</li>
+                              <li><strong>Block-level</strong> - Communal areas in a building (Stairwell, Plant Room)</li>
+                              <li><strong>Scheme-level</strong> - Estate-wide spaces (Community Hall, Grounds)</li>
+                            </ul>
+                            <p className="mt-2">Components can be placed in specific spaces for precise tracking.</p>
                           </AccordionContent>
                         </AccordionItem>
                       </Accordion>
@@ -218,76 +310,193 @@ export default function HelpPage() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="certificates" className="space-y-6">
+                {/* OPERATIONS TAB */}
+                <TabsContent value="operations" className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
-                        Certificate Management
+                        Operations
                       </CardTitle>
-                      <CardDescription>Uploading and managing compliance documents</CardDescription>
+                      <CardDescription>Day-to-day compliance management</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="upload">
-                          <AccordionTrigger>Uploading Certificates</AccordionTrigger>
+                        <AccordionItem value="certificates">
+                          <AccordionTrigger>Certificates</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>To upload a new certificate:</p>
+                            <p>Upload and manage compliance documents:</p>
                             <ol className="list-decimal ml-6 space-y-1">
-                              <li>Go to <strong>Certificates → Upload</strong></li>
-                              <li>Select the certificate type (Gas Safety, EICR, etc.)</li>
-                              <li>Choose the property the certificate relates to</li>
-                              <li>Upload the PDF or image file</li>
-                              <li>Our AI will automatically extract the data</li>
+                              <li>Click <strong>Upload Certificate</strong></li>
+                              <li>Select file (PDF or image)</li>
+                              <li>AI automatically detects certificate type</li>
+                              <li>AI extracts property, dates, outcome, and defects</li>
+                              <li>Review and approve the extraction</li>
                             </ol>
-                            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded">
-                              <p className="text-amber-800 text-xs">
-                                <strong>Tip:</strong> For best results, upload clear scans or photos. 
-                                The AI works best with standard certificate formats.
+                            <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded">
+                              <p className="text-amber-800 dark:text-amber-300 text-xs">
+                                <strong>Tip:</strong> Upload clear scans for best AI accuracy. Supported: CP12, LGSR, EICR, FRA, EPC, Asbestos surveys, and 70+ more certificate types.
                               </p>
                             </div>
                           </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="types">
-                          <AccordionTrigger>Certificate Types</AccordionTrigger>
+                        <AccordionItem value="risk-radar">
+                          <AccordionTrigger>Risk Radar</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>Supported certificate types:</p>
+                            <p>ML-powered predictive compliance dashboard:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Gas Safety (CP12/LGSR)</strong> - Annual requirement, 12 months validity</li>
-                              <li><strong>EICR</strong> - Electrical installation report, typically 5 years</li>
-                              <li><strong>EPC</strong> - Energy Performance Certificate, 10 years validity</li>
-                              <li><strong>Fire Risk Assessment</strong> - Review frequency varies by building type</li>
-                              <li><strong>Asbestos Survey</strong> - Management or refurbishment surveys</li>
-                              <li><strong>Legionella Risk Assessment</strong> - Water hygiene checks</li>
-                              <li><strong>Lift Inspection</strong> - LOLER compliance certificates</li>
+                              <li><strong>Predicted Failures</strong> - Properties likely to fail upcoming inspections</li>
+                              <li><strong>Risk Scores</strong> - Combined statistical and ML confidence</li>
+                              <li><strong>Priority Queue</strong> - Which properties need attention first</li>
+                              <li><strong>Trend Analysis</strong> - Risk patterns over time</li>
+                            </ul>
+                            <p className="mt-2">The system learns from human feedback to improve predictions.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="actions">
+                          <AccordionTrigger>Remedial Actions</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Actions are created automatically when AI finds defects:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><Badge variant="destructive">Critical</Badge> Immediate danger - 24hr response</li>
+                              <li><Badge className="bg-red-500">High</Badge> Serious risk - 7 days</li>
+                              <li><Badge className="bg-amber-500">Medium</Badge> Moderate risk - 28 days</li>
+                              <li><Badge className="bg-blue-500">Low</Badge> Advisory - next service</li>
+                            </ul>
+                            <p className="mt-2">Assign to contractors, track progress, and record completion.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="calendar">
+                          <AccordionTrigger>Calendar</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>View compliance events on a calendar:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Expiry Dates</strong> - Certificates due for renewal</li>
+                              <li><strong>Inspection Due</strong> - Scheduled inspections</li>
+                              <li><strong>Action Deadlines</strong> - Remedial work due dates</li>
+                            </ul>
+                            <p className="mt-2">Switch between month, week, and day views.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="risk-maps">
+                          <AccordionTrigger>Risk Maps</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Geographic visualisation of compliance risk:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Property Markers</strong> - Colour-coded by risk level</li>
+                              <li><strong>Heatmap Mode</strong> - See concentrations of risk</li>
+                              <li><strong>Click to Drill Down</strong> - View property details</li>
+                              <li><strong>Filter by Stream</strong> - Gas, electrical, fire, etc.</li>
+                            </ul>
+                            <p className="mt-2">Properties need geocoding (coordinates) to appear on the map.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="human-review">
+                          <AccordionTrigger>Human Review</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Review AI extractions with low confidence:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Queue</strong> - Documents flagged for human review</li>
+                              <li><strong>Side-by-side View</strong> - Original document vs extracted data</li>
+                              <li><strong>Correct & Approve</strong> - Fix errors and confirm</li>
+                              <li><strong>Reject</strong> - Mark as unprocessable</li>
+                            </ul>
+                            <p className="mt-2">Your corrections train the AI to improve over time.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="contractors">
+                          <AccordionTrigger>Contractor Management</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Manage your approved contractors:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Add Contractors</strong> - Company details and certifications</li>
+                              <li><strong>Assign Work</strong> - Link actions to contractors</li>
+                              <li><strong>Track Performance</strong> - Completion rates and response times</li>
                             </ul>
                           </AccordionContent>
                         </AccordionItem>
+                      </Accordion>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* AI & ML TAB */}
+                <TabsContent value="ai" className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Brain className="h-5 w-5 text-primary" />
+                        AI & Machine Learning
+                      </CardTitle>
+                      <CardDescription>Intelligent features powered by AI</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Accordion type="single" collapsible className="w-full">
                         <AccordionItem value="extraction">
-                          <AccordionTrigger>AI Data Extraction</AccordionTrigger>
+                          <AccordionTrigger>AI Document Extraction</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>When a certificate is uploaded, the AI extracts:</p>
+                            <p>When you upload a certificate, our AI (Claude Vision) extracts:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Property address</strong> - Matched to your portfolio</li>
-                              <li><strong>Inspection date</strong> and <strong>expiry date</strong></li>
+                              <li><strong>Certificate Type</strong> - Automatically detected from 80+ types</li>
+                              <li><strong>Property Address</strong> - Matched to your portfolio</li>
+                              <li><strong>Dates</strong> - Inspection and expiry dates</li>
                               <li><strong>Outcome</strong> - Pass, Fail, Satisfactory, etc.</li>
-                              <li><strong>Contractor details</strong> - Company and engineer information</li>
-                              <li><strong>Defects/Issues</strong> - Classification codes and descriptions</li>
+                              <li><strong>Contractor</strong> - Company and engineer details</li>
+                              <li><strong>Defects</strong> - Classification codes and descriptions</li>
                             </ul>
-                            <p className="mt-2">
-                              Any defects found automatically create remedial actions with appropriate severity levels.
-                            </p>
+                            <p className="mt-2">Defects automatically create remedial actions with appropriate severity.</p>
                           </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="review-cert">
-                          <AccordionTrigger>Review and Approval</AccordionTrigger>
+                        <AccordionItem value="chatbot">
+                          <AccordionTrigger>AI Assistant Chatbot</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>After AI extraction, certificates may need human review:</p>
+                            <p>Get instant help from our 5-layer AI assistant:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li>Check the <strong>Model Insights</strong> page for confidence scores</li>
-                              <li>Low confidence extractions are flagged for review</li>
-                              <li>Use <strong>Human Review</strong> to approve or correct data</li>
-                              <li>Approved certificates update the property's compliance status</li>
+                              <li><strong>FAQ Answers</strong> - Quick responses to common compliance questions</li>
+                              <li><strong>Property Lookups</strong> - "Show me properties in Oakwood Estate"</li>
+                              <li><strong>Certificate Searches</strong> - "Which gas certificates expire this month?"</li>
+                              <li><strong>Compliance Guidance</strong> - Legislation references and best practices</li>
+                              <li><strong>Navigation Help</strong> - "How do I upload a certificate?"</li>
+                            </ul>
+                            <p className="mt-2">Click the chat icon in the bottom corner to start a conversation.</p>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="model-insights">
+                          <AccordionTrigger>Model Insights</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Monitor AI performance (Admin/Manager only):</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Accuracy</strong> - Percentage of correct predictions</li>
+                              <li><strong>Confidence Scores</strong> - Statistical vs ML confidence</li>
+                              <li><strong>Feedback Loop</strong> - How human corrections improve the model</li>
+                              <li><strong>Training Status</strong> - When the model was last updated</li>
+                            </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="confidence">
+                          <AccordionTrigger>Two-Tier Confidence System</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>The system uses two types of confidence scores:</p>
+                            <div className="space-y-3 mt-2">
+                              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded border border-blue-200 dark:border-blue-800">
+                                <h5 className="font-medium text-blue-800 dark:text-blue-300">Statistical Score (85-95%)</h5>
+                                <p className="text-xs text-blue-700 dark:text-blue-400">Based on proven compliance rules, certificate expiry patterns, and historical data. Always reliable.</p>
+                              </div>
+                              <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded border border-purple-200 dark:border-purple-800">
+                                <h5 className="font-medium text-purple-800 dark:text-purple-300">ML Prediction (30-95%)</h5>
+                                <p className="text-xs text-purple-700 dark:text-purple-400">Learning from patterns and human feedback. Improves over time as more feedback is provided.</p>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="knowledge">
+                          <AccordionTrigger>Knowledge Training</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Train the AI chatbot with custom knowledge:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>FAQ Management</strong> - Add questions and answers</li>
+                              <li><strong>Compliance Guidance</strong> - Upload policy documents</li>
+                              <li><strong>Organisation-specific</strong> - Custom procedures and contacts</li>
                             </ul>
                           </AccordionContent>
                         </AccordionItem>
@@ -296,125 +505,7 @@ export default function HelpPage() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="actions" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-primary" />
-                        Remedial Actions
-                      </CardTitle>
-                      <CardDescription>Managing defects and required work</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="auto">
-                          <AccordionTrigger>Automatic Action Creation</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>Remedial actions are created automatically when:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li>AI extraction finds defects in a certificate</li>
-                              <li>A certificate outcome is unsatisfactory</li>
-                              <li>Classification codes indicate required work (C1, C2, C3 for electrical)</li>
-                            </ul>
-                            <p className="mt-2">
-                              Severity levels and cost estimates are configured in Factory Settings based on 
-                              industry standards.
-                            </p>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="severity">
-                          <AccordionTrigger>Severity Levels</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>Actions are categorised by urgency:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li><Badge variant="destructive">Critical</Badge> - Immediate danger, 24-hour response</li>
-                              <li><Badge className="bg-red-500">High</Badge> - Serious risk, complete within 7 days</li>
-                              <li><Badge className="bg-amber-500">Medium</Badge> - Moderate risk, complete within 28 days</li>
-                              <li><Badge className="bg-blue-500">Low</Badge> - Advisory, schedule at next service</li>
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="manage">
-                          <AccordionTrigger>Managing Actions</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>From the Actions page you can:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Filter</strong> - By severity, property, or compliance stream</li>
-                              <li><strong>Assign</strong> - Allocate work to contractors</li>
-                              <li><strong>Update Status</strong> - Mark as in progress or complete</li>
-                              <li><strong>Add Notes</strong> - Record updates and completion details</li>
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="maps" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Map className="h-5 w-5 text-primary" />
-                        Risk Maps
-                      </CardTitle>
-                      <CardDescription>Geographic visualisation of compliance risk</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="overview-map">
-                          <AccordionTrigger>Map Overview</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>The Risk Maps show your properties on an interactive map:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Colour coding</strong> - Red (high risk), Amber (medium), Green (low)</li>
-                              <li><strong>Click markers</strong> - View property details and certificates</li>
-                              <li><strong>Summary cards</strong> - Quick stats on risk distribution</li>
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="geocoding">
-                          <AccordionTrigger>Geocoding Properties</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>For properties to appear on the map, they need coordinates:</p>
-                            <ol className="list-decimal ml-6 space-y-1">
-                              <li><strong>Automatic</strong> - Click "Geocode Properties" to convert UK postcodes</li>
-                              <li><strong>Manual</strong> - Edit individual properties to set lat/lng</li>
-                              <li><strong>CSV Import</strong> - Bulk upload coordinates from a spreadsheet</li>
-                            </ol>
-                            <p className="mt-2">
-                              The status banner shows how many properties still need geocoding.
-                            </p>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="heatmap">
-                          <AccordionTrigger>Risk Heatmap</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>The heatmap view aggregates risk by area:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li>See concentrations of high-risk properties</li>
-                              <li>Filter by compliance stream (gas, electrical, fire)</li>
-                              <li>Identify geographic patterns in compliance issues</li>
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="evidence">
-                          <AccordionTrigger>Evidence View</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>Click on any map area to see detailed evidence:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li>List of properties in that area</li>
-                              <li>Certificate status for each property</li>
-                              <li>Outstanding remedial actions</li>
-                              <li>Drill down to individual documents</li>
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
+                {/* ADMIN TAB */}
                 <TabsContent value="admin" className="space-y-6">
                   <Card>
                     <CardHeader>
@@ -429,36 +520,26 @@ export default function HelpPage() {
                         <AccordionItem value="users">
                           <AccordionTrigger>User Management</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>Manage system users and their roles:</p>
+                            <p>Manage system users and access:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Admin</strong> - Full access to all features</li>
-                              <li><strong>Manager</strong> - View and edit properties, certificates</li>
-                              <li><strong>Viewer</strong> - Read-only access to reports</li>
-                              <li><strong>Contractor</strong> - Limited access to assigned work</li>
+                              <li><strong>Invite Users</strong> - Send email invitations</li>
+                              <li><strong>Assign Roles</strong> - Control access levels</li>
+                              <li><strong>Deactivate</strong> - Disable user accounts</li>
+                              <li><strong>Microsoft SSO</strong> - Optional single sign-on integration</li>
                             </ul>
                           </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="hierarchy">
-                          <AccordionTrigger>Asset Hierarchy</AccordionTrigger>
+                        <AccordionItem value="configuration">
+                          <AccordionTrigger>Configuration</AccordionTrigger>
                           <AccordionContent className="space-y-2 text-sm">
-                            <p>Configure your organisation structure:</p>
+                            <p>Configure compliance settings:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li>Create and manage <strong>Schemes</strong> (estates/sites)</li>
-                              <li>Add <strong>Blocks</strong> (buildings) within schemes</li>
-                              <li>Properties are then added to blocks</li>
+                              <li><strong>Compliance Streams</strong> - Enable/disable categories</li>
+                              <li><strong>Certificate Types</strong> - Customize available types</li>
+                              <li><strong>Classification Codes</strong> - EICR, Gas Safety code mappings</li>
+                              <li><strong>Extraction Schemas</strong> - AI document parsing rules</li>
+                              <li><strong>Domain Rules</strong> - Compliance rules and legislation</li>
                             </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="imports">
-                          <AccordionTrigger>Data Import</AccordionTrigger>
-                          <AccordionContent className="space-y-2 text-sm">
-                            <p>Bulk import data from spreadsheets:</p>
-                            <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Properties</strong> - Import from CSV with address, postcode</li>
-                              <li><strong>Components</strong> - Boilers, alarms, lifts with serial numbers</li>
-                              <li><strong>Geocoding</strong> - Bulk upload coordinates</li>
-                            </ul>
-                            <p className="mt-2">Download sample templates to see the required format.</p>
                           </AccordionContent>
                         </AccordionItem>
                         <AccordionItem value="factory">
@@ -466,11 +547,23 @@ export default function HelpPage() {
                           <AccordionContent className="space-y-2 text-sm">
                             <p>Advanced configuration (Super Admin only):</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li><strong>Extraction Settings</strong> - AI confidence thresholds</li>
-                              <li><strong>Remedial Action Rules</strong> - Severity levels and cost estimates</li>
-                              <li><strong>API Rate Limits</strong> - External integration controls</li>
-                              <li><strong>Classification Codes</strong> - EICR, Gas Safety code mappings</li>
+                              <li><strong>AI Thresholds</strong> - Confidence levels for auto-approval</li>
+                              <li><strong>Action Automation</strong> - Auto-create remedial actions</li>
+                              <li><strong>Cost Estimates</strong> - Default repair costs by code</li>
+                              <li><strong>SLA Settings</strong> - Response time requirements</li>
                             </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="imports">
+                          <AccordionTrigger>Data Import</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Bulk import data from CSV files:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Properties</strong> - Address, postcode, UPRN</li>
+                              <li><strong>Components</strong> - Boilers, alarms with serial numbers</li>
+                              <li><strong>Geocoding</strong> - Bulk upload coordinates</li>
+                            </ul>
+                            <p className="mt-2">Download templates from the Data Import page.</p>
                           </AccordionContent>
                         </AccordionItem>
                         <AccordionItem value="api">
@@ -478,10 +571,46 @@ export default function HelpPage() {
                           <AccordionContent className="space-y-2 text-sm">
                             <p>Connect external systems via REST API:</p>
                             <ul className="list-disc ml-6 space-y-1">
-                              <li>Generate API keys for secure access</li>
-                              <li>Submit certificates programmatically</li>
-                              <li>Receive webhook notifications</li>
-                              <li>Documentation includes code examples</li>
+                              <li><strong>API Keys</strong> - Generate secure access tokens</li>
+                              <li><strong>Certificate Ingestion</strong> - Submit documents programmatically</li>
+                              <li><strong>Webhooks</strong> - Receive event notifications</li>
+                              <li><strong>Documentation</strong> - OpenAPI spec at /api/docs</li>
+                            </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="system-health">
+                          <AccordionTrigger>System Health</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Monitor system status:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Database</strong> - Connection status and performance</li>
+                              <li><strong>API Server</strong> - Uptime and response times</li>
+                              <li><strong>Job Queue</strong> - Background processing status</li>
+                              <li><strong>Version Info</strong> - Current system version</li>
+                            </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="audit">
+                          <AccordionTrigger>Audit Log</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Track all system activity:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>User Actions</strong> - Who did what and when</li>
+                              <li><strong>Data Changes</strong> - Property and certificate updates</li>
+                              <li><strong>Login History</strong> - Access tracking</li>
+                              <li><strong>API Calls</strong> - External system interactions</li>
+                            </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="video">
+                          <AccordionTrigger>Video Library</AccordionTrigger>
+                          <AccordionContent className="space-y-2 text-sm">
+                            <p>Training videos for users:</p>
+                            <ul className="list-disc ml-6 space-y-1">
+                              <li><strong>Getting Started</strong> - Platform overview</li>
+                              <li><strong>Certificate Upload</strong> - Step-by-step guide</li>
+                              <li><strong>Managing Actions</strong> - Remedial workflow</li>
+                              <li><strong>Risk Maps</strong> - Geographic visualisation</li>
                             </ul>
                           </AccordionContent>
                         </AccordionItem>
@@ -494,13 +623,13 @@ export default function HelpPage() {
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="py-4">
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <HelpCircle className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h4 className="font-semibold">Need more help?</h4>
                       <p className="text-sm text-muted-foreground">
-                        Contact support at support@lashandigital.com or use the in-app chat for assistance.
+                        Use the AI chatbot for instant help, or contact support at support@lashandigital.com
                       </p>
                     </div>
                   </div>
