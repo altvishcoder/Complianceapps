@@ -132,10 +132,10 @@ router.get('/confidence-baselines', requireAdminAuth(['LASHAN_SUPER_USER', 'SUPE
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.json({
-      success: true,
-      data: [],
-      message: 'No confidence baseline data available yet',
+    logger.error({ error }, 'Failed to fetch confidence baselines');
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch confidence baselines',
       timestamp: new Date().toISOString()
     });
   }
