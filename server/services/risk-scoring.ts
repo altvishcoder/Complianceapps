@@ -58,9 +58,9 @@ const DEFAULT_WEIGHTS: RiskFactorWeights = {
 };
 
 const TIER_THRESHOLDS = {
-  CRITICAL: 85,
-  HIGH: 70,
-  MEDIUM: 40,
+  CRITICAL: 45,
+  HIGH: 35,
+  MEDIUM: 20,
 };
 
 export function calculateRiskTier(score: number): RiskTier {
