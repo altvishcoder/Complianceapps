@@ -11,6 +11,7 @@ interface HeroStatProps {
   icon: LucideIcon;
   riskLevel: RiskLevel;
   href?: string;
+  onClick?: () => void;
   slaInfo?: string;
   "data-testid"?: string;
 }
@@ -48,15 +49,16 @@ const riskStyles: Record<RiskLevel, { bg: string; border: string; text: string; 
   },
 };
 
-function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, slaInfo, "data-testid": testId }: HeroStatProps) {
+function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick, slaInfo, "data-testid": testId }: HeroStatProps) {
   const styles = riskStyles[riskLevel];
+  const isClickable = href || onClick;
   
   const content = (
     <div className={cn(
       "rounded-lg p-4 border transition-all",
       styles.bg,
       styles.border,
-      href && "hover:shadow-md cursor-pointer"
+      isClickable && "hover:shadow-md cursor-pointer"
     )}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
@@ -74,13 +76,16 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, slaInfo
             <p className="text-xs text-muted-foreground mt-1">{slaInfo}</p>
           )}
         </div>
-        {href && <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
+        {isClickable && <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
       </div>
     </div>
   );
 
   if (href) {
     return <Link href={href} className="block" data-testid={testId}>{content}</Link>;
+  }
+  if (onClick) {
+    return <button type="button" onClick={onClick} className="block w-full text-left" data-testid={testId}>{content}</button>;
   }
   return <div data-testid={testId}>{content}</div>;
 }
@@ -93,6 +98,7 @@ interface HeroStatsGridProps {
     icon: LucideIcon;
     riskLevel: RiskLevel;
     href?: string;
+    onClick?: () => void;
     slaInfo?: string;
     testId?: string;
   }>;
@@ -110,6 +116,7 @@ export function HeroStatsGrid({ stats }: HeroStatsGridProps) {
           icon={stat.icon}
           riskLevel={stat.riskLevel}
           href={stat.href}
+          onClick={stat.onClick}
           slaInfo={stat.slaInfo}
           data-testid={stat.testId}
         />

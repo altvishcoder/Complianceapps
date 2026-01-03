@@ -594,10 +594,10 @@ export default function IngestionControlRoom() {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
+            <CardContent className="overflow-x-auto">
+              <div className="flex items-center min-w-max gap-1 md:gap-0 pb-2">
                 {PIPELINE_STAGES.map((stage, index) => (
-                  <div key={stage.id} className="flex items-center flex-1">
+                  <div key={stage.id} className="flex items-center shrink-0">
                     <PipelineStage 
                       stage={stage} 
                       count={stats?.certificates?.byStatus?.[stage.id] || 0}
@@ -606,26 +606,26 @@ export default function IngestionControlRoom() {
                       onClick={() => setPipelineFilter(pipelineFilter === stage.id ? null : stage.id)}
                     />
                     {index < PIPELINE_STAGES.length - 1 && (
-                      <ArrowRight className="h-6 w-6 text-muted-foreground mx-2" />
+                      <ArrowRight className="h-4 w-4 md:h-6 md:w-6 text-muted-foreground mx-1 md:mx-2 shrink-0" />
                     )}
                   </div>
                 ))}
-                <div className="flex items-center flex-1">
-                  <ArrowRight className="h-6 w-6 text-muted-foreground mx-2" />
+                <div className="flex items-center shrink-0">
+                  <ArrowRight className="h-4 w-4 md:h-6 md:w-6 text-muted-foreground mx-1 md:mx-2" />
                   <div 
-                    className={`flex flex-col items-center p-4 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
+                    className={`flex flex-col items-center p-2 md:p-4 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
                       pipelineFilter === 'FAILED' 
-                        ? 'border-red-500 bg-red-100 ring-2 ring-red-500 ring-offset-2' 
-                        : 'border-red-200 bg-red-50 hover:border-red-300'
+                        ? 'border-red-500 bg-red-100 dark:bg-red-950/30 ring-2 ring-red-500 ring-offset-2' 
+                        : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 hover:border-red-300'
                     }`}
                     onClick={() => setPipelineFilter(pipelineFilter === 'FAILED' ? null : 'FAILED')}
                     data-testid="pipeline-stage-FAILED"
                   >
-                    <div className="p-3 rounded-full bg-red-100">
-                      <XCircle className="h-6 w-6 text-red-600" />
+                    <div className="p-2 md:p-3 rounded-full bg-red-100 dark:bg-red-900/30">
+                      <XCircle className="h-4 w-4 md:h-6 md:w-6 text-red-600 dark:text-red-400" />
                     </div>
-                    <span className="text-sm font-medium mt-2">Failed</span>
-                    <span className="text-2xl font-bold text-red-600">{stats?.certificates?.byStatus?.FAILED || stats?.certificates?.byStatus?.REJECTED || 0}</span>
+                    <span className="text-xs md:text-sm font-medium mt-1 md:mt-2">Failed</span>
+                    <span className="text-lg md:text-2xl font-bold text-red-600 dark:text-red-400">{stats?.certificates?.byStatus?.FAILED || stats?.certificates?.byStatus?.REJECTED || 0}</span>
                   </div>
                 </div>
               </div>
@@ -854,40 +854,42 @@ export default function IngestionControlRoom() {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <button
-                      className="p-4 border rounded-lg text-center hover:bg-amber-50 hover:border-amber-300 transition-colors cursor-pointer"
-                      onClick={() => { setStatusFilter('QUEUED'); setActiveTab('jobs'); refetchJobs(); }}
-                      data-testid="button-status-queued"
-                    >
-                      <div className="text-2xl font-bold text-amber-600">{stats?.byStatus?.QUEUED || 0}</div>
-                      <div className="text-sm text-muted-foreground">Queued</div>
-                    </button>
-                    <button
-                      className="p-4 border rounded-lg text-center hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer"
-                      onClick={() => { setStatusFilter('PROCESSING'); setActiveTab('jobs'); refetchJobs(); }}
-                      data-testid="button-status-processing"
-                    >
-                      <div className="text-2xl font-bold text-blue-600">{stats?.byStatus?.PROCESSING || 0}</div>
-                      <div className="text-sm text-muted-foreground">Processing</div>
-                    </button>
-                    <button
-                      className="p-4 border rounded-lg text-center hover:bg-emerald-50 hover:border-emerald-300 transition-colors cursor-pointer"
-                      onClick={() => { setStatusFilter('COMPLETE'); setActiveTab('jobs'); refetchJobs(); }}
-                      data-testid="button-status-complete"
-                    >
-                      <div className="text-2xl font-bold text-emerald-600">{stats?.byStatus?.COMPLETE || 0}</div>
-                      <div className="text-sm text-muted-foreground">Completed</div>
-                    </button>
-                    <button
-                      className="p-4 border rounded-lg text-center hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer"
-                      onClick={() => { setStatusFilter('FAILED'); setActiveTab('jobs'); refetchJobs(); }}
-                      data-testid="button-status-failed"
-                    >
-                      <div className="text-2xl font-bold text-red-600">{stats?.byStatus?.FAILED || 0}</div>
-                      <div className="text-sm text-muted-foreground">Failed</div>
-                    </button>
-                  </div>
+                  <HeroStatsGrid 
+                    stats={[
+                      {
+                        title: "Queued",
+                        value: stats?.byStatus?.QUEUED || 0,
+                        icon: Clock,
+                        riskLevel: (stats?.byStatus?.QUEUED || 0) > 10 ? "high" : (stats?.byStatus?.QUEUED || 0) > 0 ? "medium" : "good",
+                        testId: "stat-job-queued",
+                        onClick: () => { setStatusFilter('QUEUED'); setActiveTab('jobs'); refetchJobs(); }
+                      },
+                      {
+                        title: "Processing",
+                        value: stats?.byStatus?.PROCESSING || 0,
+                        icon: Loader2,
+                        riskLevel: "low",
+                        testId: "stat-job-processing",
+                        onClick: () => { setStatusFilter('PROCESSING'); setActiveTab('jobs'); refetchJobs(); }
+                      },
+                      {
+                        title: "Completed",
+                        value: stats?.byStatus?.COMPLETE || 0,
+                        icon: CheckCircle2,
+                        riskLevel: "good",
+                        testId: "stat-job-complete",
+                        onClick: () => { setStatusFilter('COMPLETE'); setActiveTab('jobs'); refetchJobs(); }
+                      },
+                      {
+                        title: "Failed",
+                        value: stats?.byStatus?.FAILED || 0,
+                        icon: XCircle,
+                        riskLevel: (stats?.byStatus?.FAILED || 0) > 0 ? "critical" : "good",
+                        testId: "stat-job-failed",
+                        onClick: () => { setStatusFilter('FAILED'); setActiveTab('jobs'); refetchJobs(); }
+                      }
+                    ]}
+                  />
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
                     <strong>How it works:</strong> Manual uploads via the UI are processed immediately and show in the Certificate Pipeline above. 
                     API submissions and bulk imports go through this background queue first, then appear in the Pipeline once processing completes.
