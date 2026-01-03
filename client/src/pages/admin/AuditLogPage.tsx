@@ -171,34 +171,35 @@ export default function AuditLogPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Audit Log" />
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold" data-testid="page-title">Audit Log</h1>
-              <p className="text-muted-foreground">Track all changes and activities across the platform</p>
-        </div>
-        <Button variant="outline" onClick={exportToCSV} disabled={!filteredEvents.length} data-testid="button-export-csv">
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
-      </div>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 md:space-y-4">
+          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+            <div className="hidden sm:block">
+              <h1 className="text-xl md:text-2xl font-bold" data-testid="page-title">Audit Log</h1>
+              <p className="text-sm text-muted-foreground">Track all changes and activities across the platform</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={exportToCSV} disabled={!filteredEvents.length} data-testid="button-export-csv" className="gap-2 shrink-0">
+              <Download className="h-4 w-4" />
+              <span className="sm:sr-only">Export</span>
+              <span className="hidden sm:inline">Export CSV</span>
+            </Button>
+          </div>
 
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+        <CardHeader className="pb-3 pt-3">
+          <div className="flex flex-col gap-2">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search audit events..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-9"
                 data-testid="input-search"
               />
             </div>
             <div className="flex gap-2">
               <Select value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
-                <SelectTrigger className="w-[140px]" data-testid="select-entity-type">
+                <SelectTrigger className="flex-1 h-9" data-testid="select-entity-type">
                   <SelectValue placeholder="Entity Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -211,7 +212,7 @@ export default function AuditLogPage() {
                 </SelectContent>
               </Select>
               <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
-                <SelectTrigger className="w-[160px]" data-testid="select-event-type">
+                <SelectTrigger className="flex-1 h-9" data-testid="select-event-type">
                   <SelectValue placeholder="Event Type" />
                 </SelectTrigger>
                 <SelectContent>
