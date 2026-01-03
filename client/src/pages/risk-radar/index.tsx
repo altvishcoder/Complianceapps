@@ -146,10 +146,10 @@ const TIER_COLORS = {
 };
 
 const TIER_BG = {
-  CRITICAL: 'bg-red-100 text-red-800 border-red-300',
-  HIGH: 'bg-orange-100 text-orange-800 border-orange-300',
-  MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  LOW: 'bg-green-100 text-green-800 border-green-300'
+  CRITICAL: 'bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/50',
+  HIGH: 'bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/50',
+  MEDIUM: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/50',
+  LOW: 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50'
 };
 
 const TIER_BG_SOLID = {
@@ -324,29 +324,29 @@ function MobileQuickStats({ summary, isLoading }: { summary: PortfolioSummary | 
       label: "Properties", 
       value: summary?.totalProperties || 0, 
       icon: Building2, 
-      color: "text-blue-600",
-      bg: "bg-blue-50"
+      color: "text-blue-600 dark:text-blue-400",
+      bg: "bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/30"
     },
     { 
       label: "Avg Score", 
       value: summary?.averageScore || 0, 
       icon: Activity, 
-      color: "text-purple-600",
-      bg: "bg-purple-50"
+      color: "text-purple-600 dark:text-purple-400",
+      bg: "bg-purple-500/10 dark:bg-purple-500/20 border-purple-500/30"
     },
     { 
       label: "Critical", 
       value: summary?.criticalAlerts || 0, 
       icon: AlertTriangle, 
-      color: "text-red-600",
-      bg: "bg-red-50"
+      color: "text-red-600 dark:text-red-400",
+      bg: "bg-red-500/10 dark:bg-red-500/20 border-red-500/30"
     },
     { 
       label: "Trending Up", 
       value: summary?.trendsUp || 0, 
       icon: TrendingUp, 
-      color: "text-orange-600",
-      bg: "bg-orange-50"
+      color: "text-orange-600 dark:text-orange-400",
+      bg: "bg-orange-500/10 dark:bg-orange-500/20 border-orange-500/30"
     },
   ];
 
@@ -354,7 +354,7 @@ function MobileQuickStats({ summary, isLoading }: { summary: PortfolioSummary | 
     <ScrollArea className="w-full md:hidden">
       <div className="flex gap-3 pb-2 px-1">
         {stats.map((stat, i) => (
-          <Card key={i} className={cn("min-w-[130px] flex-shrink-0 snap-start border-0 shadow-sm", stat.bg)}>
+          <Card key={i} className={cn("min-w-[130px] flex-shrink-0 snap-start shadow-sm", stat.bg)}>
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <stat.icon className={cn("h-4 w-4", stat.color)} />
@@ -1144,12 +1144,12 @@ export default function RiskRadarPage() {
               </TabsContent>
 
               <TabsContent value="ml-predictions" className="space-y-4 mt-0">
-                <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0" data-testid="card-ml-info">
+                <Card className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-500/20 dark:to-purple-500/20 border border-purple-500/30" data-testid="card-ml-info">
                   <CardContent className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center gap-4">
                       <div className="flex-1">
-                        <h3 className="font-semibold flex items-center gap-2 mb-1">
-                          <Brain className="h-5 w-5 text-purple-600" />
+                        <h3 className="font-semibold flex items-center gap-2 mb-1 text-foreground">
+                          <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                           Two-Tier Prediction System
                         </h3>
                         <p className="text-sm text-muted-foreground">
@@ -1157,20 +1157,20 @@ export default function RiskRadarPage() {
                         </p>
                       </div>
                       <div className="flex gap-4 text-center">
-                        <div className="p-2 bg-white/80 rounded-lg">
-                          <div className="text-xl font-bold text-purple-700">
+                        <div className="p-2 bg-card border border-purple-500/30 rounded-lg">
+                          <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
                             {mlMetrics?.model?.accuracy != null ? `${(mlMetrics.model.accuracy * 100).toFixed(0)}%` : '—'}
                           </div>
                           <div className="text-xs text-muted-foreground">Accuracy</div>
                         </div>
-                        <div className="p-2 bg-white/80 rounded-lg">
-                          <div className="text-xl font-bold text-blue-700">
+                        <div className="p-2 bg-card border border-blue-500/30 rounded-lg">
+                          <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
                             {mlMetrics?.model?.totalPredictions || 0}
                           </div>
                           <div className="text-xs text-muted-foreground">Predictions</div>
                         </div>
-                        <div className="p-2 bg-white/80 rounded-lg">
-                          <div className="text-xl font-bold text-green-700">
+                        <div className="p-2 bg-card border border-green-500/30 rounded-lg">
+                          <div className="text-xl font-bold text-green-700 dark:text-green-300">
                             {mlMetrics?.feedbackStats?.total || 0}
                           </div>
                           <div className="text-xs text-muted-foreground">Feedback</div>
