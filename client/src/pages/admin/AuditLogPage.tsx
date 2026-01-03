@@ -241,18 +241,20 @@ export default function AuditLogPage() {
               No audit events found matching your filters.
             </div>
           ) : (
-            <ScrollArea className="h-[600px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px]"></TableHead>
-                    <TableHead className="w-[180px]">Timestamp</TableHead>
-                    <TableHead className="w-[150px]">Event</TableHead>
-                    <TableHead className="w-[120px]">Entity</TableHead>
-                    <TableHead className="w-[120px]">Actor</TableHead>
-                    <TableHead>Message</TableHead>
-                  </TableRow>
-                </TableHeader>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="min-w-[600px] px-4 sm:px-0">
+                <ScrollArea className="h-[500px] md:h-[600px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[32px]"></TableHead>
+                        <TableHead className="w-[100px] md:w-[180px]">Time</TableHead>
+                        <TableHead className="w-[100px] md:w-[150px]">Event</TableHead>
+                        <TableHead className="w-[80px] md:w-[120px]">Entity</TableHead>
+                        <TableHead className="hidden md:table-cell w-[120px]">Actor</TableHead>
+                        <TableHead className="hidden lg:table-cell">Message</TableHead>
+                      </TableRow>
+                    </TableHeader>
                 <TableBody>
                   {filteredEvents.map((event) => (
                     <Collapsible key={event.id} open={expandedRows.has(event.id)} onOpenChange={() => toggleRow(event.id)}>
@@ -282,13 +284,13 @@ export default function AuditLogPage() {
                             {event.entityType}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="hidden md:table-cell text-sm">
                           {event.actorName}
                           {event.actorType === 'SYSTEM' && (
                             <Badge variant="secondary" className="ml-1 text-xs">System</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[300px] truncate text-sm">
+                        <TableCell className="hidden lg:table-cell max-w-[300px] truncate text-sm">
                           {event.message}
                         </TableCell>
                       </TableRow>
@@ -339,8 +341,10 @@ export default function AuditLogPage() {
                     </Collapsible>
                   ))}
                 </TableBody>
-              </Table>
-            </ScrollArea>
+                  </Table>
+                </ScrollArea>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
