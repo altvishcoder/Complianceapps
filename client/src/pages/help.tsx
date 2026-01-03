@@ -106,30 +106,42 @@ export default function HelpPage() {
                         </div>
                       </div>
                       
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">AI-Powered Platform</h4>
-                        <p className="text-sm text-blue-700 dark:text-blue-400">
-                          ComplianceAI uses advanced AI to automatically extract data from uploaded certificates,
-                          predict compliance risks, and provide intelligent assistance via the chatbot. The system
-                          supports 80 certificate types across all compliance streams with 45 extraction schemas.
-                        </p>
-                      </div>
-
-                      <div className="grid md:grid-cols-3 gap-3">
-                        <div className="p-3 border rounded-lg text-center">
-                          <FileText className="h-6 w-6 mx-auto mb-2 text-primary" />
-                          <h5 className="font-medium text-sm">80+ Certificate Types</h5>
-                          <p className="text-xs text-muted-foreground">CP12, EICR, FRA, EPC, and more</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Brain className="h-4 w-4 text-blue-500 shrink-0" />
+                            <div className="min-w-0">
+                              <h5 className="font-medium text-xs text-blue-800 dark:text-blue-300">AI Platform</h5>
+                              <p className="text-[10px] text-blue-600 dark:text-blue-400 truncate">Smart extraction</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="p-3 border rounded-lg text-center">
-                          <Brain className="h-6 w-6 mx-auto mb-2 text-primary" />
-                          <h5 className="font-medium text-sm">AI Document Extraction</h5>
-                          <p className="text-xs text-muted-foreground">AI-powered extraction</p>
+                        <div className="p-2 sm:p-3 border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                            <div className="min-w-0">
+                              <h5 className="font-medium text-xs">80+ Cert Types</h5>
+                              <p className="text-[10px] text-muted-foreground truncate">CP12, EICR, FRA</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="p-3 border rounded-lg text-center">
-                          <Radar className="h-6 w-6 mx-auto mb-2 text-primary" />
-                          <h5 className="font-medium text-sm">Predictive Risk Radar</h5>
-                          <p className="text-xs text-muted-foreground">ML-powered forecasting</p>
+                        <div className="p-2 sm:p-3 border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Brain className="h-4 w-4 text-primary shrink-0" />
+                            <div className="min-w-0">
+                              <h5 className="font-medium text-xs">AI Extraction</h5>
+                              <p className="text-[10px] text-muted-foreground truncate">45 schemas</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2 sm:p-3 border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Radar className="h-4 w-4 text-primary shrink-0" />
+                            <div className="min-w-0">
+                              <h5 className="font-medium text-xs">Risk Radar</h5>
+                              <p className="text-[10px] text-muted-foreground truncate">ML forecasting</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </CardContent>

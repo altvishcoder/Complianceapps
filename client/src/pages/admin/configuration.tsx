@@ -610,28 +610,30 @@ export default function Configuration() {
             </Card>
 
             <Tabs defaultValue="streams" className="space-y-4">
-              <TabsList className="w-full overflow-x-auto flex gap-1 p-1 h-auto">
-                <TabsTrigger value="streams" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-streams">
-                  <Layers className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Streams</span>
-                </TabsTrigger>
-                <TabsTrigger value="cert-types" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-cert-types">
-                  <FileText className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Certs</span>
-                </TabsTrigger>
-                <TabsTrigger value="codes" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-codes">
-                  <Tags className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Codes</span>
-                </TabsTrigger>
-                <TabsTrigger value="schemas" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-schemas">
-                  <Code className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Schema</span>
-                </TabsTrigger>
-                <TabsTrigger value="rules" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-rules">
-                  <AlertTriangle className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Rules</span>
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <TabsList className="inline-flex w-auto min-w-full sm:w-full gap-1 p-1 h-auto">
+                  <TabsTrigger value="streams" className="text-xs flex-1 min-w-[60px] px-2 py-1.5 gap-1 whitespace-nowrap" data-testid="tab-streams">
+                    <Layers className="h-3 w-3 shrink-0" />
+                    <span>Streams</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="cert-types" className="text-xs flex-1 min-w-[50px] px-2 py-1.5 gap-1 whitespace-nowrap" data-testid="tab-cert-types">
+                    <FileText className="h-3 w-3 shrink-0" />
+                    <span>Certs</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="codes" className="text-xs flex-1 min-w-[50px] px-2 py-1.5 gap-1 whitespace-nowrap" data-testid="tab-codes">
+                    <Tags className="h-3 w-3 shrink-0" />
+                    <span>Codes</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="schemas" className="text-xs flex-1 min-w-[55px] px-2 py-1.5 gap-1 whitespace-nowrap" data-testid="tab-schemas">
+                    <Code className="h-3 w-3 shrink-0" />
+                    <span>Schema</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="rules" className="text-xs flex-1 min-w-[50px] px-2 py-1.5 gap-1 whitespace-nowrap" data-testid="tab-rules">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    <span>Rules</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="streams" className="space-y-4">
                 <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
