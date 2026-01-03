@@ -3,6 +3,8 @@ import { logger } from '../logger';
 import { db } from '../db';
 import { properties, certificates, remedialActions, blocks, schemes, components, componentTypes, chatbotConversations, chatbotMessages, chatbotAnalytics, knowledgeEmbeddings } from '@shared/schema';
 import { count, ilike, or, eq, and, isNull, isNotNull, lt, desc, sql, gte, lte } from 'drizzle-orm';
+import { memoryCache } from './cache-admin';
+import { getQueueStats, getScheduledJobsStatus, type ScheduledJobInfo } from '../job-queue';
 
 // =============================================================================
 // ANALYTICS TRACKING
@@ -431,6 +433,7 @@ type IntentCategory =
   | 'faq'           // General compliance questions → Layer 1
   | 'database'      // Property/certificate lookups → Layer 2  
   | 'calendar'      // Calendar/schedule queries → Layer 2.5
+  | 'system'        // System health/jobs/cache queries → Layer 2.6
   | 'navigation'    // Platform how-to questions → Static response
   | 'greeting'      // Hello/thanks → Static response
   | 'off_topic'     // Non-compliance questions → Polite redirect
@@ -476,6 +479,18 @@ const INTENT_PATTERNS: Record<IntentCategory, RegExp[]> = {
     /next (inspection|renewal|expiry)/i,
     /show me (the |my )?(calendar|schedule|upcoming)/i,
   ],
+  system: [
+    /system (health|status|check)/i,
+    /(is|are) (the )?(system|server|api|database|queue) (running|healthy|working|up|down)/i,
+    /check (system|server|api|database|queue) (status|health)/i,
+    /scheduled jobs?|background jobs?|job (status|queue)/i,
+    /cache (stats?|statistics?|status|hit|miss|size)/i,
+    /(how is|what's) the (system|server|performance)/i,
+    /queue (stats?|status|health)/i,
+    /ingestion (queue|status|jobs?)/i,
+    /processing (queue|status|jobs?)/i,
+    /show (me )?(system|server|queue|cache) (status|health|stats)/i,
+  ],
   faq: [
     /(what|when|how often|how long|do i need|is .+ required)/i,
     /what (is|are|does|do) (a |an |the )?(cp12|eicr|fra|lgsr|epc|loler)/i,
@@ -506,6 +521,7 @@ function classifyIntent(query: string): IntentClassification {
     asbestos: /asbestos|acm/i,
     legionella: /legionella|water|l8/i,
     lift: /lift|loler|elevator/i,
+    system: /system|health|queue|cache|jobs?|server|status/i,
   };
   
   for (const [topic, regex] of Object.entries(topicKeywords)) {
@@ -1446,6 +1462,11 @@ const FOLLOW_UP_SUGGESTIONS: Record<string, string[]> = {
     "Show boilers needing inspection",
     "Which lifts need LOLER checks?",
   ],
+  "system": [
+    "What's the cache hit ratio?",
+    "Show scheduled jobs status",
+    "Check the ingestion queue",
+  ],
   "default": [
     "Show my non-compliant properties",
     "Find certificates expiring this month",
@@ -2357,6 +2378,190 @@ async function handleCalendarQuery(query: string): Promise<string | null> {
   }
 }
 
+// =============================================================================
+// LAYER 2.6: SYSTEM MONITORING QUERY HANDLER
+// Handles "What's the system status?" style queries for admins
+// =============================================================================
+
+async function handleSystemQuery(query: string): Promise<string | null> {
+  const searchTerms = query.toLowerCase();
+  
+  try {
+    // Determine what aspect of system status user is asking about
+    const wantsJobStatus = /job|scheduled|background|queue status|job queue/i.test(query);
+    const wantsCacheStatus = /cache|hit|miss|memory/i.test(query);
+    const wantsQueueStats = /ingestion|processing|queue|webhook/i.test(query) && !wantsJobStatus;
+    const wantsOverallHealth = /system|health|status|server|running|working/i.test(query) && !wantsJobStatus && !wantsCacheStatus;
+    
+    let response = '';
+    
+    // Get overall system health
+    if (wantsOverallHealth || (!wantsJobStatus && !wantsCacheStatus && !wantsQueueStats)) {
+      // Check database connectivity
+      let dbHealthy = false;
+      try {
+        await db.execute(sql`SELECT 1`);
+        dbHealthy = true;
+      } catch {
+        dbHealthy = false;
+      }
+      
+      // Get queue stats
+      const queueStats = await getQueueStats();
+      const queueHealthy = queueStats !== null;
+      
+      // Get cache stats
+      const cacheStats = memoryCache.getStats();
+      
+      // Get scheduled jobs
+      const scheduledJobs = await getScheduledJobsStatus();
+      const activeJobs = scheduledJobs?.filter(j => j.isActive).length || 0;
+      const errorJobs = scheduledJobs?.filter(j => j.recentJobs.some(rj => rj.state === 'failed')).length || 0;
+      
+      const allHealthy = dbHealthy && queueHealthy && errorJobs === 0;
+      
+      response = allHealthy 
+        ? `**System Status: All Systems Operational**\n\n`
+        : `**System Status: Some Issues Detected**\n\n`;
+      
+      response += `**Core Services:**\n`;
+      response += `• Database: ${dbHealthy ? '✓ Connected' : '✗ Connection Issue'}\n`;
+      response += `• Job Queue: ${queueHealthy ? '✓ Running' : '✗ Stopped'}\n`;
+      response += `• API Server: ✓ Operational\n\n`;
+      
+      response += `**Processing Queue:**\n`;
+      response += `• Ingestion: ${queueStats?.ingestion?.queued || 0} queued, ${queueStats?.ingestion?.active || 0} processing\n`;
+      response += `• Webhooks: ${queueStats?.webhook?.queued || 0} queued, ${queueStats?.webhook?.active || 0} delivering\n\n`;
+      
+      response += `**Scheduled Jobs:** ${activeJobs} active`;
+      if (errorJobs > 0) {
+        response += `, ${errorJobs} with errors`;
+      }
+      response += `\n\n`;
+      
+      response += `**Cache:** ${cacheStats.size} entries, ${cacheStats.hits} hits, ${cacheStats.misses} misses\n\n`;
+      
+      response += `[View System Health →](/admin/system-health) | [Scheduled Jobs](/admin/system-health?tab=jobs) | [Cache Stats](/admin/system-health?tab=cache)`;
+      
+      return response;
+    }
+    
+    // Scheduled jobs status
+    if (wantsJobStatus) {
+      const scheduledJobs = await getScheduledJobsStatus();
+      
+      if (!scheduledJobs || scheduledJobs.length === 0) {
+        return `**No scheduled jobs found.**\n\n[View System Health →](/admin/system-health)`;
+      }
+      
+      const activeJobs = scheduledJobs.filter(j => j.isActive);
+      const pausedJobs = scheduledJobs.filter(j => !j.isActive);
+      const errorJobs = scheduledJobs.filter(j => j.recentJobs.some(rj => rj.state === 'failed'));
+      
+      response = `**Scheduled Jobs Status**\n\n`;
+      response += `• **Total:** ${scheduledJobs.length} jobs\n`;
+      response += `• **Active:** ${activeJobs.length}\n`;
+      response += `• **Paused:** ${pausedJobs.length}\n`;
+      if (errorJobs.length > 0) {
+        response += `• **Errors:** ${errorJobs.length} ⚠️\n`;
+      }
+      response += `\n`;
+      
+      // Show first few jobs
+      response += `**Recent Jobs:**\n`;
+      const jobDisplayNames: Record<string, string> = {
+        'certificate-watchdog': 'Certificate Watchdog',
+        'certificate-ingestion': 'Certificate Ingestion',
+        'webhook-delivery': 'Webhook Delivery',
+        'rate-limit-cleanup': 'Rate Limit Cleanup',
+        'reporting-refresh': 'Reporting Refresh',
+        'scheduled-report': 'Scheduled Reports',
+      };
+      
+      for (const job of scheduledJobs.slice(0, 5)) {
+        const hasErrors = job.recentJobs.some(rj => rj.state === 'failed');
+        const statusIcon = job.isActive ? (hasErrors ? '⚠' : '✓') : '⏸';
+        const nextRun = job.nextRun ? new Date(job.nextRun).toLocaleString('en-GB') : 'Not scheduled';
+        const displayName = jobDisplayNames[job.name] || job.name;
+        response += `• ${statusIcon} **${displayName}** - Next: ${nextRun}\n`;
+      }
+      
+      if (scheduledJobs.length > 5) {
+        response += `  ...and ${scheduledJobs.length - 5} more\n`;
+      }
+      
+      response += `\n[View All Jobs →](/admin/system-health?tab=jobs)`;
+      
+      return response;
+    }
+    
+    // Cache stats
+    if (wantsCacheStatus) {
+      const cacheStats = memoryCache.getStats();
+      const hitRatio = (cacheStats.hits + cacheStats.misses) > 0 
+        ? ((cacheStats.hits / (cacheStats.hits + cacheStats.misses)) * 100).toFixed(1)
+        : '0';
+      
+      response = `**Cache Statistics**\n\n`;
+      response += `• **Size:** ${cacheStats.size} entries\n`;
+      response += `• **Hits:** ${cacheStats.hits}\n`;
+      response += `• **Misses:** ${cacheStats.misses}\n`;
+      response += `• **Evictions:** ${cacheStats.evictions}\n`;
+      response += `• **Hit Ratio:** ${hitRatio}%\n\n`;
+      
+      const hitRatioNum = parseFloat(hitRatio);
+      if (hitRatioNum >= 80) {
+        response += `✓ Cache performance is excellent!\n\n`;
+      } else if (hitRatioNum >= 50) {
+        response += `⚠ Cache performance is moderate. Consider reviewing cache policies.\n\n`;
+      } else if (cacheStats.hits + cacheStats.misses > 0) {
+        response += `✗ Cache performance needs attention. Hit ratio below 50%.\n\n`;
+      }
+      
+      response += `[View Cache Details →](/admin/system-health?tab=cache)`;
+      
+      return response;
+    }
+    
+    // Queue processing stats
+    if (wantsQueueStats) {
+      const queueStats = await getQueueStats();
+      
+      if (!queueStats) {
+        return `**Queue status unavailable.** The job queue may not be running.\n\n[View System Health →](/admin/system-health)`;
+      }
+      
+      response = `**Processing Queue Status**\n\n`;
+      
+      response += `**Certificate Ingestion:**\n`;
+      response += `• Queued: ${queueStats.ingestion?.queued || 0}\n`;
+      response += `• Processing: ${queueStats.ingestion?.active || 0}\n`;
+      response += `• Completed: ${queueStats.ingestion?.completed || 0}\n`;
+      response += `• Failed: ${queueStats.ingestion?.failed || 0}\n\n`;
+      
+      response += `**Webhook Delivery:**\n`;
+      response += `• Queued: ${queueStats.webhook?.queued || 0}\n`;
+      response += `• Delivering: ${queueStats.webhook?.active || 0}\n`;
+      response += `• Completed: ${queueStats.webhook?.completed || 0}\n`;
+      response += `• Failed: ${queueStats.webhook?.failed || 0}\n\n`;
+      
+      const totalFailed = (queueStats.ingestion?.failed || 0) + (queueStats.webhook?.failed || 0);
+      if (totalFailed > 0) {
+        response += `⚠ ${totalFailed} failed jobs require attention.\n\n`;
+      }
+      
+      response += `[View System Health →](/admin/system-health)`;
+      
+      return response;
+    }
+    
+    return null;
+  } catch (error) {
+    logger.error({ error }, 'System query failed');
+    return `Unable to fetch system status. [Check System Health →](/admin/system-health)`;
+  }
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -2637,6 +2842,36 @@ export async function chatWithAssistant(
           };
         }
         // If calendar intent but no results found, fall through to LLM
+      }
+      
+      // ==========================================================================
+      // LAYER 2.6: SYSTEM MONITORING QUERIES (System health, jobs, cache)
+      // Handle admin system monitoring queries
+      // ==========================================================================
+      if (intent.category === 'system') {
+        const systemResponse = await handleSystemQuery(query);
+        if (systemResponse) {
+          logger.info({ query: query.substring(0, 50) }, 'Serving system query response');
+          const enhanced = enhanceResponse(systemResponse, intent, askedQuestions, 'database');
+          
+          // Track analytics - System query
+          trackAnalytics({
+            intent: intent.category,
+            responseSource: 'database',
+            inputTokens: 0,
+            outputTokens: 0,
+            responseTimeMs: Date.now() - startTime,
+            confidence: intent.confidence,
+          });
+          
+          return {
+            success: true,
+            message: enhanced.message,
+            suggestions: enhanced.suggestions,
+            tokensUsed: { input: 0, output: 0 },
+          };
+        }
+        // If system intent but no results found, fall through to LLM
       }
       
       // ==========================================================================
