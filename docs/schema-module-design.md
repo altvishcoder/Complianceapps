@@ -153,37 +153,28 @@ This means some modules will have import dependencies on other modules. The migr
 
 **Total: 88 tables ✓**
 
-## FK-Based Dependency Graph
+## FK-Based Dependency Graph (VERIFIED via automated analysis)
 
 ```
-Tier 0 (No external dependencies):
-  - base.ts (enums only)
-  - core-auth.ts (organisations is ROOT)
-
-Tier 1 (Depends on Tier 0):
-  - org-structure.ts → core-auth
-  - config.ts → core-auth (minimal: users only)
-
-Tier 2 (Depends on Tier 1):
-  - compliance.ts → org-structure, core-auth
-  - assets.ts → org-structure
-  - contractor.ts → core-auth (base contractor table first)
-  - chatbot.ts → core-auth
-  - api.ts → core-auth
-
-Tier 3 (Depends on Tier 2):
-  - extraction.ts → compliance
-  - risk.ts → org-structure, compliance
-  - audit.ts → core-auth
-  - reporting.ts → org-structure, core-auth
-
-Tier 4 (Depends on Tier 3):
-  - ml.ts → extraction
-  - contractor.ts subtables → contractor base
-
-Tier 5 (All modules):
-  - relations.ts → imports ALL tables
+Module                → Dependencies
+──────────────────────────────────────────────────────────────
+core-auth             → (none) - ROOT
+org-structure         → core-auth
+assets                → (none) - standalone types
+config                → core-auth
+compliance            → core-auth, org-structure
+chatbot               → core-auth
+api                   → compliance, core-auth, org-structure
+contractor            → compliance, core-auth, org-structure
+extraction            → compliance
+ml                    → compliance, core-auth, org-structure
+risk                  → core-auth
+audit                 → compliance, core-auth, org-structure
+reporting             → compliance, core-auth, org-structure
+relations             → ALL modules (imports everything)
 ```
+
+**Note**: No bidirectional dependencies detected. The graph is a proper DAG.
 
 ## Migration Order (safe sequence based on FK dependencies)
 
