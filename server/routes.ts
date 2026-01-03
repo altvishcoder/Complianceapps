@@ -18,7 +18,7 @@ import {
   componentTypes, components, spaces, componentCertificates, users, extractionTierAudits,
   propertyRiskSnapshots, riskFactorDefinitions, riskAlerts, blocks, schemes, remedialActions, contractors,
   contractorSLAProfiles, contractorJobPerformance, contractorRatings,
-  mlModels, mlPredictions, mlTrainingRuns,
+  mlModels, mlPredictions, mlTrainingRuns, extractionCorrections,
   type ApiClient
 } from "@shared/schema";
 import { createInsertSchema } from "drizzle-zod";
@@ -380,6 +380,22 @@ export async function registerRoutes(
       console.error("Error fetching release notes:", error);
       res.status(500).json({ error: "Failed to fetch release notes" });
     }
+  });
+
+  // API versioning info endpoint
+  app.get("/api/version/api-info", (req, res) => {
+    res.json({
+      currentVersion: "v1",
+      supportedVersions: ["v1"],
+      deprecatedVersions: [],
+      versioningStrategy: "URL path",
+      endpoints: {
+        versioned: "/api/v1/*",
+        legacy: "/api/* (deprecated, will be removed in v2)",
+      },
+      documentation: "/api/docs",
+      migrationGuide: "Update API calls to use /api/v1/ prefix for future compatibility",
+    });
   });
   
   // ===== AI ASSISTANT CHAT ENDPOINT (Streaming) =====
@@ -9584,6 +9600,213 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching ML predictions:", error);
       res.status(500).json({ error: "Failed to fetch ML predictions" });
+    }
+  });
+
+  // ==================== Extraction Learning Lifecycle API ====================
+
+  // Get learning lifecycle data for Model Insights page
+  app.get("/api/ml/learning-lifecycle", async (req, res) => {
+    try {
+      const organisationId = req.session?.organisationId || ORG_ID;
+      if (!organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get correction statistics
+      const correctionStats = await db.select({
+        totalCorrections: sql<number>`COUNT(*)`,
+        usedForImprovement: sql<number>`COUNT(*) FILTER (WHERE used_for_improvement = true)`,
+        avgReviewTime: sql<number>`AVG(review_duration_seconds)`,
+      })
+        .from(extractionCorrections)
+        .where(eq(extractionCorrections.organisationId, organisationId));
+
+      // Get corrections by type
+      const correctionsByType = await db.select({
+        correctionType: extractionCorrections.correctionType,
+        count: sql<number>`COUNT(*)`,
+      })
+        .from(extractionCorrections)
+        .where(eq(extractionCorrections.organisationId, organisationId))
+        .groupBy(extractionCorrections.correctionType);
+
+      // Get corrections by field
+      const correctionsByField = await db.select({
+        fieldName: extractionCorrections.fieldName,
+        count: sql<number>`COUNT(*)`,
+      })
+        .from(extractionCorrections)
+        .where(eq(extractionCorrections.organisationId, organisationId))
+        .groupBy(extractionCorrections.fieldName)
+        .orderBy(desc(sql<number>`COUNT(*)`))
+        .limit(10);
+
+      // Get corrections by certificate type
+      const correctionsByCertType = await db.select({
+        certificateType: extractionCorrections.certificateType,
+        count: sql<number>`COUNT(*)`,
+      })
+        .from(extractionCorrections)
+        .where(eq(extractionCorrections.organisationId, organisationId))
+        .groupBy(extractionCorrections.certificateType);
+
+      // Get recent corrections for timeline
+      const recentCorrections = await db.select()
+        .from(extractionCorrections)
+        .where(eq(extractionCorrections.organisationId, organisationId))
+        .orderBy(desc(extractionCorrections.createdAt))
+        .limit(20);
+
+      // Calculate improvement rate (mock calculation for now)
+      const stats = correctionStats[0] || { totalCorrections: 0, usedForImprovement: 0, avgReviewTime: 0 };
+      const improvementRate = stats.totalCorrections > 0 
+        ? Math.round((stats.usedForImprovement / stats.totalCorrections) * 100)
+        : 0;
+
+      res.json({
+        summary: {
+          totalCorrections: Number(stats.totalCorrections) || 0,
+          usedForImprovement: Number(stats.usedForImprovement) || 0,
+          pendingImprovement: Number(stats.totalCorrections) - Number(stats.usedForImprovement) || 0,
+          improvementRate,
+          avgReviewTimeSeconds: Math.round(Number(stats.avgReviewTime) || 0),
+        },
+        correctionsByType: correctionsByType.map(c => ({
+          type: c.correctionType,
+          count: Number(c.count),
+        })),
+        correctionsByField: correctionsByField.map(c => ({
+          field: c.fieldName,
+          count: Number(c.count),
+        })),
+        correctionsByCertificateType: correctionsByCertType.map(c => ({
+          certificateType: c.certificateType,
+          count: Number(c.count),
+        })),
+        recentCorrections: recentCorrections.map(c => ({
+          id: c.id,
+          fieldName: c.fieldName,
+          originalValue: c.originalValue,
+          correctedValue: c.correctedValue,
+          correctionType: c.correctionType,
+          certificateType: c.certificateType,
+          extractionTier: c.extractionTier,
+          reviewerName: c.reviewerName,
+          usedForImprovement: c.usedForImprovement,
+          createdAt: c.createdAt,
+        })),
+        learningPipeline: {
+          stages: [
+            { name: 'Document Uploaded', description: 'Certificate enters ingestion queue', status: 'active' },
+            { name: 'AI Extraction', description: 'Multi-tier extraction processes document', status: 'active' },
+            { name: 'Human Review', description: 'Quality assurance and correction', status: 'active' },
+            { name: 'Correction Capture', description: 'Field-level differences recorded', status: 'active' },
+            { name: 'Pattern Analysis', description: 'Identify recurring extraction failures', status: 'pending' },
+            { name: 'Template Update', description: 'Improve extraction rules', status: 'pending' },
+          ],
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching learning lifecycle:", error);
+      res.status(500).json({ error: "Failed to fetch learning lifecycle data" });
+    }
+  });
+
+  // Record extraction correction from human review
+  app.post("/api/ml/corrections", async (req, res) => {
+    try {
+      const organisationId = req.session?.organisationId || ORG_ID;
+      const userId = req.session?.userId;
+      const userName = req.session?.userName || 'Unknown';
+      if (!organisationId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { certificateId, corrections } = req.body;
+      
+      if (!certificateId || !corrections || !Array.isArray(corrections)) {
+        return res.status(400).json({ error: "certificateId and corrections array required" });
+      }
+
+      // Get certificate details
+      const cert = await db.select()
+        .from(certificates)
+        .where(eq(certificates.id, certificateId))
+        .limit(1);
+
+      const insertedCorrections = [];
+      for (const correction of corrections) {
+        const { fieldName, originalValue, correctedValue, correctionType, sourceText, notes, reviewDurationSeconds } = correction;
+        
+        if (!fieldName || !correctedValue || !correctionType) {
+          continue;
+        }
+
+        const [inserted] = await db.insert(extractionCorrections).values({
+          organisationId,
+          certificateId,
+          fieldName,
+          originalValue: originalValue || null,
+          correctedValue,
+          correctionType,
+          sourceText: sourceText || null,
+          certificateType: cert[0]?.certificateType || null,
+          reviewerId: userId || null,
+          reviewerName: userName,
+          reviewDurationSeconds: reviewDurationSeconds || null,
+          notes: notes || null,
+        }).returning();
+        
+        insertedCorrections.push(inserted);
+      }
+
+      res.status(201).json({ 
+        success: true, 
+        count: insertedCorrections.length,
+        corrections: insertedCorrections 
+      });
+    } catch (error) {
+      console.error("Error recording corrections:", error);
+      res.status(500).json({ error: "Failed to record corrections" });
+    }
+  });
+
+  // Get circuit breaker status
+  app.get("/api/system/circuit-breakers", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { circuitBreaker } = await import('./services/circuit-breaker');
+      const stats = circuitBreaker.getAllStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching circuit breaker status:", error);
+      res.status(500).json({ error: "Failed to fetch circuit breaker status" });
+    }
+  });
+
+  // Reset circuit breaker
+  app.post("/api/system/circuit-breakers/:name/reset", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { circuitBreaker } = await import('./services/circuit-breaker');
+      circuitBreaker.reset(name);
+      res.json({ success: true, message: `Circuit breaker ${name} reset` });
+    } catch (error) {
+      console.error("Error resetting circuit breaker:", error);
+      res.status(500).json({ error: "Failed to reset circuit breaker" });
+    }
+  });
+
+  // Get duplicate detection stats
+  app.get("/api/system/duplicate-stats", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const organisationId = req.session?.organisationId || ORG_ID;
+      const { getDuplicateStats } = await import('./services/duplicate-detection');
+      const stats = await getDuplicateStats(organisationId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching duplicate stats:", error);
+      res.status(500).json({ error: "Failed to fetch duplicate stats" });
     }
   });
 

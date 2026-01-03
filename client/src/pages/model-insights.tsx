@@ -88,6 +88,34 @@ interface AISuggestionsData {
   generatedAt: string;
 }
 
+interface LearningLifecycleData {
+  summary: {
+    totalCorrections: number;
+    usedForImprovement: number;
+    pendingImprovement: number;
+    improvementRate: number;
+    avgReviewTimeSeconds: number;
+  };
+  correctionsByType: Array<{ type: string; count: number }>;
+  correctionsByField: Array<{ field: string; count: number }>;
+  correctionsByCertificateType: Array<{ certificateType: string | null; count: number }>;
+  recentCorrections: Array<{
+    id: string;
+    fieldName: string;
+    originalValue: string | null;
+    correctedValue: string;
+    correctionType: string;
+    certificateType: string | null;
+    extractionTier: string | null;
+    reviewerName: string | null;
+    usedForImprovement: boolean;
+    createdAt: string;
+  }>;
+  learningPipeline: {
+    stages: Array<{ name: string; description: string; status: string }>;
+  };
+}
+
 interface TierStatsData {
   summary: {
     totalExtractionRuns: number;
@@ -235,6 +263,15 @@ export default function ModelInsightsPage() {
     queryFn: async () => {
       const res = await fetch('/api/model-insights/tier-stats');
       if (!res.ok) throw new Error('Failed to fetch tier statistics');
+      return res.json();
+    },
+  });
+  
+  const { data: learningData, isLoading: learningLoading } = useQuery<LearningLifecycleData>({
+    queryKey: ['learning-lifecycle'],
+    queryFn: async () => {
+      const res = await fetch('/api/ml/learning-lifecycle');
+      if (!res.ok) throw new Error('Failed to fetch learning lifecycle data');
       return res.json();
     },
   });
@@ -455,6 +492,11 @@ export default function ModelInsightsPage() {
                     <TabsTrigger value="tiers" className="text-xs lg:text-sm">
                       <span className="hidden sm:inline">Tier Analytics</span>
                       <span className="sm:hidden">Tiers</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="learning" className="text-xs lg:text-sm gap-1">
+                      <Brain className="w-3 h-3 lg:w-4 lg:h-4" />
+                      <span className="hidden sm:inline">Learning</span>
+                      <span className="sm:hidden">Learn</span>
                     </TabsTrigger>
                   </TabsList>
                 </CardHeader>
@@ -1015,6 +1057,169 @@ export default function ModelInsightsPage() {
                     ) : (
                       <div className="h-48 flex items-center justify-center text-muted-foreground">
                         No tier data available
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="learning" className="mt-0">
+                    {learningLoading ? (
+                      <div className="flex items-center justify-center h-48">
+                        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : learningData ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-blue-700">Total Corrections</div>
+                              <div className="text-2xl font-bold text-blue-800">{learningData.summary.totalCorrections}</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-emerald-700">Applied to Model</div>
+                              <div className="text-2xl font-bold text-emerald-800">{learningData.summary.usedForImprovement}</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-amber-700">Pending</div>
+                              <div className="text-2xl font-bold text-amber-800">{learningData.summary.pendingImprovement}</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-purple-700">Improvement Rate</div>
+                              <div className="text-2xl font-bold text-purple-800">{learningData.summary.improvementRate}%</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+                            <CardContent className="pt-4 pb-3">
+                              <div className="text-sm text-gray-700">Avg Review Time</div>
+                              <div className="text-2xl font-bold text-gray-800">{learningData.summary.avgReviewTimeSeconds}s</div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <ArrowRight className="w-4 h-4" />
+                              Learning Pipeline
+                            </CardTitle>
+                            <CardDescription className="text-xs">How corrections improve extraction accuracy</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {learningData.learningPipeline.stages.map((stage, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <div className={`px-3 py-2 rounded-lg border ${
+                                    stage.status === 'active' 
+                                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                                      : 'bg-gray-50 border-gray-200 text-gray-600'
+                                  }`}>
+                                    <div className="text-sm font-medium">{stage.name}</div>
+                                    <div className="text-xs opacity-75">{stage.description}</div>
+                                  </div>
+                                  {i < learningData.learningPipeline.stages.length - 1 && (
+                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Corrections by Type</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              {learningData.correctionsByType.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={180}>
+                                  <PieChart>
+                                    <Pie
+                                      data={learningData.correctionsByType}
+                                      dataKey="count"
+                                      nameKey="type"
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={60}
+                                      label={({ type }) => type?.replace('_', ' ')}
+                                    >
+                                      {learningData.correctionsByType.map((_, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              ) : (
+                                <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+                                  No corrections recorded yet
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                          
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Top Fields Needing Correction</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              {learningData.correctionsByField.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={180}>
+                                  <BarChart data={learningData.correctionsByField.slice(0, 5)} layout="vertical">
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="field" type="category" width={80} tick={{ fontSize: 11 }} />
+                                    <Tooltip />
+                                    <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              ) : (
+                                <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+                                  No field corrections yet
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        {learningData.recentCorrections.length > 0 && (
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Recent Corrections</CardTitle>
+                              <CardDescription className="text-xs">Latest field-level corrections from human review</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                {learningData.recentCorrections.map((correction) => (
+                                  <div key={correction.id} className="flex items-start justify-between text-sm border-b pb-2 last:border-0 gap-2">
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="font-medium truncate">{correction.fieldName}</span>
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-red-500 line-through truncate max-w-[100px]">{correction.originalValue || 'empty'}</span>
+                                        <ArrowRight className="w-3 h-3 shrink-0" />
+                                        <span className="text-emerald-600 truncate max-w-[100px]">{correction.correctedValue}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <Badge variant="outline" className="text-xs">{correction.correctionType.replace('_', ' ')}</Badge>
+                                      {correction.usedForImprovement && (
+                                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-48 flex items-center justify-center text-muted-foreground">
+                        No learning data available
                       </div>
                     )}
                   </TabsContent>

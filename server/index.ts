@@ -46,6 +46,24 @@ app.use(
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
+// API versioning middleware - rewrites /api/v1/* to /api/* and adds version headers
+app.use('/api/v1', (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-API-Version', 'v1');
+  req.url = req.url; // Keep the URL as-is, route handlers will match both patterns
+  next('route'); // Skip to next route handler
+});
+
+// Rewrite /api/v1/* requests to /api/* for backward compatibility with existing handlers
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path.startsWith('/api/v1/')) {
+    req.url = req.url.replace('/api/v1/', '/api/');
+    res.setHeader('X-API-Version', 'v1');
+  } else if (req.path.startsWith('/api/') && !req.path.startsWith('/api/auth/')) {
+    res.setHeader('X-API-Deprecation-Warning', 'Unversioned API endpoints are deprecated. Use /api/v1/ prefix.');
+  }
+  next();
+});
+
 // Apply global rate limiting to API routes only (not static assets)
 app.use('/api', createGlobalRateLimiter());
 

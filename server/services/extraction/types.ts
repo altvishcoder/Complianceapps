@@ -139,14 +139,24 @@ export interface ExtractionResult {
   metadata: ImageMetadata | null;
   
   tierAudit: TierAuditEntry[];
+  
+  duplicateInfo?: DuplicateInfo;
+  fileHash?: string;
 }
 
 export interface ExtractionOptions {
   forceAI?: boolean;
+  forceReprocess?: boolean; // Bypass duplicate detection and reprocess even if hash matches
   skipTiers?: ExtractionTier[];
   preferredTier?: ExtractionTier;
   maxCost?: number;
   timeout?: number;
+}
+
+export interface DuplicateInfo {
+  isDuplicate: boolean;
+  existingCertificateId: string | null;
+  skippedProcessing: boolean;
 }
 
 export const TIER_CONFIDENCE_THRESHOLDS: Record<ExtractionTier, number> = {

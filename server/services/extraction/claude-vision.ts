@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractedCertificateData } from './types';
 import { logger } from '../../logger';
+import { circuitBreaker, withRetry } from '../circuit-breaker';
 
 const anthropic = new Anthropic();
 
@@ -86,29 +87,36 @@ export async function extractWithClaudeVision(
       ? `This appears to be a ${certificateType} certificate. `
       : '';
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      messages: [
-        {
-          role: "user",
-          content: [
+    const response = await circuitBreaker.execute(
+      'claude-vision',
+      () => withRetry(
+        () => anthropic.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [
             {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType,
-                data: base64Image
-              }
-            },
-            {
-              type: "text",
-              text: `${VISION_EXTRACTION_PROMPT}\n\n${contextPrompt}Please analyze this compliance certificate image and extract the data.`
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: mediaType,
+                    data: base64Image
+                  }
+                },
+                {
+                  type: "text",
+                  text: `${VISION_EXTRACTION_PROMPT}\n\n${contextPrompt}Please analyze this compliance certificate image and extract the data.`
+                }
+              ]
             }
           ]
-        }
-      ]
-    });
+        }),
+        2,  // maxRetries
+        1000  // baseDelayMs
+      )
+    );
 
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;
@@ -177,29 +185,36 @@ export async function extractWithClaudeVisionFromPDF(
       ? `This appears to be a ${certificateType} certificate. `
       : '';
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      messages: [
-        {
-          role: "user",
-          content: [
+    const response = await circuitBreaker.execute(
+      'claude-vision',
+      () => withRetry(
+        () => anthropic.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [
             {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
-                data: base64PDF
-              }
-            },
-            {
-              type: "text",
-              text: `${VISION_EXTRACTION_PROMPT}\n\n${contextPrompt}Please analyze this compliance certificate document and extract the data.`
+              role: "user",
+              content: [
+                {
+                  type: "document",
+                  source: {
+                    type: "base64",
+                    media_type: "application/pdf",
+                    data: base64PDF
+                  }
+                },
+                {
+                  type: "text",
+                  text: `${VISION_EXTRACTION_PROMPT}\n\n${contextPrompt}Please analyze this compliance certificate document and extract the data.`
+                }
+              ]
             }
           ]
-        }
-      ]
-    });
+        }),
+        2,  // maxRetries
+        1000  // baseDelayMs
+      )
+    );
 
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;

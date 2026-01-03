@@ -203,6 +203,7 @@ export const certificates = pgTable("certificates", {
   fileName: text("file_name").notNull(),
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size").notNull(),
+  fileHash: text("file_hash"), // SHA-256 hash for duplicate detection
   storageKey: text("storage_key"),
   certificateType: certificateTypeEnum("certificate_type").notNull(),
   complianceStreamId: varchar("compliance_stream_id"), // Link to compliance stream
@@ -2710,6 +2711,42 @@ export const mlFeedback = pgTable("ml_feedback", {
   // Was this feedback used to retrain?
   usedForTraining: boolean("used_for_training").notNull().default(false),
   trainingBatchId: varchar("training_batch_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Extraction Corrections - capture field-level corrections from manual review
+export const correctionTypeEnum = pgEnum("correction_type", [
+  'WRONG_FORMAT',     // Value extracted but in wrong format (e.g., date format)
+  'WRONG_VALUE',      // Completely incorrect value extracted
+  'MISSING',          // Field was not extracted but should have been
+  'EXTRA_TEXT',       // Extra unwanted text was captured
+  'PARTIAL',          // Only part of the value was extracted
+]);
+
+export const extractionCorrections = pgTable("extraction_corrections", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  certificateId: varchar("certificate_id").references(() => certificates.id, { onDelete: 'cascade' }).notNull(),
+  
+  fieldName: text("field_name").notNull(), // Which field was corrected (e.g., expiryDate, certificateNumber)
+  originalValue: text("original_value"), // What AI/template extracted
+  correctedValue: text("corrected_value").notNull(), // Human-verified correct value
+  correctionType: correctionTypeEnum("correction_type").notNull(),
+  
+  sourceText: text("source_text"), // Original text from document for pattern analysis
+  certificateType: text("certificate_type"), // Type of certificate for categorization
+  templateId: varchar("template_id"), // Which template was used (if any)
+  aiModel: text("ai_model"), // Which AI model was used (if any)
+  extractionTier: text("extraction_tier"), // Which tier produced the extraction (tier-1, tier-2, etc.)
+  
+  reviewerId: varchar("reviewer_id").references(() => users.id),
+  reviewerName: text("reviewer_name"),
+  reviewDurationSeconds: integer("review_duration_seconds"), // Time spent on manual review
+  notes: text("notes"), // Reviewer comments on why correction needed
+  
+  usedForImprovement: boolean("used_for_improvement").notNull().default(false),
+  improvementBatchId: varchar("improvement_batch_id"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
