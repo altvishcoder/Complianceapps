@@ -328,20 +328,29 @@ export function GuidedTour() {
   );
 }
 
+const ONBOARDING_KEY = 'complianceai_onboarding_complete';
+
 export function TourTriggerButton() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
   
   useEffect(() => {
-    const tourComplete = localStorage.getItem(TOUR_STORAGE_KEY);
-    const tourStarted = localStorage.getItem(TOUR_STARTED_KEY);
+    const checkAndShowPrompt = () => {
+      const tourComplete = localStorage.getItem(TOUR_STORAGE_KEY);
+      const tourStarted = localStorage.getItem(TOUR_STARTED_KEY);
+      const onboardingComplete = localStorage.getItem(ONBOARDING_KEY);
+      
+      setHasCompleted(tourComplete === 'true');
+      
+      if (!tourComplete && !tourStarted && onboardingComplete === 'true') {
+        setShowPrompt(true);
+      }
+    };
     
-    setHasCompleted(tourComplete === 'true');
+    checkAndShowPrompt();
     
-    if (!tourComplete && !tourStarted) {
-      const timer = setTimeout(() => setShowPrompt(true), 2000);
-      return () => clearTimeout(timer);
-    }
+    const interval = setInterval(checkAndShowPrompt, 500);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -370,7 +379,7 @@ export function TourTriggerButton() {
     <>
       {showPrompt && createPortal(
         <Card 
-          className="fixed bottom-24 right-6 z-50 w-80 shadow-2xl border-primary/20 animate-in slide-in-from-right-5 duration-500"
+          className="fixed bottom-24 right-6 z-[200] w-80 shadow-2xl border-primary/20 animate-in slide-in-from-right-5 duration-500"
           data-testid="tour-prompt"
         >
           <CardContent className="p-4 space-y-3">
