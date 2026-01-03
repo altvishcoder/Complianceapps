@@ -464,12 +464,12 @@ export default function StaffDirectoryPage() {
 
             <Card className="bg-slate-900/50 border-slate-700">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-white">Staff Directory</CardTitle>
-                    <CardDescription className="text-slate-400">All staff members and operatives</CardDescription>
+                    <CardDescription className="text-slate-400 hidden sm:block">All staff members and operatives</CardDescription>
                   </div>
-                  <div className="relative w-64">
+                  <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input 
                       placeholder="Search staff..."
@@ -495,62 +495,66 @@ export default function StaffDirectoryPage() {
                     {filteredStaff.map((member: StaffMember) => (
                       <div 
                         key={member.id} 
-                        className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-blue-500/50 transition-colors"
+                        className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-blue-500/50 transition-colors"
                         data-testid={`staff-row-${member.id}`}
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 bg-blue-600/20 rounded-full flex items-center justify-center">
-                            <Users className="h-6 w-6 text-blue-400" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-600/20 rounded-full flex items-center justify-center shrink-0">
+                            <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-400" />
                           </div>
-                          <div>
-                            <h3 className="text-white font-medium">{getFullName(member)}</h3>
-                            <div className="flex items-center gap-4 text-sm text-slate-400 mt-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="text-white font-medium truncate">{getFullName(member)}</h3>
+                              <div className="shrink-0">{getStatusBadge(member.status)}</div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-400 mt-1">
                               {member.roleTitle && (
-                                <span className="flex items-center gap-1">
-                                  <Briefcase className="h-3 w-3" />
-                                  {member.roleTitle}
+                                <span className="flex items-center gap-1 truncate">
+                                  <Briefcase className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{member.roleTitle}</span>
                                 </span>
                               )}
                               {member.department && (
-                                <span className="flex items-center gap-1">
-                                  <Building2 className="h-3 w-3" />
-                                  {member.department}
+                                <span className="flex items-center gap-1 truncate">
+                                  <Building2 className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{member.department}</span>
                                 </span>
                               )}
-                              {member.employeeId && (
-                                <span className="text-slate-500">ID: {member.employeeId}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-2">
+                              <span className="flex items-center gap-1 truncate">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{member.email}</span>
+                              </span>
+                              {member.phone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3 shrink-0" />
+                                  {member.phone}
+                                </span>
                               )}
                             </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right text-sm">
-                            <div className="flex items-center gap-2 text-slate-400">
-                              <Mail className="h-3 w-3" />
-                              {member.email}
-                            </div>
-                            {member.phone && (
-                              <div className="flex items-center gap-2 text-slate-500 mt-1">
-                                <Phone className="h-3 w-3" />
-                                {member.phone}
+                            {(member.gasSafeNumber || member.nicEicNumber || member.employeeId) && (
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                {member.employeeId && (
+                                  <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                                    ID: {member.employeeId}
+                                  </Badge>
+                                )}
+                                {member.gasSafeNumber && (
+                                  <Badge variant="outline" className="border-orange-500/50 text-orange-400 text-xs">
+                                    <FileCheck className="h-3 w-3 mr-1" />
+                                    Gas Safe
+                                  </Badge>
+                                )}
+                                {member.nicEicNumber && (
+                                  <Badge variant="outline" className="border-blue-500/50 text-blue-400 text-xs">
+                                    <FileCheck className="h-3 w-3 mr-1" />
+                                    NICEIC
+                                  </Badge>
+                                )}
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            {member.gasSafeNumber && (
-                              <Badge variant="outline" className="border-orange-500/50 text-orange-400">
-                                <FileCheck className="h-3 w-3 mr-1" />
-                                Gas Safe
-                              </Badge>
-                            )}
-                            {member.nicEicNumber && (
-                              <Badge variant="outline" className="border-blue-500/50 text-blue-400">
-                                <FileCheck className="h-3 w-3 mr-1" />
-                                NICEIC
-                              </Badge>
-                            )}
-                          </div>
-                          {getStatusBadge(member.status)}
                         </div>
                       </div>
                     ))}
