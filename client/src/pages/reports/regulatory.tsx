@@ -226,20 +226,22 @@ export default function RegulatoryEvidence() {
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <p className="text-muted-foreground" data-testid="text-subtitle">
+                <p className="text-sm text-muted-foreground hidden sm:block" data-testid="text-subtitle">
                   Compliance evidence for HSE and regulatory reporting
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" data-testid="button-export-evidence">
                   <FileDown className="h-4 w-4 mr-2" />
-                  Export Evidence Pack
+                  <span className="hidden sm:inline">Export Evidence Pack</span>
+                  <span className="sm:hidden">Export</span>
                 </Button>
                 <Button variant="outline" data-testid="button-schedule-audit">
                   <Calendar className="h-4 w-4 mr-2" />
-                  Schedule Audit
+                  <span className="hidden sm:inline">Schedule Audit</span>
+                  <span className="sm:hidden">Audit</span>
                 </Button>
               </div>
             </div>
