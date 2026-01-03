@@ -1,0 +1,77 @@
+import { pgTable, text, varchar, timestamp, boolean, integer, real, json } from "drizzle-orm/pg-core";
+import { complianceStatusEnum, linkStatusEnum, propertyTypeEnum, tenureEnum, propertySourceEnum } from './base';
+
+export const schemes = pgTable("schemes", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id"),
+  name: text("name").notNull(),
+  reference: text("reference").notNull(),
+  complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const blocks = pgTable("blocks", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  schemeId: varchar("scheme_id"),
+  name: text("name").notNull(),
+  reference: text("reference").notNull(),
+  hasLift: boolean("has_lift").notNull().default(false),
+  hasCommunalBoiler: boolean("has_communal_boiler").notNull().default(false),
+  complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const properties = pgTable("properties", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  blockId: varchar("block_id"),
+  uprn: text("uprn").notNull().unique(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: text("city").notNull(),
+  postcode: text("postcode").notNull(),
+  propertyType: propertyTypeEnum("property_type").notNull(),
+  tenure: tenureEnum("tenure").notNull(),
+  bedrooms: integer("bedrooms").notNull().default(1),
+  hasGas: boolean("has_gas").notNull().default(true),
+  complianceStatus: complianceStatusEnum("compliance_status").notNull().default('UNKNOWN'),
+  source: propertySourceEnum("source").notNull().default('MANUAL'),
+  needsVerification: boolean("needs_verification").notNull().default(false),
+  linkStatus: linkStatusEnum("link_status").notNull().default('VERIFIED'),
+  extractedMetadata: json("extracted_metadata"),
+  vulnerableOccupant: boolean("vulnerable_occupant").notNull().default(false),
+  epcRating: text("epc_rating"),
+  constructionYear: integer("construction_year"),
+  numberOfFloors: integer("number_of_floors").default(1),
+  hasElectricity: boolean("has_electricity").notNull().default(true),
+  hasAsbestos: boolean("has_asbestos").notNull().default(false),
+  hasSprinklers: boolean("has_sprinklers").notNull().default(false),
+  localAuthority: text("local_authority"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  ward: text("ward"),
+  wardCode: text("ward_code"),
+  lsoa: text("lsoa"),
+  msoa: text("msoa"),
+  geocodedAt: timestamp("geocoded_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const ingestionBatches = pgTable("ingestion_batches", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").notNull(),
+  name: text("name"),
+  totalFiles: integer("total_files").notNull().default(0),
+  completedFiles: integer("completed_files").notNull().default(0),
+  failedFiles: integer("failed_files").notNull().default(0),
+  status: text("status").notNull().default('PENDING'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
