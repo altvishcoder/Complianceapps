@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 
 interface QueueStats {
   ingestion: {
@@ -436,6 +437,38 @@ export default function SystemHealthPage() {
                   </Card>
                 </div>
 
+                <HeroStatsGrid stats={[
+                  {
+                    title: "Total Queued",
+                    value: (queueStats?.ingestion?.queued ?? 0) + (queueStats?.webhook?.queued ?? 0),
+                    icon: Clock,
+                    riskLevel: ((queueStats?.ingestion?.queued ?? 0) + (queueStats?.webhook?.queued ?? 0)) > 50 ? "high" : 
+                               ((queueStats?.ingestion?.queued ?? 0) + (queueStats?.webhook?.queued ?? 0)) > 10 ? "medium" : "good",
+                    testId: "stat-total-queued"
+                  },
+                  {
+                    title: "Processing",
+                    value: (queueStats?.ingestion?.active ?? 0) + (queueStats?.webhook?.active ?? 0),
+                    icon: Activity,
+                    riskLevel: "low",
+                    testId: "stat-total-processing"
+                  },
+                  {
+                    title: "Completed",
+                    value: (queueStats?.ingestion?.completed ?? 0) + (queueStats?.webhook?.completed ?? 0),
+                    icon: CheckCircle2,
+                    riskLevel: "good",
+                    testId: "stat-total-completed"
+                  },
+                  {
+                    title: "Failed",
+                    value: (queueStats?.ingestion?.failed ?? 0) + (queueStats?.webhook?.failed ?? 0),
+                    icon: AlertCircle,
+                    riskLevel: ((queueStats?.ingestion?.failed ?? 0) + (queueStats?.webhook?.failed ?? 0)) > 0 ? "critical" : "good",
+                    testId: "stat-total-failed"
+                  }
+                ]} />
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card data-testid="card-ingestion-queue">
                     <CardHeader>
@@ -591,60 +624,36 @@ export default function SystemHealthPage() {
               </TabsContent>
 
               <TabsContent value="jobs" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card data-testid="card-jobs-total">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Total Jobs
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold" data-testid="text-jobs-total">
-                        {scheduledJobs?.length ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card data-testid="card-jobs-active">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Play className="h-4 w-4 text-green-500" />
-                        Active
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-green-600" data-testid="text-jobs-active">
-                        {scheduledJobs?.filter(j => j.enabled && j.status === 'active').length ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card data-testid="card-jobs-paused">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Pause className="h-4 w-4 text-amber-500" />
-                        Paused
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-amber-600" data-testid="text-jobs-paused">
-                        {scheduledJobs?.filter(j => !j.enabled || j.status === 'paused').length ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card data-testid="card-jobs-errors">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-500" />
-                        Errors
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-red-600" data-testid="text-jobs-errors">
-                        {scheduledJobs?.filter(j => j.status === 'error').length ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                <HeroStatsGrid stats={[
+                  {
+                    title: "Total Jobs",
+                    value: scheduledJobs?.length ?? 0,
+                    icon: Calendar,
+                    riskLevel: "low",
+                    testId: "stat-jobs-total"
+                  },
+                  {
+                    title: "Active",
+                    value: scheduledJobs?.filter(j => j.enabled && j.status === 'active').length ?? 0,
+                    icon: Play,
+                    riskLevel: "good",
+                    testId: "stat-jobs-active"
+                  },
+                  {
+                    title: "Paused",
+                    value: scheduledJobs?.filter(j => !j.enabled || j.status === 'paused').length ?? 0,
+                    icon: Pause,
+                    riskLevel: (scheduledJobs?.filter(j => !j.enabled || j.status === 'paused').length ?? 0) > 0 ? "medium" : "good",
+                    testId: "stat-jobs-paused"
+                  },
+                  {
+                    title: "Errors",
+                    value: scheduledJobs?.filter(j => j.status === 'error').length ?? 0,
+                    icon: AlertCircle,
+                    riskLevel: (scheduledJobs?.filter(j => j.status === 'error').length ?? 0) > 0 ? "critical" : "good",
+                    testId: "stat-jobs-errors"
+                  }
+                ]} />
 
                 <Card data-testid="card-scheduled-jobs-list">
                   <CardHeader>
@@ -730,61 +739,37 @@ export default function SystemHealthPage() {
               </TabsContent>
 
               <TabsContent value="cache" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card data-testid="card-cache-size">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <HardDrive className="h-4 w-4" />
-                        Cache Size
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold" data-testid="text-cache-size">
-                        {memoryCacheStats?.size ?? 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">entries</p>
-                    </CardContent>
-                  </Card>
-                  <Card data-testid="card-cache-hits">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Cache Hits
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-green-600" data-testid="text-cache-hits">
-                        {memoryCacheStats?.hits ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card data-testid="card-cache-misses">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-amber-500" />
-                        Cache Misses
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-amber-600" data-testid="text-cache-misses">
-                        {memoryCacheStats?.misses ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card data-testid="card-cache-evictions">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-red-500" />
-                        Evictions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-red-600" data-testid="text-cache-evictions">
-                        {memoryCacheStats?.evictions ?? 0}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                <HeroStatsGrid stats={[
+                  {
+                    title: "Cache Size",
+                    value: memoryCacheStats?.size ?? 0,
+                    subtitle: "entries",
+                    icon: HardDrive,
+                    riskLevel: "low",
+                    testId: "stat-cache-size"
+                  },
+                  {
+                    title: "Cache Hits",
+                    value: memoryCacheStats?.hits ?? 0,
+                    icon: CheckCircle2,
+                    riskLevel: "good",
+                    testId: "stat-cache-hits"
+                  },
+                  {
+                    title: "Cache Misses",
+                    value: memoryCacheStats?.misses ?? 0,
+                    icon: XCircle,
+                    riskLevel: (memoryCacheStats?.misses ?? 0) > (memoryCacheStats?.hits ?? 0) ? "high" : "medium",
+                    testId: "stat-cache-misses"
+                  },
+                  {
+                    title: "Evictions",
+                    value: memoryCacheStats?.evictions ?? 0,
+                    icon: AlertTriangle,
+                    riskLevel: (memoryCacheStats?.evictions ?? 0) > 100 ? "high" : (memoryCacheStats?.evictions ?? 0) > 0 ? "medium" : "good",
+                    testId: "stat-cache-evictions"
+                  }
+                ]} />
 
                 <Card data-testid="card-hit-ratio">
                   <CardHeader>
