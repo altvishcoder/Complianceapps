@@ -9,6 +9,7 @@ import { MessageSquare, Zap, DollarSign, Brain, Database, BookOpen, HelpCircle, 
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 
 interface ChatbotAnalytics {
   totalQueries: number;
@@ -126,63 +127,42 @@ export default function ChatbotAnalyticsPage() {
             </div>
           </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card data-testid="card-total-queries">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Queries</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.totalQueries.toLocaleString() || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Chatbot conversations processed
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-tokens-saved">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tokens Saved</CardTitle>
-            <Zap className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {analytics?.tokensSaved.toLocaleString() || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {costSavedPercentage}% queries handled without LLM
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-cost-saved">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Est. Cost Saved</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              ${analytics?.estimatedCostSaved.toFixed(4) || '0.00'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              By using cached/static responses
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-llm-usage">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">LLM Usage</CardTitle>
-            <Brain className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{llmQueries}</div>
-            <p className="text-xs text-muted-foreground">
-              {llmPercentage}% of queries needed LLM
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <HeroStatsGrid
+        stats={[
+          {
+            title: "Total Queries",
+            value: analytics?.totalQueries || 0,
+            subtitle: "Chatbot conversations",
+            icon: MessageSquare,
+            riskLevel: "low",
+            testId: "stat-total-queries"
+          },
+          {
+            title: "Tokens Saved",
+            value: analytics?.tokensSaved?.toLocaleString() || "0",
+            subtitle: `${costSavedPercentage}% handled without LLM`,
+            icon: Zap,
+            riskLevel: "good",
+            testId: "stat-tokens-saved"
+          },
+          {
+            title: "Est. Cost Saved",
+            value: `$${analytics?.estimatedCostSaved?.toFixed(4) || '0.00'}`,
+            subtitle: "Cached/static responses",
+            icon: DollarSign,
+            riskLevel: "good",
+            testId: "stat-cost-saved"
+          },
+          {
+            title: "LLM Usage",
+            value: llmQueries,
+            subtitle: `${llmPercentage}% needed LLM`,
+            icon: Brain,
+            riskLevel: parseFloat(llmPercentage) > 50 ? "medium" : "low",
+            testId: "stat-llm-usage"
+          }
+        ]}
+      />
 
       <Tabs defaultValue="breakdown" className="space-y-4">
         <TabsList>
