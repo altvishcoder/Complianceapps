@@ -341,16 +341,16 @@ export default function SystemHealthPage() {
         <Header title="System Health" />
         <main id="main-content" className="flex-1 overflow-y-auto p-6" role="main" aria-label="System health content">
           <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight font-display">System Health</h2>
-                <p className="text-muted-foreground">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display">System Health</h2>
+                <p className="text-sm text-muted-foreground hidden sm:block">
                   Monitor service status, background jobs, and system logs
                 </p>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 shrink-0">
                 {versionInfo && (
-                  <div className="text-right" data-testid="version-info">
+                  <div className="text-right hidden md:block" data-testid="version-info">
                     <p className="text-sm font-medium">{versionInfo.name} v{versionInfo.version}</p>
                     <p className="text-xs text-muted-foreground">
                       {versionInfo.environment} | Uptime: {Math.floor(versionInfo.uptime / 3600)}h {Math.floor((versionInfo.uptime % 3600) / 60)}m
@@ -359,11 +359,13 @@ export default function SystemHealthPage() {
                 )}
                 <Button 
                   variant="outline" 
+                  size="icon"
                   onClick={handleRefresh}
                   data-testid="button-refresh-health"
+                  title="Refresh"
                 >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Refresh
+                  <RefreshCcw className="h-4 w-4" />
+                  <span className="sr-only">Refresh</span>
                 </Button>
               </div>
             </div>
