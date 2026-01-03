@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -517,57 +518,53 @@ export default function IngestionControlRoom() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Ingestion Control Room" />
         <main id="main-content" className="flex-1 overflow-auto p-6" role="main" aria-label="Ingestion control room content" data-testid="ingestion-control-page">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Ingestion Control Room</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">Ingestion Control Room</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
                 Monitor and manage certificate processing pipeline
               </p>
             </div>
-            <Button onClick={() => { refetchStats(); refetchJobs(); }} variant="outline" data-testid="button-refresh">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
+            <Button onClick={() => { refetchStats(); refetchJobs(); }} variant="outline" size="icon" data-testid="button-refresh" title="Refresh" className="shrink-0">
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Refresh</span>
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
-            <Card data-testid="card-total-certs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Certificates</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{totalCertificates}</div>
-                <p className="text-xs text-muted-foreground mt-1">All time</p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-recent-24h">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Recent (24h)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">{recent24h}</div>
-                <p className="text-xs text-muted-foreground mt-1">Processed today</p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-approved">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-emerald-600">{approvedCerts}</div>
-                <p className="text-xs text-muted-foreground mt-1">Successfully processed</p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-pending">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Pending/Processing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-amber-600">{pendingCerts + processingCerts}</div>
-                <p className="text-xs text-muted-foreground mt-1">Awaiting completion</p>
-              </CardContent>
-            </Card>
-          </div>
+          <HeroStatsGrid stats={[
+            {
+              title: "Total Certificates",
+              value: totalCertificates,
+              subtitle: "All time",
+              icon: FileCheck,
+              riskLevel: "low",
+              testId: "stat-total-certs"
+            },
+            {
+              title: "Recent (24h)",
+              value: recent24h,
+              subtitle: "Processed today",
+              icon: Clock,
+              riskLevel: "low",
+              testId: "stat-recent-24h"
+            },
+            {
+              title: "Approved",
+              value: approvedCerts,
+              subtitle: "Successfully processed",
+              icon: CheckCircle2,
+              riskLevel: "good",
+              testId: "stat-approved"
+            },
+            {
+              title: "Pending",
+              value: pendingCerts + processingCerts,
+              subtitle: "Awaiting completion",
+              icon: Loader2,
+              riskLevel: (pendingCerts + processingCerts) > 20 ? "high" : (pendingCerts + processingCerts) > 5 ? "medium" : "good",
+              testId: "stat-pending"
+            }
+          ]} />
 
           <Card className="mb-6" data-testid="card-pipeline">
             <CardHeader>
