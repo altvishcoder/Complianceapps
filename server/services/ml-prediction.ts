@@ -1,3 +1,4 @@
+import * as tf from '@tensorflow/tfjs-node';
 import { db } from '../db';
 import { 
   mlModels, 
@@ -13,6 +14,199 @@ import {
 import { eq, and, desc, gte, lte, sql, count, or } from 'drizzle-orm';
 import { logger } from '../logger';
 import { calculatePropertyRiskScore, type PropertyRiskData, type RiskTier } from './risk-scoring';
+
+const ML_LOGGER = logger.child({ component: 'ml-tensorflow' });
+
+let cachedTensorFlowModel: tf.Sequential | null = null;
+let cachedTensorFlowModelId: string | null = null;
+
+class TensorFlowModel {
+  private model: tf.Sequential;
+  private config: MLModelConfig;
+
+  constructor(config: MLModelConfig) {
+    this.config = config;
+    this.model = this.buildModel();
+  }
+
+  private buildModel(): tf.Sequential {
+    const model = tf.sequential();
+    
+    model.add(tf.layers.dense({
+      units: 64,
+      activation: 'relu',
+      inputShape: [this.config.inputFeatures.length],
+      kernelInitializer: 'heNormal'
+    }));
+    
+    model.add(tf.layers.dropout({ rate: 0.2 }));
+    
+    model.add(tf.layers.dense({
+      units: 32,
+      activation: 'relu',
+      kernelInitializer: 'heNormal'
+    }));
+    
+    model.add(tf.layers.dropout({ rate: 0.1 }));
+    
+    model.add(tf.layers.dense({
+      units: 1,
+      activation: 'sigmoid'
+    }));
+    
+    model.compile({
+      optimizer: tf.train.adam(0.001),
+      loss: 'binaryCrossentropy',
+      metrics: ['accuracy']
+    });
+    
+    return model;
+  }
+
+  private weightsLoaded: boolean = false;
+
+  loadWeights(weights: Array<{ data: number[]; shape: number[] }>): boolean {
+    if (!weights || weights.length === 0) {
+      ML_LOGGER.warn('No weights provided');
+      return false;
+    }
+
+    try {
+      const tensors = weights.map(w => tf.tensor(w.data, w.shape));
+      this.model.setWeights(tensors);
+      tensors.forEach(t => t.dispose());
+      this.weightsLoaded = true;
+      ML_LOGGER.info('TensorFlow model weights loaded successfully');
+      return true;
+    } catch (err) {
+      ML_LOGGER.warn({ err }, 'Failed to load TensorFlow weights');
+      this.weightsLoaded = false;
+      return false;
+    }
+  }
+
+  isReady(): boolean {
+    return this.weightsLoaded;
+  }
+
+  getWeightsWithShapes(): Array<{ data: number[]; shape: number[] }> {
+    return this.model.getWeights().map(w => ({
+      data: Array.from(w.dataSync()),
+      shape: w.shape as number[]
+    }));
+  }
+
+  predict(featureVector: number[]): { score: number; confidence: number } {
+    const inputTensor = tf.tensor2d([featureVector], [1, this.config.inputFeatures.length]);
+    const prediction = this.model.predict(inputTensor) as tf.Tensor;
+    const score = (prediction.dataSync()[0]) * 100;
+    
+    inputTensor.dispose();
+    prediction.dispose();
+    
+    return {
+      score: Math.round(score),
+      confidence: 70
+    };
+  }
+
+  async train(
+    trainingData: { input: number[]; target: number }[],
+    config: TrainingConfig,
+    onProgress?: (epoch: number, loss: number, accuracy: number) => void
+  ): Promise<{ finalLoss: number; finalAccuracy: number; epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> }> {
+    const xs = tf.tensor2d(
+      trainingData.map(d => d.input),
+      [trainingData.length, this.config.inputFeatures.length]
+    );
+    const ys = tf.tensor2d(
+      trainingData.map(d => [d.target / 100]),
+      [trainingData.length, 1]
+    );
+
+    const epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> = [];
+
+    const result = await this.model.fit(xs, ys, {
+      epochs: config.epochs,
+      batchSize: config.batchSize,
+      validationSplit: config.validationSplit,
+      callbacks: {
+        onEpochEnd: async (epoch, logs) => {
+          const loss = logs?.loss ?? 0;
+          const acc = logs?.acc ?? 0;
+          epochHistory.push({ epoch, loss, accuracy: acc * 100 });
+          if (onProgress && epoch % 10 === 0) {
+            onProgress(epoch, loss, acc * 100);
+          }
+        }
+      }
+    });
+
+    xs.dispose();
+    ys.dispose();
+
+    const finalLoss = result.history.loss[result.history.loss.length - 1] as number;
+    const finalAcc = ((result.history.acc?.[result.history.acc.length - 1] as number) ?? 0) * 100;
+
+    ML_LOGGER.info({ samples: trainingData.length, finalLoss, finalAcc }, 'TensorFlow model training completed');
+
+    return { finalLoss, finalAccuracy: finalAcc, epochHistory };
+  }
+
+  getModel(): tf.Sequential {
+    return this.model;
+  }
+}
+
+interface TensorFlowWeightFormat {
+  data: number[];
+  shape: number[];
+}
+
+function isNewWeightFormat(weights: unknown): weights is TensorFlowWeightFormat[] {
+  if (!Array.isArray(weights) || weights.length === 0) return false;
+  const first = weights[0];
+  return first && typeof first === 'object' && 'data' in first && 'shape' in first;
+}
+
+async function getOrLoadTensorFlowModel(
+  organisationId: string,
+  modelData: typeof mlModels.$inferSelect | null
+): Promise<TensorFlowModel | null> {
+  if (!modelData || modelData.status !== 'ACTIVE') {
+    return null;
+  }
+
+  const weights = modelData.modelWeights;
+  
+  if (!weights || !isNewWeightFormat(weights)) {
+    ML_LOGGER.debug('No TensorFlow-compatible weights found (old format or missing), skipping TensorFlow');
+    return null;
+  }
+
+  if (cachedTensorFlowModelId === modelData.id && cachedTensorFlowModel) {
+    const tfModel = new TensorFlowModel(modelData.modelConfig as MLModelConfig);
+    const loaded = tfModel.loadWeights(weights);
+    if (!loaded) {
+      ML_LOGGER.warn('Failed to load cached weights, returning null');
+      return null;
+    }
+    return tfModel;
+  }
+
+  const tfModel = new TensorFlowModel(modelData.modelConfig as MLModelConfig);
+  const loaded = tfModel.loadWeights(weights);
+  
+  if (!loaded) {
+    ML_LOGGER.warn('Failed to load TensorFlow weights, returning null for fallback');
+    return null;
+  }
+
+  cachedTensorFlowModel = tfModel.getModel();
+  cachedTensorFlowModelId = modelData.id;
+
+  return tfModel;
+}
 
 export interface MLModelConfig {
   inputFeatures: string[];
@@ -399,28 +593,59 @@ export async function predictPropertyBreach(
   let sourceLabel: 'Statistical' | 'ML-Enhanced' | 'ML-Only' = 'Statistical';
   
   if (model && model.status === 'ACTIVE' && model.modelWeights) {
+    const featureVector = DEFAULT_MODEL_CONFIG.inputFeatures.map(
+      feature => inputFeatures[feature] || 0
+    );
+    
     try {
-      const nn = new SimpleNeuralNetwork(
-        model.modelConfig as MLModelConfig,
-        model.modelWeights as number[][]
-      );
-      
-      const featureVector = DEFAULT_MODEL_CONFIG.inputFeatures.map(
-        feature => inputFeatures[feature] || 0
-      );
-      
-      mlScore = Math.round(nn.predict(featureVector));
-      
-      const modelAccuracy = parseFloat(model.trainingAccuracy || '50');
-      const feedbackCount = model.feedbackCount || 0;
-      mlConfidence = Math.min(
-        Math.round(30 + (modelAccuracy * 0.4) + Math.min(feedbackCount * 2, 20)),
-        95
-      );
-      
-      sourceLabel = 'ML-Enhanced';
+      const tfModel = await getOrLoadTensorFlowModel(organisationId, model);
+      if (tfModel) {
+        const tfPrediction = tfModel.predict(featureVector);
+        mlScore = tfPrediction.score;
+        
+        const modelAccuracy = parseFloat(model.trainingAccuracy || '50');
+        const feedbackCount = model.feedbackCount || 0;
+        mlConfidence = Math.min(
+          Math.round(40 + (modelAccuracy * 0.4) + Math.min(feedbackCount * 2, 20)),
+          95
+        );
+        
+        sourceLabel = 'ML-Enhanced';
+        ML_LOGGER.debug({ propertyId, mlScore, mlConfidence }, 'TensorFlow prediction successful');
+      } else {
+        const nn = new SimpleNeuralNetwork(
+          model.modelConfig as MLModelConfig,
+          model.modelWeights as number[][]
+        );
+        mlScore = Math.round(nn.predict(featureVector));
+        
+        const modelAccuracy = parseFloat(model.trainingAccuracy || '50');
+        const feedbackCount = model.feedbackCount || 0;
+        mlConfidence = Math.min(
+          Math.round(30 + (modelAccuracy * 0.4) + Math.min(feedbackCount * 2, 20)),
+          95
+        );
+        
+        sourceLabel = 'ML-Enhanced';
+      }
     } catch (err) {
-      logger.error({ err, propertyId }, 'ML prediction failed, falling back to statistical');
+      ML_LOGGER.error({ err, propertyId }, 'TensorFlow prediction failed, trying fallback');
+      try {
+        const nn = new SimpleNeuralNetwork(
+          model.modelConfig as MLModelConfig,
+          model.modelWeights as number[][]
+        );
+        mlScore = Math.round(nn.predict(featureVector));
+        const modelAccuracy = parseFloat(model.trainingAccuracy || '50');
+        const feedbackCount = model.feedbackCount || 0;
+        mlConfidence = Math.min(
+          Math.round(30 + (modelAccuracy * 0.4) + Math.min(feedbackCount * 2, 20)),
+          95
+        );
+        sourceLabel = 'ML-Enhanced';
+      } catch (fallbackErr) {
+        logger.error({ fallbackErr, propertyId }, 'ML prediction fallback also failed');
+      }
     }
   }
   
@@ -566,20 +791,51 @@ export async function trainModelFromFeedback(
       }
     }
 
-    const nn = new SimpleNeuralNetwork(DEFAULT_MODEL_CONFIG, model.modelWeights as number[][] | undefined);
-    
-    const result = nn.train(trainingData, config, async (epoch, loss, accuracy) => {
-      await db.update(mlTrainingRuns)
-        .set({
-          currentEpoch: epoch,
-          trainingProgress: Math.round((epoch / config.epochs) * 100),
-        })
-        .where(eq(mlTrainingRuns.id, trainingRun.id));
-    });
+    let result: { finalLoss: number; finalAccuracy: number; epochHistory: Array<{ epoch: number; loss: number; accuracy: number }> };
+    let modelWeights: TensorFlowWeightFormat[] | number[][];
+
+    try {
+      ML_LOGGER.info({ samples: trainingData.length }, 'Starting TensorFlow training');
+      const tfModel = new TensorFlowModel(DEFAULT_MODEL_CONFIG);
+      
+      if (model.modelWeights && isNewWeightFormat(model.modelWeights)) {
+        tfModel.loadWeights(model.modelWeights);
+      }
+      
+      result = await tfModel.train(trainingData, config, async (epoch, loss, accuracy) => {
+        await db.update(mlTrainingRuns)
+          .set({
+            currentEpoch: epoch,
+            trainingProgress: Math.round((epoch / config.epochs) * 100),
+          })
+          .where(eq(mlTrainingRuns.id, trainingRun.id));
+      });
+      
+      modelWeights = tfModel.getWeightsWithShapes();
+      ML_LOGGER.info({ accuracy: result.finalAccuracy }, 'TensorFlow training completed');
+    } catch (tfError) {
+      ML_LOGGER.warn({ tfError }, 'TensorFlow training failed, falling back to SimpleNeuralNetwork');
+      
+      const nn = new SimpleNeuralNetwork(DEFAULT_MODEL_CONFIG, model.modelWeights as number[][] | undefined);
+      
+      result = nn.train(trainingData, config, async (epoch, loss, accuracy) => {
+        await db.update(mlTrainingRuns)
+          .set({
+            currentEpoch: epoch,
+            trainingProgress: Math.round((epoch / config.epochs) * 100),
+          })
+          .where(eq(mlTrainingRuns.id, trainingRun.id));
+      });
+      
+      modelWeights = nn.getWeights();
+    }
+
+    cachedTensorFlowModel = null;
+    cachedTensorFlowModelId = null;
 
     await db.update(mlModels)
       .set({
-        modelWeights: nn.getWeights(),
+        modelWeights: modelWeights as any,
         status: 'ACTIVE',
         trainingAccuracy: String(result.finalAccuracy.toFixed(2)),
         trainingLoss: String(result.finalLoss.toFixed(4)),
