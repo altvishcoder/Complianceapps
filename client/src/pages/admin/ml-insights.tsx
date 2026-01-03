@@ -25,8 +25,10 @@ import {
   Clock,
   BarChart3,
   Lightbulb,
-  Calculator
+  Calculator,
+  MessageSquare
 } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -247,7 +249,7 @@ export default function MLInsightsPage() {
       <Sidebar />
       <main className="flex-1 overflow-hidden flex flex-col">
         <Header title="Model Insights" />
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
               <TabsTrigger value="overview" data-testid="tab-overview">
@@ -269,89 +271,47 @@ export default function MLInsightsPage() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card data-testid="card-model-status">
-                  <CardHeader className="pb-2">
-                    <CardDescription>Model Status</CardDescription>
-                    <CardTitle className="text-2xl flex items-center gap-2">
-                      {modelMetrics?.model?.status === 'active' ? (
-                        <>
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                          Active
-                        </>
-                      ) : modelMetrics?.model?.status === 'training' ? (
-                        <>
-                          <RefreshCcw className="h-5 w-5 text-blue-500 animate-spin" />
-                          Training
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="h-5 w-5 text-amber-500" />
-                          Pending
-                        </>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-xs text-muted-foreground">
-                      Version {modelMetrics?.model?.version || '1.0.0'}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card data-testid="card-accuracy">
-                  <CardHeader className="pb-2">
-                    <CardDescription>Model Accuracy</CardDescription>
-                    <CardTitle className="text-2xl">
-                      {modelMetrics?.model?.accuracy != null 
-                        ? `${(modelMetrics.model.accuracy * 100).toFixed(1)}%`
-                        : '--'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Progress 
-                      value={(modelMetrics?.model?.accuracy || 0) * 100} 
-                      className="h-2"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Based on {modelMetrics?.model?.correctPredictions || 0} verified predictions
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card data-testid="card-predictions-total">
-                  <CardHeader className="pb-2">
-                    <CardDescription>Total Predictions</CardDescription>
-                    <CardTitle className="text-2xl">
-                      {(modelMetrics?.predictionStats?.total ?? 0).toLocaleString()}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-xs text-muted-foreground">
-                      Avg confidence: {(modelMetrics?.predictionStats?.avgConfidence ?? 0).toFixed(1)}%
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card data-testid="card-feedback">
-                  <CardHeader className="pb-2">
-                    <CardDescription>Human Feedback</CardDescription>
-                    <CardTitle className="text-2xl">
-                      {modelMetrics?.feedbackStats?.total ?? 0}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2 text-xs">
-                      <Badge variant="outline" className="bg-green-50 text-green-700">
-                        {modelMetrics?.feedbackStats?.correct ?? 0} correct
-                      </Badge>
-                      <Badge variant="outline" className="bg-red-50 text-red-700">
-                        {modelMetrics?.feedbackStats?.incorrect ?? 0} incorrect
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <HeroStatsGrid
+                stats={[
+                  {
+                    title: "Model Accuracy",
+                    value: modelMetrics?.model?.accuracy != null 
+                      ? `${(modelMetrics.model.accuracy * 100).toFixed(1)}%`
+                      : '--',
+                    subtitle: `${modelMetrics?.model?.correctPredictions || 0} verified`,
+                    icon: Target,
+                    iconColor: "text-emerald-600",
+                    testId: "stat-accuracy"
+                  },
+                  {
+                    title: "Total Predictions",
+                    value: modelMetrics?.predictionStats?.total ?? 0,
+                    subtitle: `${(modelMetrics?.predictionStats?.avgConfidence ?? 0).toFixed(1)}% avg confidence`,
+                    icon: Activity,
+                    iconColor: "text-blue-600",
+                    testId: "stat-predictions"
+                  },
+                  {
+                    title: "Human Feedback",
+                    value: modelMetrics?.feedbackStats?.total ?? 0,
+                    subtitle: `${modelMetrics?.feedbackStats?.correct ?? 0} correct, ${modelMetrics?.feedbackStats?.incorrect ?? 0} incorrect`,
+                    icon: MessageSquare,
+                    iconColor: "text-purple-600",
+                    testId: "stat-feedback"
+                  },
+                  {
+                    title: "Model Status",
+                    value: modelMetrics?.model?.status === 'active' ? 'Active' : 
+                           modelMetrics?.model?.status === 'training' ? 'Training' : 'Pending',
+                    subtitle: `v${modelMetrics?.model?.version || '1.0.0'}`,
+                    icon: modelMetrics?.model?.status === 'active' ? CheckCircle : 
+                          modelMetrics?.model?.status === 'training' ? RefreshCcw : Clock,
+                    iconColor: modelMetrics?.model?.status === 'active' ? "text-green-600" : 
+                               modelMetrics?.model?.status === 'training' ? "text-blue-600" : "text-amber-600",
+                    testId: "stat-status"
+                  }
+                ]}
+              />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card data-testid="card-confidence-tiers">
@@ -365,22 +325,22 @@ export default function MLInsightsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                       <div className="flex items-center gap-2 mb-2">
-                        <Calculator className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium text-blue-800">Statistical Score (85-95%)</span>
+                        <Calculator className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="font-medium text-blue-800 dark:text-blue-300">Statistical Score (85-95%)</span>
                       </div>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-blue-700 dark:text-blue-400">
                         Based on proven compliance rules, certificate expiry patterns, and historical data. 
                         High accuracy, always reliable.
                       </p>
                     </div>
-                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
                       <div className="flex items-center gap-2 mb-2">
-                        <Brain className="h-4 w-4 text-purple-600" />
-                        <span className="font-medium text-purple-800">ML Prediction (30-95%)</span>
+                        <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <span className="font-medium text-purple-800 dark:text-purple-300">ML Prediction (30-95%)</span>
                       </div>
-                      <p className="text-sm text-purple-700">
+                      <p className="text-sm text-purple-700 dark:text-purple-400">
                         Learning from patterns and human feedback. Confidence improves over time as 
                         more feedback is provided.
                       </p>
