@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  Clock,
+  CheckCircle2,
+  AlertOctagon
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -237,6 +241,11 @@ export default function CertificatesPage() {
   };
   
   const selectedProp = selectedCert?.property;
+  
+  const expiredCount = certificates.filter(isOverdue).length;
+  const expiringCount = certificates.filter(isExpiringSoon).length;
+  const pendingReviewCount = certificates.filter(c => c.status === 'NEEDS_REVIEW').length;
+  const approvedCount = certificates.filter(c => c.status === 'APPROVED').length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -267,6 +276,49 @@ export default function CertificatesPage() {
           {showBackButton && (
             <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
           )}
+          
+          <HeroStatsGrid
+            stats={[
+              {
+                title: "Expired Certificates",
+                value: expiredCount,
+                subtitle: "past expiry date",
+                icon: AlertOctagon,
+                riskLevel: expiredCount > 0 ? "critical" : "good",
+                href: "/certificates?filter=expired",
+                slaInfo: "Immediate renewal required",
+                testId: "hero-expired-certs",
+              },
+              {
+                title: "Expiring Soon",
+                value: expiringCount,
+                subtitle: "within 30 days",
+                icon: Clock,
+                riskLevel: expiringCount > 5 ? "high" : expiringCount > 0 ? "medium" : "good",
+                href: "/certificates?filter=expiring",
+                slaInfo: "Schedule renewal",
+                testId: "hero-expiring-certs",
+              },
+              {
+                title: "Pending Review",
+                value: pendingReviewCount,
+                subtitle: "awaiting approval",
+                icon: AlertTriangle,
+                riskLevel: pendingReviewCount > 10 ? "medium" : pendingReviewCount > 0 ? "low" : "good",
+                href: "/certificates?status=NEEDS_REVIEW",
+                testId: "hero-pending-review",
+              },
+              {
+                title: "Approved",
+                value: approvedCount,
+                subtitle: "valid certificates",
+                icon: CheckCircle2,
+                riskLevel: "good",
+                href: "/certificates?status=APPROVED",
+                testId: "hero-approved-certs",
+              },
+            ]}
+          />
           
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-2 w-full max-w-md">
