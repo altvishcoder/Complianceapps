@@ -11,3 +11,4 @@ export * from './risk';
 export * from './audit';
 export * from './reporting';
 export * from './ml';
+export * from './cache';

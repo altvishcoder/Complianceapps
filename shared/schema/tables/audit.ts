@@ -1,5 +1,8 @@
 import { pgTable, text, varchar, timestamp, boolean, json, pgEnum } from "drizzle-orm/pg-core";
 
+export const logLevelEnum = pgEnum('log_level', ['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
+export const logSourceEnum = pgEnum('log_source', ['api', 'job-queue', 'extraction', 'webhook', 'http', 'system']);
+
 export const auditActorTypeEnum = pgEnum('audit_actor_type', ['USER', 'SYSTEM', 'API']);
 export const auditEventTypeEnum = pgEnum('audit_event_type', [
   'CERTIFICATE_UPLOADED',
@@ -70,4 +73,15 @@ export const auditFieldChanges = pgTable("audit_field_changes", {
   newValue: json("new_value"),
   isSignificant: boolean("is_significant").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const systemLogs = pgTable("system_logs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  level: logLevelEnum("level").notNull(),
+  source: logSourceEnum("source").notNull().default('system'),
+  message: text("message").notNull(),
+  context: json("context"),
+  requestId: text("request_id"),
+  userId: varchar("user_id"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
