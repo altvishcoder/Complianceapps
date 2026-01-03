@@ -1107,7 +1107,7 @@ export default function RiskRadarPage() {
                   />
                 ) : (
                   <div className="space-y-3">
-                    {propertyRisks?.map(risk => (
+                    {[...(propertyRisks || [])].sort((a, b) => b.overallScore - a.overallScore).map(risk => (
                       <PropertyRiskCard 
                         key={risk.id} 
                         risk={risk} 
