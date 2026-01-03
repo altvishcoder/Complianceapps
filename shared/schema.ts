@@ -412,6 +412,50 @@ export const humanReviews = pgTable("human_reviews", {
   reviewedAt: timestamp("reviewed_at").defaultNow().notNull(),
 });
 
+// Field-Level Confidence Scores (Confidence Infrastructure)
+export const fieldConfidenceScores = pgTable("field_confidence_scores", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  extractionRunId: varchar("extraction_run_id").references(() => extractionRuns.id, { onDelete: 'cascade' }).notNull(),
+  certificateType: text("certificate_type").notNull(),
+  fieldName: text("field_name").notNull(),
+  confidenceScore: real("confidence_score").notNull(),
+  extractedValue: text("extracted_value"),
+  correctedValue: text("corrected_value"),
+  wasCorrected: boolean("was_corrected").notNull().default(false),
+  correctionReason: text("correction_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Auto-Approval Thresholds (Gradual Automation)
+export const autoApprovalThresholds = pgTable("auto_approval_thresholds", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id),
+  certificateType: text("certificate_type").notNull(),
+  fieldName: text("field_name"),
+  minConfidenceThreshold: real("min_confidence_threshold").notNull().default(0.9),
+  requiredSampleSize: integer("required_sample_size").notNull().default(100),
+  currentSampleSize: integer("current_sample_size").notNull().default(0),
+  currentAccuracy: real("current_accuracy"),
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  lastEvaluatedAt: timestamp("last_evaluated_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Confidence Baselines (Historical Accuracy Tracking)
+export const confidenceBaselines = pgTable("confidence_baselines", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  certificateType: text("certificate_type").notNull(),
+  fieldName: text("field_name").notNull(),
+  sampleCount: integer("sample_count").notNull().default(0),
+  avgConfidence: real("avg_confidence").notNull().default(0),
+  medianConfidence: real("median_confidence"),
+  correctionCount: integer("correction_count").notNull().default(0),
+  accuracyRate: real("accuracy_rate"),
+  recommendedThreshold: real("recommended_threshold"),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow().notNull(),
+});
+
 // Benchmark Sets (Evaluation - Phase 5)
 export const benchmarkSets = pgTable("benchmark_sets", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -1453,6 +1497,9 @@ export const insertExtractionSchemaSchema = createInsertSchema(extractionSchemas
 export const insertExtractionRunSchema = createInsertSchema(extractionRuns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertExtractionTierAuditSchema = createInsertSchema(extractionTierAudits).omit({ id: true, createdAt: true });
 export const insertHumanReviewSchema = createInsertSchema(humanReviews).omit({ id: true, reviewedAt: true });
+export const insertFieldConfidenceScoreSchema = createInsertSchema(fieldConfidenceScores).omit({ id: true, createdAt: true });
+export const insertAutoApprovalThresholdSchema = createInsertSchema(autoApprovalThresholds).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertConfidenceBaselineSchema = createInsertSchema(confidenceBaselines).omit({ id: true, lastUpdatedAt: true });
 export const insertBenchmarkSetSchema = createInsertSchema(benchmarkSets).omit({ id: true, createdAt: true });
 export const insertBenchmarkItemSchema = createInsertSchema(benchmarkItems).omit({ id: true, createdAt: true });
 export const insertEvalRunSchema = createInsertSchema(evalRuns).omit({ id: true, createdAt: true });
@@ -1526,6 +1573,15 @@ export type InsertExtractionTierAudit = z.infer<typeof insertExtractionTierAudit
 
 export type HumanReview = typeof humanReviews.$inferSelect;
 export type InsertHumanReview = z.infer<typeof insertHumanReviewSchema>;
+
+export type FieldConfidenceScore = typeof fieldConfidenceScores.$inferSelect;
+export type InsertFieldConfidenceScore = z.infer<typeof insertFieldConfidenceScoreSchema>;
+
+export type AutoApprovalThreshold = typeof autoApprovalThresholds.$inferSelect;
+export type InsertAutoApprovalThreshold = z.infer<typeof insertAutoApprovalThresholdSchema>;
+
+export type ConfidenceBaseline = typeof confidenceBaselines.$inferSelect;
+export type InsertConfidenceBaseline = z.infer<typeof insertConfidenceBaselineSchema>;
 
 export type BenchmarkSet = typeof benchmarkSets.$inferSelect;
 export type InsertBenchmarkSet = z.infer<typeof insertBenchmarkSetSchema>;

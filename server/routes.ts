@@ -52,6 +52,7 @@ import {
 import * as cacheAdminService from "./services/cache-admin";
 import { cacheRegions, cacheClearAudit } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
+import observabilityRoutes from "./routes/observability.routes";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -170,6 +171,9 @@ export async function registerRoutes(
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
+  
+  // Register observability routes (circuit breakers, queue metrics, etc.)
+  app.use('/api/observability', observabilityRoutes);
 
   // OpenAPI/Swagger documentation - generate fresh on each request for live updates
   let cachedOpenApiSpec = generateOpenAPIDocument();

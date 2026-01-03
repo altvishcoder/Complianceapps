@@ -82,3 +82,7 @@ export function adminAuthMiddleware(allowedRoles: string[] = ['LASHAN_SUPER_USER
     }
   };
 }
+
+export function requireAdminAuth(allowedRoles: string[] = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'ADMIN', 'COMPLIANCE_MANAGER']) {
+  return adminAuthMiddleware(allowedRoles);
+}

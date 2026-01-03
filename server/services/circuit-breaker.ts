@@ -154,6 +154,50 @@ class CircuitBreaker {
     return result;
   }
 
+  getAllStates(): Array<{
+    name: string;
+    state: CircuitState;
+    failures: number;
+    successes: number;
+    totalCalls: number;
+    totalFailures: number;
+    totalSuccesses: number;
+    lastFailureTime: number;
+    config: CircuitBreakerConfig;
+  }> {
+    const result: Array<{
+      name: string;
+      state: CircuitState;
+      failures: number;
+      successes: number;
+      totalCalls: number;
+      totalFailures: number;
+      totalSuccesses: number;
+      lastFailureTime: number;
+      config: CircuitBreakerConfig;
+    }> = [];
+    
+    const configuredCircuits = ['claude-vision', 'claude-text', 'azure-di', 'object-storage', 'webhook-delivery'];
+    
+    for (const name of configuredCircuits) {
+      const stats = this.getStats(name);
+      const config = this.getConfig(name);
+      result.push({
+        name,
+        state: stats.state,
+        failures: stats.failures,
+        successes: stats.successes,
+        totalCalls: stats.totalCalls,
+        totalFailures: stats.totalFailures,
+        totalSuccesses: stats.totalSuccesses,
+        lastFailureTime: stats.lastFailureTime,
+        config,
+      });
+    }
+    
+    return result;
+  }
+
   reset(name: string): void {
     this.circuits.delete(name);
     logger.info({ circuit: name }, 'Circuit breaker reset');
