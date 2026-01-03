@@ -602,26 +602,26 @@ export default function Configuration() {
             </Card>
 
             <Tabs defaultValue="streams" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="streams" data-testid="tab-streams">
-                  <Layers className="h-4 w-4 mr-2" />
-                  Streams
+              <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+                <TabsTrigger value="streams" className="text-xs sm:text-sm" data-testid="tab-streams">
+                  <Layers className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Streams</span>
                 </TabsTrigger>
-                <TabsTrigger value="cert-types" data-testid="tab-cert-types">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Certificate Types
+                <TabsTrigger value="cert-types" className="text-xs sm:text-sm" data-testid="tab-cert-types">
+                  <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Cert Types</span>
                 </TabsTrigger>
-                <TabsTrigger value="codes" data-testid="tab-codes">
-                  <Tags className="h-4 w-4 mr-2" />
-                  Classification Codes
+                <TabsTrigger value="codes" className="text-xs sm:text-sm" data-testid="tab-codes">
+                  <Tags className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Codes</span>
                 </TabsTrigger>
-                <TabsTrigger value="schemas" data-testid="tab-schemas">
-                  <Code className="h-4 w-4 mr-2" />
-                  Extraction Schemas
+                <TabsTrigger value="schemas" className="text-xs sm:text-sm" data-testid="tab-schemas">
+                  <Code className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Schemas</span>
                 </TabsTrigger>
-                <TabsTrigger value="rules" data-testid="tab-rules">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Domain Rules
+                <TabsTrigger value="rules" className="text-xs sm:text-sm" data-testid="tab-rules">
+                  <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Rules</span>
                 </TabsTrigger>
               </TabsList>
 

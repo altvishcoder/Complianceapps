@@ -198,24 +198,15 @@ export default function ImportsPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Data Import" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Data import content">
-          <div className="flex items-center justify-between">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4" role="main" aria-label="Data import content">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold">Data Import</h1>
-              <p className="text-muted-foreground">
-                Import properties, units, and components from CSV files
+              <h1 className="text-xl md:text-2xl font-bold">Data Import</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Import CSV data using HACT hierarchy
               </p>
             </div>
           </div>
-          
-          <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>HACT-Aligned Import</AlertTitle>
-        <AlertDescription>
-          Import data following the HACT standard hierarchy: Properties contain Units (rooms/areas), 
-          which contain Components (assets like boilers, alarms). Use the templates to ensure correct format.
-        </AlertDescription>
-      </Alert>
       
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "new" | "history")}>
         <TabsList>
