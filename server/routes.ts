@@ -9606,13 +9606,14 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { learningRate, epochs, batchSize } = req.body;
+      const { learningRate = 0.01, epochs = 100, batchSize = 32, validationSplit = 0.2 } = req.body;
       
       const { trainModelFromFeedback } = await import('./services/ml-prediction');
       const result = await trainModelFromFeedback(organisationId, {
         learningRate,
         epochs,
         batchSize,
+        validationSplit,
       });
       
       res.json(result);
