@@ -6750,8 +6750,8 @@ export async function registerRoutes(
   
   // ===== FACTORY SETTINGS (Lashan Super User Only) =====
   // Authorization helper for admin endpoints
-  // Security note: In production, this should use proper session-based authentication
-  // Currently requires both valid user ID AND admin token for defense-in-depth
+  // Security note: Uses BetterAuth session-based authentication
+  // Requires valid BetterAuth session with admin role for factory settings access
   const requireAdminRole = async (req: Request, res: Response): Promise<boolean> => {
     // Check for admin token first (if configured in environment)
     const adminToken = process.env.ADMIN_API_TOKEN;
@@ -6763,8 +6763,19 @@ export async function registerRoutes(
       return false;
     }
     
-    // Session-based authentication only - X-User-Id header bypass removed for security
-    const userId = req.session?.userId;
+    // Use BetterAuth session validation
+    const { fromNodeHeaders } = await import('better-auth/node');
+    let userId: string | null = null;
+    
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+      userId = session?.user?.id || null;
+    } catch (error) {
+      console.error('BetterAuth session error in requireAdminRole:', error);
+    }
+    
     if (!userId) {
       res.status(401).json({ error: "Session authentication required for admin operations" });
       return false;
