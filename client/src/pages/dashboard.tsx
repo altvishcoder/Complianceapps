@@ -651,18 +651,18 @@ export default function Dashboard() {
                       <Link 
                         key={action.id} 
                         href={`/actions/${action.id}`}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        className="flex items-start sm:items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer gap-2"
                         data-testid={`urgent-action-${action.id}`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{action.description}</p>
-                          <p className="text-xs text-muted-foreground">{action.propertyAddress}</p>
+                          <p className="font-medium text-sm line-clamp-2 sm:truncate">{action.description}</p>
+                          <p className="text-xs text-muted-foreground truncate">{action.propertyAddress}</p>
                         </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <Badge variant={action.severity === 'IMMEDIATE' ? 'destructive' : 'secondary'}>
+                        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                          <Badge variant={action.severity === 'IMMEDIATE' ? 'destructive' : 'secondary'} className="text-xs">
                             {action.severity}
                           </Badge>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
                         </div>
                       </Link>
                     ))}
