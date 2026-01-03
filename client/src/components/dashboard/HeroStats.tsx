@@ -58,22 +58,22 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick
   
   const content = (
     <div className={cn(
-      "rounded-lg p-4 border transition-all",
+      "rounded-lg p-4 border transition-all h-full min-h-[120px]",
       styles.bg,
       styles.border,
       isClickable && "hover:shadow-md cursor-pointer"
     )}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
+      <div className="flex items-start justify-between h-full">
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center gap-2 mb-1">
             <div className={cn("p-1.5 rounded-md", styles.icon)}>
               <Icon className="h-4 w-4 text-white" />
             </div>
             <span className="text-sm font-medium text-muted-foreground truncate">{title}</span>
           </div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex-1">
             <span className={cn(valueFontSize, "font-bold", styles.text)}>{value}</span>
-            {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
+            {subtitle && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{subtitle}</p>}
           </div>
           {slaInfo && (
             <p className="text-xs text-muted-foreground mt-1">{slaInfo}</p>
