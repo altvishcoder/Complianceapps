@@ -517,36 +517,6 @@ export default function SystemHealthPage() {
               </Card>
             </div>
 
-            <div className="flex items-center justify-between p-3 md:p-4 rounded-lg border bg-muted/30" data-testid="overall-status-bar">
-              <div className="flex items-center gap-3">
-                {healthLoading ? (
-                  <Badge variant="outline" className="py-1 px-3">
-                    Checking...
-                  </Badge>
-                ) : allHealthy ? (
-                  <Badge 
-                    className="py-1 px-3 bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/50"
-                    data-testid="badge-all-systems-operational"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                    All Systems Operational
-                  </Badge>
-                ) : (
-                  <Badge 
-                    variant="destructive" 
-                    className="py-1 px-3"
-                    data-testid="badge-system-issues"
-                  >
-                    <AlertCircle className="h-4 w-4 mr-1.5" />
-                    Some Services Degraded
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground" data-testid="text-last-checked">
-                Last checked: {lastChecked.toLocaleTimeString()}
-              </p>
-            </div>
-
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="flex-wrap h-auto gap-1">
                 <TabsTrigger value="health" data-testid="tab-health">
