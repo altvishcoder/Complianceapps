@@ -5,6 +5,7 @@ import { db } from '../db';
 import { extractionRuns, certificates, humanReviews } from '@shared/schema';
 import { sql, gte, count, avg } from 'drizzle-orm';
 import { requireAdminAuth } from '../middleware/admin-auth';
+import { logger } from '../logger';
 
 const router = Router();
 
