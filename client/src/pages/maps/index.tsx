@@ -119,58 +119,52 @@ export default function MapsIndexPage() {
             </div>
           )}
           <div className="h-full flex flex-col space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight font-display">Geographic Risk View</h2>
-                <p className="text-muted-foreground">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display">Geographic Risk View</h2>
+                <p className="text-sm text-muted-foreground hidden sm:block">
                   Visualize compliance risk across your property portfolio
                 </p>
               </div>
-              <div className="flex gap-2 items-center">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm text-muted-foreground">View by:</Label>
-                  <Select value={aggregationLevel} onValueChange={(v) => setAggregationLevel(v as AggregationLevel)}>
-                    <SelectTrigger className="w-[140px]" data-testid="select-aggregation-level">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="property">
-                        <div className="flex items-center gap-2">
-                          <Home className="h-4 w-4" />
-                          Property
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="scheme">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
-                          Scheme
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="ward">
-                        <div className="flex items-center gap-2">
-                          <MapPinned className="h-4 w-4" />
-                          Ward
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Select value={aggregationLevel} onValueChange={(v) => setAggregationLevel(v as AggregationLevel)}>
+                  <SelectTrigger className="w-[120px]" data-testid="select-aggregation-level">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="property">
+                      <div className="flex items-center gap-2">
+                        <Home className="h-4 w-4" />
+                        Property
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="scheme">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Scheme
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="ward">
+                      <div className="flex items-center gap-2">
+                        <MapPinned className="h-4 w-4" />
+                        Ward
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <Link href="/maps/risk-heatmap?from=/maps">
-                  <Button variant="outline" data-testid="button-heatmap">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Risk Heatmap
+                  <Button variant="outline" size="icon" data-testid="button-heatmap" title="Risk Heatmap">
+                    <BarChart3 className="h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/maps/scenarios?from=/maps">
-                  <Button variant="outline" data-testid="button-scenarios">
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Scenarios
+                  <Button variant="outline" size="icon" data-testid="button-scenarios" title="Scenarios">
+                    <AlertTriangle className="h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/maps/evidence?from=/maps">
-                  <Button variant="outline" data-testid="button-evidence">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Evidence View
+                  <Button variant="outline" size="icon" data-testid="button-evidence" title="Evidence View">
+                    <FileText className="h-4 w-4" />
                   </Button>
                 </Link>
               </div>
