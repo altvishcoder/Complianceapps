@@ -283,3 +283,65 @@ export type BenchmarkItem = typeof benchmarkItems.$inferSelect;
 export type InsertBenchmarkItem = Omit<BenchmarkItem, 'id' | 'createdAt' | 'updatedAt'>;
 export type EvalRun = typeof evalRuns.$inferSelect;
 export type InsertEvalRun = Omit<EvalRun, 'id' | 'createdAt' | 'updatedAt'>;
+
+// Navigation Configuration
+export const navigationSections = pgTable("navigation_sections", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  iconKey: text("icon_key").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  defaultOpen: boolean("default_open").notNull().default(false),
+  requiresRole: text("requires_role"),
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const navigationItems = pgTable("navigation_items", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sectionId: varchar("section_id").references(() => navigationSections.id).notNull(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  href: text("href").notNull(),
+  iconKey: text("icon_key").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  requiresAdmin: boolean("requires_admin").notNull().default(false),
+  requiresFactorySettings: boolean("requires_factory_settings").notNull().default(false),
+  requiresAITools: boolean("requires_ai_tools").notNull().default(false),
+  requiresRole: text("requires_role"),
+  featureFlagKey: text("feature_flag_key"),
+  metadata: json("metadata"),
+  isSystem: boolean("is_system").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const navigationItemRoles = pgTable("navigation_item_roles", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  navigationItemId: varchar("navigation_item_id").references(() => navigationItems.id, { onDelete: 'cascade' }).notNull(),
+  role: text("role").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const iconRegistry = pgTable("icon_registry", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  iconKey: text("icon_key").notNull().unique(),
+  lucideName: text("lucide_name").notNull(),
+  customSvg: text("custom_svg"),
+  category: text("category"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type NavigationSection = typeof navigationSections.$inferSelect;
+export type InsertNavigationSection = Omit<NavigationSection, 'id' | 'createdAt' | 'updatedAt'>;
+export type NavigationItem = typeof navigationItems.$inferSelect;
+export type InsertNavigationItem = Omit<NavigationItem, 'id' | 'createdAt' | 'updatedAt'>;
+export type NavigationItemRole = typeof navigationItemRoles.$inferSelect;
+export type IconRegistryEntry = typeof iconRegistry.$inferSelect;
+export type InsertIconRegistryEntry = Omit<IconRegistryEntry, 'id' | 'createdAt'>;
+export type NavigationItemWithRoles = NavigationItem & { allowedRoles: string[] };

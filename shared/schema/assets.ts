@@ -1,5 +1,14 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, pgEnum } from "drizzle-orm/pg-core";
 import { properties, blocks, schemes } from "./org-structure";
+import { organisations, users } from "./core-auth";
+
+export const importStatusEnum = pgEnum('import_status', [
+  'PENDING', 'VALIDATING', 'VALIDATED', 'IMPORTING', 'COMPLETED', 'FAILED', 'CANCELLED'
+]);
+
+export const importRowStatusEnum = pgEnum('import_row_status', [
+  'PENDING', 'VALID', 'INVALID', 'IMPORTED', 'SKIPPED', 'FAILED'
+]);
 
 export const componentCategoryEnum = pgEnum('component_category', [
   'HEATING', 'ELECTRICAL', 'FIRE_SAFETY', 'WATER', 'VENTILATION',
@@ -54,6 +63,64 @@ export const components = pgTable("components", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const videos = pgTable("videos", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  uploadedById: varchar("uploaded_by_id").references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  duration: integer("duration"),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  storageKey: text("storage_key").notNull(),
+  thumbnailKey: text("thumbnail_key"),
+  viewCount: integer("view_count").notNull().default(0),
+  downloadCount: integer("download_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const dataImports = pgTable("data_imports", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").references(() => organisations.id).notNull(),
+  uploadedById: varchar("uploaded_by_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  importType: text("import_type").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  columnMapping: json("column_mapping"),
+  status: importStatusEnum("status").notNull().default('PENDING'),
+  totalRows: integer("total_rows").notNull().default(0),
+  validRows: integer("valid_rows").notNull().default(0),
+  invalidRows: integer("invalid_rows").notNull().default(0),
+  importedRows: integer("imported_rows").notNull().default(0),
+  skippedRows: integer("skipped_rows").notNull().default(0),
+  upsertMode: boolean("upsert_mode").notNull().default(false),
+  dryRun: boolean("dry_run").notNull().default(false),
+  errorSummary: json("error_summary"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const dataImportRows = pgTable("data_import_rows", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  importId: varchar("import_id").references(() => dataImports.id, { onDelete: 'cascade' }).notNull(),
+  rowNumber: integer("row_number").notNull(),
+  status: importRowStatusEnum("status").notNull().default('PENDING'),
+  sourceData: json("source_data").notNull(),
+  validationErrors: json("validation_errors"),
+  createdRecordId: varchar("created_record_id"),
+  createdRecordType: text("created_record_type"),
+  processedAt: timestamp("processed_at"),
+});
+
 export type ComponentType = typeof componentTypes.$inferSelect;
 export type Space = typeof spaces.$inferSelect;
 export type Component = typeof components.$inferSelect;
+export type Video = typeof videos.$inferSelect;
+export type DataImport = typeof dataImports.$inferSelect;
+export type DataImportRow = typeof dataImportRows.$inferSelect;
