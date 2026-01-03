@@ -565,6 +565,13 @@ export interface ScheduledJobInfo {
   isActive: boolean;
   scheduleType: 'scheduled' | 'on-demand';
   description?: string;
+  stateCounts: {
+    pending: number;
+    active: number;
+    completed: number;
+    failed: number;
+    retry: number;
+  };
   recentJobs: Array<{
     id: string;
     state: string;
@@ -609,6 +616,13 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         LIMIT 10
       `);
       
+      const stateCountsResult = await db.execute(sql`
+        SELECT state, COUNT(*)::int as count
+        FROM pgboss.job 
+        WHERE name = ${queue.name}
+        GROUP BY state
+      `);
+      
       const schedule = scheduleResult.rows[0] as any;
       const recentJobs = (jobsResult.rows as any[]).map(job => ({
         id: job.id,
@@ -617,6 +631,15 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         completedOn: job.completed_on ? new Date(job.completed_on).toISOString() : null,
         startedOn: job.started_on ? new Date(job.started_on).toISOString() : null,
       }));
+      
+      const stateCounts = { pending: 0, active: 0, completed: 0, failed: 0, retry: 0 };
+      (stateCountsResult.rows as any[]).forEach(row => {
+        if (row.state === 'created') stateCounts.pending = row.count;
+        else if (row.state === 'active') stateCounts.active = row.count;
+        else if (row.state === 'completed') stateCounts.completed = row.count;
+        else if (row.state === 'failed') stateCounts.failed = row.count;
+        else if (row.state === 'retry') stateCounts.retry = row.count;
+      });
       
       const lastJob = recentJobs[0];
       const lastRunDate = lastJob?.completedOn || lastJob?.startedOn || lastJob?.createdOn || null;
@@ -629,6 +652,7 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         nextRun: null,
         isActive: queue.scheduleType === 'on-demand' || !!schedule,
         scheduleType: queue.scheduleType,
+        stateCounts,
         recentJobs,
         description: queue.description,
       });
@@ -644,6 +668,7 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
         nextRun: null,
         isActive: queue.scheduleType === 'on-demand',
         scheduleType: queue.scheduleType,
+        stateCounts: { pending: 0, active: 0, completed: 0, failed: 0, retry: 0 },
         recentJobs: [],
         description: queue.description,
       });

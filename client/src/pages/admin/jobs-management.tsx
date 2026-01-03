@@ -19,6 +19,13 @@ interface ScheduledJobInfo {
   isActive: boolean;
   scheduleType: 'scheduled' | 'on-demand';
   description?: string;
+  stateCounts: {
+    pending: number;
+    active: number;
+    completed: number;
+    failed: number;
+    retry: number;
+  };
   recentJobs: Array<{
     id: string;
     state: string;
@@ -39,8 +46,7 @@ function JobCard({ job, isSelected, onClick }: { job: ScheduledJobInfo; isSelect
   };
 
   const recentStates = job.recentJobs.slice(0, 5);
-  const failedCount = job.recentJobs.filter(j => j.state === 'failed').length;
-  const completedCount = job.recentJobs.filter(j => j.state === 'completed').length;
+  const { stateCounts } = job;
 
   return (
     <Card 
@@ -86,15 +92,18 @@ function JobCard({ job, isSelected, onClick }: { job: ScheduledJobInfo; isSelect
           
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-1">
-              {recentStates.map((run, i) => (
+              {recentStates.map((run) => (
                 <div key={run.id} title={`${run.state} - ${new Date(run.createdOn).toLocaleString()}`}>
                   {getStateIcon(run.state)}
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-green-600">{completedCount} ok</span>
-              {failedCount > 0 && <span className="text-red-600">{failedCount} failed</span>}
+            <div className="flex flex-wrap items-center gap-2 text-xs justify-end">
+              {stateCounts.pending > 0 && <span className="text-yellow-600">{stateCounts.pending} pending</span>}
+              {stateCounts.active > 0 && <span className="text-blue-600">{stateCounts.active} active</span>}
+              <span className="text-green-600">{stateCounts.completed} done</span>
+              {stateCounts.failed > 0 && <span className="text-red-600">{stateCounts.failed} failed</span>}
+              {stateCounts.retry > 0 && <span className="text-orange-600">{stateCounts.retry} retry</span>}
             </div>
           </div>
         </div>
@@ -121,9 +130,11 @@ export default function JobsManagement() {
   const onDemandJobs = jobs.filter(j => j.scheduleType === 'on-demand');
   const selectedJobData = jobs.find(j => j.name === selectedJob);
 
-  const totalJobs = jobs.reduce((acc, j) => acc + j.recentJobs.length, 0);
-  const failedJobs = jobs.reduce((acc, j) => acc + j.recentJobs.filter(r => r.state === 'failed').length, 0);
-  const activeJobs = jobs.reduce((acc, j) => acc + j.recentJobs.filter(r => r.state === 'active').length, 0);
+  const totalPending = jobs.reduce((acc, j) => acc + (j.stateCounts?.pending || 0), 0);
+  const totalActive = jobs.reduce((acc, j) => acc + (j.stateCounts?.active || 0), 0);
+  const totalCompleted = jobs.reduce((acc, j) => acc + (j.stateCounts?.completed || 0), 0);
+  const totalFailed = jobs.reduce((acc, j) => acc + (j.stateCounts?.failed || 0), 0);
+  const totalRetry = jobs.reduce((acc, j) => acc + (j.stateCounts?.retry || 0), 0);
 
   const handleTriggerPatternAnalysis = async () => {
     try {
@@ -164,7 +175,7 @@ export default function JobsManagement() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -182,12 +193,40 @@ export default function JobsManagement() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${totalPending > 0 ? 'bg-yellow-100 dark:bg-yellow-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                    <Pause className={`w-5 h-5 ${totalPending > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-slate-400'}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold" data-testid="text-pending-jobs">{totalPending}</p>
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${totalActive > 0 ? 'bg-blue-100 dark:bg-blue-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                    <Play className={`w-5 h-5 ${totalActive > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold" data-testid="text-active-jobs">{totalActive}</p>
+                    <p className="text-xs text-muted-foreground">Active</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
                     <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold" data-testid="text-total-jobs">{totalJobs}</p>
-                    <p className="text-xs text-muted-foreground">Recent Jobs</p>
+                    <p className="text-2xl font-bold" data-testid="text-completed-jobs">{totalCompleted}</p>
+                    <p className="text-xs text-muted-foreground">Completed</p>
                   </div>
                 </div>
               </CardContent>
@@ -196,26 +235,12 @@ export default function JobsManagement() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                    <Play className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  <div className={`p-2 rounded-lg ${totalFailed > 0 || totalRetry > 0 ? 'bg-red-100 dark:bg-red-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                    <AlertTriangle className={`w-5 h-5 ${totalFailed > 0 || totalRetry > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`} />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold" data-testid="text-active-jobs">{activeJobs}</p>
-                    <p className="text-xs text-muted-foreground">Active Jobs</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${failedJobs > 0 ? 'bg-red-100 dark:bg-red-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                    <AlertTriangle className={`w-5 h-5 ${failedJobs > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold" data-testid="text-failed-jobs">{failedJobs}</p>
-                    <p className="text-xs text-muted-foreground">Failed Jobs</p>
+                    <p className="text-2xl font-bold" data-testid="text-failed-jobs">{totalFailed + totalRetry}</p>
+                    <p className="text-xs text-muted-foreground">Failed/Retry</p>
                   </div>
                 </div>
               </CardContent>
