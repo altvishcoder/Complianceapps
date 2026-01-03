@@ -25,9 +25,11 @@ Preferred communication style: Simple, everyday language.
 -   **ORM**: Drizzle ORM with PostgreSQL dialect.
 -   **Database**: PostgreSQL.
 -   **Migrations**: Drizzle Kit.
--   **Schema Architecture**: Monolithic `shared/schema.ts` contains all 88+ tables (3108 lines). 
-    - **Modular Schema (In Progress)**: Partial modular implementation exists at `shared/schema/tables/` with 14 domain files covering ~60 tables. The pattern uses barrel exports and centralized relations to avoid ES module initialization timing issues. Complete modularization requires adding remaining tables.
-    - **Design Pattern**: Tables import only from drizzle-orm/pg-core, relations go in centralized `relations.ts`, schemas in `schemas/index.ts`, types in `types/index.ts`
+-   **Schema Architecture**: Fully modular schema with 90+ tables organized in 15 domain files at `shared/schema/tables/`:
+    - **Domain Files**: base.ts, core-auth.ts, org-structure.ts, assets.ts, compliance.ts, config.ts, chatbot.ts, api.ts, contractor.ts, risk.ts, audit.ts, reporting.ts, ml.ts, cache.ts
+    - **Design Pattern**: Tables import ONLY from drizzle-orm/pg-core, relations centralized in `relations.ts`, insert schemas in `schemas/index.ts`, types in `types/index.ts`
+    - **Main Export**: `shared/schema.ts` re-exports from modular structure via barrel exports
+    - **Recent Additions**: systemLogs, riskSnapshots, cacheRegions, cacheStats, cacheClearAudit tables
 -   **Data Model**: Follows UKHDS 5-level asset hierarchy with optional linking and verification status. Organisation is implicit.
     - **UKHDS Hierarchy Terminology** (aligned with Housing Association usage):
       - **Scheme (Site Layer)**: Portfolio, Estate, Development - `schemes` table
