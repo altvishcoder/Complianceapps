@@ -1,4 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, real, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 import { organisations, users } from "./core-auth";
 import { properties } from "./org-structure";
 import { remedialActions } from "./compliance";
@@ -126,7 +128,8 @@ export const contractorRatings = pgTable("contractor_ratings", {
 });
 
 export type Contractor = typeof contractors.$inferSelect;
-export type InsertContractor = Omit<Contractor, 'id' | 'createdAt' | 'updatedAt'>;
+export const insertContractorSchema = createInsertSchema(contractors).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type ContractorCertification = typeof contractorCertifications.$inferSelect;
 export type InsertContractorCertification = Omit<ContractorCertification, 'id' | 'createdAt' | 'updatedAt'>;
 export type ContractorVerificationHistory = typeof contractorVerificationHistory.$inferSelect;

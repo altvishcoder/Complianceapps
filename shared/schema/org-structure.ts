@@ -1,4 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 import { organisations } from "./core-auth";
 
 export const schemes = pgTable("schemes", {
@@ -45,3 +47,10 @@ export const properties = pgTable("properties", {
 export type Scheme = typeof schemes.$inferSelect;
 export type Block = typeof blocks.$inferSelect;
 export type Property = typeof properties.$inferSelect;
+
+export const insertSchemeSchema = createInsertSchema(schemes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPropertySchema = createInsertSchema(properties).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertScheme = z.infer<typeof insertSchemeSchema>;
+export type InsertBlock = z.infer<typeof insertBlockSchema>;
+export type InsertProperty = z.infer<typeof insertPropertySchema>;

@@ -1,4 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, pgEnum, real } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 import { organisations, users } from "./core-auth";
 import { properties, blocks } from "./org-structure";
 import { components } from "./assets";
@@ -173,3 +175,10 @@ export type ExtractionTierAudit = typeof extractionTierAudits.$inferSelect;
 export type HumanReview = typeof humanReviews.$inferSelect;
 export type FieldConfidenceScore = typeof fieldConfidenceScores.$inferSelect;
 export type CertificateVersion = typeof certificateVersions.$inferSelect;
+
+export const insertCertificateSchema = createInsertSchema(certificates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRemedialActionSchema = createInsertSchema(remedialActions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertExtractionSchema = createInsertSchema(extractions).omit({ id: true, createdAt: true });
+export type InsertCertificate = z.infer<typeof insertCertificateSchema>;
+export type InsertRemedialAction = z.infer<typeof insertRemedialActionSchema>;
+export type InsertExtraction = z.infer<typeof insertExtractionSchema>;

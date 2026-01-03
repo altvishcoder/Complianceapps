@@ -11,4 +11,5 @@ export * from './contractor';
 export * from './risk';
 export * from './audit';
 export * from './reporting';
-export * from './relations';
+// Relations temporarily disabled - circular dependency issue
+// export * from './relations';

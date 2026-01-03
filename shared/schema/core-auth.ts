@@ -1,4 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, json, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 export const userRoleEnum = pgEnum('user_role', ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'COMPLIANCE_MANAGER', 'ADMIN', 'MANAGER', 'OFFICER', 'VIEWER']);
 export const staffStatusEnum = pgEnum('staff_status', ['ACTIVE', 'PENDING', 'SUSPENDED', 'INACTIVE']);
@@ -89,3 +91,8 @@ export type StaffMember = typeof staffMembers.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type Verification = typeof verifications.$inferSelect;
+
+export const insertOrganisationSchema = createInsertSchema(organisations).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertOrganisation = z.infer<typeof insertOrganisationSchema>;
+export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;

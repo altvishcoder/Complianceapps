@@ -1,4 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, real, json, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 import { organisations, users } from "./core-auth";
 import { certificates } from "./compliance";
 
@@ -413,3 +415,20 @@ export type CacheClearAudit = typeof cacheClearAudit.$inferSelect;
 export type InsertCacheClearAudit = Omit<CacheClearAudit, 'id' | 'createdAt'>;
 export type CacheLayer = 'CLIENT' | 'API' | 'DATABASE' | 'MEMORY' | 'SESSION';
 export type CacheClearScope = 'REGION' | 'CATEGORY' | 'LAYER' | 'ALL';
+
+export const insertDetectionPatternSchema = createInsertSchema(certificateDetectionPatterns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertOutcomeRuleSchema = createInsertSchema(certificateOutcomeRules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertComplianceStreamSchema = createInsertSchema(complianceStreams).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCertificateTypeSchema = createInsertSchema(certificateTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClassificationCodeSchema = createInsertSchema(classificationCodes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertComplianceRuleSchema = createInsertSchema(complianceRules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertNormalisationRuleSchema = createInsertSchema(normalisationRules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertExtractionSchemaSchema = createInsertSchema(extractionSchemas).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertDetectionPattern = z.infer<typeof insertDetectionPatternSchema>;
+export type InsertOutcomeRule = z.infer<typeof insertOutcomeRuleSchema>;
+export type InsertComplianceStream = z.infer<typeof insertComplianceStreamSchema>;
+export type InsertCertificateType = z.infer<typeof insertCertificateTypeSchema>;
+export type InsertClassificationCode = z.infer<typeof insertClassificationCodeSchema>;
+export type InsertComplianceRule = z.infer<typeof insertComplianceRuleSchema>;
+export type InsertNormalisationRule = z.infer<typeof insertNormalisationRuleSchema>;
+export type InsertExtractionSchema = z.infer<typeof insertExtractionSchemaSchema>;

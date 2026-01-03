@@ -1,4 +1,6 @@
 import { pgTable, text, varchar, timestamp, boolean, integer, json, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 import { properties, blocks, schemes } from "./org-structure";
 import { organisations, users } from "./core-auth";
 
@@ -124,3 +126,12 @@ export type Component = typeof components.$inferSelect;
 export type Video = typeof videos.$inferSelect;
 export type DataImport = typeof dataImports.$inferSelect;
 export type DataImportRow = typeof dataImportRows.$inferSelect;
+
+export const insertComponentTypeSchema = createInsertSchema(componentTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSpaceSchema = createInsertSchema(spaces).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertComponentSchema = createInsertSchema(components).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDataImportSchema = createInsertSchema(dataImports).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertComponentType = z.infer<typeof insertComponentTypeSchema>;
+export type InsertSpace = z.infer<typeof insertSpaceSchema>;
+export type InsertComponent = z.infer<typeof insertComponentSchema>;
+export type InsertDataImport = z.infer<typeof insertDataImportSchema>;
