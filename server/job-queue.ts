@@ -5,8 +5,32 @@ import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { enqueueWebhookEvent } from "./webhook-worker";
 import { jobLogger } from "./logger";
 import { runPatternAnalysis } from "./services/pattern-analysis";
+import { db, pool } from "./db";
+import { sql, eq } from "drizzle-orm";
+import { ingestionJobs, certificates } from "@shared/schema";
+import { 
+  withRetryAndTimeout, 
+  withTimeout, 
+  withSafeDefaults,
+  withCircuitBreaker,
+  TimeoutError 
+} from "./utils/resilience";
 
 const objectStorageService = new ObjectStorageService();
+
+const TIMEOUTS = {
+  OBJECT_STORAGE: 60000,
+  EXTRACTION: 300000,
+  WEBHOOK: 30000,
+  DATABASE_QUERY: 10000,
+} as const;
+
+const RETRY_CONFIG = {
+  maxAttempts: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2,
+};
 
 // Helper function to parse positive integers with fallback
 const parsePositiveIntOrDefault = (value: string, defaultVal: number): number => {
@@ -57,11 +81,29 @@ export async function initJobQueue(): Promise<PgBoss> {
     throw new Error("DATABASE_URL environment variable is required for job queue");
   }
 
-  // Load job queue configuration from Factory Settings
-  const retryLimit = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'), 3);
-  const retryDelay = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'), 30);
-  const archiveFailedAfterDays = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'), 7);
-  const deleteAfterDays = parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'), 30);
+  // Load job queue configuration from Factory Settings with retry and safe defaults
+  const retryLimit = await withSafeDefaults(
+    async () => parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_RETRY_LIMIT', '3'), 3),
+    3,
+    'JOB_RETRY_LIMIT'
+  );
+  const retryDelay = await withSafeDefaults(
+    async () => parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_RETRY_DELAY_SECONDS', '30'), 30),
+    30,
+    'JOB_RETRY_DELAY_SECONDS'
+  );
+  const archiveFailedAfterDays = await withSafeDefaults(
+    async () => parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_ARCHIVE_FAILED_AFTER_DAYS', '7'), 7),
+    7,
+    'JOB_ARCHIVE_FAILED_AFTER_DAYS'
+  );
+  const deleteAfterDays = await withSafeDefaults(
+    async () => parsePositiveIntOrDefault(await storage.getFactorySettingValue('JOB_DELETE_AFTER_DAYS', '30'), 30),
+    30,
+    'JOB_DELETE_AFTER_DAYS'
+  );
+
+  jobLogger.info({ retryLimit, retryDelay, archiveFailedAfterDays, deleteAfterDays }, "Job queue configuration loaded");
 
   boss = new PgBoss({
     connectionString,
@@ -73,7 +115,7 @@ export async function initJobQueue(): Promise<PgBoss> {
   });
 
   boss.on("error", (error) => {
-    jobLogger.error({ error }, "pg-boss error");
+    jobLogger.error({ error }, "Job queue error");
   });
 
   await boss.start();
@@ -235,17 +277,40 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
   
   jobLogger.info({ jobId, propertyId, certificateType }, "Processing ingestion job");
   
+  // Idempotency check: If job is already complete or failed, skip processing
   const ingestionJob = await storage.getIngestionJob(jobId);
   if (!ingestionJob) {
     throw new Error(`Ingestion job ${jobId} not found`);
   }
 
+  if (ingestionJob.status === "COMPLETE") {
+    jobLogger.info({ jobId }, "Ingestion job already completed, skipping (idempotency)");
+    return;
+  }
+
+  if (ingestionJob.status === "FAILED" && ingestionJob.attemptCount >= 3) {
+    jobLogger.info({ jobId, attemptCount: ingestionJob.attemptCount }, "Ingestion job exceeded max retries, skipping");
+    return;
+  }
+
+  // Check for duplicate certificate creation (idempotency by job reference)
+  if (ingestionJob.certificateId) {
+    const existingCert = await storage.getCertificate(ingestionJob.certificateId);
+    if (existingCert && existingCert.status !== "FAILED") {
+      jobLogger.info({ jobId, certificateId: ingestionJob.certificateId }, "Certificate already created for this job, skipping");
+      return;
+    }
+  }
+
   try {
-    await storage.updateIngestionJob(jobId, {
-      status: "PROCESSING",
-      lastAttemptAt: new Date(),
-      attemptCount: ingestionJob.attemptCount + 1,
-    });
+    // Acquire row-level lock and update status atomically
+    await db.execute(sql`
+      UPDATE ${ingestionJobs}
+      SET status = 'PROCESSING', 
+          last_attempt_at = NOW(),
+          attempt_count = attempt_count + 1
+      WHERE id = ${jobId} AND status NOT IN ('COMPLETE', 'FAILED')
+    `);
 
     const property = await storage.getProperty(propertyId);
     if (!property) {
@@ -257,12 +322,23 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
     let mimeType: string | undefined;
 
     if (objectPath) {
+      // Download file with timeout and circuit breaker
       try {
-        const file = await objectStorageService.getObjectEntityFile(objectPath);
-        if (file) {
-          const [contents] = await file.download();
-          fileBuffer = contents;
-        }
+        fileBuffer = await withCircuitBreaker(
+          'object-storage',
+          async () => withTimeout(
+            async () => {
+              const file = await objectStorageService.getObjectEntityFile(objectPath);
+              if (file) {
+                const [contents] = await file.download();
+                return contents;
+              }
+              return undefined;
+            },
+            { timeoutMs: TIMEOUTS.OBJECT_STORAGE, timeoutMessage: 'Object storage download timed out' }
+          ),
+          { failureThreshold: 3, resetTimeoutMs: 60000 }
+        );
 
         const extension = fileName.split(".").pop()?.toLowerCase();
         if (extension === "pdf") {
@@ -278,7 +354,8 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
           fileBase64 = fileBuffer?.toString("base64");
         }
       } catch (error) {
-        jobLogger.error({ error, jobId, objectPath }, "Error downloading file");
+        const isTimeout = error instanceof TimeoutError;
+        jobLogger.error({ error, jobId, objectPath, isTimeout }, "Error downloading file");
         throw new Error(`Failed to download file from object storage: ${error}`);
       }
     }
@@ -289,6 +366,7 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
 
     await storage.updateIngestionJob(jobId, { status: "EXTRACTING" });
 
+    // Create certificate within a controlled scope
     const certificate = await storage.createCertificate({
       propertyId,
       organisationId: ingestionJob.organisationId,
@@ -299,12 +377,19 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
       status: "PROCESSING",
     });
 
-    await processExtractionAndSave(
-      certificate.id,
-      certificateType,
-      fileBase64,
-      mimeType || "application/octet-stream",
-      fileBuffer
+    // Link certificate to job immediately for idempotency tracking
+    await storage.updateIngestionJob(jobId, { certificateId: certificate.id });
+
+    // Run extraction with timeout
+    await withTimeout(
+      async () => processExtractionAndSave(
+        certificate.id,
+        certificateType,
+        fileBase64,
+        mimeType || "application/octet-stream",
+        fileBuffer
+      ),
+      { timeoutMs: TIMEOUTS.EXTRACTION, timeoutMessage: 'Certificate extraction timed out' }
     );
 
     const certificateId = certificate.id;
@@ -336,12 +421,13 @@ async function processCertificateIngestion(data: IngestionJobData): Promise<void
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    jobLogger.error({ jobId, error: errorMessage, propertyId }, "Ingestion job failed");
+    const isTimeout = error instanceof TimeoutError;
+    jobLogger.error({ jobId, error: errorMessage, propertyId, isTimeout }, "Ingestion job failed");
 
     await storage.updateIngestionJob(jobId, {
       status: "FAILED",
       statusMessage: `Processing failed: ${errorMessage}`,
-      errorDetails: { error: errorMessage, stack: error instanceof Error ? error.stack : undefined },
+      errorDetails: { error: errorMessage, stack: error instanceof Error ? error.stack : undefined, isTimeout },
     });
 
     if (webhookUrl) {
@@ -371,23 +457,43 @@ async function processWebhookDelivery(data: WebhookJobData): Promise<void> {
   jobLogger.info({ jobId, webhookUrl, attempt: attemptCount + 1 }, "Delivering webhook");
   
   try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-ComplianceAI-Event": payload.event as string,
-        "X-ComplianceAI-JobId": jobId,
-      },
-      body: JSON.stringify(payload),
-    });
+    // Use circuit breaker for webhook delivery to prevent cascading failures
+    await withCircuitBreaker(
+      `webhook-${new URL(webhookUrl).hostname}`,
+      async () => withTimeout(
+        async () => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.WEBHOOK);
+          
+          try {
+            const response = await fetch(webhookUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-ComplianceAI-Event": payload.event as string,
+                "X-ComplianceAI-JobId": jobId,
+              },
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            });
 
-    if (!response.ok) {
-      throw new Error(`Webhook returned status ${response.status}: ${await response.text()}`);
-    }
+            if (!response.ok) {
+              const errorText = await response.text().catch(() => 'Unable to read response');
+              throw new Error(`Webhook returned status ${response.status}: ${errorText}`);
+            }
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        },
+        { timeoutMs: TIMEOUTS.WEBHOOK, timeoutMessage: `Webhook delivery timed out after ${TIMEOUTS.WEBHOOK}ms` }
+      ),
+      { failureThreshold: 5, resetTimeoutMs: 120000 }
+    );
 
     jobLogger.info({ jobId }, "Webhook delivered successfully");
   } catch (error) {
-    jobLogger.error({ jobId, error, webhookUrl }, "Webhook delivery failed");
+    const isTimeout = error instanceof TimeoutError;
+    jobLogger.error({ jobId, error, webhookUrl, isTimeout }, "Webhook delivery failed");
     throw error;
   }
 }

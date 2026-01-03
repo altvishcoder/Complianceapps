@@ -51,6 +51,7 @@ import {
 } from "./services/password-policy";
 import * as cacheAdminService from "./services/cache-admin";
 import { cacheRegions, cacheClearAudit } from "@shared/schema";
+import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -7148,38 +7149,64 @@ export async function registerRoutes(
         }
       }
       
-      // Create ingestion job record
-      const job = await storage.createIngestionJob({
-        organisationId: auth.client.organisationId,
-        propertyId,
-        certificateType,
-        channel: 'EXTERNAL_API',
-        fileName,
-        objectPath,
-        webhookUrl,
-        idempotencyKey,
-        apiClientId: auth.client.id
-      });
+      // Check upload throttle and atomically acquire slot
+      const throttleResult = checkUploadThrottle(auth.client.id);
+      if (!throttleResult.allowed) {
+        return res.status(429).json({
+          error: throttleResult.reason,
+          retryAfterMs: throttleResult.retryAfterMs,
+        });
+      }
       
-      // Enqueue job for processing via pg-boss
+      // Try to acquire file lock using deterministic key (org + objectPath or idempotencyKey)
+      const lockKey = idempotencyKey 
+        ? `${auth.client.organisationId}::idempotency::${idempotencyKey}`
+        : `${auth.client.organisationId}::${propertyId}::${fileName}`;
+      
+      if (!acquireFileLock(lockKey)) {
+        endUpload(auth.client.id);
+        return res.status(409).json({
+          error: "This file is already being processed",
+        });
+      }
+      
       try {
-        await enqueueIngestionJob({
-          jobId: job.id,
+        // Create ingestion job record
+        const job = await storage.createIngestionJob({
+          organisationId: auth.client.organisationId,
           propertyId,
           certificateType,
+          channel: 'EXTERNAL_API',
           fileName,
           objectPath,
           webhookUrl,
+          idempotencyKey,
+          apiClientId: auth.client.id
         });
-      } catch (queueError) {
-        console.error("Failed to enqueue ingestion job:", queueError);
+        
+        // Enqueue job for processing via pg-boss
+        try {
+          await enqueueIngestionJob({
+            jobId: job.id,
+            propertyId,
+            certificateType,
+            fileName,
+            objectPath,
+            webhookUrl,
+          });
+        } catch (queueError) {
+          console.error("Failed to enqueue ingestion job:", queueError);
+        }
+        
+        res.status(201).json({
+          id: job.id,
+          status: job.status,
+          message: "Ingestion job created successfully"
+        });
+      } finally {
+        releaseFileLock(lockKey);
+        endUpload(auth.client.id);
       }
-      
-      res.status(201).json({
-        id: job.id,
-        status: job.status,
-        message: "Ingestion job created successfully"
-      });
     } catch (error) {
       console.error("Error creating ingestion job:", error);
       res.status(500).json({ error: "Failed to create ingestion job" });
@@ -7250,10 +7277,16 @@ export async function registerRoutes(
   
   // POST /api/v1/uploads - Request a pre-signed upload URL for large files
   app.post("/api/v1/uploads", async (req, res) => {
+    let slotAcquired = false;
+    let clientId: string | undefined;
+    
     try {
       const auth = await validateApiKey(req, res);
       if (!auth) return;
       
+      clientId = auth.client.id;
+      
+      // Validate input before acquiring throttle slot
       const { filename, contentType, fileSize, idempotencyKey } = req.body;
       
       if (!filename || !contentType) {
@@ -7266,7 +7299,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: `File size exceeds maximum allowed (${maxSize / 1024 / 1024}MB)` });
       }
       
-      // Check for idempotency
+      // Check for idempotency (no slot needed for cached response)
       if (idempotencyKey) {
         const existing = await storage.getUploadSessionByIdempotencyKey(idempotencyKey);
         if (existing && existing.status === 'PENDING') {
@@ -7279,6 +7312,16 @@ export async function registerRoutes(
           });
         }
       }
+      
+      // Now acquire throttle slot (after validation passes)
+      const throttleResult = checkUploadThrottle(clientId);
+      if (!throttleResult.allowed) {
+        return res.status(429).json({
+          error: throttleResult.reason,
+          retryAfterMs: throttleResult.retryAfterMs,
+        });
+      }
+      slotAcquired = true;
       
       // Generate object path
       const objectPath = `ingestions/${auth.client.organisationId}/${Date.now()}_${filename}`;
@@ -7306,6 +7349,10 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating upload session:", error);
       res.status(500).json({ error: "Failed to create upload session" });
+    } finally {
+      if (slotAcquired && clientId) {
+        endUpload(clientId);
+      }
     }
   });
   

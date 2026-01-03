@@ -148,9 +148,9 @@ class CircuitBreaker {
 
   getAllStats(): Record<string, CircuitStats> {
     const result: Record<string, CircuitStats> = {};
-    for (const [name, stats] of this.circuits) {
+    this.circuits.forEach((stats, name) => {
       result[name] = { ...stats };
-    }
+    });
     return result;
   }
 
@@ -178,6 +178,27 @@ circuitBreaker.configure('claude-text', {
   failureThreshold: 3,
   successThreshold: 2,
   timeout: 30000, // 30 seconds for text API
+  resetTimeout: 120000, // 2 minutes
+});
+
+circuitBreaker.configure('azure-di', {
+  failureThreshold: 3,
+  successThreshold: 2,
+  timeout: 120000, // 120 seconds for Azure DI (polling-based)
+  resetTimeout: 180000, // 3 minutes
+});
+
+circuitBreaker.configure('object-storage', {
+  failureThreshold: 5,
+  successThreshold: 2,
+  timeout: 60000, // 60 seconds for object storage
+  resetTimeout: 60000, // 1 minute
+});
+
+circuitBreaker.configure('webhook-delivery', {
+  failureThreshold: 5,
+  successThreshold: 3,
+  timeout: 30000, // 30 seconds for webhooks
   resetTimeout: 120000, // 2 minutes
 });
 

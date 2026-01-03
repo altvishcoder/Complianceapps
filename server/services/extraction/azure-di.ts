@@ -1,5 +1,6 @@
 import type { ExtractedCertificateData } from './types';
 import { logger } from '../../logger';
+import { circuitBreaker, withRetry } from '../circuit-breaker';
 
 interface AzureConfig {
   endpoint: string;
@@ -64,57 +65,68 @@ export async function extractWithAzureDI(
   }
 
   try {
-    const modelId = "prebuilt-layout";
-    const analyzeUrl = `${config.endpoint}/documentintelligence/documentModels/${modelId}:analyze?api-version=${config.apiVersion}&outputContentFormat=markdown`;
-    
-    logger.info({ modelId, mimeType, bufferSize: buffer.length }, 'Starting Azure DI extraction');
-    
-    const submitResponse = await fetch(analyzeUrl, {
-      method: "POST",
-      headers: {
-        "Ocp-Apim-Subscription-Key": config.apiKey,
-        "Content-Type": mimeType
-      },
-      body: buffer
-    });
-    
-    if (!submitResponse.ok) {
-      const errorText = await submitResponse.text();
-      throw new Error(`Azure API error: ${submitResponse.status} - ${errorText}`);
-    }
-    
-    const operationLocation = submitResponse.headers.get("Operation-Location");
-    if (!operationLocation) {
-      throw new Error("No Operation-Location header in response");
-    }
-    
-    let result: { status: string; analyzeResult?: { content?: string; pages?: unknown[] }; error?: { message: string } } | null = null;
-    const maxPolls = 30;
-    const pollInterval = 2000;
-    
-    for (let i = 0; i < maxPolls; i++) {
-      await sleep(pollInterval);
-      
-      const pollResponse = await fetch(operationLocation, {
-        method: "GET",
-        headers: {
-          "Ocp-Apim-Subscription-Key": config.apiKey
+    const result = await circuitBreaker.execute(
+      'azure-di',
+      async () => {
+        const modelId = "prebuilt-layout";
+        const analyzeUrl = `${config.endpoint}/documentintelligence/documentModels/${modelId}:analyze?api-version=${config.apiVersion}&outputContentFormat=markdown`;
+        
+        logger.info({ modelId, mimeType, bufferSize: buffer.length }, 'Starting Azure DI extraction');
+        
+        const submitResponse = await withRetry(
+          () => fetch(analyzeUrl, {
+            method: "POST",
+            headers: {
+              "Ocp-Apim-Subscription-Key": config.apiKey,
+              "Content-Type": mimeType
+            },
+            body: buffer
+          }),
+          2, // maxRetries
+          1000 // baseDelayMs
+        );
+        
+        if (!submitResponse.ok) {
+          const errorText = await submitResponse.text();
+          throw new Error(`Azure API error: ${submitResponse.status} - ${errorText}`);
         }
-      });
-      
-      if (!pollResponse.ok) continue;
-      
-      result = await pollResponse.json();
-      
-      if (result?.status === "succeeded") break;
-      if (result?.status === "failed") {
-        throw new Error(result.error?.message || "Azure analysis failed");
+        
+        const operationLocation = submitResponse.headers.get("Operation-Location");
+        if (!operationLocation) {
+          throw new Error("No Operation-Location header in response");
+        }
+        
+        let pollResult: { status: string; analyzeResult?: { content?: string; pages?: unknown[] }; error?: { message: string } } | null = null;
+        const maxPolls = 30;
+        const pollInterval = 2000;
+        
+        for (let i = 0; i < maxPolls; i++) {
+          await sleep(pollInterval);
+          
+          const pollResponse = await fetch(operationLocation, {
+            method: "GET",
+            headers: {
+              "Ocp-Apim-Subscription-Key": config.apiKey
+            }
+          });
+          
+          if (!pollResponse.ok) continue;
+          
+          pollResult = await pollResponse.json();
+          
+          if (pollResult?.status === "succeeded") break;
+          if (pollResult?.status === "failed") {
+            throw new Error(pollResult.error?.message || "Azure analysis failed");
+          }
+        }
+        
+        if (!pollResult || pollResult.status !== "succeeded") {
+          throw new Error("Azure analysis timed out");
+        }
+        
+        return pollResult;
       }
-    }
-    
-    if (!result || result.status !== "succeeded") {
-      throw new Error("Azure analysis timed out");
-    }
+    );
     
     const rawText = result.analyzeResult?.content || '';
     const pageCount = result.analyzeResult?.pages?.length || 1;
@@ -144,7 +156,8 @@ export async function extractWithAzureDI(
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error({ error: errorMessage }, 'Azure DI extraction failed');
+    const isCircuitOpen = errorMessage.includes('Circuit breaker');
+    logger.error({ error: errorMessage, isCircuitOpen }, 'Azure DI extraction failed');
 
     return {
       success: false,
