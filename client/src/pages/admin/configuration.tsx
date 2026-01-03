@@ -626,11 +626,10 @@ export default function Configuration() {
               </TabsList>
 
               <TabsContent value="streams" className="space-y-4">
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800">
-                    <strong>Compliance Streams</strong> are high-level categories that group related certificate types (e.g., Gas & Heating, Electrical, Fire Safety). 
-                    Each stream represents a distinct regulatory area in UK social housing compliance. System streams cannot be deleted but can be disabled.
+                <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
+                    Regulatory categories grouping certificate types. System streams can be disabled but not deleted.
                   </AlertDescription>
                 </Alert>
                 <Card>
@@ -826,12 +825,10 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="cert-types" className="space-y-4">
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800">
-                    <strong>Certificate Types</strong> define the compliance documents your organisation tracks (e.g., Gas Safety, EICR, Fire Risk). 
-                    Each type has a validity period and warning threshold. When you upload a document, you select its type from this list. 
-                    Changes here immediately update all dropdowns in the Upload and Ingestion Hub pages.
+                <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
+                    Compliance documents with validity periods. Changes update all upload dropdowns.
                   </AlertDescription>
                 </Alert>
                 <Card>
@@ -982,11 +979,10 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="codes" className="space-y-4">
-                <Alert className="bg-amber-50 border-amber-200">
-                  <Tags className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800">
-                    <strong>Classification Codes</strong> represent outcomes or defect categories found in certificates (e.g., C1 = Immediately Dangerous, C2 = At Risk for gas; SATISFACTORY/UNSATISFACTORY for EICR). 
-                    Each code has a severity level and required action timeframe. When AI extracts a certificate, it identifies these codes and the system automatically generates remedial actions based on their severity.
+                <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                  <Tags className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+                    Outcome/defect categories (C1, C2, etc.) that auto-generate remedial actions based on severity.
                   </AlertDescription>
                 </Alert>
                 <Card>
@@ -1152,12 +1148,10 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="schemas" className="space-y-4">
-                <Alert className="bg-emerald-50 border-emerald-200">
-                  <Code className="h-4 w-4 text-emerald-600" />
-                  <AlertDescription className="text-emerald-800">
-                    <strong>Extraction Schemas</strong> define what data the AI should extract from each document type. 
-                    Each schema specifies the fields to extract (e.g., engineer name, issue date, defects), their types, and whether they're required. 
-                    The prompt template guides the AI on how to interpret the document. When you deploy a schema change, all future document extractions will use the updated schema.
+                <Alert className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+                  <Code className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <AlertDescription className="text-emerald-800 dark:text-emerald-300 text-sm">
+                    AI extraction field definitions. Deploy changes to apply to future extractions.
                   </AlertDescription>
                 </Alert>
                 <Card>
@@ -1287,12 +1281,10 @@ export default function Configuration() {
               </TabsContent>
 
               <TabsContent value="rules" className="space-y-4">
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    <strong>Domain Rules</strong> automate compliance actions based on extracted data. <strong>Compliance Rules</strong> detect issues (e.g., "if C1 defect found, flag as urgent and create immediate action"). 
-                    <strong>Normalisation Rules</strong> standardise data formats (e.g., convert "ID" to "C1", format dates to ISO standard). 
-                    These rules run automatically after AI extraction to ensure consistent data and appropriate responses.
+                <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <AlertDescription className="text-green-800 dark:text-green-300 text-sm">
+                    Automated post-extraction rules: compliance checks trigger actions, normalisation standardises data formats.
                   </AlertDescription>
                 </Alert>
                 <div className="grid gap-4 md:grid-cols-2">
