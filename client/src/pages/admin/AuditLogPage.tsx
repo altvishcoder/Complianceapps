@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Search, Download, Clock, User, FileText, Settings, CheckCircle, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp, Lock } from "lucide-react";
@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AuditEvent {
@@ -255,92 +254,90 @@ export default function AuditLogPage() {
                         <TableHead className="hidden lg:table-cell">Message</TableHead>
                       </TableRow>
                     </TableHeader>
-                <TableBody>
-                  {filteredEvents.map((event) => (
-                    <Collapsible key={event.id} open={expandedRows.has(event.id)} onOpenChange={() => toggleRow(event.id)}>
-                      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(event.id)} data-testid={`audit-row-${event.id}`}>
-                        <TableCell>
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                              {expandedRows.has(event.id) ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </CollapsibleTrigger>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {format(new Date(event.createdAt), "MMM d, HH:mm:ss")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {eventIcons[event.eventType] || eventIcons.default}
-                            <span className="text-sm">{eventTypeLabels[event.eventType] || event.eventType}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {event.entityType}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-sm">
-                          {event.actorName}
-                          {event.actorType === 'SYSTEM' && (
-                            <Badge variant="secondary" className="ml-1 text-xs">System</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell max-w-[300px] truncate text-sm">
-                          {event.message}
-                        </TableCell>
-                      </TableRow>
-                      <CollapsibleContent asChild>
-                        <TableRow>
-                          <TableCell colSpan={6} className="bg-muted/30 p-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <p className="font-medium mb-1">Details</p>
-                                <dl className="space-y-1 text-muted-foreground">
-                                  <div className="flex gap-2">
-                                    <dt className="font-medium">Entity ID:</dt>
-                                    <dd className="font-mono text-xs">{event.entityId}</dd>
-                                  </div>
-                                  {event.entityName && (
-                                    <div className="flex gap-2">
-                                      <dt className="font-medium">Entity Name:</dt>
-                                      <dd>{event.entityName}</dd>
-                                    </div>
-                                  )}
-                                  {event.ipAddress && (
-                                    <div className="flex gap-2">
-                                      <dt className="font-medium">IP Address:</dt>
-                                      <dd className="font-mono text-xs">{event.ipAddress}</dd>
-                                    </div>
-                                  )}
-                                </dl>
+                    <TableBody>
+                      {filteredEvents.map((event) => (
+                        <React.Fragment key={event.id}>
+                          <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(event.id)} data-testid={`audit-row-${event.id}`}>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
+                                {expandedRows.has(event.id) ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {format(new Date(event.createdAt), "MMM d, HH:mm:ss")}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {eventIcons[event.eventType] || eventIcons.default}
+                                <span className="text-sm">{eventTypeLabels[event.eventType] || event.eventType}</span>
                               </div>
-                              {event.changes && Object.keys(event.changes).length > 0 && (
-                                <div>
-                                  <p className="font-medium mb-1">Changes</p>
-                                  <ul className="space-y-1 text-xs text-muted-foreground">
-                                    {Object.entries(event.changes).map(([field, change]) => (
-                                      <li key={field}>
-                                        <span className="font-medium">{field}:</span>{" "}
-                                        <span className="line-through text-red-400">{String(change.from || 'empty')}</span>
-                                        {" → "}
-                                        <span className="text-green-600">{String(change.to || 'empty')}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {event.entityType}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-sm">
+                              {event.actorName}
+                              {event.actorType === 'SYSTEM' && (
+                                <Badge variant="secondary" className="ml-1 text-xs">System</Badge>
                               )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ))}
-                </TableBody>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell max-w-[300px] truncate text-sm">
+                              {event.message}
+                            </TableCell>
+                          </TableRow>
+                          {expandedRows.has(event.id) && (
+                            <TableRow>
+                              <TableCell colSpan={6} className="bg-muted/30 p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p className="font-medium mb-1">Details</p>
+                                    <dl className="space-y-1 text-muted-foreground">
+                                      <div className="flex gap-2">
+                                        <dt className="font-medium">Entity ID:</dt>
+                                        <dd className="font-mono text-xs">{event.entityId}</dd>
+                                      </div>
+                                      {event.entityName && (
+                                        <div className="flex gap-2">
+                                          <dt className="font-medium">Entity Name:</dt>
+                                          <dd>{event.entityName}</dd>
+                                        </div>
+                                      )}
+                                      {event.ipAddress && (
+                                        <div className="flex gap-2">
+                                          <dt className="font-medium">IP Address:</dt>
+                                          <dd className="font-mono text-xs">{event.ipAddress}</dd>
+                                        </div>
+                                      )}
+                                    </dl>
+                                  </div>
+                                  {event.changes && Object.keys(event.changes).length > 0 && (
+                                    <div>
+                                      <p className="font-medium mb-1">Changes</p>
+                                      <ul className="space-y-1 text-xs text-muted-foreground">
+                                        {Object.entries(event.changes).map(([field, change]) => (
+                                          <li key={field}>
+                                            <span className="font-medium">{field}:</span>{" "}
+                                            <span className="line-through text-red-400">{String(change.from || 'empty')}</span>
+                                            {" → "}
+                                            <span className="text-green-600">{String(change.to || 'empty')}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </TableBody>
                   </Table>
                 </ScrollArea>
               </div>
