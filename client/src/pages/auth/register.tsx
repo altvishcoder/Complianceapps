@@ -1,34 +1,72 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { ShieldCheck, ArrowRight, User, Mail, Building, Lock } from "lucide-react";
+import { ShieldCheck, ArrowRight, User, Mail, Lock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CheckCircle2 } from "lucide-react";
-import { Captcha } from "@/components/ui/captcha";
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    org: "",
     password: "",
     confirmPassword: ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    
     setIsLoading(true);
-    // Simulate network request
-    setTimeout(() => {
+    
+    try {
+      const username = formData.email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+      
+      const response = await fetch("/api/auth/sign-up/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          username: username,
+          organisationId: "default-org",
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok || result.error) {
+        setError(result.message || result.error?.message || "Registration failed. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(false);
       setIsSubmitted(true);
-    }, 1500);
+    } catch (err: any) {
+      setError(err.message || "Registration failed. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
@@ -38,25 +76,25 @@ export default function RegisterPage() {
           <div className="mx-auto h-16 w-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4 border border-emerald-100">
              <CheckCircle2 className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-display font-bold tracking-tight">Registration Submitted</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight">Registration Successful</h1>
           
           <Card className="border-border/50 shadow-lg text-left">
             <CardContent className="pt-6 space-y-4">
-              <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                <AlertTitle className="font-semibold text-blue-900">Pending Approval</AlertTitle>
+              <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
+                <AlertTitle className="font-semibold text-emerald-900">Account Created</AlertTitle>
                 <AlertDescription className="mt-2 text-sm">
-                  Your account has been created successfully. For security reasons, all new registrations require manual approval.
+                  Your account has been created successfully. You can now sign in with your email and password.
                 </AlertDescription>
               </Alert>
               
               <div className="text-sm text-muted-foreground space-y-3 bg-muted/30 p-4 rounded-md border border-border/50">
-                <p>An approval request has been sent to the system administrator.</p>
-                <p>You will receive an email notification once your account is active.</p>
+                <p>You have been assigned the Viewer role by default.</p>
+                <p>Contact your administrator to request additional permissions if needed.</p>
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full" onClick={() => setLocation("/login")}>
-                Return to Login
+              <Button className="w-full" onClick={() => setLocation("/login")}>
+                Continue to Login
               </Button>
             </CardFooter>
           </Card>
@@ -73,16 +111,23 @@ export default function RegisterPage() {
              <ShieldCheck className="h-6 w-6" />
           </div>
           <h1 className="text-3xl font-display font-bold tracking-tight">ComplianceAI</h1>
-          <p className="text-muted-foreground">Create your Enterprise Account</p>
+          <p className="text-muted-foreground">Create your Account</p>
         </div>
 
         <Card className="border-border/50 shadow-lg">
           <CardHeader>
             <CardTitle>Register</CardTitle>
-            <CardDescription>Enter your details to request access</CardDescription>
+            <CardDescription>Enter your details to create an account</CardDescription>
           </CardHeader>
           <form onSubmit={handleRegister}>
             <CardContent className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
@@ -94,37 +139,24 @@ export default function RegisterPage() {
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                     required 
+                    data-testid="input-name"
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="email">Work Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="name@company.com" 
+                    placeholder="name@example.com" 
                     className="pl-9"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                     required 
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="org">Organization</Label>
-                <div className="relative">
-                  <Building className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="org" 
-                    placeholder="Company Name" 
-                    className="pl-9"
-                    value={formData.org}
-                    onChange={(e) => setFormData({...formData, org: e.target.value})}
-                    required 
+                    data-testid="input-email"
                   />
                 </div>
               </div>
@@ -136,21 +168,36 @@ export default function RegisterPage() {
                   <Input 
                     id="password" 
                     type="password" 
+                    placeholder="Min 8 characters"
                     className="pl-9"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                     required 
+                    data-testid="input-password"
                   />
                 </div>
               </div>
 
-              <div className="pt-2">
-                <Captcha />
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="confirmPassword" 
+                    type="password" 
+                    placeholder="Re-enter password"
+                    className="pl-9"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                    required 
+                    data-testid="input-confirm-password"
+                  />
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
-              <Button className="w-full group" disabled={isLoading}>
-                {isLoading ? "Submitting..." : "Request Access"} 
+              <Button className="w-full group" disabled={isLoading} data-testid="button-register">
+                {isLoading ? "Creating Account..." : "Create Account"} 
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />}
               </Button>
               <div className="text-center text-sm">

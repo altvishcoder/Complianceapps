@@ -46,7 +46,7 @@ export const organisations = pgTable("organisations", {
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   role: userRoleEnum("role").notNull().default('VIEWER'),
