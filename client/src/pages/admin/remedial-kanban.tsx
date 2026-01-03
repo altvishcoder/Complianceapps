@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Clock, CheckCircle, XCircle, Calendar, ChevronRight, RefreshCw, Filter, AlertTriangle, Building, FileText } from "lucide-react";
+import { AlertCircle, Clock, CheckCircle, XCircle, Calendar, ChevronRight, RefreshCw, Filter, AlertTriangle, Building, FileText, ListTodo } from "lucide-react";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -289,43 +290,36 @@ export default function RemedialKanban() {
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
-            <Card data-testid="card-total-actions">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.total}</div>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-open-actions">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Open</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-red-600">{stats.open}</div>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-immediate-actions">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Immediate Priority</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-orange-600 flex items-center gap-2">
-                  <AlertTriangle className="h-6 w-6" />
-                  {stats.immediate}
-                </div>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-overdue-actions">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Overdue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-rose-600">{stats.overdue}</div>
-              </CardContent>
-            </Card>
-          </div>
+          <HeroStatsGrid stats={[
+            {
+              title: "Total Actions",
+              value: stats.total,
+              icon: ListTodo,
+              riskLevel: "low",
+              testId: "stat-total-actions"
+            },
+            {
+              title: "Open",
+              value: stats.open,
+              icon: AlertCircle,
+              riskLevel: stats.open > 20 ? "critical" : stats.open > 10 ? "high" : stats.open > 0 ? "medium" : "good",
+              testId: "stat-open-actions"
+            },
+            {
+              title: "Immediate Priority",
+              value: stats.immediate,
+              icon: AlertTriangle,
+              riskLevel: stats.immediate > 0 ? "critical" : "good",
+              testId: "stat-immediate-actions"
+            },
+            {
+              title: "Overdue",
+              value: stats.overdue,
+              icon: Clock,
+              riskLevel: stats.overdue > 5 ? "critical" : stats.overdue > 0 ? "high" : "good",
+              testId: "stat-overdue-actions"
+            }
+          ]} />
 
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
