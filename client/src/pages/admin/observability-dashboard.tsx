@@ -255,57 +255,197 @@ export default function ObservabilityDashboard() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card data-testid="card-circuit-breaker-summary">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Circuit Breakers</p>
-                    <p className="text-2xl font-bold">
+          {/* Hero Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card 
+              className={`relative overflow-hidden border-l-4 ${
+                openCircuitBreakers === 0 && halfOpenCircuitBreakers === 0 
+                  ? 'border-l-green-500 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20' 
+                  : openCircuitBreakers > 0 
+                    ? 'border-l-red-500 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20'
+                    : 'border-l-amber-500 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-950/20'
+              }`}
+              data-testid="hero-card-circuit-breakers"
+            >
+              <CardContent className="pt-6 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">System Health</p>
+                    <p className="text-3xl font-bold tracking-tight">
                       {openCircuitBreakers === 0 && halfOpenCircuitBreakers === 0 ? (
-                        <span className="text-green-600 dark:text-green-400">All Healthy</span>
+                        <span className="text-green-600 dark:text-green-400">Healthy</span>
+                      ) : openCircuitBreakers > 0 ? (
+                        <span className="text-red-600 dark:text-red-400">{openCircuitBreakers} Failed</span>
                       ) : (
-                        <span className="text-red-600 dark:text-red-400">{openCircuitBreakers} Open</span>
+                        <span className="text-amber-600 dark:text-amber-400">{halfOpenCircuitBreakers} Recovering</span>
                       )}
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                      {cbData.length} circuit breakers monitored
+                    </p>
                   </div>
-                  <Shield className={`h-8 w-8 ${openCircuitBreakers === 0 ? 'text-green-500' : 'text-red-500'}`} />
+                  <div className={`p-3 rounded-full ${
+                    openCircuitBreakers === 0 && halfOpenCircuitBreakers === 0 
+                      ? 'bg-green-100 dark:bg-green-900/30' 
+                      : openCircuitBreakers > 0 
+                        ? 'bg-red-100 dark:bg-red-900/30'
+                        : 'bg-amber-100 dark:bg-amber-900/30'
+                  }`}>
+                    <Shield className={`h-6 w-6 ${
+                      openCircuitBreakers === 0 && halfOpenCircuitBreakers === 0 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : openCircuitBreakers > 0 
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-amber-600 dark:text-amber-400'
+                    }`} />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  {openCircuitBreakers === 0 && halfOpenCircuitBreakers === 0 ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      All Services Operational
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Action Required
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-queue-summary">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Queue Depth</p>
-                    <p className="text-2xl font-bold">{totalQueued}</p>
+            <Card 
+              className={`relative overflow-hidden border-l-4 ${
+                totalQueued === 0 
+                  ? 'border-l-slate-400 bg-gradient-to-br from-slate-50/50 to-transparent dark:from-slate-950/20' 
+                  : totalQueued > 100 
+                    ? 'border-l-amber-500 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-950/20'
+                    : 'border-l-blue-500 bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20'
+              }`}
+              data-testid="hero-card-queue-depth"
+            >
+              <CardContent className="pt-6 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Queue Depth</p>
+                    <p className="text-3xl font-bold tracking-tight">{totalQueued}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {(queueData?.ingestion?.active || 0) + (queueData?.webhook?.active || 0)} actively processing
+                    </p>
                   </div>
-                  <Gauge className={`h-8 w-8 ${totalQueued > 100 ? 'text-amber-500' : 'text-blue-500'}`} />
+                  <div className={`p-3 rounded-full ${
+                    totalQueued > 100 
+                      ? 'bg-amber-100 dark:bg-amber-900/30' 
+                      : 'bg-blue-100 dark:bg-blue-900/30'
+                  }`}>
+                    <Gauge className={`h-6 w-6 ${
+                      totalQueued > 100 
+                        ? 'text-amber-600 dark:text-amber-400' 
+                        : 'text-blue-600 dark:text-blue-400'
+                    }`} />
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <span className="text-muted-foreground">Ingestion:</span>
+                    <span className="font-medium">{queueData?.ingestion?.queued || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                    <span className="text-muted-foreground">Webhook:</span>
+                    <span className="font-medium">{queueData?.webhook?.queued || 0}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-success-rate-summary">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Success Rate</p>
-                    <p className="text-2xl font-bold">{(overallSuccessRate * 100).toFixed(1)}%</p>
+            <Card 
+              className={`relative overflow-hidden border-l-4 ${
+                overallSuccessRate >= 0.9 
+                  ? 'border-l-green-500 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20' 
+                  : overallSuccessRate >= 0.7 
+                    ? 'border-l-amber-500 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-950/20'
+                    : 'border-l-red-500 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20'
+              }`}
+              data-testid="hero-card-success-rate"
+            >
+              <CardContent className="pt-6 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Approval Rate</p>
+                    <p className="text-3xl font-bold tracking-tight">
+                      <span className={
+                        overallSuccessRate >= 0.9 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : overallSuccessRate >= 0.7 
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400'
+                      }>
+                        {(overallSuccessRate * 100).toFixed(1)}%
+                      </span>
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {approvedCertificates} of {totalCertificates} approved
+                    </p>
                   </div>
-                  <TrendingUp className={`h-8 w-8 ${overallSuccessRate >= 0.9 ? 'text-green-500' : overallSuccessRate >= 0.7 ? 'text-amber-500' : 'text-red-500'}`} />
+                  <div className={`p-3 rounded-full ${
+                    overallSuccessRate >= 0.9 
+                      ? 'bg-green-100 dark:bg-green-900/30' 
+                      : overallSuccessRate >= 0.7 
+                        ? 'bg-amber-100 dark:bg-amber-900/30'
+                        : 'bg-red-100 dark:bg-red-900/30'
+                  }`}>
+                    <TrendingUp className={`h-6 w-6 ${
+                      overallSuccessRate >= 0.9 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : overallSuccessRate >= 0.7 
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-red-600 dark:text-red-400'
+                    }`} />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Progress 
+                    value={overallSuccessRate * 100} 
+                    className="h-2"
+                  />
                 </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-extractions-summary">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Certificates (24h)</p>
-                    <p className="text-2xl font-bold">{totalCertificates}</p>
+            <Card 
+              className="relative overflow-hidden border-l-4 border-l-indigo-500 bg-gradient-to-br from-indigo-50/50 to-transparent dark:from-indigo-950/20"
+              data-testid="hero-card-certificates"
+            >
+              <CardContent className="pt-6 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Certificates (24h)</p>
+                    <p className="text-3xl font-bold tracking-tight">{totalCertificates}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {certData?.needsReview || 0} awaiting review
+                    </p>
                   </div>
-                  <BarChart3 className="h-8 w-8 text-blue-500" />
+                  <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+                    <BarChart3 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-1 text-xs">
+                  <div className="text-center p-1.5 rounded bg-green-100/50 dark:bg-green-900/20">
+                    <div className="font-semibold text-green-700 dark:text-green-400">{approvedCertificates}</div>
+                    <div className="text-muted-foreground text-[10px]">Approved</div>
+                  </div>
+                  <div className="text-center p-1.5 rounded bg-amber-100/50 dark:bg-amber-900/20">
+                    <div className="font-semibold text-amber-700 dark:text-amber-400">{certData?.needsReview || 0}</div>
+                    <div className="text-muted-foreground text-[10px]">Review</div>
+                  </div>
+                  <div className="text-center p-1.5 rounded bg-red-100/50 dark:bg-red-900/20">
+                    <div className="font-semibold text-red-700 dark:text-red-400">{failedCertificates}</div>
+                    <div className="text-muted-foreground text-[10px]">Failed</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
