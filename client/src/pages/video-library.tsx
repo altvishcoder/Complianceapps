@@ -152,14 +152,14 @@ export default function VideoLibrary() {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8 space-y-6">
-          <div className="flex justify-between items-start">
+        <div className="p-4 md:p-8 space-y-4 md:space-y-6">
+          <div className="flex justify-between items-start gap-3">
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
-                <Film className="w-7 h-7 text-emerald-600" />
+              <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
+                <Film className="w-5 h-5 md:w-7 md:h-7 text-emerald-600" />
                 Video Library
               </h1>
-              <p className="text-muted-foreground">Demo videos and tutorials for application features</p>
+              <p className="text-sm text-muted-foreground hidden sm:block">Demo videos and tutorials</p>
             </div>
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
               <DialogTrigger asChild>
@@ -229,8 +229,8 @@ export default function VideoLibrary() {
             </Dialog>
           </div>
 
-          <div className="flex gap-4">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search videos..."
@@ -241,7 +241,7 @@ export default function VideoLibrary() {
               />
             </div>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-48" data-testid="select-filter-category">
+              <SelectTrigger className="w-full sm:w-48" data-testid="select-filter-category">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -253,59 +253,43 @@ export default function VideoLibrary() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <Film className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{videos.length}</p>
-                    <p className="text-sm text-muted-foreground">Total Videos</p>
-                  </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-lg p-3 md:p-4 border bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-l-emerald-500 border-emerald-200 dark:border-emerald-900">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 rounded-md bg-emerald-500">
+                  <Film className="h-4 w-4 text-white" />
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Eye className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{videos.reduce((sum, v) => sum + v.viewCount, 0)}</p>
-                    <p className="text-sm text-muted-foreground">Total Views</p>
-                  </div>
+                <span className="text-sm font-medium text-muted-foreground">Total Videos</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{videos.length}</p>
+            </div>
+            <div className="rounded-lg p-3 md:p-4 border bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500 border-blue-200 dark:border-blue-900">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 rounded-md bg-blue-500">
+                  <Eye className="h-4 w-4 text-white" />
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Download className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{videos.reduce((sum, v) => sum + v.downloadCount, 0)}</p>
-                    <p className="text-sm text-muted-foreground">Downloads</p>
-                  </div>
+                <span className="text-sm font-medium text-muted-foreground">Total Views</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">{videos.reduce((sum, v) => sum + v.viewCount, 0)}</p>
+            </div>
+            <div className="rounded-lg p-3 md:p-4 border bg-purple-50 dark:bg-purple-950/40 border-l-4 border-l-purple-500 border-purple-200 dark:border-purple-900">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 rounded-md bg-purple-500">
+                  <Download className="h-4 w-4 text-white" />
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <Clock className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{VIDEO_CATEGORIES.length}</p>
-                    <p className="text-sm text-muted-foreground">Categories</p>
-                  </div>
+                <span className="text-sm font-medium text-muted-foreground">Downloads</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">{videos.reduce((sum, v) => sum + v.downloadCount, 0)}</p>
+            </div>
+            <div className="rounded-lg p-3 md:p-4 border bg-orange-50 dark:bg-orange-950/40 border-l-4 border-l-orange-500 border-orange-200 dark:border-orange-900">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 rounded-md bg-orange-500">
+                  <Clock className="h-4 w-4 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <span className="text-sm font-medium text-muted-foreground">Categories</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">{VIDEO_CATEGORIES.length}</p>
+            </div>
           </div>
 
           {isLoading ? (
