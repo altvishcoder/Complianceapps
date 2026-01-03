@@ -1,6 +1,6 @@
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -110,49 +110,48 @@ export default function ContractorDashboardPage() {
   return (
     <PageLayout title="Contractor Performance" pageTitle="Contractor Performance Dashboard">
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <StatsCard
-            title="Active Contractors"
-            value={String(activeContractors || 12)}
-            description="Approved and working"
-            icon={Users}
-            trend="up"
-            trendValue="+2"
-          />
-          <StatsCard
-            title="SLA Compliance"
-            value={`${MOCK_SLA_STATS.slaComplianceRate}%`}
-            description="Jobs completed on time"
-            icon={Target}
-            trend="up"
-            trendValue="+3%"
-            status="success"
-          />
-          <StatsCard
-            title="Avg Response Time"
-            value={`${MOCK_SLA_STATS.averageResponseTime}h`}
-            description="Time to acknowledge"
-            icon={Timer}
-            trend="up"
-            trendValue="-0.5h"
-          />
-          <StatsCard
-            title="First Time Fix"
-            value={`${MOCK_SLA_STATS.firstTimeFixRate}%`}
-            description="Resolved first visit"
-            icon={CheckCircle2}
-            trend="up"
-            trendValue="+2%"
-          />
-          <StatsCard
-            title="Avg Rating"
-            value={String(MOCK_SLA_STATS.averageRating)}
-            description="Customer satisfaction"
-            icon={Star}
-            trend="up"
-            trendValue="+0.2"
-          />
-        </div>
+        <HeroStatsGrid stats={[
+          {
+            title: "Active Contractors",
+            value: activeContractors || 12,
+            subtitle: "Approved",
+            icon: Users,
+            riskLevel: "good",
+            testId: "stat-active-contractors"
+          },
+          {
+            title: "SLA Compliance",
+            value: MOCK_SLA_STATS.slaComplianceRate,
+            subtitle: "%",
+            icon: Target,
+            riskLevel: MOCK_SLA_STATS.slaComplianceRate >= 90 ? "good" : MOCK_SLA_STATS.slaComplianceRate >= 80 ? "medium" : "critical",
+            testId: "stat-sla-compliance"
+          },
+          {
+            title: "Response Time",
+            value: MOCK_SLA_STATS.averageResponseTime,
+            subtitle: "hours avg",
+            icon: Timer,
+            riskLevel: "low",
+            testId: "stat-response-time"
+          },
+          {
+            title: "First Time Fix",
+            value: MOCK_SLA_STATS.firstTimeFixRate,
+            subtitle: "%",
+            icon: CheckCircle2,
+            riskLevel: MOCK_SLA_STATS.firstTimeFixRate >= 85 ? "good" : "medium",
+            testId: "stat-first-time-fix"
+          },
+          {
+            title: "Avg Rating",
+            value: MOCK_SLA_STATS.averageRating,
+            subtitle: "/ 5.0",
+            icon: Star,
+            riskLevel: MOCK_SLA_STATS.averageRating >= 4.5 ? "good" : MOCK_SLA_STATS.averageRating >= 4.0 ? "medium" : "high",
+            testId: "stat-avg-rating"
+          }
+        ]} />
 
         <div className="grid gap-6 md:grid-cols-7">
           <Card className="col-span-4">
