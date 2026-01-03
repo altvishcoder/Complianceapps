@@ -73,14 +73,14 @@ Preferred communication style: Simple, everyday language.
 
 ### Security
 -   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
--   **Authentication**: Unified `/api/auth/*` path with dual system support:
-    - **Legacy Auth**: Session-based endpoints at `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, `/api/auth/change-password`
-    - **BetterAuth**: Modern TypeScript-native authentication at `/api/auth/*` (handles sign-in/email, sign-up/email, session, sign-out, OAuth callbacks) with:
-      - Email/password authentication with bcrypt (12 rounds)
-      - 7-day session expiry with daily refresh
-      - Microsoft Entra ID SSO via Generic OAuth plugin (optional, requires AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)
-      - PostgreSQL-backed sessions, accounts, and verifications tables
+-   **Authentication**: BetterAuth-only authentication at `/api/auth/*`:
+    - Email/password authentication with bcrypt (12 rounds)
+    - 7-day session expiry with daily refresh
+    - Session validation via `fromNodeHeaders` (converts Express headers to WHATWG Headers)
+    - Microsoft Entra ID SSO via Generic OAuth plugin (optional, requires AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)
+    - PostgreSQL-backed sessions, accounts, and verifications tables
     - **Frontend Client**: `client/src/lib/auth-client.ts` for BetterAuth React integration (basePath: `/api/auth`)
+    - **Demo Credentials**: superadmin@complianceai.co.uk / SuperAdmin2025!
 -   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
 -   **Rate Limiting**: PostgreSQL-backed rate limiting.
 
