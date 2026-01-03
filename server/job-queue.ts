@@ -560,14 +560,17 @@ export interface ScheduledJobInfo {
   name: string;
   cron: string;
   timezone: string;
-  lastRun: Date | null;
-  nextRun: Date | null;
+  lastRun: string | null;
+  nextRun: string | null;
   isActive: boolean;
+  scheduleType: 'scheduled' | 'on-demand';
+  description?: string;
   recentJobs: Array<{
     id: string;
     state: string;
-    createdOn: Date;
-    completedOn: Date | null;
+    createdOn: string;
+    completedOn: string | null;
+    startedOn?: string | null;
   }>;
 }
 
@@ -577,73 +580,74 @@ export async function getScheduledJobsStatus(): Promise<ScheduledJobInfo[]> {
   }
   
   const scheduledJobs: ScheduledJobInfo[] = [];
-  
-  // Query pg-boss schedule table directly for schedule info
   const { db } = await import("./db");
   const { sql } = await import("drizzle-orm");
   
+  const allQueueNames = [
+    { name: QUEUE_NAMES.CERTIFICATE_WATCHDOG, description: 'Marks stuck certificates as failed', defaultCron: '*/5 * * * *', scheduleType: 'scheduled' as const },
+    { name: QUEUE_NAMES.REPORTING_REFRESH, description: 'Refreshes reports and checks for due scheduled reports', defaultCron: '0 * * * *', scheduleType: 'scheduled' as const },
+    { name: QUEUE_NAMES.PATTERN_ANALYSIS, description: 'Analyzes correction patterns for extraction improvement', defaultCron: '0 */4 * * *', scheduleType: 'scheduled' as const },
+    { name: QUEUE_NAMES.RATE_LIMIT_CLEANUP, description: 'Cleans up expired rate limit entries', defaultCron: 'on-demand', scheduleType: 'on-demand' as const },
+    { name: QUEUE_NAMES.CERTIFICATE_INGESTION, description: 'Processes certificate uploads and extractions', defaultCron: 'on-demand', scheduleType: 'on-demand' as const },
+    { name: QUEUE_NAMES.WEBHOOK_DELIVERY, description: 'Delivers webhook notifications to external systems', defaultCron: 'on-demand', scheduleType: 'on-demand' as const },
+    { name: QUEUE_NAMES.SCHEDULED_REPORT, description: 'Executes scheduled report generation', defaultCron: 'on-demand', scheduleType: 'on-demand' as const },
+  ];
+  
   try {
-    // Get schedule info
-    const scheduleResult = await db.execute(sql`
-      SELECT name, cron, timezone, created_on, updated_on
-      FROM pgboss.schedule 
-      WHERE name = ${QUEUE_NAMES.CERTIFICATE_WATCHDOG}
-    `);
-    
-    // Get recent job history for the watchdog
-    const jobsResult = await db.execute(sql`
-      SELECT id, state, created_on, completed_on
-      FROM pgboss.job 
-      WHERE name = ${QUEUE_NAMES.CERTIFICATE_WATCHDOG}
-      ORDER BY created_on DESC
-      LIMIT 10
-    `);
-    
-    const schedule = scheduleResult.rows[0] as any;
-    const recentJobs = (jobsResult.rows as any[]).map(job => ({
-      id: job.id,
-      state: job.state,
-      createdOn: new Date(job.created_on),
-      completedOn: job.completed_on ? new Date(job.completed_on) : null,
-    }));
-    
-    if (schedule) {
-      // Calculate next run based on cron expression
-      const lastCompletedJob = recentJobs.find(j => j.state === 'completed');
+    for (const queue of allQueueNames) {
+      const scheduleResult = await db.execute(sql`
+        SELECT name, cron, timezone, created_on, updated_on
+        FROM pgboss.schedule 
+        WHERE name = ${queue.name}
+      `);
+      
+      const jobsResult = await db.execute(sql`
+        SELECT id, state, created_on, completed_on, started_on
+        FROM pgboss.job 
+        WHERE name = ${queue.name}
+        ORDER BY created_on DESC
+        LIMIT 10
+      `);
+      
+      const schedule = scheduleResult.rows[0] as any;
+      const recentJobs = (jobsResult.rows as any[]).map(job => ({
+        id: job.id,
+        state: job.state,
+        createdOn: new Date(job.created_on).toISOString(),
+        completedOn: job.completed_on ? new Date(job.completed_on).toISOString() : null,
+        startedOn: job.started_on ? new Date(job.started_on).toISOString() : null,
+      }));
+      
+      const lastJob = recentJobs[0];
+      const lastRunDate = lastJob?.completedOn || lastJob?.startedOn || lastJob?.createdOn || null;
       
       scheduledJobs.push({
-        name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
-        cron: schedule.cron || '*/5 * * * *',
-        timezone: schedule.timezone || 'UTC',
-        lastRun: lastCompletedJob?.completedOn || null,
-        nextRun: null, // pg-boss handles this internally
-        isActive: true, // Schedule exists, so it's active
-        recentJobs,
-      });
-    } else {
-      // Schedule doesn't exist - job is deactivated
-      scheduledJobs.push({
-        name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
-        cron: '*/5 * * * *',
-        timezone: 'UTC',
-        lastRun: null,
+        name: queue.name,
+        cron: schedule?.cron || queue.defaultCron,
+        timezone: schedule?.timezone || 'UTC',
+        lastRun: lastRunDate,
         nextRun: null,
-        isActive: false,
+        isActive: queue.scheduleType === 'on-demand' || !!schedule,
+        scheduleType: queue.scheduleType,
         recentJobs,
+        description: queue.description,
       });
     }
   } catch (error) {
     jobLogger.error({ error }, "Error fetching scheduled jobs status");
-    // Return minimal info if tables don't exist yet
-    scheduledJobs.push({
-      name: QUEUE_NAMES.CERTIFICATE_WATCHDOG,
-      cron: '*/5 * * * *',
-      timezone: 'UTC',
-      lastRun: null,
-      nextRun: null,
-      isActive: false,
-      recentJobs: [],
-    });
+    for (const queue of allQueueNames) {
+      scheduledJobs.push({
+        name: queue.name,
+        cron: queue.defaultCron,
+        timezone: 'UTC',
+        lastRun: null,
+        nextRun: null,
+        isActive: queue.scheduleType === 'on-demand',
+        scheduleType: queue.scheduleType,
+        recentJobs: [],
+        description: queue.description,
+      });
+    }
   }
   
   return scheduledJobs;

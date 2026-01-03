@@ -169,6 +169,24 @@ interface TierStatsData {
   }>;
 }
 
+interface ScheduledJobInfo {
+  name: string;
+  cron: string;
+  timezone: string;
+  lastRun: string | null;
+  nextRun: string | null;
+  isActive: boolean;
+  scheduleType: 'scheduled' | 'on-demand';
+  description?: string;
+  recentJobs: Array<{
+    id: string;
+    state: string;
+    createdOn: string;
+    completedOn: string | null;
+    startedOn?: string | null;
+  }>;
+}
+
 function MetricCard({ 
   title, 
   value, 
@@ -275,6 +293,17 @@ export default function ModelInsightsPage() {
       return res.json();
     },
   });
+  
+  const { data: scheduledJobs, isLoading: jobsLoading, refetch: refetchJobs } = useQuery<ScheduledJobInfo[]>({
+    queryKey: ['scheduled-jobs'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/scheduled-jobs');
+      if (!res.ok) throw new Error('Failed to fetch scheduled jobs');
+      return res.json();
+    },
+  });
+  
+  const [selectedJob, setSelectedJob] = useState<string | null>(null);
   
   const runBenchmarkMutation = useMutation({
     mutationFn: async () => {
@@ -497,6 +526,11 @@ export default function ModelInsightsPage() {
                       <Brain className="w-3 h-3 lg:w-4 lg:h-4" />
                       <span className="hidden sm:inline">Learning</span>
                       <span className="sm:hidden">Learn</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="jobs" className="text-xs lg:text-sm gap-1">
+                      <Clock className="w-3 h-3 lg:w-4 lg:h-4" />
+                      <span className="hidden sm:inline">Jobs</span>
+                      <span className="sm:hidden">Jobs</span>
                     </TabsTrigger>
                   </TabsList>
                 </CardHeader>
@@ -1220,6 +1254,142 @@ export default function ModelInsightsPage() {
                     ) : (
                       <div className="h-48 flex items-center justify-center text-muted-foreground">
                         No learning data available
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="jobs" className="mt-0">
+                    {jobsLoading ? (
+                      <div className="flex items-center justify-center h-48">
+                        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : scheduledJobs && scheduledJobs.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium">Scheduled Jobs</h3>
+                            <p className="text-sm text-muted-foreground">System background jobs and their schedules</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => refetchJobs()}
+                            data-testid="button-refresh-jobs"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                            Refresh
+                          </Button>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            {scheduledJobs.map((job) => (
+                              <Card 
+                                key={job.name}
+                                className={`cursor-pointer transition-colors ${selectedJob === job.name ? 'ring-2 ring-primary' : 'hover:bg-muted/50'}`}
+                                onClick={() => setSelectedJob(selectedJob === job.name ? null : job.name)}
+                                data-testid={`card-job-${job.name}`}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-medium text-sm truncate">{job.name}</span>
+                                        {job.scheduleType === 'on-demand' ? (
+                                          <Badge variant="outline" className="text-xs">On-Demand</Badge>
+                                        ) : job.isActive ? (
+                                          <Badge className="bg-green-100 text-green-800 text-xs">Scheduled</Badge>
+                                        ) : (
+                                          <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                                        )}
+                                      </div>
+                                      {job.description && (
+                                        <p className="text-xs text-muted-foreground mt-1">{job.description}</p>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          <span className="font-mono">{job.cron}</span>
+                                        </div>
+                                        {job.lastRun && (
+                                          <span>Last: {new Date(job.lastRun).toLocaleString()}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {job.recentJobs.length} runs
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                          
+                          <div>
+                            {selectedJob ? (
+                              <Card>
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-sm flex items-center gap-2">
+                                    <Clock className="w-4 h-4" />
+                                    Run History: {selectedJob}
+                                  </CardTitle>
+                                  <CardDescription className="text-xs">
+                                    Last 10 job executions
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                  {(() => {
+                                    const job = scheduledJobs.find(j => j.name === selectedJob);
+                                    if (!job || job.recentJobs.length === 0) {
+                                      return (
+                                        <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                                          No run history available
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                        {job.recentJobs.map((run) => (
+                                          <div key={run.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                                            <div className="flex flex-col">
+                                              <span className="font-mono text-xs">{run.id.slice(0, 8)}...</span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {new Date(run.createdOn).toLocaleString()}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Badge 
+                                                variant={run.state === 'completed' ? 'default' : run.state === 'failed' ? 'destructive' : 'secondary'}
+                                                className="text-xs"
+                                              >
+                                                {run.state}
+                                              </Badge>
+                                              {run.completedOn && run.startedOn && (
+                                                <span className="text-xs text-muted-foreground">
+                                                  {((new Date(run.completedOn).getTime() - new Date(run.startedOn).getTime()) / 1000).toFixed(1)}s
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                </CardContent>
+                              </Card>
+                            ) : (
+                              <Card className="h-full">
+                                <CardContent className="h-full flex items-center justify-center text-muted-foreground text-sm p-8">
+                                  Select a job to view its run history
+                                </CardContent>
+                              </Card>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-48 flex items-center justify-center text-muted-foreground">
+                        No scheduled jobs available
                       </div>
                     )}
                   </TabsContent>
