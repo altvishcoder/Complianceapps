@@ -23,7 +23,14 @@ import {
   Search,
   AlertTriangle,
   Info,
-  XCircle
+  XCircle,
+  Calendar,
+  Timer,
+  Play,
+  Pause,
+  HardDrive,
+  Layers,
+  BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +70,39 @@ interface SystemLog {
 interface LogsResponse {
   logs: SystemLog[];
   total: number;
+}
+
+interface ScheduledJob {
+  name: string;
+  displayName: string;
+  cronExpression: string;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  enabled: boolean;
+  status: 'active' | 'paused' | 'error';
+  recentHistory?: {
+    completedCount: number;
+    failedCount: number;
+  };
+}
+
+interface MemoryCacheStats {
+  size: number;
+  hits: number;
+  misses: number;
+  evictions: number;
+}
+
+interface CacheRegion {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  layer: string;
+  category: string;
+  isActive: boolean;
+  isProtected: boolean;
+  isSystem: boolean;
 }
 
 function deriveQueueHealth(stats: QueueStats | undefined, isError: boolean): boolean {
@@ -176,6 +216,45 @@ export default function SystemHealthPage() {
     refetchInterval: autoRefresh ? 5000 : false,
     enabled: activeTab === "logs" && !!user?.id,
   });
+
+  const { data: scheduledJobs, isLoading: jobsLoading, refetch: refetchJobs } = useQuery<ScheduledJob[]>({
+    queryKey: ["scheduled-jobs"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/scheduled-jobs", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch scheduled jobs");
+      return res.json();
+    },
+    refetchInterval: 30000,
+    enabled: activeTab === "jobs" && !!user?.id,
+  });
+
+  const { data: memoryCacheStats, isLoading: cacheStatsLoading, refetch: refetchCacheStats } = useQuery<MemoryCacheStats>({
+    queryKey: ["memory-cache-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cache/memory-stats", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch cache stats");
+      return res.json();
+    },
+    refetchInterval: 10000,
+    enabled: activeTab === "cache" && !!user?.id,
+  });
+
+  const { data: cacheRegions, isLoading: regionsLoading, refetch: refetchRegions } = useQuery<CacheRegion[]>({
+    queryKey: ["cache-regions"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cache/regions", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch cache regions");
+      return res.json();
+    },
+    refetchInterval: 60000,
+    enabled: activeTab === "cache" && !!user?.id,
+  });
   
   const queueHealthy = deriveQueueHealth(queueStats, queueError);
   
@@ -190,6 +269,13 @@ export default function SystemHealthPage() {
     refetchHealth();
     if (activeTab === "logs") {
       refetchLogs();
+    }
+    if (activeTab === "jobs") {
+      refetchJobs();
+    }
+    if (activeTab === "cache") {
+      refetchCacheStats();
+      refetchRegions();
     }
   };
   
@@ -250,10 +336,18 @@ export default function SystemHealthPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
+              <TabsList className="flex-wrap h-auto gap-1">
                 <TabsTrigger value="health" data-testid="tab-health">
                   <Activity className="h-4 w-4 mr-2" />
                   Health Status
+                </TabsTrigger>
+                <TabsTrigger value="jobs" data-testid="tab-jobs">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Scheduled Jobs
+                </TabsTrigger>
+                <TabsTrigger value="cache" data-testid="tab-cache">
+                  <HardDrive className="h-4 w-4 mr-2" />
+                  Cache Stats
                 </TabsTrigger>
                 <TabsTrigger value="logs" data-testid="tab-logs">
                   <FileText className="h-4 w-4 mr-2" />
@@ -492,6 +586,304 @@ export default function SystemHealthPage() {
                     <p className="text-sm text-muted-foreground mt-4" data-testid="text-last-checked">
                       Last checked: {lastChecked.toLocaleTimeString()}
                     </p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="jobs" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card data-testid="card-jobs-total">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Total Jobs
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold" data-testid="text-jobs-total">
+                        {scheduledJobs?.length ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card data-testid="card-jobs-active">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Play className="h-4 w-4 text-green-500" />
+                        Active
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-green-600" data-testid="text-jobs-active">
+                        {scheduledJobs?.filter(j => j.enabled && j.status === 'active').length ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card data-testid="card-jobs-paused">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Pause className="h-4 w-4 text-amber-500" />
+                        Paused
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-amber-600" data-testid="text-jobs-paused">
+                        {scheduledJobs?.filter(j => !j.enabled || j.status === 'paused').length ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card data-testid="card-jobs-errors">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                        Errors
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-red-600" data-testid="text-jobs-errors">
+                        {scheduledJobs?.filter(j => j.status === 'error').length ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card data-testid="card-scheduled-jobs-list">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Timer className="h-5 w-5" />
+                      Scheduled Jobs
+                    </CardTitle>
+                    <CardDescription>
+                      Cron jobs configured for background processing
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {jobsLoading ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Loading scheduled jobs...
+                      </div>
+                    ) : scheduledJobs && scheduledJobs.length > 0 ? (
+                      <div className="space-y-3">
+                        {scheduledJobs.map((job) => (
+                          <div 
+                            key={job.name} 
+                            className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-muted/30"
+                            data-testid={`job-row-${job.name}`}
+                          >
+                            <div className="flex items-center gap-3 mb-2 md:mb-0">
+                              {job.enabled && job.status === 'active' ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              ) : job.status === 'error' ? (
+                                <AlertCircle className="h-5 w-5 text-red-500" />
+                              ) : (
+                                <Pause className="h-5 w-5 text-amber-500" />
+                              )}
+                              <div>
+                                <p className="font-medium" data-testid={`job-name-${job.name}`}>
+                                  {job.displayName}
+                                </p>
+                                <p className="text-sm text-muted-foreground font-mono">
+                                  {job.cronExpression}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-muted-foreground">Next:</span>
+                                <span data-testid={`job-next-run-${job.name}`}>
+                                  {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : 'Not scheduled'}
+                                </span>
+                              </div>
+                              {job.recentHistory && (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-green-600">
+                                    {job.recentHistory.completedCount} completed
+                                  </Badge>
+                                  {job.recentHistory.failedCount > 0 && (
+                                    <Badge variant="outline" className="text-red-600">
+                                      {job.recentHistory.failedCount} failed
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              <Badge 
+                                variant={job.status === 'error' ? 'destructive' : job.status === 'active' ? 'default' : 'secondary'}
+                                className={job.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : ''}
+                              >
+                                {job.status === 'active' ? 'Active' : job.status === 'error' ? 'Error' : 'Paused'}
+                              </Badge>
+                              <Badge variant={job.enabled ? "outline" : "secondary"}>
+                                {job.enabled ? "Enabled" : "Disabled"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground" data-testid="text-no-jobs">
+                        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No scheduled jobs found</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="cache" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card data-testid="card-cache-size">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <HardDrive className="h-4 w-4" />
+                        Cache Size
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold" data-testid="text-cache-size">
+                        {memoryCacheStats?.size ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">entries</p>
+                    </CardContent>
+                  </Card>
+                  <Card data-testid="card-cache-hits">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        Cache Hits
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-green-600" data-testid="text-cache-hits">
+                        {memoryCacheStats?.hits ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card data-testid="card-cache-misses">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-amber-500" />
+                        Cache Misses
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-amber-600" data-testid="text-cache-misses">
+                        {memoryCacheStats?.misses ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card data-testid="card-cache-evictions">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        Evictions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-red-600" data-testid="text-cache-evictions">
+                        {memoryCacheStats?.evictions ?? 0}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card data-testid="card-hit-ratio">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Cache Hit Ratio
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {cacheStatsLoading ? (
+                      <div className="text-muted-foreground">Loading stats...</div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-green-500 transition-all"
+                              style={{
+                                width: `${memoryCacheStats && (memoryCacheStats.hits + memoryCacheStats.misses) > 0 
+                                  ? ((memoryCacheStats.hits / (memoryCacheStats.hits + memoryCacheStats.misses)) * 100).toFixed(1) 
+                                  : 0}%`
+                              }}
+                            />
+                          </div>
+                          <span className="text-lg font-bold" data-testid="text-hit-ratio">
+                            {memoryCacheStats && (memoryCacheStats.hits + memoryCacheStats.misses) > 0 
+                              ? ((memoryCacheStats.hits / (memoryCacheStats.hits + memoryCacheStats.misses)) * 100).toFixed(1)
+                              : 0}%
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Higher hit ratio indicates better cache efficiency. Target is above 80%.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="card-cache-regions">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-5 w-5" />
+                      Cache Regions by Layer
+                    </CardTitle>
+                    <CardDescription>
+                      Configured cache regions across all layers
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {regionsLoading ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Loading cache regions...
+                      </div>
+                    ) : cacheRegions && cacheRegions.length > 0 ? (
+                      <div className="space-y-4">
+                        {['CLIENT', 'API', 'DATABASE', 'MEMORY', 'SESSION'].map((layer) => {
+                          const layerRegions = cacheRegions.filter(r => r.layer === layer);
+                          if (layerRegions.length === 0) return null;
+                          return (
+                            <div key={layer} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="font-mono">
+                                  {layer}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {layerRegions.length} region{layerRegions.length !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-4">
+                                {layerRegions.map((region) => (
+                                  <div 
+                                    key={region.id}
+                                    className="p-2 rounded border bg-muted/30 text-sm"
+                                    data-testid={`cache-region-${region.name}`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-medium">{region.displayName}</span>
+                                      {region.isActive ? (
+                                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                      ) : (
+                                        <Pause className="h-3 w-3 text-amber-500" />
+                                      )}
+                                    </div>
+                                    {region.description && (
+                                      <p className="text-xs text-muted-foreground mt-1">{region.description}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground" data-testid="text-no-regions">
+                        <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No cache regions configured</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
