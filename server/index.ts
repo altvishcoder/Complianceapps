@@ -9,7 +9,6 @@ import { seedDatabase } from "./seed";
 import { initJobQueue, stopJobQueue } from "./job-queue";
 import { httpLogger, logger } from "./logger";
 import { initSentry, setupSentryErrorHandler } from "./sentry";
-import { setupSession } from "./session";
 import { startLogRotationScheduler } from "./services/log-rotation";
 import { createGlobalRateLimiter, seedApiLimitSettings } from "./services/api-limits";
 import { loadSecurityConfig, loadCompressionConfig } from "./services/middleware-config";
@@ -46,9 +45,6 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
-
-// Setup session middleware (must be before routes)
-setupSession(app);
 
 // Apply global rate limiting to API routes only (not static assets)
 app.use('/api', createGlobalRateLimiter());

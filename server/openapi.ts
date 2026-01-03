@@ -15,8 +15,8 @@ registry.registerComponent('securitySchemes', 'bearerAuth', {
 registry.registerComponent('securitySchemes', 'sessionAuth', {
   type: 'apiKey',
   in: 'cookie',
-  name: 'connect.sid',
-  description: 'Session-based authentication via HTTP-only cookie. Established after successful login.',
+  name: 'complianceai.session_token',
+  description: 'BetterAuth session-based authentication via HTTP-only cookie. Established after successful sign-in at /api/auth/sign-in/email.',
 });
 
 const ErrorResponse = z.object({
@@ -49,25 +49,20 @@ const PaginationParams = [
 
 registry.registerPath({
   method: 'post',
-  path: '/api/auth/login',
-  summary: 'Authenticate user and create session',
+  path: '/api/auth/sign-in/email',
+  summary: 'Authenticate user with email and password (BetterAuth)',
   description: `
-Authenticates a user with username and password credentials and establishes a session.
+Authenticates a user with email and password credentials using BetterAuth.
 
 ## Authentication Flow
-1. Submit username and password
-2. Server validates credentials against bcrypt-hashed passwords
-3. On success, a session cookie is set (connect.sid)
+1. Submit email and password
+2. BetterAuth validates credentials against bcrypt-hashed passwords in accounts table
+3. On success, a session cookie is set (complianceai.session_token)
 4. Use the session cookie for subsequent authenticated requests
-
-## Account Lockout Protection
-- After 5 failed login attempts, the account is temporarily locked
-- Lockout duration: 15 minutes
-- Lockout is per-username to prevent brute force attacks
 
 ## Session Duration
 - Sessions are valid for 7 days
-- Sessions refresh automatically on activity
+- Sessions refresh automatically on activity (daily)
   `,
   tags: ['Authentication'],
   request: {
@@ -75,11 +70,11 @@ Authenticates a user with username and password credentials and establishes a se
       content: {
         'application/json': {
           schema: z.object({
-            username: z.string().min(1).describe('User account username'),
+            email: z.string().email().describe('User email address'),
             password: z.string().min(1).describe('User account password'),
           }),
           example: {
-            username: 'john.smith',
+            email: 'john.smith@housing.org.uk',
             password: 'SecureP@ssw0rd123',
           },
         },
@@ -94,48 +89,24 @@ Authenticates a user with username and password credentials and establishes a se
           schema: z.object({
             user: z.object({
               id: z.string().uuid().describe('Unique user identifier'),
-              username: z.string().describe('User account username'),
               email: z.string().email().describe('User email address'),
               name: z.string().describe('User display name'),
-              role: z.enum(['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'COMPLIANCE_MANAGER', 'ADMIN', 'MANAGER', 'OFFICER', 'VIEWER']).describe('User role in the system'),
-              organisationId: z.string().describe('ID of the user organisation'),
+            }),
+            session: z.object({
+              id: z.string().describe('Session identifier'),
+              expiresAt: z.string().describe('Session expiration timestamp'),
             }),
           }),
-          example: {
-            user: {
-              id: '550e8400-e29b-41d4-a716-446655440000',
-              username: 'john.smith',
-              email: 'john.smith@housing.org.uk',
-              name: 'John Smith',
-              role: 'COMPLIANCE_MANAGER',
-              organisationId: 'org-001',
-            },
-          },
         },
       },
     },
     401: {
-      description: 'Invalid credentials - username or password incorrect',
+      description: 'Invalid credentials - email or password incorrect',
       content: {
         'application/json': {
           schema: ErrorResponse,
           example: {
-            error: 'Invalid username or password',
-          },
-        },
-      },
-    },
-    429: {
-      description: 'Account temporarily locked due to too many failed attempts',
-      content: {
-        'application/json': {
-          schema: z.object({
-            error: z.string(),
-            lockedUntil: z.number().describe('Minutes until account unlocks'),
-          }),
-          example: {
-            error: 'Account temporarily locked due to too many failed attempts. Try again in 12 minute(s).',
-            lockedUntil: 12,
+            error: 'Invalid email or password',
           },
         },
       },
@@ -145,19 +116,15 @@ Authenticates a user with username and password credentials and establishes a se
 
 registry.registerPath({
   method: 'post',
-  path: '/api/auth/logout',
-  summary: 'End user session',
+  path: '/api/auth/sign-out',
+  summary: 'End user session (BetterAuth)',
   description: `
-Terminates the current user session and clears the session cookie.
+Terminates the current user session via BetterAuth.
 
 ## Logout Process
-1. Server destroys the session
+1. BetterAuth destroys the session
 2. Session cookie is cleared
 3. All subsequent requests will be unauthenticated
-
-## Audit Logging
-- Logout events are recorded for security auditing
-- Includes timestamp, user ID, and IP address
   `,
   tags: ['Authentication'],
   security: [{ sessionAuth: [] }],
@@ -167,10 +134,10 @@ Terminates the current user session and clears the session cookie.
       content: {
         'application/json': {
           schema: z.object({
-            message: z.string(),
+            success: z.boolean(),
           }),
           example: {
-            message: 'Logged out successfully',
+            success: true,
           },
         },
       },
@@ -180,46 +147,37 @@ Terminates the current user session and clears the session cookie.
 
 registry.registerPath({
   method: 'get',
-  path: '/api/auth/me',
-  summary: 'Get current authenticated user',
+  path: '/api/auth/session',
+  summary: 'Get current session (BetterAuth)',
   description: `
-Returns the details of the currently authenticated user based on their session.
+Returns the current session and user details via BetterAuth.
 
 ## Use Cases
 - Verify if a session is still valid
 - Retrieve current user details after page refresh
 - Check user role and permissions
-
-## Response
-Returns the user object without sensitive fields (password hash, etc.)
   `,
   tags: ['Authentication'],
   security: [{ sessionAuth: [] }],
   responses: {
     200: {
-      description: 'Current user details',
+      description: 'Current session and user details',
       content: {
         'application/json': {
           schema: z.object({
             user: z.object({
               id: z.string().uuid(),
-              username: z.string(),
               email: z.string().email(),
-              name: z.string(),
+              name: z.string().nullable(),
+              username: z.string(),
               role: z.string(),
               organisationId: z.string(),
             }),
+            session: z.object({
+              id: z.string(),
+              expiresAt: z.string(),
+            }),
           }),
-          example: {
-            user: {
-              id: '550e8400-e29b-41d4-a716-446655440000',
-              username: 'john.smith',
-              email: 'john.smith@housing.org.uk',
-              name: 'John Smith',
-              role: 'COMPLIANCE_MANAGER',
-              organisationId: 'org-001',
-            },
-          },
         },
       },
     },
