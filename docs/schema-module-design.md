@@ -3,43 +3,52 @@
 ## Overview
 This document describes the modular schema architecture for ComplianceAI. The original monolithic `shared/schema.ts` (3100+ lines, 88 tables) is being split into logical modules based on FK ownership analysis.
 
-## Current Status: Phase 0/1 Complete (Design Validation)
+## Current Status: COMPLETE (All Phases)
 
-**What was validated:**
-- All 88 tables assigned to 13 modules (verified via automated FK analysis)
-- No circular dependencies exist in the module dependency graph
-- Centralized relations approach works (prototype in `shared/schema/relations.ts`)
-- TypeScript compilation passes for prototype modules
+**Completed on 2026-01-03:**
+- All 90+ tables organized into 15 domain module files
+- No circular dependencies - verified via automated FK analysis
+- Centralized relations in `shared/schema/relations.ts`
+- Insert schemas in `shared/schema/schemas/index.ts`
+- Types in `shared/schema/types/index.ts`
+- Barrel exports in `shared/schema/tables/index.ts`
+- `shared/schema.ts` now re-exports from modular structure
+- TypeScript compilation passes
+- Application runs successfully with modular schema
 
-**What remains for Phase 2 (Implementation):**
-- Migrate remaining tables from `shared/schema.ts` to module files
-- Add insert schemas and typed exports to each module
-- Expand relations.ts to cover all modules
-- Update barrel exports in `shared/schema/index.ts`
-- The original `shared/schema.ts` remains the source of truth until Phase 2 is complete
+**Recently Added Tables:**
+- systemLogs (audit.ts) - System-wide logging
+- riskSnapshots (risk.ts) - Risk state snapshots
+- cacheRegions, cacheStats, cacheClearAudit (cache.ts) - Cache management
 
 ## Module Structure
 
 ```
 shared/
-├── schema.ts          # Legacy file - will re-export from modules
+├── schema.ts              # Re-exports from modular structure
 └── schema/
-    ├── index.ts       # Barrel export
-    ├── base.ts        # Shared enums
-    ├── core-auth.ts   # Authentication (6 tables)
-    ├── org-structure.ts   # Hierarchy (3 tables)
-    ├── assets.ts      # Physical assets (4 tables)
-    ├── compliance.ts  # Certificates, rules (11 tables)
-    ├── extraction.ts  # AI extraction + benchmarks (11 tables)
-    ├── chatbot.ts     # Chatbot + AI suggestions (6 tables)
-    ├── api.ts         # API, webhooks, ingestion (10 tables)
-    ├── risk.ts        # Risk management (4 tables)
-    ├── audit.ts       # Audit logging (2 tables)
-    ├── ml.ts          # Machine learning (5 tables)
-    ├── contractor.ts  # Contractor management (9 tables)
-    ├── reporting.ts   # Reports + calendar (5 tables)
-    ├── config.ts      # Settings, navigation, cache (12 tables)
-    └── relations.ts   # Drizzle relations (centralized)
+    ├── index.ts           # Barrel export (re-exports tables, relations, schemas, types)
+    ├── tables/
+    │   ├── index.ts       # Barrel export for all tables
+    │   ├── base.ts        # Shared enums
+    │   ├── core-auth.ts   # Authentication (6 tables)
+    │   ├── org-structure.ts   # Hierarchy (3 tables)
+    │   ├── assets.ts      # Physical assets (4 tables)
+    │   ├── compliance.ts  # Certificates, rules (15+ tables)
+    │   ├── chatbot.ts     # Chatbot + AI suggestions (6 tables)
+    │   ├── api.ts         # API, webhooks, ingestion (11 tables)
+    │   ├── risk.ts        # Risk management (5 tables)
+    │   ├── audit.ts       # Audit logging (3 tables)
+    │   ├── ml.ts          # Machine learning (5 tables)
+    │   ├── contractor.ts  # Contractor management (9 tables)
+    │   ├── reporting.ts   # Reports + calendar (5 tables)
+    │   ├── config.ts      # Settings, navigation (12+ tables)
+    │   └── cache.ts       # Cache management (3 tables)
+    ├── relations.ts       # Drizzle relations (centralized)
+    ├── schemas/
+    │   └── index.ts       # Insert schemas (createInsertSchema)
+    └── types/
+        └── index.ts       # TypeScript types ($inferSelect)
 ```
 
 ## Bridge Table Strategy
