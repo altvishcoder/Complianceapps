@@ -607,26 +607,26 @@ export default function Configuration() {
             </Card>
 
             <Tabs defaultValue="streams" className="space-y-4">
-              <TabsList className="flex flex-wrap h-auto gap-1 p-1">
-                <TabsTrigger value="streams" className="text-xs sm:text-sm" data-testid="tab-streams">
-                  <Layers className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Streams</span>
+              <TabsList className="w-full overflow-x-auto flex gap-1 p-1 h-auto">
+                <TabsTrigger value="streams" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-streams">
+                  <Layers className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Streams</span>
                 </TabsTrigger>
-                <TabsTrigger value="cert-types" className="text-xs sm:text-sm" data-testid="tab-cert-types">
-                  <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Cert Types</span>
+                <TabsTrigger value="cert-types" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-cert-types">
+                  <FileText className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Certs</span>
                 </TabsTrigger>
-                <TabsTrigger value="codes" className="text-xs sm:text-sm" data-testid="tab-codes">
-                  <Tags className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Codes</span>
+                <TabsTrigger value="codes" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-codes">
+                  <Tags className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Codes</span>
                 </TabsTrigger>
-                <TabsTrigger value="schemas" className="text-xs sm:text-sm" data-testid="tab-schemas">
-                  <Code className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Schemas</span>
+                <TabsTrigger value="schemas" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-schemas">
+                  <Code className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Schema</span>
                 </TabsTrigger>
-                <TabsTrigger value="rules" className="text-xs sm:text-sm" data-testid="tab-rules">
-                  <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Rules</span>
+                <TabsTrigger value="rules" className="text-xs flex-1 min-w-0 px-2 py-1.5 gap-1" data-testid="tab-rules">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Rules</span>
                 </TabsTrigger>
               </TabsList>
 
