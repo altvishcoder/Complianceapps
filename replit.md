@@ -25,6 +25,7 @@ Preferred communication style: Simple, everyday language.
 -   **ORM**: Drizzle ORM with PostgreSQL dialect.
 -   **Database**: PostgreSQL.
 -   **Migrations**: Drizzle Kit.
+-   **Schema Architecture**: Monolithic `shared/schema.ts` is the runtime source of truth. Modular schema files in `shared/schema/` (14 files by domain) exist as organizational reference but are not used at runtime due to ES module initialization timing issues with Drizzle's `extractTablesRelationalConfig`. FK constraints for cross-module references are enforced at database level.
 -   **Data Model**: Follows UKHDS 5-level asset hierarchy with optional linking and verification status. Organisation is implicit.
     - **UKHDS Hierarchy Terminology** (aligned with Housing Association usage):
       - **Scheme (Site Layer)**: Portfolio, Estate, Development - `schemes` table
