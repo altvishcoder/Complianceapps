@@ -41,6 +41,7 @@ import { enqueueWebhookEvent } from "./webhook-worker";
 import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 import { recordAudit, extractAuditContext, getChanges } from "./services/audit";
 import { clearApiLimitsCache, paginationMiddleware, type PaginationParams, getApiLimitsConfig } from "./services/api-limits";
+import { clearTierThresholdsCache } from "./services/risk-scoring";
 import { 
   validatePassword, 
   checkLoginLockout, 
@@ -7014,6 +7015,11 @@ export async function registerRoutes(
       // Clear API limits cache if an api_limits setting was changed
       if (existing.category === 'api_limits' || req.params.key.startsWith('api.')) {
         clearApiLimitsCache();
+      }
+      
+      // Clear risk tier thresholds cache if a risk_scoring setting was changed
+      if (existing.category === 'risk_scoring' || req.params.key.startsWith('risk_tier_')) {
+        clearTierThresholdsCache();
       }
       
       res.json(updated);

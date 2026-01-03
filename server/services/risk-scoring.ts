@@ -8,7 +8,8 @@ import {
   propertyRiskSnapshots,
   riskFactorDefinitions,
   riskAlerts,
-  complianceStreams
+  complianceStreams,
+  factorySettings
 } from '@shared/schema';
 import { eq, and, lt, gt, gte, lte, isNull, sql, desc, inArray, count, or } from 'drizzle-orm';
 import { logger } from '../logger';
@@ -57,17 +58,59 @@ const DEFAULT_WEIGHTS: RiskFactorWeights = {
   externalFactor: 10,
 };
 
-const TIER_THRESHOLDS = {
+const DEFAULT_TIER_THRESHOLDS = {
   CRITICAL: 45,
   HIGH: 35,
   MEDIUM: 20,
 };
 
-export function calculateRiskTier(score: number): RiskTier {
-  if (score >= TIER_THRESHOLDS.CRITICAL) return 'CRITICAL';
-  if (score >= TIER_THRESHOLDS.HIGH) return 'HIGH';
-  if (score >= TIER_THRESHOLDS.MEDIUM) return 'MEDIUM';
+let cachedThresholds: { CRITICAL: number; HIGH: number; MEDIUM: number } | null = null;
+let thresholdsCacheTime = 0;
+const CACHE_TTL_MS = 60000;
+
+export async function getTierThresholds(): Promise<{ CRITICAL: number; HIGH: number; MEDIUM: number }> {
+  const now = Date.now();
+  if (cachedThresholds && now - thresholdsCacheTime < CACHE_TTL_MS) {
+    return cachedThresholds;
+  }
+  
+  try {
+    const settings = await db.select()
+      .from(factorySettings)
+      .where(
+        sql`${factorySettings.key} IN ('risk_tier_critical_threshold', 'risk_tier_high_threshold', 'risk_tier_medium_threshold')`
+      );
+    
+    const settingsMap = new Map(settings.map(s => [s.key, parseInt(s.value, 10)]));
+    
+    cachedThresholds = {
+      CRITICAL: settingsMap.get('risk_tier_critical_threshold') ?? DEFAULT_TIER_THRESHOLDS.CRITICAL,
+      HIGH: settingsMap.get('risk_tier_high_threshold') ?? DEFAULT_TIER_THRESHOLDS.HIGH,
+      MEDIUM: settingsMap.get('risk_tier_medium_threshold') ?? DEFAULT_TIER_THRESHOLDS.MEDIUM,
+    };
+    thresholdsCacheTime = now;
+    return cachedThresholds;
+  } catch (error) {
+    logger.warn({ error }, 'Failed to fetch tier thresholds from factory settings, using defaults');
+    return DEFAULT_TIER_THRESHOLDS;
+  }
+}
+
+export function clearTierThresholdsCache(): void {
+  cachedThresholds = null;
+  thresholdsCacheTime = 0;
+}
+
+export function calculateRiskTier(score: number, thresholds = DEFAULT_TIER_THRESHOLDS): RiskTier {
+  if (score >= thresholds.CRITICAL) return 'CRITICAL';
+  if (score >= thresholds.HIGH) return 'HIGH';
+  if (score >= thresholds.MEDIUM) return 'MEDIUM';
   return 'LOW';
+}
+
+export async function calculateRiskTierAsync(score: number): Promise<RiskTier> {
+  const thresholds = await getTierThresholds();
+  return calculateRiskTier(score, thresholds);
 }
 
 export async function calculateExpiryRiskScore(propertyId: string): Promise<{
@@ -432,7 +475,7 @@ export async function calculatePropertyRiskScore(
      externalFactor.score * weights.externalFactor) / totalWeight
   );
 
-  const riskTier = calculateRiskTier(overallScore);
+  const riskTier = await calculateRiskTierAsync(overallScore);
 
   const allFactors = [
     ...expiry.factors,
