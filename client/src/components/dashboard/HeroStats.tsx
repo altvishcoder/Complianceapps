@@ -108,8 +108,14 @@ interface HeroStatsGridProps {
 }
 
 export function HeroStatsGrid({ stats }: HeroStatsGridProps) {
+  const gridCols = stats.length <= 4 
+    ? "grid-cols-2 md:grid-cols-4" 
+    : stats.length === 5 
+      ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5" 
+      : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6";
+  
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className={`grid ${gridCols} gap-3`}>
       {stats.map((stat, index) => (
         <HeroStat
           key={index}
