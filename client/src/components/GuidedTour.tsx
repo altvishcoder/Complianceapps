@@ -25,9 +25,9 @@ interface TourStep {
 
 const TOUR_STEPS: TourStep[] = [
   {
-    id: 'sidebar',
-    title: 'Navigation Sidebar',
-    description: 'This is your main navigation hub. All platform features are organized into clear sections: Command Centre for dashboards, Asset Management for properties, Operations for daily tasks, and Administration for settings. On mobile devices, tap the menu icon in the top-left to open it.',
+    id: 'sidebar-intro',
+    title: 'Welcome to ComplianceAI',
+    description: 'This sidebar is your navigation hub. The menu is organized into logical sections: OPERATE for daily tasks, ASSURE for compliance proof, UNDERSTAND for insights, ASSETS for property management, and RESOURCES for help. Let\'s walk through each section.',
     targetSelector: '[data-testid="sidebar-content"]',
     position: 'right',
     icon: LayoutDashboard,
@@ -35,28 +35,19 @@ const TOUR_STEPS: TourStep[] = [
     highlight: true
   },
   {
-    id: 'dashboard',
-    title: 'Command Centre',
-    description: 'Your compliance overview at a glance. Here you\'ll see: total properties and their compliance status, certificates expiring soon, outstanding remedial actions, and risk scores across your portfolio. The charts update in real-time as you add new data.',
-    targetSelector: '[data-testid="nav-item-overview"]',
+    id: 'section-operate',
+    title: 'OPERATE - Daily Operations',
+    description: 'The OPERATE section is where you\'ll spend most of your time. It contains everything needed for day-to-day compliance management: uploading certificates, managing remedial actions, viewing the risk radar, and tracking your calendar. This is your command centre for operational tasks.',
+    targetSelector: '[data-testid="section-toggle-operate"]',
     position: 'right',
     icon: LayoutDashboard,
-    route: '/dashboard'
-  },
-  {
-    id: 'properties',
-    title: 'Property Management',
-    description: 'Manage your entire property portfolio here. Properties are organized following UK Housing Data Standards (UKHDS): Schemes (estates/developments) contain Blocks (buildings), which contain Properties (individual dwellings). You can add, edit, and view compliance status for each level.',
-    targetSelector: '[data-testid="nav-item-properties"]',
-    position: 'right',
-    icon: Building2,
-    route: '/properties',
-    expandSection: 'assets'
+    route: '/dashboard',
+    expandSection: 'operate'
   },
   {
     id: 'certificates',
     title: 'Certificates',
-    description: 'Upload and manage all compliance certificates here. Simply drag and drop PDF documents - our AI will automatically extract key details like certificate type, issue date, expiry date, and compliance outcomes. Supports gas safety, electrical, fire risk, asbestos, and 80+ other certificate types.',
+    description: 'Upload and manage all compliance certificates here. Simply drag and drop PDF documents - our AI automatically extracts key details like certificate type, dates, and outcomes. Supports gas safety, electrical (EICR), fire risk, asbestos, legionella, and 80+ other UK compliance certificate types.',
     targetSelector: '[data-testid="nav-item-certificates"]',
     position: 'right',
     icon: FileCheck,
@@ -66,7 +57,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'risk-radar',
     title: 'Risk Radar',
-    description: 'Monitor compliance risks with our ML-powered predictive analysis. The radar shows properties ranked by risk score, predicts when certificates will expire, and highlights areas needing immediate attention. Red items are high priority, amber need review, and green are compliant.',
+    description: 'Monitor compliance risks with ML-powered predictive analysis. Properties are ranked by risk score - red items need immediate attention, amber require review, and green are compliant. The radar predicts when certificates will expire before they become overdue.',
     targetSelector: '[data-testid="nav-item-risk-radar"]',
     position: 'right',
     icon: Radar,
@@ -74,23 +65,63 @@ const TOUR_STEPS: TourStep[] = [
     expandSection: 'operate'
   },
   {
+    id: 'section-assure',
+    title: 'ASSURE - Compliance Proof',
+    description: 'The ASSURE section provides audit trails and evidence for regulatory inspections. Here you\'ll find detailed audit logs, compliance reports, and documentation that demonstrates your organization\'s compliance status to regulators and stakeholders.',
+    targetSelector: '[data-testid="section-toggle-assure"]',
+    position: 'right',
+    icon: FileCheck,
+    route: '/dashboard',
+    expandSection: 'assure'
+  },
+  {
+    id: 'section-understand',
+    title: 'UNDERSTAND - Insights & Trends',
+    description: 'The UNDERSTAND section provides analytics and reporting. View compliance trends over time, identify patterns in certificate failures, and generate reports for board meetings. This helps you make data-driven decisions about your compliance strategy.',
+    targetSelector: '[data-testid="section-toggle-understand"]',
+    position: 'right',
+    icon: Radar,
+    route: '/dashboard',
+    expandSection: 'understand'
+  },
+  {
+    id: 'section-assets',
+    title: 'ASSETS - Property Management',
+    description: 'The ASSETS section manages your property portfolio. Properties follow UK Housing Data Standards (UKHDS): Schemes (estates) contain Blocks (buildings), which contain Properties (dwellings). You can also track components like boilers, fire alarms, and other equipment requiring certification.',
+    targetSelector: '[data-testid="section-toggle-assets"]',
+    position: 'right',
+    icon: Building2,
+    route: '/dashboard',
+    expandSection: 'assets'
+  },
+  {
+    id: 'properties',
+    title: 'Properties',
+    description: 'View and manage your entire property portfolio. Add new properties, update addresses, link components, and see compliance status at a glance. You can filter by scheme, block, or search for specific addresses.',
+    targetSelector: '[data-testid="nav-item-properties"]',
+    position: 'right',
+    icon: Building2,
+    route: '/properties',
+    expandSection: 'assets'
+  },
+  {
+    id: 'section-resources',
+    title: 'RESOURCES - Help & Training',
+    description: 'The RESOURCES section provides help when you need it. Access detailed user guides, video tutorials for common tasks, and links to UK legislation and regulatory standards. You can restart this tour anytime from here.',
+    targetSelector: '[data-testid="section-toggle-resources"]',
+    position: 'right',
+    icon: HelpCircle,
+    route: '/dashboard',
+    expandSection: 'resources'
+  },
+  {
     id: 'ai-assistant',
     title: 'AI Assistant',
-    description: 'Your intelligent compliance helper is always available via this chat button. Ask questions like "Which properties have expired gas certificates?" or "What are the requirements for HMO fire safety?" The assistant can search your data, explain regulations, and guide you through complex compliance topics.',
+    description: 'Your intelligent compliance helper is always available via this chat button in the corner. Ask questions like "Which properties have expired gas certificates?" or "What are fire safety requirements for HMOs?" The assistant can search your data and explain UK regulations.',
     targetSelector: '[data-testid="button-open-ai-assistant"]',
     position: 'top',
     icon: Bot,
     highlight: true
-  },
-  {
-    id: 'help',
-    title: 'Help & Resources',
-    description: 'Need more guidance? The Help section contains detailed written guides, video tutorials for common tasks, and links to official UK legislation and standards. You can also restart this tour anytime from the Help menu.',
-    targetSelector: '[data-testid="nav-item-help-guide"]',
-    position: 'right',
-    icon: HelpCircle,
-    route: '/help',
-    expandSection: 'resources'
   }
 ];
 
