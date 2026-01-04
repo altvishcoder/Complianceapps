@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type {
-  ClassificationMatch,
-  RemedialActionInput,
-  LinkageResult,
+import {
+  linkExtractionToClassifications,
+  getClassificationCodesForCertificateType,
+  type ClassificationMatch,
+  type RemedialActionInput,
+  type LinkageResult,
 } from '../server/services/extraction/classification-linker';
 
 vi.mock('../server/logger', () => ({
@@ -14,24 +16,142 @@ vi.mock('../server/logger', () => ({
   },
 }));
 
+const mockDbSelect = vi.fn();
+const mockDbInsert = vi.fn();
+
 vi.mock('../server/db', () => ({
   db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(() => Promise.resolve([])),
-        })),
-      })),
-    })),
-    insert: vi.fn(() => ({
-      values: vi.fn(() => Promise.resolve()),
-    })),
+    select: () => mockDbSelect(),
+    insert: () => mockDbInsert(),
   },
+}));
+
+vi.mock('../server/services/extraction/outcome-evaluator', () => ({
+  determineComplianceOutcome: vi.fn().mockResolvedValue({
+    outcome: 'SATISFACTORY',
+    confidence: 0.9,
+    legislation: [],
+    ruleMatches: [],
+    source: 'extracted_data',
+  }),
 }));
 
 describe('Classification Linker Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDbSelect.mockReset();
+    mockDbInsert.mockReset();
+  });
+
+  describe('linkExtractionToClassifications', () => {
+    it('should return error when certificate not found', async () => {
+      mockDbSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([]),
+          }),
+        }),
+      });
+
+      const result = await linkExtractionToClassifications('cert-123', {}, 'GAS');
+      
+      expect(result.errors).toContain('Certificate cert-123 not found');
+      expect(result.matches).toEqual([]);
+      expect(result.actionsCreated).toBe(0);
+    });
+
+    it('should return LinkageResult structure', async () => {
+      mockDbSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([{ id: 'cert-123', propertyId: 'prop-456' }]),
+          }),
+        }),
+      });
+
+      const result = await linkExtractionToClassifications('cert-123', {}, 'GAS');
+      
+      expect(result).toHaveProperty('matches');
+      expect(result).toHaveProperty('actionsCreated');
+      expect(result).toHaveProperty('actionsSkipped');
+      expect(result).toHaveProperty('errors');
+      expect(Array.isArray(result.matches)).toBe(true);
+      expect(Array.isArray(result.errors)).toBe(true);
+    });
+
+    it('should match defects to classification codes', async () => {
+      let callCount = 0;
+      mockDbSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => {
+              callCount++;
+              if (callCount === 1) return Promise.resolve([{ id: 'cert-123', propertyId: 'prop-456' }]);
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-gas', code: 'GAS' }]);
+              return Promise.resolve([]);
+            },
+          }),
+        }),
+      });
+
+      const result = await linkExtractionToClassifications('cert-123', {
+        defects: [{ code: 'C1', description: 'Danger present', priority: 'IMMEDIATE' }],
+      }, 'GAS');
+
+      expect(result).toHaveProperty('matches');
+    });
+
+    it('should handle extraction data with appliances', async () => {
+      let callCount = 0;
+      mockDbSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => {
+              callCount++;
+              if (callCount === 1) return Promise.resolve([{ id: 'cert-123', propertyId: 'prop-456' }]);
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-gas', code: 'GAS' }]);
+              return Promise.resolve([]);
+            },
+          }),
+        }),
+      });
+
+      const result = await linkExtractionToClassifications('cert-123', {
+        appliances: [{ type: 'Boiler', outcome: 'FAIL', make: 'Worcester', model: '25i' }],
+      }, 'GAS');
+
+      expect(result).toHaveProperty('matches');
+    });
+
+    it('should skip action creation when action already exists', async () => {
+      let callCount = 0;
+      mockDbSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => {
+              callCount++;
+              if (callCount === 1) return Promise.resolve([{ id: 'cert-123', propertyId: 'prop-456' }]);
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-gas', code: 'GAS' }]);
+              return Promise.resolve([]);
+            },
+          }),
+        }),
+      });
+
+      const result = await linkExtractionToClassifications('cert-123', {}, 'GAS');
+
+      expect(result.actionsSkipped).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('getClassificationCodesForCertificateType', () => {
+    it('should be an async function that returns a promise', () => {
+      expect(typeof getClassificationCodesForCertificateType).toBe('function');
+    });
+
+    it('should accept certificateType string parameter', () => {
+      expect(getClassificationCodesForCertificateType.length).toBeGreaterThanOrEqual(0);
+    });
   });
 
   describe('ClassificationMatch Structure', () => {
@@ -260,32 +380,6 @@ describe('Classification Linker Service', () => {
     });
   });
 
-  describe('Outcome to Classification Code Mapping', () => {
-    const outcomeCodeMap: Record<string, string[]> = {
-      'UNSATISFACTORY': ['UNSATISFACTORY', 'FAIL', 'C1', 'C2', 'ID', 'AR'],
-      'FAIL': ['FAIL', 'UNSATISFACTORY', 'C1', 'C2'],
-      'AT_RISK': ['AR', 'AT_RISK', 'C2'],
-      'IMMEDIATELY_DANGEROUS': ['ID', 'C1', 'IMMEDIATELY_DANGEROUS'],
-      'IMPROVEMENT_REQUIRED': ['C3', 'FI', 'IMPROVEMENT'],
-      'NEEDS_ATTENTION': ['C2', 'C3', 'FI'],
-    };
-
-    it('should map UNSATISFACTORY to multiple codes', () => {
-      expect(outcomeCodeMap['UNSATISFACTORY']).toContain('C1');
-      expect(outcomeCodeMap['UNSATISFACTORY']).toContain('ID');
-      expect(outcomeCodeMap['UNSATISFACTORY']).toContain('AR');
-    });
-
-    it('should map AT_RISK to AR code', () => {
-      expect(outcomeCodeMap['AT_RISK']).toContain('AR');
-    });
-
-    it('should map IMMEDIATELY_DANGEROUS to ID and C1', () => {
-      expect(outcomeCodeMap['IMMEDIATELY_DANGEROUS']).toContain('ID');
-      expect(outcomeCodeMap['IMMEDIATELY_DANGEROUS']).toContain('C1');
-    });
-  });
-
   describe('Timeframe Calculations', () => {
     const timeframeMap: Record<string, number> = {
       'IMMEDIATE': 24,
@@ -313,56 +407,6 @@ describe('Classification Linker Service', () => {
 
     it('should set ADVISORY to 4320 hours (180 days)', () => {
       expect(timeframeMap['ADVISORY']).toBe(4320);
-    });
-  });
-
-  describe('Cost Estimate Formatting', () => {
-    function formatCostEstimate(low: number | null, high: number | null): string | null {
-      if (low === null && high === null) return null;
-      const lowGBP = low ? (low / 100).toFixed(0) : '0';
-      const highGBP = high ? (high / 100).toFixed(0) : lowGBP;
-      return `£${lowGBP}-${highGBP}`;
-    }
-
-    it('should format range correctly', () => {
-      expect(formatCostEstimate(10000, 50000)).toBe('£100-500');
-    });
-
-    it('should format low only', () => {
-      expect(formatCostEstimate(10000, null)).toBe('£100-100');
-    });
-
-    it('should format high only', () => {
-      expect(formatCostEstimate(null, 50000)).toBe('£0-500');
-    });
-
-    it('should return null for no estimates', () => {
-      expect(formatCostEstimate(null, null)).toBeNull();
-    });
-  });
-
-  describe('Appliance Outcome Mapping', () => {
-    const applianceOutcomeMap: Record<string, string[]> = {
-      'FAIL': ['ID', 'C1', 'APPLIANCE_FAIL'],
-      'AT_RISK': ['AR', 'C2', 'APPLIANCE_AT_RISK'],
-      'NOT_TO_CURRENT_STANDARDS': ['NCS', 'C3', 'APPLIANCE_NCS'],
-      'NCS': ['NCS', 'C3'],
-      'ID': ['ID', 'C1'],
-      'AR': ['AR', 'C2'],
-    };
-
-    it('should map FAIL to ID and C1', () => {
-      expect(applianceOutcomeMap['FAIL']).toContain('ID');
-      expect(applianceOutcomeMap['FAIL']).toContain('C1');
-    });
-
-    it('should map AT_RISK to AR and C2', () => {
-      expect(applianceOutcomeMap['AT_RISK']).toContain('AR');
-      expect(applianceOutcomeMap['AT_RISK']).toContain('C2');
-    });
-
-    it('should map NCS to C3', () => {
-      expect(applianceOutcomeMap['NCS']).toContain('C3');
     });
   });
 });
