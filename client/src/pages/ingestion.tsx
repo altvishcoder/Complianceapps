@@ -1342,34 +1342,42 @@ export default function Ingestion() {
               <CardTitle>Recent Certificates</CardTitle>
               <CardDescription>Recently processed certificates</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <table className="w-full text-sm text-left">
+            <CardContent className="px-0 sm:px-6">
+              <div className="rounded-md border overflow-x-auto">
+                <table className="w-full text-sm text-left min-w-[600px]">
                   <thead className="bg-muted/50 text-muted-foreground font-medium">
                     <tr>
-                      <th className="p-3">File Name</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Property</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Outcome</th>
-                      <th className="p-3 text-right">Action</th>
+                      <th className="p-3 whitespace-nowrap">Type</th>
+                      <th className="p-3 whitespace-nowrap">Property</th>
+                      <th className="p-3 whitespace-nowrap">Status</th>
+                      <th className="p-3 whitespace-nowrap">Outcome</th>
+                      <th className="p-3 text-right whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {recentCertificates.slice(0, 5).map((cert) => (
                       <tr key={cert.id} className="hover:bg-muted/20">
-                        <td className="p-3 font-medium">{cert.fileName}</td>
-                        <td className="p-3">{cert.certificateType?.replace(/_/g, ' ')}</td>
-                        <td className="p-3">{cert.property?.addressLine1 || 'N/A'}</td>
+                        <td className="p-3 max-w-[150px]">
+                          <span className="block truncate" title={cert.certificateType?.replace(/_/g, ' ')}>
+                            {cert.certificateType?.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="p-3 max-w-[120px]">
+                          <span className="block truncate" title={cert.property?.addressLine1 || 'N/A'}>
+                            {cert.property?.addressLine1 || 'N/A'}
+                          </span>
+                        </td>
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                             cert.status === 'APPROVED' || cert.status === 'EXTRACTED' 
-                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300'
                               : cert.status === 'NEEDS_REVIEW'
-                              ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
+                              ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300'
                               : cert.status === 'PROCESSING'
-                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
-                              : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20'
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300'
+                              : cert.status === 'FAILED'
+                              ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-950 dark:text-red-300'
+                              : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20 dark:bg-slate-800 dark:text-slate-300'
                           }`}>
                             {cert.status?.replace(/_/g, ' ')}
                           </span>
@@ -1377,9 +1385,9 @@ export default function Ingestion() {
                         <td className="p-3">
                           <Badge variant="outline" className={
                             cert.outcome === 'SATISFACTORY' || cert.outcome === 'PASS'
-                              ? 'text-emerald-600 border-emerald-200'
-                              : 'text-red-600 border-red-200'
-                          }>{cert.outcome}</Badge>
+                              ? 'text-emerald-600 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800'
+                              : 'text-red-600 border-red-200 dark:text-red-400 dark:border-red-800'
+                          }>{cert.outcome || '—'}</Badge>
                         </td>
                         <td className="p-3 text-right">
                           <Button variant="ghost" size="sm" asChild>
@@ -1390,7 +1398,7 @@ export default function Ingestion() {
                     ))}
                     {recentCertificates.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
                           No certificates processed yet. Upload a document above to get started.
                         </td>
                       </tr>
