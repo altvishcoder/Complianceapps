@@ -28,11 +28,11 @@ const TOUR_STEPS: TourStep[] = [
     id: 'sidebar-intro',
     title: 'Welcome to ComplianceAI',
     description: 'This sidebar is your navigation hub. The menu is organized into logical sections: OPERATE for daily tasks, ASSURE for compliance proof, UNDERSTAND for insights, ASSETS for property management, and RESOURCES for help. Let\'s walk through each section.',
-    targetSelector: '',
+    targetSelector: '[data-testid="sidebar-content"]',
     position: 'right',
     icon: LayoutDashboard,
     route: '/dashboard',
-    highlight: false
+    highlight: true
   },
   {
     id: 'section-operate',
