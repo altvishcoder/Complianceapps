@@ -212,4 +212,120 @@ describe('Extraction Functions', () => {
       expect(actions.length).toBe(0);
     });
   });
+
+  describe('Edge Cases', () => {
+    it('should handle empty defects array', () => {
+      const data = { defects: [] };
+      const actions = generateRemedialActions(data, 'GAS_SAFETY', 'prop-1');
+      expect(actions.length).toBe(0);
+    });
+
+    it('should handle undefined defects', () => {
+      const data = {};
+      const actions = generateRemedialActions(data, 'GAS_SAFETY', 'prop-1');
+      expect(actions.length).toBe(0);
+    });
+
+    it('should handle mixed severity defects', () => {
+      const data = {
+        defects: [
+          { classification: 'Immediately Dangerous (ID)', description: 'Critical', location: 'Boiler' },
+          { classification: 'At Risk (AR)', description: 'Warning', location: 'Kitchen' },
+          { classification: 'Not to Current Standard (NCS)', description: 'Advisory', location: 'Hallway' }
+        ]
+      };
+      const actions = generateRemedialActions(data, 'GAS_SAFETY', 'prop-1');
+      expect(actions.length).toBe(3);
+    });
+
+    it('should handle EICR with mixed observation codes', () => {
+      const data = {
+        observations: [
+          { code: 'C1', description: 'Danger', location: 'Unit' },
+          { code: 'C2', description: 'Potential danger', location: 'Socket' },
+          { code: 'C3', description: 'Improvement', location: 'Light' },
+          { code: 'FI', description: 'Investigation', location: 'Wiring' }
+        ]
+      };
+      const actions = generateRemedialActions(data, 'EICR', 'prop-1');
+      expect(actions.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('should handle fire risk with multiple priority levels', () => {
+      const data = {
+        findings: [
+          { priority: 'HIGH', description: 'Fire door issue' },
+          { priority: 'MEDIUM', description: 'Signage missing' },
+          { priority: 'LOW', description: 'Minor obstruction' }
+        ]
+      };
+      const actions = generateRemedialActions(data, 'FIRE_RISK', 'prop-1');
+      expect(actions.length).toBeGreaterThan(0);
+    });
+
+    it('should normalize raw data with missing fields', () => {
+      const raw = {};
+      const result = normalizeExtractionOutput(raw);
+      expect(result.property).toBeDefined();
+      expect(result.engineer).toBeDefined();
+      expect(result.inspection).toBeDefined();
+    });
+
+    it('should extract postcode from various address formats', () => {
+      const formats = [
+        { installationAddress: 'Flat 1, 123 High St, London SW1A 1AA' },
+        { installationAddress: '123 Main Road\nManchester\nM1 2AB' },
+        { installationAddress: { postcode: 'B1 1AA', address_line_1: '1 Street' } }
+      ];
+      
+      for (const raw of formats) {
+        const result = normalizeExtractionOutput(raw);
+        expect(result.property.postcode).toBeDefined();
+      }
+    });
+  });
+
+  describe('determineOutcome Edge Cases', () => {
+    it('should handle satisfactory with observations', () => {
+      const data = { overallOutcome: 'SATISFACTORY_WITH_OBSERVATIONS' };
+      const result = determineOutcome(data, 'EICR');
+      expect(['SATISFACTORY', 'SATISFACTORY_WITH_OBSERVATIONS']).toContain(result);
+    });
+
+    it('should handle unsafe appliance in array', () => {
+      const data = {
+        appliances: [
+          { applianceSafe: true },
+          { applianceSafe: false },
+          { applianceSafe: true }
+        ]
+      };
+      expect(determineOutcome(data, 'GAS_SAFETY')).toBe('UNSATISFACTORY');
+    });
+
+    it('should handle all safe appliances', () => {
+      const data = {
+        appliances: [
+          { applianceSafe: true },
+          { applianceSafe: true }
+        ]
+      };
+      expect(determineOutcome(data, 'GAS_SAFETY')).toBe('SATISFACTORY');
+    });
+
+    it('should handle legionella satisfactory by default', () => {
+      const data = { colonyCount: 100 };
+      expect(determineOutcome(data, 'LEGIONELLA')).toBe('SATISFACTORY');
+    });
+
+    it('should handle asbestos satisfactory by default', () => {
+      const data = { asbestosPresent: false };
+      expect(determineOutcome(data, 'ASBESTOS')).toBe('SATISFACTORY');
+    });
+
+    it('should handle FI code in EICR as further investigation needed', () => {
+      const data = { fiCount: 1 };
+      expect(determineOutcome(data, 'EICR')).toBe('UNSATISFACTORY');
+    });
+  });
 });
