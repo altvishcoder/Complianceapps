@@ -4,6 +4,8 @@ import {
   withCache,
   CACHE_KEYS,
   CACHE_TTL,
+  startCacheCleanup,
+  stopCacheCleanup,
 } from '../server/services/cache';
 
 vi.mock('../server/logger', () => ({
@@ -248,6 +250,27 @@ describe('Cache Service', () => {
 
     it('should have VERY_LONG as 1 hour', () => {
       expect(CACHE_TTL.VERY_LONG).toBe(3600000);
+    });
+  });
+
+  describe('Cache Cleanup Lifecycle', () => {
+    it('should start cleanup without error', () => {
+      expect(() => startCacheCleanup()).not.toThrow();
+    });
+
+    it('should stop cleanup without error', () => {
+      expect(() => stopCacheCleanup()).not.toThrow();
+    });
+
+    it('should handle multiple start calls', () => {
+      startCacheCleanup();
+      startCacheCleanup();
+      expect(() => stopCacheCleanup()).not.toThrow();
+    });
+
+    it('should handle stop when not started', () => {
+      stopCacheCleanup();
+      expect(() => stopCacheCleanup()).not.toThrow();
     });
   });
 });

@@ -26,12 +26,21 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
   resetTimeout: 60000, // 1 minute
 };
 
+const MAX_CIRCUITS = 100;
+
 class CircuitBreaker {
   private circuits: Map<string, CircuitStats> = new Map();
   private configs: Map<string, CircuitBreakerConfig> = new Map();
 
   private getStats(name: string): CircuitStats {
     if (!this.circuits.has(name)) {
+      if (this.circuits.size >= MAX_CIRCUITS) {
+        const oldestKey = this.circuits.keys().next().value;
+        if (oldestKey) {
+          this.circuits.delete(oldestKey);
+          logger.warn({ circuit: oldestKey, maxCircuits: MAX_CIRCUITS }, 'Evicted oldest circuit to prevent memory bloat');
+        }
+      }
       this.circuits.set(name, {
         failures: 0,
         successes: 0,

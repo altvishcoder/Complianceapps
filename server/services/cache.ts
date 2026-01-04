@@ -70,13 +70,26 @@ class MemoryCache {
 
 export const apiCache = new MemoryCache();
 
-// Cleanup expired entries every 5 minutes
-setInterval(() => {
-  const cleaned = apiCache.cleanup();
-  if (cleaned > 0) {
-    logger.debug({ cleaned }, 'Cache cleanup completed');
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+export function startCacheCleanup(): void {
+  if (cleanupInterval) return;
+  cleanupInterval = setInterval(() => {
+    const cleaned = apiCache.cleanup();
+    if (cleaned > 0) {
+      logger.debug({ cleaned }, 'Cache cleanup completed');
+    }
+  }, 5 * 60 * 1000);
+}
+
+export function stopCacheCleanup(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
   }
-}, 5 * 60 * 1000);
+}
+
+startCacheCleanup();
 
 // Cache keys for commonly cached data
 export const CACHE_KEYS = {
