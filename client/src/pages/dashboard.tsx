@@ -453,9 +453,9 @@ export default function Dashboard() {
                   <CardDescription>Click any item to explore</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Link href="/properties" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-properties">
+              <CardContent className="py-3">
+                <div className="space-y-2">
+                  <Link href="/properties" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-properties">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
                       Total Homes
@@ -465,7 +465,7 @@ export default function Dashboard() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/certificates?from=/dashboard" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-certificates">
+                  <Link href="/certificates?from=/dashboard" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-certificates">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <FileText className="h-4 w-4" />
                       Total Certificates
@@ -475,7 +475,7 @@ export default function Dashboard() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/actions?status=OPEN&from=/dashboard" className="flex justify-between items-center pb-2 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-hazards">
+                  <Link href="/actions?status=OPEN&from=/dashboard" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-hazards">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" />
                       Active Hazards
@@ -485,7 +485,7 @@ export default function Dashboard() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/certificates?status=PENDING&from=/dashboard" className="flex justify-between items-center hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer" data-testid="summary-pending">
+                  <Link href="/certificates?status=PENDING&from=/dashboard" className="flex justify-between items-center hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-pending">
                     <span className="text-muted-foreground flex items-center gap-2">
                       <Clock className="h-4 w-4" />
                       Pending Reviews
@@ -522,10 +522,10 @@ export default function Dashboard() {
                   </Link>
                 )}
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
+              <CardContent className="space-y-2 py-3">
+                <div className="space-y-1.5">
                   <Link href="/actions?awaabs=true&phase=1&from=/dashboard" className="block">
-                    <div className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors cursor-pointer ${
+                    <div className={`flex items-center justify-between p-2 rounded-lg border-2 transition-colors cursor-pointer ${
                       (awaabsData?.phase1?.count || 0) > 0 
                         ? 'border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950/50' 
                         : 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 hover:bg-green-100 dark:hover:bg-green-950/30'
@@ -594,10 +594,10 @@ export default function Dashboard() {
                   </Button>
                 </Link>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-[280px] overflow-y-auto">
                 {(stats?.expiringCertificates?.length || 0) > 0 ? (
                   <div className="space-y-3">
-                    {stats?.expiringCertificates?.slice(0, 5).map((cert) => (
+                    {stats?.expiringCertificates?.slice(0, 8).map((cert) => (
                       <Link 
                         key={cert.id} 
                         href={`/certificates/${cert.id}`}
