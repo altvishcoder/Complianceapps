@@ -111,7 +111,7 @@ export default function RiskHeatmapPage() {
     return areas.filter((a: AreaRisk) => a.riskScore.compositeScore < 85);
   }, [areas, filters.showOnlyAtRisk]);
 
-  const mapMarkers: PropertyMarker[] = filteredAreas.map((area: AreaRisk) => ({
+  const mapMarkers: PropertyMarker[] = filteredAreas.map((area: AreaRisk, index: number) => ({
     id: area.id,
     name: area.name,
     lat: area.lat,
@@ -119,6 +119,7 @@ export default function RiskHeatmapPage() {
     riskScore: area.riskScore.compositeScore,
     propertyCount: area.riskScore.propertyCount,
     unitCount: area.riskScore.unitCount,
+    assetType: index % 3 === 0 ? 'scheme' : index % 3 === 1 ? 'block' : 'property',
   }));
 
   const handleAreaClick = (marker: PropertyMarker) => {
@@ -157,7 +158,7 @@ export default function RiskHeatmapPage() {
                       validMarkers.reduce((sum, m) => sum + m.lng, 0) / validMarkers.length
                     ] as [number, number];
                   })()} 
-                  zoom={mapMarkers.length > 0 ? 7 : 6}
+                  zoom={mapMarkers.length > 0 ? 10 : 6}
                 >
                   <PropertyMarkers 
                     properties={mapMarkers}

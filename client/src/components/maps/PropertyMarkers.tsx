@@ -1,8 +1,11 @@
-import { CircleMarker, Popup } from 'react-leaflet';
+import { CircleMarker, Marker, Popup } from 'react-leaflet';
 import { Link } from 'wouter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
+import L from 'leaflet';
+
+export type AssetType = 'scheme' | 'block' | 'property';
 
 export interface PropertyMarker {
   id: string;
@@ -13,6 +16,7 @@ export interface PropertyMarker {
   riskScore: number;
   propertyCount?: number;
   unitCount?: number;
+  assetType?: AssetType;
 }
 
 interface PropertyMarkersProps {
@@ -32,38 +36,72 @@ export function getRiskLabel(score: number): { label: string; variant: 'destruct
   return { label: 'Low Risk', variant: 'success' };
 }
 
+export function getAssetTypeLabel(type?: AssetType): string {
+  switch (type) {
+    case 'scheme': return 'Scheme/Estate';
+    case 'block': return 'Block';
+    case 'property': return 'Property';
+    default: return 'Property';
+  }
+}
+
+function createCustomIcon(color: string, assetType?: AssetType): L.DivIcon {
+  let shape = '';
+  let size = 24;
+  
+  switch (assetType) {
+    case 'scheme':
+      shape = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="12,2 22,20 2,20" fill="${color}" stroke="white" stroke-width="2"/>
+      </svg>`;
+      break;
+    case 'block':
+      shape = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="18" height="18" fill="${color}" stroke="white" stroke-width="2"/>
+      </svg>`;
+      break;
+    case 'property':
+    default:
+      shape = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
+      </svg>`;
+      break;
+  }
+  
+  return L.divIcon({
+    html: shape,
+    className: 'custom-marker-icon',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
 export function PropertyMarkers({ properties, onPropertyClick }: PropertyMarkersProps) {
   return (
     <>
       {properties.map((property) => {
         const color = getRiskColor(property.riskScore);
         const { label, variant } = getRiskLabel(property.riskScore);
+        const icon = createCustomIcon(color, property.assetType);
         
         return (
-          <CircleMarker
+          <Marker
             key={property.id}
-            center={[property.lat, property.lng]}
-            radius={8}
-            pathOptions={{
-              color: 'white',
-              weight: 2,
-              fillColor: color,
-              fillOpacity: 0.9,
-            }}
+            position={[property.lat, property.lng]}
+            icon={icon}
             eventHandlers={{
               click: () => onPropertyClick?.(property),
-              mouseover: (e) => {
-                e.target.setRadius(12);
-              },
-              mouseout: (e) => {
-                e.target.setRadius(8);
-              },
             }}
-            data-testid={`marker-property-${property.id}`}
           >
             <Popup>
               <div className="min-w-[200px] p-2 space-y-3">
                 <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs">
+                      {getAssetTypeLabel(property.assetType)}
+                    </Badge>
+                  </div>
                   <h3 className="font-semibold text-sm">{property.name}</h3>
                   {property.address && (
                     <p className="text-xs text-muted-foreground mt-1">{property.address}</p>
@@ -110,7 +148,7 @@ export function PropertyMarkers({ properties, onPropertyClick }: PropertyMarkers
                 )}
               </div>
             </Popup>
-          </CircleMarker>
+          </Marker>
         );
       })}
     </>
