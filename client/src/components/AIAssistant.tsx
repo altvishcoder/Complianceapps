@@ -7,7 +7,7 @@ import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/mfa'];
+const AUTH_ROUTES = ['/login', '/register', '/mfa'];
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -100,7 +100,7 @@ export function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const isPublicRoute = PUBLIC_ROUTES.includes(location);
+  const isAuthRoute = AUTH_ROUTES.includes(location);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -169,7 +169,7 @@ export function AIAssistant() {
     "How do I upload a certificate?",
   ];
 
-  if (authLoading || !user || isPublicRoute) {
+  if (authLoading || !user || isAuthRoute) {
     return null;
   }
 
