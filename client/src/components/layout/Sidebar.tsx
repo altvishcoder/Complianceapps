@@ -306,6 +306,8 @@ export function Sidebar() {
     );
   };
 
+  const CORE_SECTIONS = ['operate', 'assure', 'understand'];
+  
   const renderSection = (section: NavigationSection) => {
     if (!shouldShowSection(section)) return null;
     
@@ -315,11 +317,15 @@ export function Sidebar() {
     
     const isOpen = searchQuery.trim() ? true : (openSections[section.id] ?? section.defaultOpen ?? false);
     const hasActiveItem = items.some(item => location === item.href);
+    const isCoreSection = CORE_SECTIONS.includes(section.slug);
     
     const SectionIcon = getIconComponent(section.iconKey);
     
     return (
-      <div key={section.id} className="mb-2">
+      <div key={section.id} className={cn(
+        "mb-2",
+        isCoreSection && "relative before:absolute before:left-0 before:top-1 before:bottom-1 before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:via-emerald-400 before:to-emerald-500 before:rounded-full"
+      )}>
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -327,13 +333,20 @@ export function Sidebar() {
                 onClick={() => toggleSection(section.id)}
                 className={cn(
                   "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all",
-                  hasActiveItem ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  hasActiveItem 
+                    ? "text-emerald-600 dark:text-emerald-400" 
+                    : isCoreSection 
+                      ? "text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 )}
                 aria-expanded={isOpen}
                 data-testid={`section-toggle-${section.slug}`}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <SectionIcon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                  <SectionIcon className={cn(
+                    "h-3.5 w-3.5 flex-shrink-0",
+                    isCoreSection && "text-emerald-500"
+                  )} aria-hidden="true" />
                   <span className="truncate">{section.title}</span>
                 </div>
                 {isOpen ? (
