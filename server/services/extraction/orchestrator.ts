@@ -10,7 +10,7 @@ import type {
 import type { FormatAnalysis } from './format-detector';
 import type { QRMetadataResult } from './qr-metadata';
 import { extractCertificateWithDI } from './orchestrator-di';
-import { createProductionDependencies, TIER_ORDER, TIER_COST_ESTIMATES } from './dependencies';
+import { getDependencies, TIER_ORDER, TIER_COST_ESTIMATES } from './dependencies';
 import { logger } from '../../logger';
 
 export async function isAIProcessingEnabled(): Promise<boolean> {
@@ -67,8 +67,7 @@ export async function extractCertificate(
   filename: string,
   options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
-  const deps = createProductionDependencies();
-  return extractCertificateWithDI(certificateId, buffer, mimeType, filename, options, deps);
+  return extractCertificateWithDI(certificateId, buffer, mimeType, filename, options, getDependencies());
 }
 
 export async function getTierAuditForCertificate(certificateId: string) {
