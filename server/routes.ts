@@ -420,13 +420,13 @@ export async function registerRoutes(
   
   app.post("/api/assistant/chat", async (req, res) => {
     try {
-      // Session-based authentication only - X-User-Id header bypass removed for security
-      const userId = req.session?.userId;
-      if (!userId) {
+      // BetterAuth session-based authentication
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
       
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user) {
         return res.status(401).json({ error: "Invalid user" });
       }
@@ -455,12 +455,12 @@ export async function registerRoutes(
   // ===== AI ASSISTANT ANALYTICS ENDPOINT =====
   app.get("/api/assistant/analytics", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
       
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user) {
         return res.status(401).json({ error: "Invalid user" });
       }
