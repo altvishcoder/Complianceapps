@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">64.28% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>9/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">38.09% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/42</span>
+                <span class='fraction'>16/42</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">66.66% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>2/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">61.53% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>8/13</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -219,23 +219,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -308,24 +308,24 @@ export async function <span class="fstat-no" title="function not covered" >recor
   }
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >getChanges(b</span>efore: any, after: any): Record&lt;string, { from: any; to: any }&gt; | null {
-<span class="cstat-no" title="statement not covered" >  if (!before || !after) <span class="cstat-no" title="statement not covered" >return null;</span></span>
+export function getChanges(before: any, after: any): Record&lt;string, { from: any; to: any }&gt; | null {
+  if (!before || !after) return null;
   
-  const changes: Record&lt;string, { from: any; to: any }&gt; = <span class="cstat-no" title="statement not covered" >{};</span>
-  const allKeys = <span class="cstat-no" title="statement not covered" >Array.from(new Set([...Object.keys(before || {}), ...Object.keys(after || {})]));</span>
+  const changes: Record&lt;string, { from: any; to: any }&gt; = {};
+  const allKeys = Array.from(new Set([...Object.keys(before || <span class="branch-1 cbranch-no" title="branch not covered" >{})</span>, ...Object.keys(after || <span class="branch-1 cbranch-no" title="branch not covered" >{})</span>]));
   
-<span class="cstat-no" title="statement not covered" >  for (const key of allKeys) {</span>
-<span class="cstat-no" title="statement not covered" >    if (before[key] !== after[key]) {</span>
-<span class="cstat-no" title="statement not covered" >      changes[key] = { from: before[key], to: after[key] };</span>
+  for (const key of allKeys) {
+    if (before[key] !== after[key]) {
+      changes[key] = { from: before[key], to: after[key] };
     }
   }
   
-<span class="cstat-no" title="statement not covered" >  return Object.keys(changes).length &gt; 0 ? changes : null;</span>
+  return Object.keys(changes).length &gt; 0 ? changes : null;
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >extractAuditContext(r</span>eq: any): AuditContext {
+export function extractAuditContext(req: any): AuditContext {
   // Session-based authentication - use session data instead of headers
-<span class="cstat-no" title="statement not covered" >  return {</span>
+  return {
     actorId: req.session?.userId || undefined,
     actorName: req.session?.username || undefined,
     actorType: 'USER',
@@ -340,7 +340,7 @@ export function <span class="fstat-no" title="function not covered" >extractAudi
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-04T15:00:06.626Z
+                at 2026-01-04T15:10:01.722Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

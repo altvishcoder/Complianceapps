@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateRemedialActions, generateRemedialActionsFromConfig, determineOutcome, normalizeExtractionOutput } from '../server/extraction';
+import { extractDefects, extractAppliances, extractWithTemplate } from '../server/services/extraction/template-patterns';
 
 describe('Extraction Functions', () => {
   describe('determineOutcome', () => {
@@ -326,6 +327,184 @@ describe('Extraction Functions', () => {
     it('should handle FI code in EICR as further investigation needed', () => {
       const data = { fiCount: 1 };
       expect(determineOutcome(data, 'EICR')).toBe('UNSATISFACTORY');
+    });
+  });
+});
+
+describe('Template Patterns Functions', () => {
+  describe('extractDefects()', () => {
+    it('extracts C1 defects from text', () => {
+      const text = 'Circuit 1: C1 - Danger present, exposed wiring';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('C1');
+      expect(defects[0].priority).toBe('IMMEDIATE');
+    });
+
+    it('extracts C2 defects from text', () => {
+      const text = 'Socket outlet: C2 - Potentially dangerous condition';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('C2');
+      expect(defects[0].priority).toBe('URGENT');
+    });
+
+    it('extracts C3 defects from text', () => {
+      const text = 'Lighting circuit: C3 - Improvement recommended';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('C3');
+      expect(defects[0].priority).toBe('ROUTINE');
+    });
+
+    it('extracts FI defects from text', () => {
+      const text = 'Wiring: FI - Further investigation required';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('FI');
+      expect(defects[0].priority).toBe('URGENT');
+    });
+
+    it('extracts AR (At Risk) defects', () => {
+      const text = 'Boiler: AR - At risk condition identified';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('AR');
+    });
+
+    it('extracts ID (Immediately Dangerous) defects', () => {
+      const text = 'Gas leak: ID code found';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('ID');
+      expect(defects[0].priority).toBe('IMMEDIATE');
+    });
+
+    it('extracts NCS defects', () => {
+      const text = 'Bonding: NCS - Not to current standard';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].code).toBe('NCS');
+    });
+
+    it('extracts multiple defects from text', () => {
+      const text = `Line 1: C1 - Critical issue
+Line 2: C2 - Potential danger
+Line 3: C3 - Advisory`;
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('returns empty array when no defects found', () => {
+      const text = 'All circuits satisfactory, no issues found.';
+      const defects = extractDefects(text);
+      expect(defects.length).toBe(0);
+    });
+
+    it('extracts fire risk HIGH priority', () => {
+      const text = 'Fire door: High risk - immediate action required';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].priority).toBe('IMMEDIATE');
+    });
+
+    it('extracts fire risk MEDIUM priority', () => {
+      const text = 'Signage: Medium risk - action within 3 months';
+      const defects = extractDefects(text);
+      expect(defects.length).toBeGreaterThan(0);
+      expect(defects[0].priority).toBe('URGENT');
+    });
+  });
+
+  describe('extractAppliances()', () => {
+    it('extracts gas appliances from text', () => {
+      const text = 'Appliance 1: Boiler - Make: Worcester Model: Greenstar - Pass';
+      const appliances = extractAppliances(text, 'GAS');
+      expect(appliances.length).toBeGreaterThan(0);
+      expect(appliances[0].type).toBe('Gas Appliance');
+    });
+
+    it('extracts appliance outcome as PASS', () => {
+      const text = 'Appliance 1: Central Heating Boiler - Safe';
+      const appliances = extractAppliances(text, 'GAS');
+      expect(appliances.length).toBeGreaterThan(0);
+      expect(appliances[0].outcome).toBe('PASS');
+    });
+
+    it('extracts appliance outcome as FAIL', () => {
+      const text = 'Appliance 2: Water Heater - Fail';
+      const appliances = extractAppliances(text, 'GAS');
+      expect(appliances.length).toBeGreaterThan(0);
+      expect(appliances[0].outcome).toBe('FAIL');
+    });
+
+    it('works with LPG certificate type', () => {
+      const text = 'Appliance 1: LPG Heater - Satisfactory';
+      const appliances = extractAppliances(text, 'LPG');
+      expect(appliances.length).toBeGreaterThan(0);
+    });
+
+    it('works with OIL certificate type', () => {
+      const text = 'Appliance 1: Oil Boiler - Pass';
+      const appliances = extractAppliances(text, 'OIL');
+      expect(appliances.length).toBeGreaterThan(0);
+    });
+
+    it('returns empty array for non-matching certificate types', () => {
+      const text = 'Appliance 1: Test';
+      const appliances = extractAppliances(text, 'EICR');
+      expect(appliances.length).toBe(0);
+    });
+
+    it('handles text with no appliances', () => {
+      const text = 'No items found on site.';
+      const appliances = extractAppliances(text, 'GAS');
+      expect(appliances.length).toBe(0);
+    });
+  });
+
+  describe('extractWithTemplate()', () => {
+    it('returns result for GAS certificate', () => {
+      const text = `Gas Safety Certificate
+Certificate No: GS-2024-001
+Gas Safe Reg: 123456
+Inspection Date: 15/01/2024
+Property Address: 123 Main Street`;
+      const result = extractWithTemplate(text, 'GAS');
+      expect(result.success).toBeDefined();
+      expect(result.data).toBeDefined();
+    });
+
+    it('returns unsuccessful for unknown certificate type', () => {
+      const text = 'Some random document text';
+      const result = extractWithTemplate(text, 'UNKNOWN_TYPE' as any);
+      expect(result.success).toBe(false);
+      expect(result.confidence).toBe(0);
+    });
+
+    it('handles EICR certificate type', () => {
+      const text = `Electrical Installation Condition Report
+Certificate Number: EICR-2024-001
+Tested by: John Smith
+Test Date: 20/02/2024`;
+      const result = extractWithTemplate(text, 'EICR');
+      expect(result.data).toBeDefined();
+    });
+
+    it('handles EPC certificate type', () => {
+      const text = `Energy Performance Certificate
+Rating: B (85)
+Valid Until: 20/02/2034`;
+      const result = extractWithTemplate(text, 'EPC');
+      expect(result.data).toBeDefined();
+    });
+
+    it('includes matched fields count', () => {
+      const text = `Gas Safe Reg: 123456
+Inspection Date: 15/01/2024`;
+      const result = extractWithTemplate(text, 'GAS');
+      expect(result.matchedFields).toBeGreaterThanOrEqual(0);
+      expect(result.totalExpectedFields).toBeGreaterThan(0);
     });
   });
 });
