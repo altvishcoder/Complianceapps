@@ -55,7 +55,7 @@ Preferred communication style: Simple, everyday language.
     - 27 outcome rules for compliance result interpretation (supports field checks, array matching for appliances/defects, and UK legislation references)
 
 ### Navigation Structure
--   **Command Centre**: Overview, Analytics, Ingestion, Reporting (main dashboards)
+-   **Overview Hub**: Overview, Analytics, Ingestion, Reporting (main dashboards)
 -   **Asset Management**: Property Hierarchy (admin/manager only), Properties, Components
 -   **Operations**: Certificates, Risk Radar, Remedial Actions, Calendar, Risk Maps, Asset Health (super admin), Remedial Kanban (super admin), Human Review (admin/manager)
 -   **Contractor Management**: Contractors (expandable for contractor reports/analytics)

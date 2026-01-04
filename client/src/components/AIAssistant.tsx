@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PUBLIC_ROUTES = ['/', '/login', '/register', '/mfa'];
 
@@ -84,29 +85,9 @@ function formatMessage(text: string, onNavigate?: (url: string) => void): React.
   });
 }
 
-function useAuthState() {
-  const [userId, setUserId] = useState<string | null>(() => localStorage.getItem('user_id'));
-  
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setUserId(localStorage.getItem('user_id'));
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(handleStorageChange, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
-  
-  return userId;
-}
-
 export function AIAssistant() {
   const [location, setLocation] = useLocation();
-  const userId = useAuthState();
+  const { user, isLoading: authLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -132,7 +113,7 @@ export function AIAssistant() {
   }, [isOpen]);
 
   const sendMessageWithContent = async (content: string, existingMessages: ChatMessage[]) => {
-    if (!content.trim() || isLoading || !userId) return;
+    if (!content.trim() || isLoading || !user) return;
 
     const userMessage: ChatMessage = { role: 'user', content: content.trim() };
     const newMessages = [...existingMessages, userMessage];
@@ -145,7 +126,7 @@ export function AIAssistant() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-User-Id': userId,
+          'X-User-Id': user.id,
         },
         body: JSON.stringify({ messages: newMessages }),
       });
@@ -188,7 +169,7 @@ export function AIAssistant() {
     "How do I upload a certificate?",
   ];
 
-  if (!userId || isPublicRoute) {
+  if (authLoading || !user || isPublicRoute) {
     return null;
   }
 

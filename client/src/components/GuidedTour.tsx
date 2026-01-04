@@ -37,7 +37,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'section-operate',
     title: 'OPERATE - Daily Operations',
-    description: 'The OPERATE section is where you\'ll spend most of your time. It contains everything needed for day-to-day compliance management: uploading certificates, managing remedial actions, viewing the risk radar, and tracking your calendar. This is your command centre for operational tasks.',
+    description: 'The OPERATE section is where you\'ll spend most of your time. It contains everything needed for day-to-day compliance management: uploading certificates, managing remedial actions, viewing the risk radar, and tracking your calendar. This is your Overview Hub for operational tasks.',
     targetSelector: '[data-testid="section-toggle-operate"]',
     position: 'right',
     icon: LayoutDashboard,

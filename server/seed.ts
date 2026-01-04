@@ -2239,7 +2239,7 @@ async function seedNavigation() {
   
   // Seed navigation sections
   const sectionsData = [
-    { id: "sec-command", slug: "command-centre", title: "Command Centre", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
+    { id: "sec-command", slug: "command-centre", title: "Overview Hub", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
     { id: "sec-regulatory", slug: "regulatory", title: "Regulatory", iconKey: "Shield", displayOrder: 2, defaultOpen: false, isSystem: true },
     { id: "sec-assets", slug: "asset-management", title: "Asset Management", iconKey: "FolderTree", displayOrder: 3, defaultOpen: false, isSystem: true },
     { id: "sec-ops", slug: "operate", title: "Operate", iconKey: "Briefcase", displayOrder: 4, defaultOpen: true, isSystem: true },
@@ -2258,7 +2258,7 @@ async function seedNavigation() {
   
   // Seed navigation items
   const itemsData = [
-    // Command Centre
+    // Overview Hub
     { sectionId: "sec-command", slug: "overview", name: "Overview", href: "/dashboard", iconKey: "LayoutDashboard", displayOrder: 1, isSystem: true },
     { sectionId: "sec-command", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 2, isSystem: true },
     { sectionId: "sec-command", slug: "reporting", name: "Regulatory", href: "/reports", iconKey: "FileText", displayOrder: 3, isSystem: true },

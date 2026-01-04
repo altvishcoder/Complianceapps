@@ -38,7 +38,7 @@ export default function HelpPage() {
               <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList className="flex flex-wrap h-auto gap-1 p-1">
                   <TabsTrigger value="overview" className="text-xs sm:text-sm gap-1"><BookOpen className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Overview</span></TabsTrigger>
-                  <TabsTrigger value="command" className="text-xs sm:text-sm gap-1"><Home className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Command</span></TabsTrigger>
+                  <TabsTrigger value="command" className="text-xs sm:text-sm gap-1"><Home className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Hub</span></TabsTrigger>
                   <TabsTrigger value="assets" className="text-xs sm:text-sm gap-1"><Building2 className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Assets</span></TabsTrigger>
                   <TabsTrigger value="operations" className="text-xs sm:text-sm gap-1"><FileText className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Ops</span></TabsTrigger>
                   <TabsTrigger value="ai" className="text-xs sm:text-sm gap-1"><Brain className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">AI</span></TabsTrigger>
@@ -189,13 +189,13 @@ export default function HelpPage() {
                   </Card>
                 </TabsContent>
 
-                {/* COMMAND CENTRE TAB */}
+                {/* OVERVIEW HUB TAB */}
                 <TabsContent value="command" className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Home className="h-5 w-5 text-primary" />
-                        Command Centre
+                        Overview Hub
                       </CardTitle>
                       <CardDescription>Your compliance overview and control hub</CardDescription>
                     </CardHeader>
