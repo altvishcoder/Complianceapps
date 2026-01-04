@@ -26,7 +26,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'sidebar',
     title: 'Navigation Sidebar',
-    description: 'Access all platform features from the sidebar. On mobile, tap the menu icon to open it.',
+    description: 'This is your main navigation hub. All platform features are organized into clear sections: Command Centre for dashboards, Asset Management for properties, Operations for daily tasks, and Administration for settings. On mobile devices, tap the menu icon in the top-left to open it.',
     targetSelector: '[data-testid="sidebar-content"]',
     position: 'right',
     icon: LayoutDashboard,
@@ -36,7 +36,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'dashboard',
     title: 'Command Centre',
-    description: 'Your central hub showing compliance overview, risk summary, and key metrics at a glance.',
+    description: 'Your compliance overview at a glance. Here you\'ll see: total properties and their compliance status, certificates expiring soon, outstanding remedial actions, and risk scores across your portfolio. The charts update in real-time as you add new data.',
     targetSelector: '[data-testid="nav-item-overview"]',
     position: 'right',
     icon: LayoutDashboard,
@@ -45,7 +45,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'properties',
     title: 'Property Management',
-    description: 'View and manage your portfolio organized by Schemes, Blocks, and Properties following UKHDS hierarchy.',
+    description: 'Manage your entire property portfolio here. Properties are organized following UK Housing Data Standards (UKHDS): Schemes (estates/developments) contain Blocks (buildings), which contain Properties (individual dwellings). You can add, edit, and view compliance status for each level.',
     targetSelector: '[data-testid="nav-item-properties"]',
     position: 'right',
     icon: Building2,
@@ -54,7 +54,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'certificates',
     title: 'Certificates',
-    description: 'Upload, view, and manage all compliance certificates. AI automatically extracts key information from uploaded documents.',
+    description: 'Upload and manage all compliance certificates here. Simply drag and drop PDF documents - our AI will automatically extract key details like certificate type, issue date, expiry date, and compliance outcomes. Supports gas safety, electrical, fire risk, asbestos, and 80+ other certificate types.',
     targetSelector: '[data-testid="nav-item-certificates"]',
     position: 'right',
     icon: FileCheck,
@@ -63,7 +63,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'risk-radar',
     title: 'Risk Radar',
-    description: 'Monitor compliance risks with our ML-powered predictive analysis. See which properties need attention before issues arise.',
+    description: 'Monitor compliance risks with our ML-powered predictive analysis. The radar shows properties ranked by risk score, predicts when certificates will expire, and highlights areas needing immediate attention. Red items are high priority, amber need review, and green are compliant.',
     targetSelector: '[data-testid="nav-item-risk-radar"]',
     position: 'right',
     icon: Radar,
@@ -72,7 +72,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'ai-assistant',
     title: 'AI Assistant',
-    description: 'Click the chat icon anytime to ask questions about compliance, search properties, or get guidance on regulations.',
+    description: 'Your intelligent compliance helper is always available via this chat button. Ask questions like "Which properties have expired gas certificates?" or "What are the requirements for HMO fire safety?" The assistant can search your data, explain regulations, and guide you through complex compliance topics.',
     targetSelector: '[data-testid="button-open-ai-assistant"]',
     position: 'top',
     icon: Bot,
@@ -81,7 +81,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'help',
     title: 'Help & Resources',
-    description: 'Access detailed guides, video tutorials, and documentation anytime from the Help section.',
+    description: 'Need more guidance? The Help section contains detailed written guides, video tutorials for common tasks, and links to official UK legislation and standards. You can also restart this tour anytime from the Help menu.',
     targetSelector: '[data-testid="nav-item-help-guide"]',
     position: 'right',
     icon: HelpCircle,
@@ -200,8 +200,8 @@ export function GuidedTour() {
     }
 
     const padding = 16;
-    const tooltipWidth = 320;
-    const tooltipHeight = 200;
+    const tooltipWidth = 384;
+    const tooltipHeight = 280;
 
     let top = 0;
     let left = 0;
@@ -235,26 +235,57 @@ export function GuidedTour() {
 
   return createPortal(
     <div className="fixed inset-0 z-[100]" data-testid="guided-tour-overlay">
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
-        onClick={endTour}
-      />
-      
-      {targetRect && (
-        <div
-          className="absolute rounded-xl ring-4 ring-primary ring-offset-2 ring-offset-background transition-all duration-300 pointer-events-none"
-          style={{
-            top: targetRect.top - 4,
-            left: targetRect.left - 4,
-            width: targetRect.width + 8,
-            height: targetRect.height + 8,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6)',
-          }}
+      {targetRect ? (
+        <>
+          <div 
+            className="absolute bg-black/50 transition-all duration-300"
+            style={{ top: 0, left: 0, right: 0, height: targetRect.top - 8 }}
+            onClick={endTour}
+          />
+          <div 
+            className="absolute bg-black/50 transition-all duration-300"
+            style={{ top: targetRect.bottom + 8, left: 0, right: 0, bottom: 0 }}
+            onClick={endTour}
+          />
+          <div 
+            className="absolute bg-black/50 transition-all duration-300"
+            style={{ 
+              top: targetRect.top - 8, 
+              left: 0, 
+              width: targetRect.left - 8,
+              height: targetRect.height + 16
+            }}
+            onClick={endTour}
+          />
+          <div 
+            className="absolute bg-black/50 transition-all duration-300"
+            style={{ 
+              top: targetRect.top - 8, 
+              left: targetRect.right + 8, 
+              right: 0,
+              height: targetRect.height + 16
+            }}
+            onClick={endTour}
+          />
+          <div
+            className="absolute rounded-xl ring-4 ring-primary ring-offset-4 ring-offset-transparent transition-all duration-300 pointer-events-none"
+            style={{
+              top: targetRect.top - 8,
+              left: targetRect.left - 8,
+              width: targetRect.width + 16,
+              height: targetRect.height + 16,
+            }}
+          />
+        </>
+      ) : (
+        <div 
+          className="absolute inset-0 bg-black/50 transition-opacity duration-300"
+          onClick={endTour}
         />
       )}
 
       <Card 
-        className="absolute w-80 shadow-2xl border-primary/20 bg-background/95 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="absolute w-96 shadow-2xl border-primary/20 bg-background/95 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
         style={tooltipStyle}
         data-testid="tour-tooltip"
       >
