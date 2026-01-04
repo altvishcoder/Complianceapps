@@ -80,3 +80,10 @@ export const verifications = pgTable("verifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const userFavorites = pgTable("user_favorites", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id").notNull(),
+  navigationItemId: varchar("navigation_item_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

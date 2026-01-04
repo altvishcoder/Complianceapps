@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import * as LucideIcons from "lucide-react";
 import { 
@@ -11,12 +11,16 @@ import {
   X,
   HelpCircle,
   Sun,
-  Moon
+  Moon,
+  Search,
+  Star,
+  Pin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sidebarApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import {
@@ -95,10 +99,12 @@ function VersionDisplay() {
 export function Sidebar() {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const navScrollRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const queryClient = useQueryClient();
   
   useEffect(() => {
     setMounted(true);
@@ -171,8 +177,60 @@ export function Sidebar() {
     retry: false,
   });
   
+  const { data: userFavorites = [] } = useQuery<string[]>({
+    queryKey: ["user-favorites"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/favorites", { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.favorites || [];
+    },
+    staleTime: 60000,
+    enabled: !!user?.id,
+  });
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async ({ itemId, isFavorite }: { itemId: string; isFavorite: boolean }) => {
+      const res = await fetch("/api/user/favorites", {
+        method: isFavorite ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+        body: JSON.stringify({ navigationItemId: itemId }),
+      });
+      if (!res.ok) throw new Error("Failed to update favorites");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-favorites"] });
+    },
+  });
+  
   const emergencyHazards = countsError ? 0 : (sidebarCounts?.emergencyHazards || 0);
   const overdueCerts = countsError ? 0 : (sidebarCounts?.overdueCertificates || 0);
+
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return navigationSections;
+    const query = searchQuery.toLowerCase();
+    return navigationSections.map(section => ({
+      ...section,
+      items: section.items.filter(item => 
+        item.name.toLowerCase().includes(query) ||
+        item.slug.toLowerCase().includes(query)
+      ),
+    })).filter(section => section.items.length > 0);
+  }, [navigationSections, searchQuery]);
+
+  const favoriteItems = useMemo(() => {
+    const allItems: NavigationItem[] = [];
+    navigationSections.forEach(section => {
+      section.items.forEach(item => {
+        if (userFavorites.includes(item.id)) {
+          allItems.push(item);
+        }
+      });
+    });
+    return allItems;
+  }, [navigationSections, userFavorites]);
 
   const shouldShowSection = (section: NavigationSection): boolean => {
     if (!section.isActive) return false;
@@ -193,6 +251,61 @@ export function Sidebar() {
     });
   };
 
+  const renderNavItem = (item: NavigationItem, showPinButton = true) => {
+    const isActive = location === item.href;
+    const ItemIcon = getIconComponent(item.iconKey);
+    const isFavorite = userFavorites.includes(item.id);
+    
+    return (
+      <div key={item.id} className="group/item relative">
+        <Link href={item.href} aria-current={isActive ? "page" : undefined} onClick={handleNavClick}>
+          <div
+            className={cn(
+              "flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
+              isActive
+                ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+            )}
+            data-testid={`nav-item-${item.slug}`}
+          >
+            <div className="flex items-center min-w-0 flex-1">
+              <ItemIcon
+                className={cn(
+                  "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                  isActive ? "text-white" : "text-slate-500 group-hover/item:text-emerald-600 dark:group-hover/item:text-emerald-400"
+                )}
+                aria-hidden="true"
+              />
+              <span className="truncate">{item.name}</span>
+            </div>
+            {isActive && (
+              <ChevronRight className="h-4 w-4 text-white/70" aria-hidden="true" />
+            )}
+          </div>
+        </Link>
+        {showPinButton && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleFavoriteMutation.mutate({ itemId: item.id, isFavorite });
+            }}
+            className={cn(
+              "absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all",
+              isFavorite 
+                ? "text-amber-500 hover:text-amber-600 bg-amber-500/10" 
+                : "text-slate-400 opacity-0 group-hover/item:opacity-100 hover:text-amber-500 hover:bg-amber-500/10"
+            )}
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            data-testid={`pin-item-${item.slug}`}
+          >
+            <Pin className={cn("h-3.5 w-3.5", isFavorite && "fill-current")} />
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const renderSection = (section: NavigationSection) => {
     if (!shouldShowSection(section)) return null;
     
@@ -200,7 +313,7 @@ export function Sidebar() {
       .sort((a, b) => a.displayOrder - b.displayOrder);
     if (items.length === 0) return null;
     
-    const isOpen = openSections[section.id] ?? section.defaultOpen ?? false;
+    const isOpen = searchQuery.trim() ? true : (openSections[section.id] ?? section.defaultOpen ?? false);
     const hasActiveItem = items.some(item => location === item.href);
     
     const SectionIcon = getIconComponent(section.iconKey);
@@ -240,37 +353,7 @@ export function Sidebar() {
         
         {isOpen && (
           <nav className="mt-1 space-y-0.5 pl-2" aria-label={section.title}>
-            {items.map((item) => {
-              const isActive = location === item.href;
-              const ItemIcon = getIconComponent(item.iconKey);
-              return (
-                <Link key={item.id} href={item.href} aria-current={isActive ? "page" : undefined} onClick={handleNavClick}>
-                  <div
-                    className={cn(
-                      "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
-                      isActive
-                        ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
-                    )}
-                    data-testid={`nav-item-${item.slug}`}
-                  >
-                    <div className="flex items-center min-w-0 flex-1">
-                      <ItemIcon
-                        className={cn(
-                          "mr-3 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                          isActive ? "text-white" : "text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">{item.name}</span>
-                    </div>
-                    {isActive && (
-                      <ChevronRight className="h-4 w-4 text-white/70" aria-hidden="true" />
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+            {items.map((item) => renderNavItem(item))}
           </nav>
         )}
       </div>
@@ -322,6 +405,42 @@ export function Sidebar() {
         </div>
         
         <div ref={navScrollRef} className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input 
+                type="text"
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 focus:border-emerald-500 dark:focus:border-emerald-500"
+                data-testid="input-nav-search"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {!searchQuery && favoriteItems.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <Star className="h-3.5 w-3.5 fill-current" />
+                <span>Pinned</span>
+              </div>
+              <nav className="mt-1 space-y-0.5" aria-label="Pinned items">
+                {favoriteItems.map((item) => renderNavItem(item))}
+              </nav>
+              <div className="my-3 border-t border-slate-200 dark:border-white/10" />
+            </div>
+          )}
+          
           {navLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
@@ -336,8 +455,14 @@ export function Sidebar() {
                 </div>
               </Link>
             </div>
+          ) : searchQuery && filteredSections.length === 0 ? (
+            <div className="px-3 py-8 text-center">
+              <Search className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">No matching menu items</p>
+              <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+            </div>
           ) : (
-            [...navigationSections]
+            [...filteredSections]
               .sort((a, b) => a.displayOrder - b.displayOrder)
               .map(section => renderSection(section))
           )}

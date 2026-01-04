@@ -50,7 +50,7 @@ import {
   getPasswordPolicyDescription 
 } from "./services/password-policy";
 import * as cacheAdminService from "./services/cache-admin";
-import { cacheRegions, cacheClearAudit } from "@shared/schema";
+import { cacheRegions, cacheClearAudit, userFavorites } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -3458,6 +3458,88 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error updating user role:", error);
       res.status(400).json({ error: error.message || "Failed to update user role" });
+    }
+  });
+
+  // ===== USER FAVORITES =====
+  app.get("/api/user/favorites", async (req, res) => {
+    try {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const favorites = await db
+        .select({ navigationItemId: userFavorites.navigationItemId })
+        .from(userFavorites)
+        .where(eq(userFavorites.userId, session.user.id));
+      
+      res.json({ favorites: favorites.map(f => f.navigationItemId) });
+    } catch (error) {
+      console.error("Error fetching user favorites:", error);
+      res.status(500).json({ error: "Failed to fetch favorites" });
+    }
+  });
+
+  app.post("/api/user/favorites", async (req, res) => {
+    try {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { navigationItemId } = req.body;
+      if (!navigationItemId) {
+        return res.status(400).json({ error: "navigationItemId is required" });
+      }
+      
+      // Check if already exists
+      const existing = await db
+        .select()
+        .from(userFavorites)
+        .where(and(
+          eq(userFavorites.userId, session.user.id),
+          eq(userFavorites.navigationItemId, navigationItemId)
+        ))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        await db.insert(userFavorites).values({
+          userId: session.user.id,
+          navigationItemId,
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error adding favorite:", error);
+      res.status(500).json({ error: "Failed to add favorite" });
+    }
+  });
+
+  app.delete("/api/user/favorites", async (req, res) => {
+    try {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { navigationItemId } = req.body;
+      if (!navigationItemId) {
+        return res.status(400).json({ error: "navigationItemId is required" });
+      }
+      
+      await db
+        .delete(userFavorites)
+        .where(and(
+          eq(userFavorites.userId, session.user.id),
+          eq(userFavorites.navigationItemId, navigationItemId)
+        ));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing favorite:", error);
+      res.status(500).json({ error: "Failed to remove favorite" });
     }
   });
 
