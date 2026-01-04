@@ -150,6 +150,7 @@ export function GuidedTour() {
 
   const findTarget = useCallback((shouldScroll = false) => {
     if (!step) return null;
+    if (!step.targetSelector) return null;
     const element = document.querySelector(step.targetSelector);
     if (element) {
       if (shouldScroll) {
