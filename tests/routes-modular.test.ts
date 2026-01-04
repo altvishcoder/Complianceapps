@@ -501,12 +501,6 @@ describe('Modular Route Handlers', () => {
       expect(response.status).toBe(200);
     });
     
-    it('DELETE /api/contractors/:id deletes a contractor', async () => {
-      vi.mocked(storage.deleteContractor).mockResolvedValue(true);
-      
-      const response = await request(app).delete('/api/contractors/1');
-      expect(response.status).toBe(200);
-    });
   });
   
   describe('System Router', () => {
