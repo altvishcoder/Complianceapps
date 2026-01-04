@@ -1,0 +1,535 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for shared/certificate-type-mapping.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">shared</a> certificate-type-mapping.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/162</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/249</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/4</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/87</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export type CertificateTypeCode = 
+  | 'GAS' | 'GAS_SVC' | 'OIL' | 'LPG' | 'SOLID' | 'ASHP' | 'GSHP' | 'BIO' | 'HVAC' | 'MECH'
+  | 'EICR' | 'ELEC' | 'EIC' | 'PAT' | 'EMLT' | 'EMLT_M' | 'MEIWC'
+  | 'EPC' | 'SAP' | 'DEC' | 'MEES' | 'RET'
+  | 'FRA' | 'FRAEW' | 'FIRE_ALARM' | 'FIRE_EXT' | 'FIRE_DOOR' | 'FD_Q' | 'SMOKE_CO' | 'AOV' | 'SPRINKLER' | 'DRY_RISER' | 'WET_RISER'
+  | 'LEG_RA' | 'LEG_MONITOR' | 'WATER_TANK' | 'TMV' | 'SHOWER'
+  | 'ASB_SURVEY' | 'ASB_MGMT' | 'ASB_REFURB' | 'ASBESTOS'
+  | 'LOLER' | 'LIFT' | 'STAIR_LIFT' | 'HOIST' | 'PLATFORM' | 'SFE' | 'SCAFFOLD'
+  | 'PLAY' | 'GYM' | 'TREE' | 'FENCE' | 'PAVING'
+  | 'CCTV' | 'ACCESS_CTRL' | 'INTRUDER' | 'WARDEN'
+  | 'FORM_A' | 'FORM_B' | 'EWS1' | 'BSR_REG' | 'RESIDENT' | 'GOLDEN_THREAD' | 'SAFETY_CASE'
+  | 'HHSRS' | 'DS' | 'HS'
+  | 'MOBILITY' | 'SENSORY' | 'GRAB'
+  | 'PEST' | 'BIRDNET' | 'CARCASS'
+  | 'WASTE' | 'BULKY' | 'RECYCLING'
+  | 'COMMUNAL' | 'SIGNAGE' | 'ESC_ROUTE' | 'BALCONY' | 'ROOF_ACCESS'
+  | 'OTHER' | 'UNKNOWN' | 'FIRE_RISK';
+&nbsp;
+// Map certificate type code to compliance stream code
+export function <span class="fstat-no" title="function not covered" >getStreamCodeForCertType(c</span>ertType: CertificateTypeCode): string {
+  const mapping: Record&lt;string, string&gt; = <span class="cstat-no" title="statement not covered" >{</span>
+    'GAS': 'GAS_HEATING', 'GAS_SVC': 'GAS_HEATING', 'OIL': 'GAS_HEATING', 
+    'LPG': 'GAS_HEATING', 'SOLID': 'GAS_HEATING', 'ASHP': 'GAS_HEATING', 
+    'GSHP': 'GAS_HEATING', 'BIO': 'GAS_HEATING', 'HVAC': 'GAS_HEATING', 'MECH': 'GAS_HEATING',
+    'EICR': 'ELECTRICAL', 'ELEC': 'ELECTRICAL', 'EIC': 'ELECTRICAL', 
+    'PAT': 'ELECTRICAL', 'EMLT': 'ELECTRICAL', 'EMLT_M': 'ELECTRICAL', 'MEIWC': 'ELECTRICAL',
+    'EPC': 'ENERGY', 'SAP': 'ENERGY', 'DEC': 'ENERGY', 'MEES': 'ENERGY', 'RET': 'ENERGY',
+    'FRA': 'FIRE_SAFETY', 'FRAEW': 'FIRE_SAFETY', 'FIRE_ALARM': 'FIRE_SAFETY', 
+    'FIRE_EXT': 'FIRE_SAFETY', 'FIRE_DOOR': 'FIRE_SAFETY', 'FD_Q': 'FIRE_SAFETY',
+    'SMOKE_CO': 'FIRE_SAFETY', 'AOV': 'FIRE_SAFETY', 'SPRINKLER': 'FIRE_SAFETY',
+    'DRY_RISER': 'FIRE_SAFETY', 'WET_RISER': 'FIRE_SAFETY', 'FIRE_RISK': 'FIRE_SAFETY',
+    'LEG_RA': 'WATER_SAFETY', 'LEG_MONITOR': 'WATER_SAFETY', 
+    'WATER_TANK': 'WATER_SAFETY', 'TMV': 'WATER_SAFETY', 'SHOWER': 'WATER_SAFETY',
+    'ASB_SURVEY': 'ASBESTOS', 'ASB_MGMT': 'ASBESTOS', 'ASB_REFURB': 'ASBESTOS', 'ASBESTOS': 'ASBESTOS',
+    'LOLER': 'LIFTING', 'LIFT': 'LIFTING', 'STAIR_LIFT': 'LIFTING', 
+    'HOIST': 'LIFTING', 'PLATFORM': 'LIFTING', 'SFE': 'LIFTING', 'SCAFFOLD': 'LIFTING',
+    'PLAY': 'EXTERNAL', 'GYM': 'EXTERNAL', 'TREE': 'EXTERNAL', 'FENCE': 'EXTERNAL', 'PAVING': 'EXTERNAL',
+    'CCTV': 'SECURITY', 'ACCESS_CTRL': 'SECURITY', 'INTRUDER': 'SECURITY', 'WARDEN': 'SECURITY',
+    'FORM_A': 'HRB_SPECIFIC', 'FORM_B': 'HRB_SPECIFIC', 'EWS1': 'HRB_SPECIFIC', 
+    'BSR_REG': 'BUILDING_SAFETY', 'HHSRS': 'BUILDING_SAFETY', 'DS': 'BUILDING_SAFETY', 'HS': 'BUILDING_SAFETY',
+  };
+<span class="cstat-no" title="statement not covered" >  return mapping[certType] || 'OTHER';</span>
+}
+&nbsp;
+// Detect certificate type from filename - returns DB-compatible enum values
+export function <span class="fstat-no" title="function not covered" >detectCertTypeFromFilename(f</span>ilename: string): string | null {
+  const upper = <span class="cstat-no" title="statement not covered" >filename.toUpperCase();</span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('LGSR') || upper.includes('CP12') || upper.includes('GAS_SAFETY') || </span>
+      upper.includes('GAS-SAFETY') || upper.includes('GASSAFETY')) <span class="cstat-no" title="statement not covered" >return 'GAS_SAFETY';</span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('EICR') || upper.includes('ELECTRICAL')) <span class="cstat-no" title="statement not covered" >return 'EICR';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('EPC') || upper.includes('ENERGY')) <span class="cstat-no" title="statement not covered" >return 'EPC';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('FRA') || upper.includes('FIRE_RISK') || upper.includes('FIRE-RISK')) <span class="cstat-no" title="statement not covered" >return 'FIRE_RISK_ASSESSMENT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('PAT')) <span class="cstat-no" title="statement not covered" >return 'EICR'; // PAT falls under electrical</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('LEGIONELLA') || upper.includes('WATER')) <span class="cstat-no" title="statement not covered" >return 'LEGIONELLA_ASSESSMENT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('ASBESTOS')) <span class="cstat-no" title="statement not covered" >return 'ASBESTOS_SURVEY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper.includes('LOLER') || upper.includes('LIFT')) <span class="cstat-no" title="statement not covered" >return 'LIFT_LOLER';</span></span>
+<span class="cstat-no" title="statement not covered" >  return null;</span>
+}
+&nbsp;
+// Map internal type code to DB-compatible enum value
+export function <span class="fstat-no" title="function not covered" >toDbCertificateType(c</span>ertType: CertificateTypeCode): string {
+  const mapping: Record&lt;string, string&gt; = <span class="cstat-no" title="statement not covered" >{</span>
+    'GAS': 'GAS_SAFETY', 'GAS_SVC': 'GAS_SAFETY', 
+    'FRA': 'FIRE_RISK_ASSESSMENT', 'FRAEW': 'FIRE_RISK_ASSESSMENT', 'FIRE_RISK': 'FIRE_RISK_ASSESSMENT',
+    'LEG_RA': 'LEGIONELLA_ASSESSMENT', 'LEG_MONITOR': 'LEGIONELLA_ASSESSMENT',
+    'ASB_SURVEY': 'ASBESTOS_SURVEY', 'ASB_MGMT': 'ASBESTOS_SURVEY', 'ASBESTOS': 'ASBESTOS_SURVEY',
+    'LOLER': 'LIFT_LOLER', 'LIFT': 'LIFT_LOLER',
+    'EICR': 'EICR', 'EPC': 'EPC',
+  };
+<span class="cstat-no" title="statement not covered" >  return mapping[certType] || 'OTHER';</span>
+}
+&nbsp;
+export function <span class="fstat-no" title="function not covered" >normalizeCertificateTypeCode(c</span>ertType: string | undefined | null): CertificateTypeCode {
+<span class="cstat-no" title="statement not covered" >  if (!certType) {</span>
+<span class="cstat-no" title="statement not covered" >    return 'UNKNOWN';</span>
+  }
+  const upper = <span class="cstat-no" title="statement not covered" >certType.toUpperCase().trim();</span>
+  
+<span class="cstat-no" title="statement not covered" >  if (upper === 'GAS_SAFETY' || upper === 'GAS' || upper === 'LGSR' || upper === 'CP12' || upper.includes('GAS SAFETY')) <span class="cstat-no" title="statement not covered" >return 'GAS';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'GAS_SVC' || upper.includes('GAS SERVICE')) <span class="cstat-no" title="statement not covered" >return 'GAS_SVC';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'OIL' || upper.includes('OIL BOILER')) <span class="cstat-no" title="statement not covered" >return 'OIL';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'LPG') <span class="cstat-no" title="statement not covered" >return 'LPG';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'EICR' || upper === 'ELECTRICAL' || upper.includes('ELECTRICAL INSTALLATION')) <span class="cstat-no" title="statement not covered" >return 'EICR';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'ELEC') <span class="cstat-no" title="statement not covered" >return 'ELEC';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'EIC') <span class="cstat-no" title="statement not covered" >return 'EIC';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'PAT' || upper.includes('PORTABLE APPLIANCE')) <span class="cstat-no" title="statement not covered" >return 'PAT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'EMLT' || upper.includes('EMERGENCY LIGHT')) <span class="cstat-no" title="statement not covered" >return 'EMLT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'EPC' || upper === 'ENERGY' || upper.includes('ENERGY PERFORMANCE')) <span class="cstat-no" title="statement not covered" >return 'EPC';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SAP') <span class="cstat-no" title="statement not covered" >return 'SAP';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'DEC' || upper.includes('DISPLAY ENERGY')) <span class="cstat-no" title="statement not covered" >return 'DEC';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FIRE_RISK_ASSESSMENT' || upper === 'FRA' || upper === 'FIRE' || upper.includes('FIRE RISK')) <span class="cstat-no" title="statement not covered" >return 'FRA';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FIRE_RISK') <span class="cstat-no" title="statement not covered" >return 'FIRE_RISK';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FRAEW' || upper.includes('EXTERNAL WALL')) <span class="cstat-no" title="statement not covered" >return 'FRAEW';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FIRE_ALARM' || upper.includes('FIRE ALARM')) <span class="cstat-no" title="statement not covered" >return 'FIRE_ALARM';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FIRE_EXT' || upper.includes('FIRE EXTINGUISHER')) <span class="cstat-no" title="statement not covered" >return 'FIRE_EXT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FIRE_DOOR' || upper.includes('FIRE DOOR')) <span class="cstat-no" title="statement not covered" >return 'FIRE_DOOR';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SMOKE_CO' || upper.includes('SMOKE') || upper.includes('CARBON MONOXIDE DETECTOR')) <span class="cstat-no" title="statement not covered" >return 'SMOKE_CO';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'AOV') <span class="cstat-no" title="statement not covered" >return 'AOV';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SPRINKLER') <span class="cstat-no" title="statement not covered" >return 'SPRINKLER';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'LEGIONELLA_ASSESSMENT' || upper === 'LEGIONELLA' || upper === 'LEG_RA' || upper.includes('LEGIONELLA')) <span class="cstat-no" title="statement not covered" >return 'LEG_RA';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'LEG_MONITOR' || upper.includes('LEGIONELLA MONITOR')) <span class="cstat-no" title="statement not covered" >return 'LEG_MONITOR';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'WATER_TANK' || upper.includes('WATER TANK')) <span class="cstat-no" title="statement not covered" >return 'WATER_TANK';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'TMV' || upper.includes('THERMOSTATIC MIXING')) <span class="cstat-no" title="statement not covered" >return 'TMV';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'ASBESTOS_SURVEY' || upper === 'ASBESTOS' || upper === 'ASB_SURVEY' || upper.includes('ASBESTOS')) <span class="cstat-no" title="statement not covered" >return 'ASB_SURVEY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'ASB_MGMT' || upper.includes('ASBESTOS MANAGEMENT')) <span class="cstat-no" title="statement not covered" >return 'ASB_MGMT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'LIFT_LOLER' || upper === 'LOLER' || upper.includes('LOLER')) <span class="cstat-no" title="statement not covered" >return 'LOLER';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'LIFT' || upper.includes('PASSENGER LIFT')) <span class="cstat-no" title="statement not covered" >return 'LIFT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'STAIR_LIFT' || upper.includes('STAIR LIFT')) <span class="cstat-no" title="statement not covered" >return 'STAIR_LIFT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'HOIST') <span class="cstat-no" title="statement not covered" >return 'HOIST';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'PLATFORM') <span class="cstat-no" title="statement not covered" >return 'PLATFORM';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SFE' || upper.includes('SAFE FIRE EXIT')) <span class="cstat-no" title="statement not covered" >return 'SFE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SCAFFOLD') <span class="cstat-no" title="statement not covered" >return 'SCAFFOLD';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'PLAY' || upper.includes('PLAY AREA')) <span class="cstat-no" title="statement not covered" >return 'PLAY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'GYM') <span class="cstat-no" title="statement not covered" >return 'GYM';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'TREE') <span class="cstat-no" title="statement not covered" >return 'TREE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FENCE') <span class="cstat-no" title="statement not covered" >return 'FENCE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'PAVING') <span class="cstat-no" title="statement not covered" >return 'PAVING';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'CCTV') <span class="cstat-no" title="statement not covered" >return 'CCTV';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'ACCESS_CTRL' || upper.includes('ACCESS CONTROL')) <span class="cstat-no" title="statement not covered" >return 'ACCESS_CTRL';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'INTRUDER') <span class="cstat-no" title="statement not covered" >return 'INTRUDER';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'WARDEN') <span class="cstat-no" title="statement not covered" >return 'WARDEN';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FORM_A' || upper.includes('FORM A')) <span class="cstat-no" title="statement not covered" >return 'FORM_A';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'FORM_B' || upper.includes('FORM B')) <span class="cstat-no" title="statement not covered" >return 'FORM_B';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'EWS1') <span class="cstat-no" title="statement not covered" >return 'EWS1';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'BSR_REG' || upper.includes('BUILDING SAFETY')) <span class="cstat-no" title="statement not covered" >return 'BSR_REG';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'RESIDENT') <span class="cstat-no" title="statement not covered" >return 'RESIDENT';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'GOLDEN_THREAD') <span class="cstat-no" title="statement not covered" >return 'GOLDEN_THREAD';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SAFETY_CASE') <span class="cstat-no" title="statement not covered" >return 'SAFETY_CASE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'HHSRS') <span class="cstat-no" title="statement not covered" >return 'HHSRS';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'DS' || upper.includes('DAMP')) <span class="cstat-no" title="statement not covered" >return 'DS';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'HS') <span class="cstat-no" title="statement not covered" >return 'HS';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'MOBILITY') <span class="cstat-no" title="statement not covered" >return 'MOBILITY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SENSORY') <span class="cstat-no" title="statement not covered" >return 'SENSORY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'GRAB') <span class="cstat-no" title="statement not covered" >return 'GRAB';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'PEST') <span class="cstat-no" title="statement not covered" >return 'PEST';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'BIRDNET') <span class="cstat-no" title="statement not covered" >return 'BIRDNET';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'CARCASS') <span class="cstat-no" title="statement not covered" >return 'CARCASS';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'WASTE') <span class="cstat-no" title="statement not covered" >return 'WASTE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'BULKY') <span class="cstat-no" title="statement not covered" >return 'BULKY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'RECYCLING') <span class="cstat-no" title="statement not covered" >return 'RECYCLING';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'COMMUNAL') <span class="cstat-no" title="statement not covered" >return 'COMMUNAL';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'SIGNAGE') <span class="cstat-no" title="statement not covered" >return 'SIGNAGE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'ESC_ROUTE' || upper.includes('ESCAPE ROUTE')) <span class="cstat-no" title="statement not covered" >return 'ESC_ROUTE';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'BALCONY') <span class="cstat-no" title="statement not covered" >return 'BALCONY';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'ROOF_ACCESS') <span class="cstat-no" title="statement not covered" >return 'ROOF_ACCESS';</span></span>
+<span class="cstat-no" title="statement not covered" >  if (upper === 'OTHER') <span class="cstat-no" title="statement not covered" >return 'OTHER';</span></span>
+  
+<span class="cstat-no" title="statement not covered" >  return 'UNKNOWN';</span>
+}
+&nbsp;
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-01-04T12:04:37.478Z
+            </div>
+        <script src="../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../sorter.js"></script>
+        <script src="../block-navigation.js"></script>
+    </body>
+</html>
+    

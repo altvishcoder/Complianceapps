@@ -4167,6 +4167,74 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch history" });
     }
   });
+
+  // ===== ML PREDICTION ENDPOINTS (NOT YET IMPLEMENTED) =====
+  const notImplementedResponse = (feature: string) => ({
+    error: "Not Implemented",
+    message: `${feature} is not yet implemented`,
+    code: "NOT_IMPLEMENTED",
+    status: 501
+  });
+
+  app.get("/api/model-insights/features/:propertyId", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Feature extraction for ML prediction"));
+  });
+
+  app.post("/api/model-insights/predict", async (req, res) => {
+    res.status(501).json(notImplementedResponse("ML breach prediction"));
+  });
+
+  app.post("/api/model-insights/training/config", async (req, res) => {
+    res.status(501).json(notImplementedResponse("ML training configuration"));
+  });
+
+  app.get("/api/model-insights/training/status", async (req, res) => {
+    res.status(501).json(notImplementedResponse("ML training status"));
+  });
+
+  app.get("/api/model-insights/training/runs", async (req, res) => {
+    res.status(501).json(notImplementedResponse("ML training runs history"));
+  });
+
+  app.get("/api/model-insights/predictions/history", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Prediction history"));
+  });
+
+  app.get("/api/model-insights/accuracy", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Model accuracy metrics"));
+  });
+
+  app.post("/api/model-insights/feedback", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Prediction feedback submission"));
+  });
+
+  app.get("/api/model-insights/feedback/stats", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Feedback statistics"));
+  });
+
+  app.get("/api/model-insights/risk-weights", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Risk score feature weights"));
+  });
+
+  app.post("/api/model-insights/persistence/save", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Model weights persistence"));
+  });
+
+  app.post("/api/model-insights/persistence/load", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Model weights loading"));
+  });
+
+  app.get("/api/model-insights/persistence/models", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Saved models listing"));
+  });
+
+  app.get("/api/model-insights/persistence/versions", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Model version tracking"));
+  });
+
+  app.post("/api/model-insights/predict/batch", async (req, res) => {
+    res.status(501).json(notImplementedResponse("Batch predictions"));
+  });
   
   // ===== LASHAN OWNED MODEL: EXTRACTION RUNS =====
   app.get("/api/extraction-runs", async (req, res) => {
@@ -6322,6 +6390,76 @@ export async function registerRoutes(
   });
   
   // ===== API MONITORING & INTEGRATIONS =====
+  
+  // Code Coverage Endpoint
+  app.get("/api/admin/coverage", async (req, res) => {
+    try {
+      const fs = await import('fs').then(m => m.promises);
+      const path = await import('path');
+      const coverageFile = path.join(process.cwd(), 'coverage', 'coverage-summary.json');
+      
+      try {
+        await fs.access(coverageFile);
+      } catch {
+        return res.status(404).json({ 
+          error: "Coverage data not found",
+          message: "Run 'npx vitest run --coverage' to generate coverage data"
+        });
+      }
+      
+      const coverageData = await fs.readFile(coverageFile, 'utf-8');
+      const summary = JSON.parse(coverageData);
+      
+      const totals = summary.total;
+      
+      const modules: Record<string, { lines: number; statements: number; functions: number; branches: number; files: number }> = {};
+      
+      Object.entries(summary).forEach(([filePath, data]: [string, any]) => {
+        if (filePath === 'total') return;
+        
+        let moduleName = 'other';
+        if (filePath.includes('/server/')) moduleName = 'server';
+        else if (filePath.includes('/client/src/pages/')) moduleName = 'pages';
+        else if (filePath.includes('/client/src/components/')) moduleName = 'components';
+        else if (filePath.includes('/client/src/')) moduleName = 'client';
+        else if (filePath.includes('/shared/schema/')) moduleName = 'schema';
+        else if (filePath.includes('/shared/')) moduleName = 'shared';
+        
+        if (!modules[moduleName]) {
+          modules[moduleName] = { lines: 0, statements: 0, functions: 0, branches: 0, files: 0 };
+        }
+        
+        modules[moduleName].lines += data.lines?.pct || 0;
+        modules[moduleName].statements += data.statements?.pct || 0;
+        modules[moduleName].functions += data.functions?.pct || 0;
+        modules[moduleName].branches += data.branches?.pct || 0;
+        modules[moduleName].files += 1;
+      });
+      
+      const moduleAverages = Object.entries(modules).map(([name, data]) => ({
+        name,
+        lines: Math.round((data.lines / data.files) * 10) / 10,
+        statements: Math.round((data.statements / data.files) * 10) / 10,
+        functions: Math.round((data.functions / data.files) * 10) / 10,
+        branches: Math.round((data.branches / data.files) * 10) / 10,
+        files: data.files
+      })).sort((a, b) => b.lines - a.lines);
+      
+      res.json({
+        totals: {
+          lines: { covered: totals.lines.covered, total: totals.lines.total, pct: totals.lines.pct },
+          statements: { covered: totals.statements.covered, total: totals.statements.total, pct: totals.statements.pct },
+          functions: { covered: totals.functions.covered, total: totals.functions.total, pct: totals.functions.pct },
+          branches: { covered: totals.branches.covered, total: totals.branches.total, pct: totals.branches.pct }
+        },
+        modules: moduleAverages,
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error reading coverage data:", error);
+      res.status(500).json({ error: "Failed to read coverage data" });
+    }
+  });
   
   // API Logs
   app.get("/api/admin/api-logs", async (req, res) => {

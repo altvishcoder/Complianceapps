@@ -9,7 +9,10 @@ export default defineConfig({
     exclude: ['tests/pact/**', 'tests/api-integration.test.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['server/**/*.ts', 'shared/**/*.ts', 'client/src/**/*.ts', 'client/src/**/*.tsx'],
+      exclude: ['**/*.test.ts', '**/node_modules/**', '**/dist/**', '**/*.d.ts'],
     },
     testTimeout: 30000,
     hookTimeout: 60000,

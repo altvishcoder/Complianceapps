@@ -45,6 +45,13 @@ export class CircuitBreakerError extends Error {
   }
 }
 
+export class NotImplementedError extends Error {
+  constructor(message: string = "This feature is not yet implemented") {
+    super(message);
+    this.name = "NotImplementedError";
+  }
+}
+
 export async function withTimeout<T>(
   operation: () => Promise<T>,
   options: Partial<TimeoutOptions> = {}

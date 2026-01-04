@@ -1,17 +1,184 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   FlaskConical, Play, CheckCircle, XCircle, Clock, RefreshCw, 
   ChevronDown, ChevronRight, FileCode, Monitor, Users, Shield,
-  Eye, Accessibility, Database, Settings, FileText, Link2, Zap, Activity
+  Eye, Accessibility, Database, Settings, FileText, Link2, Zap, Activity,
+  BarChart3, AlertCircle
 } from "lucide-react";
+
+interface CoverageData {
+  totals: {
+    lines: { covered: number; total: number; pct: number };
+    statements: { covered: number; total: number; pct: number };
+    functions: { covered: number; total: number; pct: number };
+    branches: { covered: number; total: number; pct: number };
+  };
+  modules: Array<{
+    name: string;
+    lines: number;
+    statements: number;
+    functions: number;
+    branches: number;
+    files: number;
+  }>;
+  generatedAt: string;
+}
+
+function CoverageInsights() {
+  const { data: coverage, isLoading, error } = useQuery<CoverageData>({
+    queryKey: ['/api/admin/coverage'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/coverage');
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('Coverage data not available. Run tests with coverage to generate.');
+        }
+        throw new Error('Failed to fetch coverage data');
+      }
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false
+  });
+
+  const getCoverageColor = (pct: number) => {
+    if (pct >= 80) return 'text-green-600 dark:text-green-400';
+    if (pct >= 50) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
+  };
+
+  const getProgressColor = (pct: number) => {
+    if (pct >= 80) return 'bg-green-500';
+    if (pct >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-center gap-3">
+          <BarChart3 className="h-5 w-5 text-muted-foreground animate-pulse" />
+          <span className="text-sm text-muted-foreground">Loading coverage data...</span>
+        </div>
+      </Card>
+    );
+  }
+
+  if (error || !coverage) {
+    return (
+      <Card className="p-4 border-dashed">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">Coverage Data Not Available</p>
+            <p className="text-xs text-muted-foreground">Run: npx vitest run --coverage</p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card data-testid="card-coverage-insights">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm sm:text-base">Code Coverage</CardTitle>
+          </div>
+          <Badge variant="outline" className="text-[10px] sm:text-xs">
+            {new Date(coverage.generatedAt).toLocaleDateString()}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Lines</span>
+              <span className={`text-sm font-bold ${getCoverageColor(coverage.totals.lines.pct)}`}>
+                {coverage.totals.lines.pct.toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={coverage.totals.lines.pct} className="h-2" />
+            <p className="text-[10px] text-muted-foreground">
+              {coverage.totals.lines.covered.toLocaleString()}/{coverage.totals.lines.total.toLocaleString()}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Statements</span>
+              <span className={`text-sm font-bold ${getCoverageColor(coverage.totals.statements.pct)}`}>
+                {coverage.totals.statements.pct.toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={coverage.totals.statements.pct} className="h-2" />
+            <p className="text-[10px] text-muted-foreground">
+              {coverage.totals.statements.covered.toLocaleString()}/{coverage.totals.statements.total.toLocaleString()}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Functions</span>
+              <span className={`text-sm font-bold ${getCoverageColor(coverage.totals.functions.pct)}`}>
+                {coverage.totals.functions.pct.toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={coverage.totals.functions.pct} className="h-2" />
+            <p className="text-[10px] text-muted-foreground">
+              {coverage.totals.functions.covered.toLocaleString()}/{coverage.totals.functions.total.toLocaleString()}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Branches</span>
+              <span className={`text-sm font-bold ${getCoverageColor(coverage.totals.branches.pct)}`}>
+                {coverage.totals.branches.pct.toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={coverage.totals.branches.pct} className="h-2" />
+            <p className="text-[10px] text-muted-foreground">
+              {coverage.totals.branches.covered.toLocaleString()}/{coverage.totals.branches.total.toLocaleString()}
+            </p>
+          </div>
+        </div>
+        
+        <div className="border-t pt-3">
+          <p className="text-xs font-medium mb-2">Coverage by Module</p>
+          <div className="space-y-2">
+            {coverage.modules.slice(0, 6).map((mod) => (
+              <div key={mod.name} className="flex items-center gap-2 text-xs">
+                <span className="w-20 truncate font-medium capitalize">{mod.name}</span>
+                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full ${getProgressColor(mod.lines)} transition-all`}
+                    style={{ width: `${Math.min(mod.lines, 100)}%` }}
+                  />
+                </div>
+                <span className={`w-12 text-right ${getCoverageColor(mod.lines)}`}>
+                  {mod.lines.toFixed(1)}%
+                </span>
+                <span className="w-12 text-right text-muted-foreground">
+                  {mod.files} files
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface TestResult {
   name: string;
@@ -576,6 +743,8 @@ export default function TestSuite() {
               </div>
             </Card>
           </div>
+
+          <CoverageInsights />
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card rounded-lg p-3 sm:p-4 border">
             <div className="flex items-center gap-2 sm:gap-3">
