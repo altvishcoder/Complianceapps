@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateRemedialActions, generateRemedialActionsFromConfig, determineOutcome, normalizeExtractionOutput } from '../server/extraction';
 import { extractDefects, extractAppliances, extractWithTemplate } from '../server/services/extraction/template-patterns';
+import { detectFormatFromMime, detectFormatFromExtension, detectCertificateType, detectCertificateTypeFromFilename, classifyDocument } from '../server/services/extraction/format-detector';
 
 describe('Extraction Functions', () => {
   describe('determineOutcome', () => {
@@ -505,6 +506,552 @@ Inspection Date: 15/01/2024`;
       const result = extractWithTemplate(text, 'GAS');
       expect(result.matchedFields).toBeGreaterThanOrEqual(0);
       expect(result.totalExpectedFields).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('normalizeExtractionOutput()', () => {
+  it('normalizes empty input to expected structure', () => {
+    const result = normalizeExtractionOutput({});
+    expect(result.property).toBeDefined();
+    expect(result.inspection).toBeDefined();
+    expect(result.engineer).toBeDefined();
+    expect(result.findings).toBeDefined();
+    expect(result._raw).toBeDefined();
+  });
+
+  it('extracts property address from installationAddress', () => {
+    const result = normalizeExtractionOutput({
+      installationAddress: '123 Main Street, London, W1A 1AA',
+    });
+    expect(result.property.address_line_1.length).toBeGreaterThan(0);
+    expect(result.property.postcode).toBe('W1A 1AA');
+  });
+
+  it('extracts property address from propertyAddress', () => {
+    const result = normalizeExtractionOutput({
+      propertyAddress: '456 High Road, Manchester',
+    });
+    expect(result.property.address_line_1.length).toBeGreaterThan(0);
+  });
+
+  it('parses postcode from address string', () => {
+    const result = normalizeExtractionOutput({
+      installationAddress: 'Flat 4, 10 Baker Street, NG3 2DQ',
+    });
+    expect(result.property.postcode).toBe('NG3 2DQ');
+  });
+
+  it('handles object address input', () => {
+    const result = normalizeExtractionOutput({
+      installationAddress: {
+        address_line_1: '789 Test Lane',
+        city: 'Birmingham',
+        postcode: 'B5 4TU',
+      },
+    });
+    expect(result.property.address_line_1).toBe('789 Test Lane');
+  });
+
+  it('extracts inspection date from issueDate', () => {
+    const result = normalizeExtractionOutput({
+      issueDate: '2024-01-15',
+    });
+    expect(result.inspection.date).toBe('2024-01-15');
+  });
+
+  it('extracts inspection date from assessmentDate', () => {
+    const result = normalizeExtractionOutput({
+      assessmentDate: '2024-02-20',
+    });
+    expect(result.inspection.date).toBe('2024-02-20');
+  });
+
+  it('extracts next due date from expiryDate', () => {
+    const result = normalizeExtractionOutput({
+      expiryDate: '2025-01-15',
+    });
+    expect(result.inspection.next_due_date).toBe('2025-01-15');
+  });
+
+  it('extracts certificate number', () => {
+    const result = normalizeExtractionOutput({
+      certificateNumber: 'CERT-2024-001',
+    });
+    expect(result.inspection.certificate_number).toBe('CERT-2024-001');
+  });
+
+  it('extracts engineer details', () => {
+    const result = normalizeExtractionOutput({
+      engineer: {
+        name: 'John Smith',
+        company: 'Gas Safe Ltd',
+        gasSafeNumber: '123456',
+      },
+    });
+    expect(result.engineer.name).toBe('John Smith');
+    expect(result.engineer.company).toBe('Gas Safe Ltd');
+    expect(result.engineer.registration_id).toBe('123456');
+  });
+
+  it('extracts inspector details', () => {
+    const result = normalizeExtractionOutput({
+      inspector: {
+        name: 'Jane Doe',
+        registrationNumber: 'REG-789',
+      },
+    });
+    expect(result.engineer.name).toBe('Jane Doe');
+    expect(result.engineer.registration_id).toBe('REG-789');
+  });
+
+  it('extracts defects as observations', () => {
+    const result = normalizeExtractionOutput({
+      defects: [
+        { description: 'Faulty wiring', code: 'C2', location: 'Kitchen' },
+      ],
+    });
+    expect(result.findings.observations.length).toBe(1);
+    expect(result.findings.observations[0].description).toBe('Faulty wiring');
+    expect(result.findings.observations[0].code).toBe('C2');
+  });
+
+  it('extracts observations as observations', () => {
+    const result = normalizeExtractionOutput({
+      observations: [
+        { finding: 'Minor issue noted' },
+      ],
+    });
+    expect(result.findings.observations.length).toBe(1);
+    expect(result.findings.observations[0].description).toBe('Minor issue noted');
+  });
+
+  it('extracts recommendations as remedial actions', () => {
+    const result = normalizeExtractionOutput({
+      recommendations: [
+        { recommendation: 'Replace socket', priority: 'URGENT' },
+      ],
+    });
+    expect(result.findings.remedial_actions.length).toBe(1);
+    expect(result.findings.remedial_actions[0].description).toBe('Replace socket');
+    expect(result.findings.remedial_actions[0].priority).toBe('URGENT');
+  });
+
+  it('extracts overall outcome', () => {
+    const result = normalizeExtractionOutput({
+      overallOutcome: 'SATISFACTORY',
+    });
+    expect(result.inspection.outcome).toBe('SATISFACTORY');
+  });
+
+  it('extracts risk level as outcome', () => {
+    const result = normalizeExtractionOutput({
+      riskLevel: 'LOW',
+    });
+    expect(result.inspection.outcome).toBe('LOW');
+  });
+
+  it('keeps raw data in _raw field', () => {
+    const rawInput = { customField: 'test value' };
+    const result = normalizeExtractionOutput(rawInput);
+    expect(result._raw).toEqual(rawInput);
+  });
+
+  it('handles empty arrays for findings', () => {
+    const result = normalizeExtractionOutput({
+      defects: [],
+      recommendations: [],
+    });
+    expect(result.findings.observations).toEqual([]);
+    expect(result.findings.remedial_actions).toEqual([]);
+  });
+
+  it('handles city extraction from multi-part address', () => {
+    const result = normalizeExtractionOutput({
+      installationAddress: '10 Test Street, Apartment 5, Manchester, M1 2AB',
+    });
+    expect(result.property.city).toBe('Manchester');
+  });
+});
+
+describe('Extraction Mapping Functions', () => {
+  describe('mapApplianceOutcome logic', () => {
+    const mapApplianceOutcome = (outcome: string | undefined | null): 'PASS' | 'FAIL' | 'N/A' | null => {
+      if (!outcome) return null;
+      const upper = outcome.toUpperCase().trim();
+      if (upper === 'PASS' || upper === 'SATISFACTORY' || upper === 'OK' || upper === 'SAFE' || upper === 'PASSED') return 'PASS';
+      if (upper === 'FAIL' || upper === 'FAILED' || upper === 'UNSATISFACTORY' || 
+          upper === 'ID' || upper === 'IMMEDIATE DANGER' || upper.includes('IMMEDIATE DANGER') ||
+          upper === 'AR' || upper === 'AT RISK' || upper.includes('AT RISK') ||
+          upper === 'NCS' || upper === 'NOT TO CURRENT STANDARD' || upper.includes('NOT TO CURRENT STANDARD') ||
+          upper === 'CONDEMNED' || upper === 'CONDDEM' ||
+          upper === 'UNSAFE' || upper === 'NOT SAFE' ||
+          upper === 'C1' || upper === 'C2' || upper === 'CI' || upper === 'CII' ||
+          upper === 'FURTHER INVESTIGATION' || upper.includes('FURTHER INVESTIGATION') ||
+          upper === 'FI' || upper === 'REQUIRES ACTION' || upper === 'ACTION REQUIRED') return 'FAIL';
+      if (upper === 'N/A' || upper === 'NA' || upper === 'NOT APPLICABLE' || upper === 'NOT TESTED' || 
+          upper === 'SERVICE ONLY' || upper === 'S' ||
+          upper === 'NOT REQUIRED' || upper === 'NOT CHECKED' || upper === 'INSPECTION ONLY') return 'N/A';
+      return null;
+    };
+
+    it('returns null for null/undefined input', () => {
+      expect(mapApplianceOutcome(null)).toBeNull();
+      expect(mapApplianceOutcome(undefined)).toBeNull();
+    });
+
+    it('maps PASS variants correctly', () => {
+      expect(mapApplianceOutcome('PASS')).toBe('PASS');
+      expect(mapApplianceOutcome('Satisfactory')).toBe('PASS');
+      expect(mapApplianceOutcome('OK')).toBe('PASS');
+      expect(mapApplianceOutcome('Safe')).toBe('PASS');
+      expect(mapApplianceOutcome('PASSED')).toBe('PASS');
+    });
+
+    it('maps FAIL variants correctly', () => {
+      expect(mapApplianceOutcome('FAIL')).toBe('FAIL');
+      expect(mapApplianceOutcome('Failed')).toBe('FAIL');
+      expect(mapApplianceOutcome('Unsatisfactory')).toBe('FAIL');
+      expect(mapApplianceOutcome('ID')).toBe('FAIL');
+      expect(mapApplianceOutcome('AR')).toBe('FAIL');
+      expect(mapApplianceOutcome('C1')).toBe('FAIL');
+      expect(mapApplianceOutcome('C2')).toBe('FAIL');
+      expect(mapApplianceOutcome('CONDEMNED')).toBe('FAIL');
+      expect(mapApplianceOutcome('UNSAFE')).toBe('FAIL');
+    });
+
+    it('maps N/A variants correctly', () => {
+      expect(mapApplianceOutcome('N/A')).toBe('N/A');
+      expect(mapApplianceOutcome('NA')).toBe('N/A');
+      expect(mapApplianceOutcome('Not Applicable')).toBe('N/A');
+      expect(mapApplianceOutcome('Not Tested')).toBe('N/A');
+      expect(mapApplianceOutcome('SERVICE ONLY')).toBe('N/A');
+    });
+
+    it('returns null for unknown outcomes', () => {
+      expect(mapApplianceOutcome('UNKNOWN')).toBeNull();
+      expect(mapApplianceOutcome('MAYBE')).toBeNull();
+    });
+  });
+
+  describe('mapDefectPriority logic', () => {
+    const mapDefectPriority = (priority: string | undefined | null): 'IMMEDIATE' | 'URGENT' | 'ADVISORY' | 'ROUTINE' | null => {
+      if (!priority) return null;
+      const upper = priority.toUpperCase().trim();
+      if (upper === 'IMMEDIATE' || upper === 'C1' || upper === 'ID' || upper === 'DANGER') return 'IMMEDIATE';
+      if (upper === 'URGENT' || upper === 'C2' || upper === 'AR' || upper === 'AT RISK' || upper === 'NCS') return 'URGENT';
+      if (upper === 'ADVISORY' || upper === 'FI' || upper === 'FYI' || upper === 'IMPROVEMENT') return 'ADVISORY';
+      if (upper === 'ROUTINE' || upper === 'C3' || upper === 'OBSERVATION' || upper === 'MINOR') return 'ROUTINE';
+      return null;
+    };
+
+    it('returns null for null/undefined input', () => {
+      expect(mapDefectPriority(null)).toBeNull();
+      expect(mapDefectPriority(undefined)).toBeNull();
+    });
+
+    it('maps IMMEDIATE variants correctly', () => {
+      expect(mapDefectPriority('IMMEDIATE')).toBe('IMMEDIATE');
+      expect(mapDefectPriority('C1')).toBe('IMMEDIATE');
+      expect(mapDefectPriority('ID')).toBe('IMMEDIATE');
+      expect(mapDefectPriority('DANGER')).toBe('IMMEDIATE');
+    });
+
+    it('maps URGENT variants correctly', () => {
+      expect(mapDefectPriority('URGENT')).toBe('URGENT');
+      expect(mapDefectPriority('C2')).toBe('URGENT');
+      expect(mapDefectPriority('AR')).toBe('URGENT');
+      expect(mapDefectPriority('NCS')).toBe('URGENT');
+    });
+
+    it('maps ADVISORY variants correctly', () => {
+      expect(mapDefectPriority('ADVISORY')).toBe('ADVISORY');
+      expect(mapDefectPriority('FI')).toBe('ADVISORY');
+      expect(mapDefectPriority('FYI')).toBe('ADVISORY');
+      expect(mapDefectPriority('IMPROVEMENT')).toBe('ADVISORY');
+    });
+
+    it('maps ROUTINE variants correctly', () => {
+      expect(mapDefectPriority('ROUTINE')).toBe('ROUTINE');
+      expect(mapDefectPriority('C3')).toBe('ROUTINE');
+      expect(mapDefectPriority('OBSERVATION')).toBe('ROUTINE');
+      expect(mapDefectPriority('MINOR')).toBe('ROUTINE');
+    });
+
+    it('returns null for unknown priorities', () => {
+      expect(mapDefectPriority('UNKNOWN')).toBeNull();
+      expect(mapDefectPriority('CRITICAL')).toBeNull();
+    });
+  });
+
+  describe('mapDocumentTypeToCertificateType logic', () => {
+    const mapDocumentTypeToCertificateType = (documentType: string | undefined): string | undefined => {
+      if (!documentType) return undefined;
+      const docTypeLower = documentType.toLowerCase();
+      if (docTypeLower.includes('gas safety') || docTypeLower.includes('lgsr') || docTypeLower.includes('cp12') || docTypeLower.includes('landlord gas')) return 'GAS_SAFETY';
+      if (docTypeLower.includes('eicr') || docTypeLower.includes('electrical installation') || docTypeLower.includes('electrical condition')) return 'EICR';
+      if (docTypeLower.includes('fire risk') || docTypeLower.includes('fra') || docTypeLower.includes('fire safety')) return 'FIRE_RISK_ASSESSMENT';
+      if (docTypeLower.includes('asbestos')) return 'ASBESTOS_SURVEY';
+      if (docTypeLower.includes('legionella') || docTypeLower.includes('water hygiene') || docTypeLower.includes('water risk')) return 'LEGIONELLA_ASSESSMENT';
+      if (docTypeLower.includes('lift') || docTypeLower.includes('loler') || docTypeLower.includes('elevator')) return 'LIFT_LOLER';
+      if (docTypeLower.includes('energy performance') || docTypeLower.includes('epc')) return 'EPC';
+      return undefined;
+    };
+
+    it('returns undefined for undefined input', () => {
+      expect(mapDocumentTypeToCertificateType(undefined)).toBeUndefined();
+    });
+
+    it('maps gas safety document types', () => {
+      expect(mapDocumentTypeToCertificateType('Gas Safety Certificate')).toBe('GAS_SAFETY');
+      expect(mapDocumentTypeToCertificateType('LGSR')).toBe('GAS_SAFETY');
+      expect(mapDocumentTypeToCertificateType('CP12')).toBe('GAS_SAFETY');
+      expect(mapDocumentTypeToCertificateType('Landlord Gas Safety')).toBe('GAS_SAFETY');
+    });
+
+    it('maps EICR document types', () => {
+      expect(mapDocumentTypeToCertificateType('EICR')).toBe('EICR');
+      expect(mapDocumentTypeToCertificateType('Electrical Installation Condition Report')).toBe('EICR');
+      expect(mapDocumentTypeToCertificateType('Electrical Condition')).toBe('EICR');
+    });
+
+    it('maps fire risk document types', () => {
+      expect(mapDocumentTypeToCertificateType('Fire Risk Assessment')).toBe('FIRE_RISK_ASSESSMENT');
+      expect(mapDocumentTypeToCertificateType('FRA Document')).toBe('FIRE_RISK_ASSESSMENT');
+      expect(mapDocumentTypeToCertificateType('Fire Safety Report')).toBe('FIRE_RISK_ASSESSMENT');
+    });
+
+    it('maps asbestos document types', () => {
+      expect(mapDocumentTypeToCertificateType('Asbestos Survey')).toBe('ASBESTOS_SURVEY');
+      expect(mapDocumentTypeToCertificateType('Asbestos Management')).toBe('ASBESTOS_SURVEY');
+    });
+
+    it('maps legionella document types', () => {
+      expect(mapDocumentTypeToCertificateType('Legionella Risk Assessment')).toBe('LEGIONELLA_ASSESSMENT');
+      expect(mapDocumentTypeToCertificateType('Water Hygiene Report')).toBe('LEGIONELLA_ASSESSMENT');
+      expect(mapDocumentTypeToCertificateType('Water Risk Assessment')).toBe('LEGIONELLA_ASSESSMENT');
+    });
+
+    it('maps lift/LOLER document types', () => {
+      expect(mapDocumentTypeToCertificateType('Lift Inspection')).toBe('LIFT_LOLER');
+      expect(mapDocumentTypeToCertificateType('LOLER Certificate')).toBe('LIFT_LOLER');
+      expect(mapDocumentTypeToCertificateType('Elevator Service')).toBe('LIFT_LOLER');
+    });
+
+    it('maps EPC document types', () => {
+      expect(mapDocumentTypeToCertificateType('Energy Performance Certificate')).toBe('EPC');
+      expect(mapDocumentTypeToCertificateType('EPC Report')).toBe('EPC');
+    });
+
+    it('returns undefined for unknown document types', () => {
+      expect(mapDocumentTypeToCertificateType('Unknown Document')).toBeUndefined();
+      expect(mapDocumentTypeToCertificateType('Random Report')).toBeUndefined();
+    });
+  });
+});
+
+describe('Format Detection Functions', () => {
+  describe('detectFormatFromMime()', () => {
+    it('detects PDF format', () => {
+      expect(detectFormatFromMime('application/pdf')).toBe('pdf-native');
+    });
+
+    it('detects image formats', () => {
+      expect(detectFormatFromMime('image/jpeg')).toBe('image');
+      expect(detectFormatFromMime('image/png')).toBe('image');
+      expect(detectFormatFromMime('image/tiff')).toBe('image');
+      expect(detectFormatFromMime('image/webp')).toBe('image');
+    });
+
+    it('detects document formats', () => {
+      expect(detectFormatFromMime('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBe('docx');
+      expect(detectFormatFromMime('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).toBe('xlsx');
+    });
+
+    it('detects text formats', () => {
+      expect(detectFormatFromMime('text/csv')).toBe('csv');
+      expect(detectFormatFromMime('text/html')).toBe('html');
+      expect(detectFormatFromMime('text/plain')).toBe('txt');
+    });
+
+    it('detects email formats', () => {
+      expect(detectFormatFromMime('message/rfc822')).toBe('email');
+      expect(detectFormatFromMime('application/vnd.ms-outlook')).toBe('email');
+    });
+
+    it('defaults to pdf-native for unknown mime types', () => {
+      expect(detectFormatFromMime('unknown/type')).toBe('pdf-native');
+    });
+  });
+
+  describe('detectFormatFromExtension()', () => {
+    it('detects PDF extension', () => {
+      expect(detectFormatFromExtension('document.pdf')).toBe('pdf-native');
+    });
+
+    it('detects image extensions', () => {
+      expect(detectFormatFromExtension('photo.jpg')).toBe('image');
+      expect(detectFormatFromExtension('image.jpeg')).toBe('image');
+      expect(detectFormatFromExtension('scan.png')).toBe('image');
+      expect(detectFormatFromExtension('doc.tiff')).toBe('image');
+    });
+
+    it('detects document extensions', () => {
+      expect(detectFormatFromExtension('report.docx')).toBe('docx');
+      expect(detectFormatFromExtension('old.doc')).toBe('docx');
+      expect(detectFormatFromExtension('data.xlsx')).toBe('xlsx');
+      expect(detectFormatFromExtension('legacy.xls')).toBe('xlsx');
+    });
+
+    it('detects text extensions', () => {
+      expect(detectFormatFromExtension('data.csv')).toBe('csv');
+      expect(detectFormatFromExtension('page.html')).toBe('html');
+      expect(detectFormatFromExtension('readme.txt')).toBe('txt');
+    });
+
+    it('handles uppercase extensions', () => {
+      expect(detectFormatFromExtension('DOCUMENT.PDF')).toBe('pdf-native');
+      expect(detectFormatFromExtension('IMAGE.JPG')).toBe('image');
+    });
+
+    it('defaults to pdf-native for unknown extensions', () => {
+      expect(detectFormatFromExtension('file.xyz')).toBe('pdf-native');
+    });
+  });
+
+  describe('detectCertificateTypeFromFilename()', () => {
+    it('detects gas safety from filename', () => {
+      expect(detectCertificateTypeFromFilename('LGSR_2024.pdf')).toBe('GAS_SAFETY');
+      expect(detectCertificateTypeFromFilename('CP12_certificate.pdf')).toBe('GAS_SAFETY');
+      expect(detectCertificateTypeFromFilename('gas-safety-record.pdf')).toBe('GAS_SAFETY');
+      expect(detectCertificateTypeFromFilename('gas_safety_2024.pdf')).toBe('GAS_SAFETY');
+    });
+
+    it('detects EICR from filename', () => {
+      expect(detectCertificateTypeFromFilename('EICR_report.pdf')).toBe('EICR');
+      expect(detectCertificateTypeFromFilename('electrical_installation_report.pdf')).toBe('EICR');
+      expect(detectCertificateTypeFromFilename('periodic_inspection.pdf')).toBe('EICR');
+    });
+
+    it('detects EPC from filename', () => {
+      expect(detectCertificateTypeFromFilename('EPC_certificate.pdf')).toBe('EPC');
+      expect(detectCertificateTypeFromFilename('energy_performance.pdf')).toBe('EPC');
+    });
+
+    it('detects FRA from filename', () => {
+      expect(detectCertificateTypeFromFilename('FRA_2024.pdf')).toBe('FRA');
+      expect(detectCertificateTypeFromFilename('fire_risk_assessment.pdf')).toBe('FRA');
+      expect(detectCertificateTypeFromFilename('fire-risk-report.pdf')).toBe('FRA');
+    });
+
+    it('detects legionella from filename', () => {
+      expect(detectCertificateTypeFromFilename('legionella_assessment.pdf')).toBe('LEGIONELLA');
+      expect(detectCertificateTypeFromFilename('water_risk_assessment.pdf')).toBe('LEGIONELLA');
+    });
+
+    it('detects asbestos from filename', () => {
+      expect(detectCertificateTypeFromFilename('asbestos_survey.pdf')).toBe('ASBESTOS');
+      expect(detectCertificateTypeFromFilename('management_survey.pdf')).toBe('ASBESTOS');
+    });
+
+    it('detects lift/LOLER from filename', () => {
+      expect(detectCertificateTypeFromFilename('LOLER_certificate.pdf')).toBe('LIFT');
+      expect(detectCertificateTypeFromFilename('lift_inspection.pdf')).toBe('LIFT');
+    });
+
+    it('returns null for unknown filenames', () => {
+      expect(detectCertificateTypeFromFilename('document.pdf')).toBeNull();
+      expect(detectCertificateTypeFromFilename('random_file.pdf')).toBeNull();
+    });
+  });
+
+  describe('detectCertificateType()', () => {
+    it('detects gas safety from text content', () => {
+      expect(detectCertificateType('LANDLORD GAS SAFETY RECORD')).toBe('GAS_SAFETY');
+      expect(detectCertificateType('Gas Safe Register Number: 123456')).toBe('GAS_SAFETY');
+      expect(detectCertificateType('CP12 Certificate')).toBe('GAS_SAFETY');
+    });
+
+    it('detects EICR from text content', () => {
+      expect(detectCertificateType('ELECTRICAL INSTALLATION CONDITION REPORT')).toBe('EICR');
+      expect(detectCertificateType('EICR in accordance with BS 7671')).toBe('EICR');
+      expect(detectCertificateType('Periodic Inspection Report')).toBe('EICR');
+    });
+
+    it('detects EPC from text content', () => {
+      expect(detectCertificateType('ENERGY PERFORMANCE CERTIFICATE')).toBe('EPC');
+      expect(detectCertificateType('Energy Efficiency Rating: B')).toBe('EPC');
+    });
+
+    it('detects FRA from text content', () => {
+      expect(detectCertificateType('FIRE RISK ASSESSMENT')).toBe('FRA');
+      expect(detectCertificateType('PAS 79 compliant assessment')).toBe('FRA');
+      expect(detectCertificateType('Regulatory Reform Fire Safety Order')).toBe('FRA');
+    });
+
+    it('detects legionella from text content', () => {
+      expect(detectCertificateType('LEGIONELLA RISK ASSESSMENT')).toBe('LEGIONELLA');
+      expect(detectCertificateType('Water Hygiene Assessment')).toBe('LEGIONELLA');
+      expect(detectCertificateType('L8 Risk Assessment')).toBe('LEGIONELLA');
+    });
+
+    it('detects asbestos from text content', () => {
+      expect(detectCertificateType('ASBESTOS MANAGEMENT SURVEY')).toBe('ASBESTOS');
+      expect(detectCertificateType('HSG264 compliant survey')).toBe('ASBESTOS');
+    });
+
+    it('detects lift/LOLER from text content', () => {
+      expect(detectCertificateType('LOLER Thorough Examination')).toBe('LIFT');
+      expect(detectCertificateType('Passenger Lift Inspection')).toBe('LIFT');
+    });
+
+    it('detects PAT from text content', () => {
+      expect(detectCertificateType('PORTABLE APPLIANCE TESTING')).toBe('PAT');
+      expect(detectCertificateType('PAT Test Results')).toBe('PAT');
+    });
+
+    it('detects emergency lighting from text content', () => {
+      expect(detectCertificateType('EMERGENCY LIGHTING TEST CERTIFICATE')).toBe('EMLT');
+      expect(detectCertificateType('BS 5266 Emergency Lighting')).toBe('EMLT');
+    });
+
+    it('detects fire alarm from text content', () => {
+      expect(detectCertificateType('FIRE ALARM SERVICE CERTIFICATE')).toBe('FIRE_ALARM');
+      expect(detectCertificateType('BS 5839 Fire Detection System')).toBe('FIRE_ALARM');
+    });
+
+    it('detects smoke/CO detectors from text content', () => {
+      expect(detectCertificateType('SMOKE ALARM INSTALLATION')).toBe('SMOKE_CO');
+      expect(detectCertificateType('Carbon Monoxide Detector Test')).toBe('SMOKE_CO');
+    });
+
+    it('returns UNKNOWN for unrecognized text', () => {
+      expect(detectCertificateType('Random document content')).toBe('UNKNOWN');
+      expect(detectCertificateType('Invoice for services')).toBe('UNKNOWN');
+    });
+  });
+
+  describe('classifyDocument()', () => {
+    it('classifies structured certificates', () => {
+      expect(classifyDocument('Gas Safety Record', 'GAS')).toBe('structured_certificate');
+      expect(classifyDocument('EICR Report', 'EICR')).toBe('structured_certificate');
+      expect(classifyDocument('EPC Certificate', 'EPC')).toBe('structured_certificate');
+    });
+
+    it('classifies complex documents', () => {
+      expect(classifyDocument('Fire Risk Assessment narrative', 'FRA')).toBe('complex_document');
+      expect(classifyDocument('Asbestos Survey report', 'ASBESTOS')).toBe('complex_document');
+      expect(classifyDocument('Legionella Assessment', 'LEGIONELLA')).toBe('complex_document');
+    });
+
+    it('detects handwritten content', () => {
+      expect(classifyDocument('HANDWRITTEN notes present', 'UNKNOWN')).toBe('handwritten_content');
+      expect(classifyDocument('Contains SIGNATURE: John Smith', 'UNKNOWN')).toBe('handwritten_content');
+    });
+
+    it('returns unknown for unclassified', () => {
+      expect(classifyDocument('Standard text content', 'UNKNOWN')).toBe('unknown');
+      expect(classifyDocument('Generic document', 'LIFT')).toBe('unknown');
     });
   });
 });
