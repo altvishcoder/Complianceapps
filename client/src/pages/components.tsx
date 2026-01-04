@@ -558,9 +558,8 @@ export default function ComponentsPage() {
               onPageSizeChange={setPageSize}
             />
             
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="min-w-[800px] px-4 sm:px-0">
-            <Table>
+            <div className="w-full overflow-x-auto">
+            <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
@@ -670,7 +669,6 @@ export default function ComponentsPage() {
                 ))}
               </TableBody>
             </Table>
-            </div>
             </div>
             
             {/* Bottom Pagination */}

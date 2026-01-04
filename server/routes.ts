@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenAPIDocument } from "./openapi";
 import { auth } from "./auth";
-import { toNodeHandler } from "better-auth/node";
+import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import { storage } from "./storage";
 import { requireAuth, requireRole, type AuthenticatedRequest } from "./session";
 import { 
@@ -7956,12 +7956,12 @@ export async function registerRoutes(
 
   app.get("/api/risk/portfolio-summary", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
       }
@@ -7976,12 +7976,12 @@ export async function registerRoutes(
 
   app.get("/api/risk/properties", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
       }
@@ -8031,12 +8031,12 @@ export async function registerRoutes(
 
   app.get("/api/risk/properties/:propertyId", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
       }
@@ -8098,12 +8098,12 @@ export async function registerRoutes(
 
   app.post("/api/risk/properties/:propertyId/calculate", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
       }
@@ -8145,12 +8145,12 @@ export async function registerRoutes(
 
   app.post("/api/risk/calculate-all", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
       }
@@ -8165,12 +8165,12 @@ export async function registerRoutes(
 
   app.get("/api/risk/alerts", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
       }
