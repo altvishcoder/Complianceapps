@@ -101,10 +101,13 @@ export function GuidedTour() {
   const step = TOUR_STEPS[currentStep];
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
 
-  const findTarget = useCallback(() => {
+  const findTarget = useCallback((shouldScroll = false) => {
     if (!step) return null;
     const element = document.querySelector(step.targetSelector);
     if (element) {
+      if (shouldScroll) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      }
       return element.getBoundingClientRect();
     }
     return null;
@@ -113,12 +116,20 @@ export function GuidedTour() {
   useEffect(() => {
     if (!isActive) return;
 
-    const updatePosition = () => {
-      const rect = findTarget();
-      setTargetRect(rect);
+    const scrollAndUpdate = () => {
+      findTarget(true);
+      setTimeout(() => {
+        const rect = findTarget(false);
+        setTargetRect(rect);
+      }, 350);
     };
 
-    updatePosition();
+    scrollAndUpdate();
+
+    const updatePosition = () => {
+      const rect = findTarget(false);
+      setTargetRect(rect);
+    };
     
     const interval = setInterval(updatePosition, 100);
     window.addEventListener('resize', updatePosition);
