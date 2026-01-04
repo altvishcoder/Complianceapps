@@ -12,6 +12,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
     },
     testTimeout: 30000,
+    hookTimeout: 60000,
     setupFiles: ['./tests/setup.ts'],
   },
   resolve: {

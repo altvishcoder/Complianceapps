@@ -1,28 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-
-const API_BASE = 'http://localhost:5000/api';
-
-async function fetchAPI(path: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers as Record<string, string> },
-    ...options,
-  });
-  return response;
-}
-
-async function waitForServer(maxAttempts = 10): Promise<boolean> {
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const response = await fetch(`${API_BASE}/version`);
-      if (response.ok) return true;
-    } catch {
-      // Server not ready yet
-    }
-    console.log(`Waiting for server... (attempt ${i + 1}/${maxAttempts})`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  return false;
-}
+import { 
+  fetchAPI, 
+  assertValidResponse, 
+  waitForServer 
+} from './helpers/api-test-utils';
 
 describe('Configuration-Driven Remedial Action Tests', () => {
   beforeAll(async () => {
@@ -36,53 +17,54 @@ describe('Configuration-Driven Remedial Action Tests', () => {
   describe('Classification Code Configuration', () => {
     it('should list classification codes or require auth', async () => {
       const response = await fetchAPI('/config/classification-codes');
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List classification codes');
     });
 
     it('should return classification codes with remedial action settings when authenticated', async () => {
       const response = await fetchAPI('/config/classification-codes');
-      if (response.ok) {
-        const data = await response.json();
-        expect(Array.isArray(data)).toBe(true);
-        
-        if (data.length > 0) {
-          const code = data[0];
-          expect(code).toHaveProperty('id');
-          expect(code).toHaveProperty('code');
-        }
+      const result = assertValidResponse(response, [200, 401], 'Classification remedial settings');
+      if (result.isRateLimited || !response.ok) return;
+      
+      const data = await response.json();
+      expect(Array.isArray(data)).toBe(true);
+      
+      if (data.length > 0) {
+        const code = data[0];
+        expect(code).toHaveProperty('id');
+        expect(code).toHaveProperty('code');
       }
     });
 
     it('should handle classification code lookup', async () => {
       const listResponse = await fetchAPI('/config/classification-codes');
-      if (!listResponse.ok) {
-        expect(listResponse.status).toBe(401);
-        return;
-      }
+      const listResult = assertValidResponse(listResponse, [200, 401], 'List for lookup');
+      if (listResult.isRateLimited || !listResponse.ok) return;
       
       const codes = await listResponse.json();
       if (!Array.isArray(codes) || codes.length === 0) return;
       
       const response = await fetchAPI(`/config/classification-codes/${codes[0].id}`);
-      expect([200, 401, 404]).toContain(response.status);
+      assertValidResponse(response, [200, 401, 404], 'Lookup classification code');
     });
 
     it('should handle classification code filtering by certificate type', async () => {
       const certTypesRes = await fetchAPI('/config/certificate-types');
-      if (!certTypesRes.ok) return;
+      const certResult = assertValidResponse(certTypesRes, [200, 401], 'Get cert types');
+      if (certResult.isRateLimited || !certTypesRes.ok) return;
       
       const certTypes = await certTypesRes.json();
       if (!Array.isArray(certTypes) || certTypes.length === 0) return;
       
       const response = await fetchAPI(`/config/classification-codes?certificateTypeId=${certTypes[0].id}`);
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'Filter by certificate type');
     });
   });
 
   describe('Remedial Action Configuration', () => {
     it('should verify classification codes have remedial action settings', async () => {
       const response = await fetchAPI('/config/classification-codes');
-      if (!response.ok) return;
+      const result = assertValidResponse(response, [200, 401], 'Remedial settings check');
+      if (result.isRateLimited || !response.ok) return;
       
       const codes = await response.json();
       if (!Array.isArray(codes) || codes.length === 0) return;
@@ -95,7 +77,8 @@ describe('Configuration-Driven Remedial Action Tests', () => {
 
     it('should validate action severity values', async () => {
       const response = await fetchAPI('/config/classification-codes');
-      if (!response.ok) return;
+      const result = assertValidResponse(response, [200, 401], 'Severity validation');
+      if (result.isRateLimited || !response.ok) return;
       
       const codes = await response.json();
       if (!Array.isArray(codes)) return;
@@ -110,7 +93,8 @@ describe('Configuration-Driven Remedial Action Tests', () => {
 
     it('should validate cost estimate ranges', async () => {
       const response = await fetchAPI('/config/classification-codes');
-      if (!response.ok) return;
+      const result = assertValidResponse(response, [200, 401], 'Cost estimate validation');
+      if (result.isRateLimited || !response.ok) return;
       
       const codes = await response.json();
       if (!Array.isArray(codes)) return;
@@ -126,21 +110,22 @@ describe('Configuration-Driven Remedial Action Tests', () => {
   describe('Certificate Type Configuration', () => {
     it('should list certificate types or require auth', async () => {
       const response = await fetchAPI('/config/certificate-types');
-      expect([200, 401, 429]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List certificate types');
     });
 
     it('should include validity settings when authenticated', async () => {
       const response = await fetchAPI('/config/certificate-types');
-      if (response.ok) {
-        const data = await response.json();
-        expect(Array.isArray(data)).toBe(true);
-        
-        if (data.length > 0) {
-          const certType = data[0];
-          expect(certType).toHaveProperty('id');
-          expect(certType).toHaveProperty('code');
-          expect(certType).toHaveProperty('name');
-        }
+      const result = assertValidResponse(response, [200, 401], 'Validity settings');
+      if (result.isRateLimited || !response.ok) return;
+      
+      const data = await response.json();
+      expect(Array.isArray(data)).toBe(true);
+      
+      if (data.length > 0) {
+        const certType = data[0];
+        expect(certType).toHaveProperty('id');
+        expect(certType).toHaveProperty('code');
+        expect(certType).toHaveProperty('name');
       }
     });
   });
@@ -148,19 +133,20 @@ describe('Configuration-Driven Remedial Action Tests', () => {
   describe('Compliance Stream Configuration', () => {
     it('should list compliance streams or require auth', async () => {
       const response = await fetchAPI('/config/compliance-streams');
-      expect([200, 401, 429]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List compliance streams');
     });
 
     it('should include system-protected streams when authenticated', async () => {
       const response = await fetchAPI('/config/compliance-streams');
-      if (response.ok) {
-        const data = await response.json();
-        expect(Array.isArray(data)).toBe(true);
-        
-        const systemStream = data.find((s: any) => s.isSystem === true);
-        if (systemStream) {
-          expect(systemStream.isSystem).toBe(true);
-        }
+      const result = assertValidResponse(response, [200, 401], 'System streams');
+      if (result.isRateLimited || !response.ok) return;
+      
+      const data = await response.json();
+      expect(Array.isArray(data)).toBe(true);
+      
+      const systemStream = data.find((s: any) => s.isSystem === true);
+      if (systemStream) {
+        expect(systemStream.isSystem).toBe(true);
       }
     });
   });

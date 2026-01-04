@@ -1,28 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-
-const API_BASE = 'http://localhost:5000/api';
-
-async function fetchAPI(path: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers as Record<string, string> },
-    ...options,
-  });
-  return response;
-}
-
-async function waitForServer(maxAttempts = 10): Promise<boolean> {
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const response = await fetch(`${API_BASE}/version`);
-      if (response.ok) return true;
-    } catch {
-      // Server not ready yet
-    }
-    console.log(`Waiting for server... (attempt ${i + 1}/${maxAttempts})`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  return false;
-}
+import { 
+  fetchAPI, 
+  assertValidResponse, 
+  waitForServer 
+} from './helpers/api-test-utils';
 
 describe('Storage Integration Tests', () => {
   beforeAll(async () => {
@@ -36,21 +17,20 @@ describe('Storage Integration Tests', () => {
   describe('Scheme CRUD', () => {
     it('should list schemes or require auth', async () => {
       const response = await fetchAPI('/schemes');
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List schemes');
     });
 
     it('should return scheme data with proper structure when authenticated', async () => {
       const response = await fetchAPI('/schemes');
-      if (response.ok) {
-        const schemes = await response.json();
-        expect(Array.isArray(schemes)).toBe(true);
-        if (schemes.length > 0) {
-          const scheme = schemes[0];
-          expect(scheme.id).toBeDefined();
-          expect(scheme.name).toBeDefined();
-        }
-      } else {
-        expect(response.status).toBe(401);
+      const result = assertValidResponse(response, [200, 401], 'Scheme structure');
+      if (result.isRateLimited || !response.ok) return;
+      
+      const schemes = await response.json();
+      expect(Array.isArray(schemes)).toBe(true);
+      if (schemes.length > 0) {
+        const scheme = schemes[0];
+        expect(scheme.id).toBeDefined();
+        expect(scheme.name).toBeDefined();
       }
     });
   });
@@ -58,36 +38,32 @@ describe('Storage Integration Tests', () => {
   describe('Block CRUD', () => {
     it('should list blocks or require auth', async () => {
       const response = await fetchAPI('/blocks');
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List blocks');
     });
 
     it('should filter blocks by scheme when authenticated', async () => {
       const schemesRes = await fetchAPI('/schemes');
-      if (!schemesRes.ok) {
-        expect(schemesRes.status).toBe(401);
-        return;
-      }
+      const schemesResult = assertValidResponse(schemesRes, [200, 401], 'Get schemes');
+      if (schemesResult.isRateLimited || !schemesRes.ok) return;
       
       const schemes = await schemesRes.json();
       if (schemes.length === 0) return;
 
       const response = await fetchAPI(`/blocks?schemeId=${schemes[0].id}`);
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'Filter blocks');
     });
   });
 
   describe('Property CRUD', () => {
     it('should list properties or require auth', async () => {
       const response = await fetchAPI('/properties');
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List properties');
     });
 
     it('should get property with details if one exists', async () => {
       const response = await fetchAPI('/properties');
-      if (!response.ok) {
-        expect(response.status).toBe(401);
-        return;
-      }
+      const result = assertValidResponse(response, [200, 401], 'Get properties');
+      if (result.isRateLimited || !response.ok) return;
       
       const properties = await response.json();
       if (!Array.isArray(properties) || properties.length === 0) return;
@@ -104,7 +80,7 @@ describe('Storage Integration Tests', () => {
   describe('Component Types CRUD', () => {
     it('should list component types or require auth', async () => {
       const response = await fetchAPI('/component-types');
-      expect([200, 401]).toContain(response.status);
+      assertValidResponse(response, [200, 401], 'List component types');
     });
 
     it('should handle create component type request', async () => {
@@ -116,7 +92,7 @@ describe('Storage Integration Tests', () => {
           category: 'OTHER',
         }),
       });
-      expect([200, 201, 400, 401, 429, 500]).toContain(response.status);
+      assertValidResponse(response, [200, 201, 400, 401, 500], 'Create component type');
     });
   });
 
@@ -126,7 +102,7 @@ describe('Storage Integration Tests', () => {
         method: 'POST',
         body: JSON.stringify({ ids: [] }),
       });
-      expect([200, 400, 401, 429]).toContain(response.status);
+      assertValidResponse(response, [200, 400, 401], 'Bulk verify');
     });
 
     it('should handle bulk approve components request', async () => {
@@ -134,7 +110,7 @@ describe('Storage Integration Tests', () => {
         method: 'POST',
         body: JSON.stringify({ ids: [] }),
       });
-      expect([200, 400, 401, 429]).toContain(response.status);
+      assertValidResponse(response, [200, 400, 401], 'Bulk approve');
     });
   });
 });

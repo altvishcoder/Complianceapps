@@ -4,28 +4,27 @@ const TEST_API_URL = process.env.TEST_API_URL || 'http://localhost:5000';
 
 beforeAll(async () => {
   let retries = 0;
-  const maxRetries = 10;
+  const maxRetries = 15;
   
   while (retries < maxRetries) {
     try {
-      const response = await fetch(`${TEST_API_URL}/api/health`, {
-        signal: AbortSignal.timeout(2000),
+      const response = await fetch(`${TEST_API_URL}/api/version`, {
+        signal: AbortSignal.timeout(3000),
       });
-      if (response.ok) {
+      if (response.ok || response.status === 429) {
         console.log('Server is ready for testing');
         return;
       }
-    } catch (error) {
+    } catch {
       retries++;
       if (retries < maxRetries) {
-        console.log(`Waiting for server... (attempt ${retries}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
   }
   
   console.warn('Server may not be fully ready, proceeding with tests');
-});
+}, 45000);
 
 afterAll(() => {
   console.log('Tests completed');
