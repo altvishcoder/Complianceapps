@@ -568,12 +568,12 @@ export default function MLInsightsPage() {
                             <div className="text-right">
                               {run.finalAccuracy != null && (
                                 <p className="font-medium text-green-600">
-                                  {(run.finalAccuracy * 100).toFixed(1)}% accuracy
+                                  {(Number(run.finalAccuracy) * 100).toFixed(1)}% accuracy
                                 </p>
                               )}
                               {run.finalLoss != null && (
                                 <p className="text-sm text-muted-foreground">
-                                  Loss: {run.finalLoss.toFixed(4)}
+                                  Loss: {Number(run.finalLoss).toFixed(4)}
                                 </p>
                               )}
                             </div>
