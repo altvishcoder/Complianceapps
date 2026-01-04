@@ -20,6 +20,7 @@ interface ImportResult {
 const PROPERTY_TYPES = ['HOUSE', 'FLAT', 'BUNGALOW', 'MAISONETTE', 'BEDSIT', 'STUDIO'];
 const TENURE_TYPES = ['SOCIAL_RENT', 'AFFORDABLE_RENT', 'SHARED_OWNERSHIP', 'LEASEHOLD', 'TEMPORARY'];
 const CONDITIONS = ['GOOD', 'FAIR', 'POOR', 'CRITICAL'];
+const UNIT_TYPES = ['KITCHEN', 'BEDROOM', 'BATHROOM', 'LIVING_ROOM', 'COMMUNAL', 'HALLWAY', 'STORAGE', 'UTILITY'];
 
 export function parseCSV(content: string): Record<string, string>[] {
   const lines = content.trim().split('\n');
