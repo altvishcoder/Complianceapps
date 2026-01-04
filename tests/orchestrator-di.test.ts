@@ -140,7 +140,12 @@ describe('extractCertificateWithDI', () => {
         }),
         extractQRMetadata: async () => ({
           hasVerificationData: true,
-          qrCodes: ['gs://verification/abc123'],
+          qrCodes: [{
+            provider: 'gas-safe' as const,
+            url: 'https://www.gassaferegister.co.uk/verify/abc123',
+            verificationCode: 'ABC123',
+            rawData: 'gs://verification/abc123',
+          }],
           metadata: { source: 'Gas Safe Register' },
           extractedData: {
             verificationCode: 'ABC123',
@@ -161,7 +166,7 @@ describe('extractCertificateWithDI', () => {
       expect(result.success).toBe(true);
       expect(result.finalTier).toBe('tier-0.5');
       expect(result.confidence).toBe(0.95);
-      expect(result.data.engineerRegistration).toBe('GS-555555');
+      expect(result.data?.engineerRegistration).toBe('GS-555555');
     });
   });
 
