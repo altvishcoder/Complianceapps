@@ -1,0 +1,1266 @@
+# Extraction Orchestrator Testing Strategy - Implementation Prompt
+
+## Context
+
+The extraction orchestrator has critical production risks that are currently untested. Your initial analysis correctly identified the gaps. This prompt provides a structured implementation plan to achieve comprehensive test coverage without complex mocking chains.
+
+-----
+
+## Phase 1: Create Adapter Pattern Infrastructure
+
+### 1.1 Define the Extraction Adapter Interface
+
+Create a unified interface that all extraction providers implement:
+
+```typescript
+// src/extraction/adapters/types.ts
+
+export interface ExtractionResult {
+  success: boolean;
+  confidence: number;
+  data: ExtractedCertificateData | null;
+  provider: string;
+  tier: number;
+  costIncurred: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ExtractionAdapter {
+  readonly name: string;
+  readonly tier: number;
+  readonly costPerCall: number;
+  extract(document: Buffer, context?: ExtractionContext): Promise<ExtractionResult>;
+}
+
+export interface ExtractionContext {
+  documentId: string;
+  certificateType?: string;
+  previousAttempts?: ExtractionResult[];
+}
+```
+
+### 1.2 Implement Production Adapters
+
+Wrap each existing provider in the adapter interface:
+
+```typescript
+// src/extraction/adapters/qr-adapter.ts
+export class QRExtractionAdapter implements ExtractionAdapter {
+  readonly name = 'qr-scanner';
+  readonly tier = 1;
+  readonly costPerCall = 0;
+
+  async extract(document: Buffer, context?: ExtractionContext): Promise<ExtractionResult> {
+    // Wrap existing QR extraction logic
+  }
+}
+
+// src/extraction/adapters/template-adapter.ts
+export class TemplateMatchAdapter implements ExtractionAdapter {
+  readonly name = 'template-match';
+  readonly tier = 2;
+  readonly costPerCall = 0;
+  // ...
+}
+
+// src/extraction/adapters/claude-vision-adapter.ts
+export class ClaudeVisionAdapter implements ExtractionAdapter {
+  readonly name = 'claude-vision';
+  readonly tier = 3;
+  readonly costPerCall = 0.015; // Approximate cost per call
+  // ...
+}
+
+// src/extraction/adapters/azure-di-adapter.ts
+export class AzureDocumentIntelligenceAdapter implements ExtractionAdapter {
+  readonly name = 'azure-document-intelligence';
+  readonly tier = 4;
+  readonly costPerCall = 0.01;
+  // ...
+}
+```
+
+### 1.3 Create Test Double Factory
+
+```typescript
+// src/extraction/adapters/__test__/stub-adapter.ts
+
+export class StubExtractionAdapter implements ExtractionAdapter {
+  readonly name: string;
+  readonly tier: number;
+  readonly costPerCall: number;
+
+  private callCount = 0;
+  private responses: Array<ExtractionResult | Error>;
+
+  constructor(config: {
+    name: string;
+    tier: number;
+    costPerCall?: number;
+    responses: Array<ExtractionResult | Error>;
+  }) {
+    this.name = config.name;
+    this.tier = config.tier;
+    this.costPerCall = config.costPerCall ?? 0;
+    this.responses = config.responses;
+  }
+
+  async extract(): Promise<ExtractionResult> {
+    const response = this.responses[this.callCount] ?? this.responses[this.responses.length - 1];
+    this.callCount++;
+
+    if (response instanceof Error) {
+      throw response;
+    }
+    return response;
+  }
+
+  getCallCount(): number {
+    return this.callCount;
+  }
+
+  reset(): void {
+    this.callCount = 0;
+  }
+}
+
+// Factory helpers for common scenarios
+export const createSuccessfulAdapter = (tier: number, confidence: number): StubExtractionAdapter => {
+  return new StubExtractionAdapter({
+    name: `stub-tier-${tier}`,
+    tier,
+    responses: [{
+      success: true,
+      confidence,
+      data: { /* mock certificate data */ },
+      provider: `stub-tier-${tier}`,
+      tier,
+      costIncurred: 0,
+    }],
+  });
+};
+
+export const createFailingAdapter = (tier: number, error?: Error): StubExtractionAdapter => {
+  return new StubExtractionAdapter({
+    name: `stub-tier-${tier}`,
+    tier,
+    responses: [error ?? new Error(`Tier ${tier} extraction failed`)],
+  });
+};
+
+export const createLowConfidenceAdapter = (tier: number, confidence: number): StubExtractionAdapter => {
+  return new StubExtractionAdapter({
+    name: `stub-tier-${tier}`,
+    tier,
+    responses: [{
+      success: true,
+      confidence, // Below threshold to trigger escalation
+      data: { /* partial data */ },
+      provider: `stub-tier-${tier}`,
+      tier,
+      costIncurred: 0,
+    }],
+  });
+};
+```
+
+-----
+
+## Phase 2: Extract Configuration and Dependencies
+
+### 2.1 Define Orchestrator Configuration Interface
+
+```typescript
+// src/extraction/orchestrator/config.ts
+
+export interface OrchestratorConfig {
+  // Confidence thresholds
+  minimumAcceptableConfidence: number;  // Default: 0.85
+  highConfidenceThreshold: number;       // Default: 0.95
+
+  // Cost controls
+  maxCostPerDocument: number;            // Default: 0.10
+  maxCostPerBatch: number;               // Default: 5.00
+
+  // Tier controls
+  enabledTiers: number[];                // Default: [1, 2, 3, 4]
+  skipTiersOnHighConfidence: boolean;    // Default: true
+
+  // Behaviour flags
+  enableDuplicateDetection: boolean;     // Default: true
+  enableTierAudit: boolean;              // Default: true
+  abortOnCostExceeded: boolean;          // Default: true
+}
+
+export const DEFAULT_CONFIG: OrchestratorConfig = {
+  minimumAcceptableConfidence: 0.85,
+  highConfidenceThreshold: 0.95,
+  maxCostPerDocument: 0.10,
+  maxCostPerBatch: 5.00,
+  enabledTiers: [1, 2, 3, 4],
+  skipTiersOnHighConfidence: true,
+  enableDuplicateDetection: true,
+  enableTierAudit: true,
+  abortOnCostExceeded: true,
+};
+
+// Test configurations
+export const AGGRESSIVE_TEST_CONFIG: OrchestratorConfig = {
+  ...DEFAULT_CONFIG,
+  minimumAcceptableConfidence: 0.99,  // Forces escalation
+  maxCostPerDocument: 0.001,          // Forces cost abort quickly
+};
+```
+
+### 2.2 Create Injectable Dependencies
+
+```typescript
+// src/extraction/orchestrator/dependencies.ts
+
+export interface CostTracker {
+  recordCost(amount: number, provider: string): void;
+  getTotalCost(): number;
+  getCostByProvider(): Record<string, number>;
+  isWithinBudget(additionalCost: number, maxCost: number): boolean;
+  reset(): void;
+}
+
+export interface TierAuditSink {
+  recordAttempt(audit: TierAuditEntry): Promise<void>;
+  getAuditLog(): TierAuditEntry[];
+}
+
+export interface TierAuditEntry {
+  documentId: string;
+  tier: number;
+  provider: string;
+  timestamp: Date;
+  success: boolean;
+  confidence: number | null;
+  costIncurred: number;
+  escalationReason: string | null;
+  durationMs: number;
+}
+
+// Production implementations
+export class DatabaseTierAuditSink implements TierAuditSink {
+  async recordAttempt(audit: TierAuditEntry): Promise<void> {
+    // Write to database
+  }
+  getAuditLog(): TierAuditEntry[] {
+    throw new Error('Not supported in production - use database queries');
+  }
+}
+
+// Test implementations
+export class InMemoryTierAuditSink implements TierAuditSink {
+  private entries: TierAuditEntry[] = [];
+
+  async recordAttempt(audit: TierAuditEntry): Promise<void> {
+    this.entries.push(audit);
+  }
+
+  getAuditLog(): TierAuditEntry[] {
+    return [...this.entries];
+  }
+
+  clear(): void {
+    this.entries = [];
+  }
+}
+
+export class InMemoryCostTracker implements CostTracker {
+  private totalCost = 0;
+  private costByProvider: Record<string, number> = {};
+
+  recordCost(amount: number, provider: string): void {
+    this.totalCost += amount;
+    this.costByProvider[provider] = (this.costByProvider[provider] ?? 0) + amount;
+  }
+
+  getTotalCost(): number {
+    return this.totalCost;
+  }
+
+  getCostByProvider(): Record<string, number> {
+    return { ...this.costByProvider };
+  }
+
+  isWithinBudget(additionalCost: number, maxCost: number): boolean {
+    return (this.totalCost + additionalCost) <= maxCost;
+  }
+
+  reset(): void {
+    this.totalCost = 0;
+    this.costByProvider = {};
+  }
+}
+```
+
+-----
+
+## Phase 3: Refactor Orchestrator for Testability
+
+### 3.1 Extract Pure Decision Functions
+
+```typescript
+// src/extraction/orchestrator/decisions.ts
+
+export type OrchestratorDecision = 
+  | { action: 'complete'; result: ExtractionResult }
+  | { action: 'escalate'; reason: string; nextTier: number }
+  | { action: 'abort'; reason: string };
+
+export function determineNextAction(
+  currentResult: ExtractionResult | null,
+  error: Error | null,
+  config: OrchestratorConfig,
+  costTracker: CostTracker,
+  currentTier: number,
+  availableTiers: number[]
+): OrchestratorDecision {
+  // Handle errors
+  if (error) {
+    const nextTier = findNextTier(currentTier, availableTiers);
+    if (!nextTier) {
+      return { action: 'abort', reason: `All tiers exhausted after error: ${error.message}` };
+    }
+    return { action: 'escalate', reason: `Error in tier ${currentTier}: ${error.message}`, nextTier };
+  }
+
+  // Handle successful extraction
+  if (currentResult) {
+    // High confidence - complete
+    if (currentResult.confidence >= config.minimumAcceptableConfidence) {
+      return { action: 'complete', result: currentResult };
+    }
+
+    // Low confidence - check if we can escalate
+    const nextTier = findNextTier(currentTier, availableTiers);
+    if (!nextTier) {
+      // No more tiers - return best effort
+      return { action: 'complete', result: currentResult };
+    }
+
+    // Check cost budget before escalating
+    const nextTierCost = getEstimatedTierCost(nextTier);
+    if (!costTracker.isWithinBudget(nextTierCost, config.maxCostPerDocument)) {
+      if (config.abortOnCostExceeded) {
+        return { action: 'abort', reason: `Cost ceiling reached: ${costTracker.getTotalCost()} exceeds ${config.maxCostPerDocument}` };
+      }
+      // Return best effort if not aborting on cost exceeded
+      return { action: 'complete', result: currentResult };
+    }
+
+    return { 
+      action: 'escalate', 
+      reason: `Confidence ${currentResult.confidence} below threshold ${config.minimumAcceptableConfidence}`,
+      nextTier 
+    };
+  }
+
+  // No result and no error - shouldn't happen
+  return { action: 'abort', reason: 'Unexpected state: no result and no error' };
+}
+
+function findNextTier(currentTier: number, availableTiers: number[]): number | null {
+  const sorted = [...availableTiers].sort((a, b) => a - b);
+  const currentIndex = sorted.indexOf(currentTier);
+  return sorted[currentIndex + 1] ?? null;
+}
+
+function getEstimatedTierCost(tier: number): number {
+  const costs: Record<number, number> = {
+    1: 0,      // QR
+    2: 0,      // Template
+    3: 0.015,  // Claude Vision
+    4: 0.01,   // Azure DI
+  };
+  return costs[tier] ?? 0;
+}
+```
+
+### 3.2 Refactored Orchestrator Class
+
+```typescript
+// src/extraction/orchestrator/orchestrator.ts
+
+export class ExtractionOrchestrator {
+  constructor(
+    private adapters: Map<number, ExtractionAdapter>,
+    private config: OrchestratorConfig,
+    private costTracker: CostTracker,
+    private auditSink: TierAuditSink,
+    private duplicateDetector?: DuplicateDetector,
+  ) {}
+
+  async extract(document: Buffer, context: ExtractionContext): Promise<OrchestratorResult> {
+    const availableTiers = this.getAvailableTiers();
+    let currentTier = availableTiers[0];
+    let bestResult: ExtractionResult | null = null;
+    const attempts: TierAuditEntry[] = [];
+
+    while (currentTier) {
+      const adapter = this.adapters.get(currentTier);
+      if (!adapter) {
+        currentTier = this.findNextTier(currentTier, availableTiers);
+        continue;
+      }
+
+      const startTime = Date.now();
+      let result: ExtractionResult | null = null;
+      let error: Error | null = null;
+
+      try {
+        result = await adapter.extract(document, context);
+        this.costTracker.recordCost(result.costIncurred, adapter.name);
+      } catch (e) {
+        error = e instanceof Error ? e : new Error(String(e));
+      }
+
+      // Record audit
+      const auditEntry: TierAuditEntry = {
+        documentId: context.documentId,
+        tier: currentTier,
+        provider: adapter.name,
+        timestamp: new Date(),
+        success: result?.success ?? false,
+        confidence: result?.confidence ?? null,
+        costIncurred: result?.costIncurred ?? 0,
+        escalationReason: null,
+        durationMs: Date.now() - startTime,
+      };
+
+      // Determine next action
+      const decision = determineNextAction(
+        result,
+        error,
+        this.config,
+        this.costTracker,
+        currentTier,
+        availableTiers
+      );
+
+      if (decision.action === 'escalate') {
+        auditEntry.escalationReason = decision.reason;
+        currentTier = decision.nextTier;
+        if (result) bestResult = result;
+      } else if (decision.action === 'complete') {
+        bestResult = decision.result;
+        currentTier = null; // Exit loop
+      } else if (decision.action === 'abort') {
+        auditEntry.escalationReason = decision.reason;
+        await this.auditSink.recordAttempt(auditEntry);
+        attempts.push(auditEntry);
+        
+        return {
+          success: false,
+          aborted: true,
+          reason: decision.reason,
+          bestResult,
+          attempts,
+          totalCost: this.costTracker.getTotalCost(),
+        };
+      }
+
+      await this.auditSink.recordAttempt(auditEntry);
+      attempts.push(auditEntry);
+    }
+
+    return {
+      success: bestResult?.success ?? false,
+      aborted: false,
+      reason: null,
+      bestResult,
+      attempts,
+      totalCost: this.costTracker.getTotalCost(),
+    };
+  }
+
+  private getAvailableTiers(): number[] {
+    return this.config.enabledTiers
+      .filter(tier => this.adapters.has(tier))
+      .sort((a, b) => a - b);
+  }
+
+  private findNextTier(current: number, available: number[]): number | null {
+    const idx = available.indexOf(current);
+    return available[idx + 1] ?? null;
+  }
+}
+
+export interface OrchestratorResult {
+  success: boolean;
+  aborted: boolean;
+  reason: string | null;
+  bestResult: ExtractionResult | null;
+  attempts: TierAuditEntry[];
+  totalCost: number;
+}
+```
+
+-----
+
+## Phase 4: Implement Test Scenarios
+
+### 4.1 Test File Structure
+
+```
+src/extraction/orchestrator/__tests__/
+├── orchestrator.test.ts           # Main orchestrator tests
+├── decisions.test.ts              # Pure function unit tests
+├── cost-ceiling.test.ts           # Cost control scenarios
+├── tier-escalation.test.ts        # Fallback chain scenarios
+├── audit-recording.test.ts        # Audit sink scenarios
+└── fixtures/
+    ├── documents.ts               # Test document buffers
+    ├── results.ts                 # Pre-built extraction results
+    └── configs.ts                 # Test configurations
+```
+
+### 4.2 Critical Test Scenarios Implementation
+
+```typescript
+// src/extraction/orchestrator/__tests__/cost-ceiling.test.ts
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { ExtractionOrchestrator } from '../orchestrator';
+import { InMemoryCostTracker, InMemoryTierAuditSink } from '../dependencies';
+import { StubExtractionAdapter, createLowConfidenceAdapter } from '../adapters/__test__/stub-adapter';
+import { DEFAULT_CONFIG } from '../config';
+
+describe('Cost Ceiling Abort', () => {
+  let costTracker: InMemoryCostTracker;
+  let auditSink: InMemoryTierAuditSink;
+
+  beforeEach(() => {
+    costTracker = new InMemoryCostTracker();
+    auditSink = new InMemoryTierAuditSink();
+  });
+
+  it('should abort when cost ceiling is reached before escalating to next tier', async () => {
+    // Arrange
+    const expensiveAdapter = new StubExtractionAdapter({
+      name: 'expensive-tier-3',
+      tier: 3,
+      costPerCall: 0.05,
+      responses: [{
+        success: true,
+        confidence: 0.5, // Low confidence to trigger escalation
+        data: null,
+        provider: 'expensive-tier-3',
+        tier: 3,
+        costIncurred: 0.05,
+      }],
+    });
+
+    const nextTierAdapter = new StubExtractionAdapter({
+      name: 'tier-4',
+      tier: 4,
+      costPerCall: 0.05,
+      responses: [{
+        success: true,
+        confidence: 0.95,
+        data: null,
+        provider: 'tier-4',
+        tier: 4,
+        costIncurred: 0.05,
+      }],
+    });
+
+    const adapters = new Map([
+      [3, expensiveAdapter],
+      [4, nextTierAdapter],
+    ]);
+
+    const config = {
+      ...DEFAULT_CONFIG,
+      enabledTiers: [3, 4],
+      maxCostPerDocument: 0.06, // Just above tier 3 cost, below combined
+      minimumAcceptableConfidence: 0.85,
+    };
+
+    const orchestrator = new ExtractionOrchestrator(
+      adapters,
+      config,
+      costTracker,
+      auditSink
+    );
+
+    // Act
+    const result = await orchestrator.extract(
+      Buffer.from('test'),
+      { documentId: 'test-doc-1' }
+    );
+
+    // Assert
+    expect(result.aborted).toBe(true);
+    expect(result.reason).toContain('Cost ceiling');
+    expect(costTracker.getTotalCost()).toBe(0.05);
+    expect(nextTierAdapter.getCallCount()).toBe(0); // Should NOT have been called
+    expect(expensiveAdapter.getCallCount()).toBe(1);
+  });
+
+  it('should complete with best-effort result when cost exceeded and abortOnCostExceeded is false', async () => {
+    // Arrange
+    const lowConfidenceAdapter = createLowConfidenceAdapter(3, 0.6);
+    
+    const adapters = new Map([[3, lowConfidenceAdapter]]);
+    
+    const config = {
+      ...DEFAULT_CONFIG,
+      enabledTiers: [3, 4],
+      maxCostPerDocument: 0.001,
+      abortOnCostExceeded: false, // Don't abort, return best effort
+    };
+
+    const orchestrator = new ExtractionOrchestrator(
+      adapters,
+      config,
+      costTracker,
+      auditSink
+    );
+
+    // Act
+    const result = await orchestrator.extract(
+      Buffer.from('test'),
+      { documentId: 'test-doc-1' }
+    );
+
+    // Assert
+    expect(result.aborted).toBe(false);
+    expect(result.success).toBe(true);
+    expect(result.bestResult?.confidence).toBe(0.6);
+  });
+});
+```
+
+```typescript
+// src/extraction/orchestrator/__tests__/tier-escalation.test.ts
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { ExtractionOrchestrator } from '../orchestrator';
+import { InMemoryCostTracker, InMemoryTierAuditSink } from '../dependencies';
+import { 
+  StubExtractionAdapter,
+  createSuccessfulAdapter,
+  createLowConfidenceAdapter,
+  createFailingAdapter 
+} from '../adapters/__test__/stub-adapter';
+import { DEFAULT_CONFIG } from '../config';
+
+describe('Tier Escalation', () => {
+  let costTracker: InMemoryCostTracker;
+  let auditSink: InMemoryTierAuditSink;
+
+  beforeEach(() => {
+    costTracker = new InMemoryCostTracker();
+    auditSink = new InMemoryTierAuditSink();
+  });
+
+  describe('Template → Claude Fallback', () => {
+    it('should escalate to Claude when template confidence is below threshold', async () => {
+      // Arrange
+      const templateAdapter = createLowConfidenceAdapter(2, 0.65);
+      const claudeAdapter = createSuccessfulAdapter(3, 0.92);
+
+      const adapters = new Map([
+        [2, templateAdapter],
+        [3, claudeAdapter],
+      ]);
+
+      const config = {
+        ...DEFAULT_CONFIG,
+        enabledTiers: [2, 3],
+        minimumAcceptableConfidence: 0.85,
+      };
+
+      const orchestrator = new ExtractionOrchestrator(
+        adapters,
+        config,
+        costTracker,
+        auditSink
+      );
+
+      // Act
+      const result = await orchestrator.extract(
+        Buffer.from('test'),
+        { documentId: 'test-doc-1' }
+      );
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.bestResult?.provider).toBe('stub-tier-3');
+      expect(result.bestResult?.confidence).toBe(0.92);
+      expect(templateAdapter.getCallCount()).toBe(1);
+      expect(claudeAdapter.getCallCount()).toBe(1);
+
+      // Verify audit trail
+      const auditLog = auditSink.getAuditLog();
+      expect(auditLog).toHaveLength(2);
+      expect(auditLog[0].tier).toBe(2);
+      expect(auditLog[0].escalationReason).toContain('below threshold');
+      expect(auditLog[1].tier).toBe(3);
+    });
+
+    it('should NOT escalate when template confidence meets threshold', async () => {
+      // Arrange
+      const templateAdapter = createSuccessfulAdapter(2, 0.90);
+      const claudeAdapter = createSuccessfulAdapter(3, 0.95);
+
+      const adapters = new Map([
+        [2, templateAdapter],
+        [3, claudeAdapter],
+      ]);
+
+      const config = {
+        ...DEFAULT_CONFIG,
+        enabledTiers: [2, 3],
+        minimumAcceptableConfidence: 0.85,
+      };
+
+      const orchestrator = new ExtractionOrchestrator(
+        adapters,
+        config,
+        costTracker,
+        auditSink
+      );
+
+      // Act
+      const result = await orchestrator.extract(
+        Buffer.from('test'),
+        { documentId: 'test-doc-1' }
+      );
+
+      // Assert
+      expect(result.bestResult?.provider).toBe('stub-tier-2');
+      expect(claudeAdapter.getCallCount()).toBe(0); // Should NOT be called
+    });
+  });
+
+  describe('Claude Vision → Azure Escalation', () => {
+    it('should escalate to Azure when Claude Vision fails', async () => {
+      // Arrange
+      const claudeAdapter = createFailingAdapter(3, new Error('Claude API timeout'));
+      const azureAdapter = createSuccessfulAdapter(4, 0.88);
+
+      const adapters = new Map([
+        [3, claudeAdapter],
+        [4, azureAdapter],
+      ]);
+
+      const config = {
+        ...DEFAULT_CONFIG,
+        enabledTiers: [3, 4],
+      };
+
+      const orchestrator = new ExtractionOrchestrator(
+        adapters,
+        config,
+        costTracker,
+        auditSink
+      );
+
+      // Act
+      const result = await orchestrator.extract(
+        Buffer.from('test'),
+        { documentId: 'test-doc-1' }
+      );
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.bestResult?.provider).toBe('stub-tier-4');
+      expect(claudeAdapter.getCallCount()).toBe(1);
+      expect(azureAdapter.getCallCount()).toBe(1);
+
+      // Verify escalation reason captured
+      const auditLog = auditSink.getAuditLog();
+      expect(auditLog[0].escalationReason).toContain('Claude API timeout');
+    });
+
+    it('should escalate to Azure when Claude Vision returns low confidence', async () => {
+      // Arrange
+      const claudeAdapter = createLowConfidenceAdapter(3, 0.70);
+      const azureAdapter = createSuccessfulAdapter(4, 0.91);
+
+      const adapters = new Map([
+        [3, claudeAdapter],
+        [4, azureAdapter],
+      ]);
+
+      const config = {
+        ...DEFAULT_CONFIG,
+        enabledTiers: [3, 4],
+        minimumAcceptableConfidence: 0.85,
+      };
+
+      const orchestrator = new ExtractionOrchestrator(
+        adapters,
+        config,
+        costTracker,
+        auditSink
+      );
+
+      // Act
+      const result = await orchestrator.extract(
+        Buffer.from('test'),
+        { documentId: 'test-doc-1' }
+      );
+
+      // Assert
+      expect(result.bestResult?.confidence).toBe(0.91);
+      expect(result.attempts).toHaveLength(2);
+    });
+  });
+
+  describe('Full Tier Chain', () => {
+    it('should traverse all tiers when each returns low confidence', async () => {
+      // Arrange
+      const qrAdapter = createLowConfidenceAdapter(1, 0.0); // No QR found
+      const templateAdapter = createLowConfidenceAdapter(2, 0.50);
+      const claudeAdapter = createLowConfidenceAdapter(3, 0.75);
+      const azureAdapter = createSuccessfulAdapter(4, 0.93);
+
+      const adapters = new Map([
+        [1, qrAdapter],
+        [2, templateAdapter],
+        [3, claudeAdapter],
+        [4, azureAdapter],
+      ]);
+
+      const config = {
+        ...DEFAULT_CONFIG,
+        enabledTiers: [1, 2, 3, 4],
+        minimumAcceptableConfidence: 0.85,
+        maxCostPerDocument: 1.00, // High enough to not trigger cost abort
+      };
+
+      const orchestrator = new ExtractionOrchestrator(
+        adapters,
+        config,
+        costTracker,
+        auditSink
+      );
+
+      // Act
+      const result = await orchestrator.extract(
+        Buffer.from('test'),
+        { documentId: 'test-doc-1' }
+      );
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.attempts).toHaveLength(4);
+      expect(result.bestResult?.tier).toBe(4);
+      
+      // Verify all adapters were called in order
+      expect(qrAdapter.getCallCount()).toBe(1);
+      expect(templateAdapter.getCallCount()).toBe(1);
+      expect(claudeAdapter.getCallCount()).toBe(1);
+      expect(azureAdapter.getCallCount()).toBe(1);
+    });
+  });
+});
+```
+
+```typescript
+// src/extraction/orchestrator/__tests__/audit-recording.test.ts
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { ExtractionOrchestrator } from '../orchestrator';
+import { InMemoryCostTracker, InMemoryTierAuditSink, TierAuditEntry } from '../dependencies';
+import { createSuccessfulAdapter, createLowConfidenceAdapter } from '../adapters/__test__/stub-adapter';
+import { DEFAULT_CONFIG } from '../config';
+
+describe('Tier Audit Recording', () => {
+  let costTracker: InMemoryCostTracker;
+  let auditSink: InMemoryTierAuditSink;
+
+  beforeEach(() => {
+    costTracker = new InMemoryCostTracker();
+    auditSink = new InMemoryTierAuditSink();
+  });
+
+  it('should record audit entry for each tier attempted', async () => {
+    // Arrange
+    const templateAdapter = createLowConfidenceAdapter(2, 0.60);
+    const claudeAdapter = createSuccessfulAdapter(3, 0.90);
+
+    const adapters = new Map([
+      [2, templateAdapter],
+      [3, claudeAdapter],
+    ]);
+
+    const orchestrator = new ExtractionOrchestrator(
+      adapters,
+      { ...DEFAULT_CONFIG, enabledTiers: [2, 3] },
+      costTracker,
+      auditSink
+    );
+
+    // Act
+    await orchestrator.extract(Buffer.from('test'), { documentId: 'doc-123' });
+
+    // Assert
+    const auditLog = auditSink.getAuditLog();
+    expect(auditLog).toHaveLength(2);
+
+    // First entry - template tier
+    expect(auditLog[0]).toMatchObject({
+      documentId: 'doc-123',
+      tier: 2,
+      provider: 'stub-tier-2',
+      success: true,
+      confidence: 0.60,
+    });
+    expect(auditLog[0].escalationReason).not.toBeNull();
+    expect(auditLog[0].durationMs).toBeGreaterThanOrEqual(0);
+
+    // Second entry - Claude tier
+    expect(auditLog[1]).toMatchObject({
+      documentId: 'doc-123',
+      tier: 3,
+      provider: 'stub-tier-3',
+      success: true,
+      confidence: 0.90,
+    });
+    expect(auditLog[1].escalationReason).toBeNull(); // Final tier, no escalation
+  });
+
+  it('should record cost incurred in each audit entry', async () => {
+    // Arrange
+    const claudeAdapter = new StubExtractionAdapter({
+      name: 'claude',
+      tier: 3,
+      costPerCall: 0.015,
+      responses: [{
+        success: true,
+        confidence: 0.92,
+        data: null,
+        provider: 'claude',
+        tier: 3,
+        costIncurred: 0.015,
+      }],
+    });
+
+    const adapters = new Map([[3, claudeAdapter]]);
+
+    const orchestrator = new ExtractionOrchestrator(
+      adapters,
+      { ...DEFAULT_CONFIG, enabledTiers: [3] },
+      costTracker,
+      auditSink
+    );
+
+    // Act
+    await orchestrator.extract(Buffer.from('test'), { documentId: 'doc-456' });
+
+    // Assert
+    const auditLog = auditSink.getAuditLog();
+    expect(auditLog[0].costIncurred).toBe(0.015);
+    expect(costTracker.getTotalCost()).toBe(0.015);
+    expect(costTracker.getCostByProvider()).toEqual({ claude: 0.015 });
+  });
+
+  it('should record timestamp for each attempt', async () => {
+    // Arrange
+    const adapter = createSuccessfulAdapter(1, 0.99);
+    const adapters = new Map([[1, adapter]]);
+
+    const orchestrator = new ExtractionOrchestrator(
+      adapters,
+      { ...DEFAULT_CONFIG, enabledTiers: [1] },
+      costTracker,
+      auditSink
+    );
+
+    const beforeTime = new Date();
+
+    // Act
+    await orchestrator.extract(Buffer.from('test'), { documentId: 'doc-789' });
+
+    const afterTime = new Date();
+
+    // Assert
+    const auditLog = auditSink.getAuditLog();
+    expect(auditLog[0].timestamp.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
+    expect(auditLog[0].timestamp.getTime()).toBeLessThanOrEqual(afterTime.getTime());
+  });
+});
+```
+
+```typescript
+// src/extraction/orchestrator/__tests__/decisions.test.ts
+
+import { describe, it, expect } from 'vitest';
+import { determineNextAction, OrchestratorDecision } from '../decisions';
+import { InMemoryCostTracker } from '../dependencies';
+import { DEFAULT_CONFIG } from '../config';
+
+describe('determineNextAction (Pure Function)', () => {
+  describe('successful extraction', () => {
+    it('should complete when confidence meets threshold', () => {
+      const result = {
+        success: true,
+        confidence: 0.90,
+        data: null,
+        provider: 'test',
+        tier: 2,
+        costIncurred: 0,
+      };
+
+      const decision = determineNextAction(
+        result,
+        null,
+        { ...DEFAULT_CONFIG, minimumAcceptableConfidence: 0.85 },
+        new InMemoryCostTracker(),
+        2,
+        [1, 2, 3, 4]
+      );
+
+      expect(decision).toEqual({ action: 'complete', result });
+    });
+
+    it('should escalate when confidence below threshold', () => {
+      const result = {
+        success: true,
+        confidence: 0.70,
+        data: null,
+        provider: 'test',
+        tier: 2,
+        costIncurred: 0,
+      };
+
+      const decision = determineNextAction(
+        result,
+        null,
+        { ...DEFAULT_CONFIG, minimumAcceptableConfidence: 0.85 },
+        new InMemoryCostTracker(),
+        2,
+        [1, 2, 3, 4]
+      );
+
+      expect(decision.action).toBe('escalate');
+      if (decision.action === 'escalate') {
+        expect(decision.nextTier).toBe(3);
+        expect(decision.reason).toContain('0.70');
+        expect(decision.reason).toContain('0.85');
+      }
+    });
+  });
+
+  describe('error handling', () => {
+    it('should escalate on error when next tier available', () => {
+      const error = new Error('API timeout');
+
+      const decision = determineNextAction(
+        null,
+        error,
+        DEFAULT_CONFIG,
+        new InMemoryCostTracker(),
+        2,
+        [1, 2, 3, 4]
+      );
+
+      expect(decision.action).toBe('escalate');
+      if (decision.action === 'escalate') {
+        expect(decision.nextTier).toBe(3);
+        expect(decision.reason).toContain('API timeout');
+      }
+    });
+
+    it('should abort on error when no more tiers available', () => {
+      const error = new Error('Final tier failed');
+
+      const decision = determineNextAction(
+        null,
+        error,
+        DEFAULT_CONFIG,
+        new InMemoryCostTracker(),
+        4,
+        [1, 2, 3, 4]
+      );
+
+      expect(decision.action).toBe('abort');
+      if (decision.action === 'abort') {
+        expect(decision.reason).toContain('All tiers exhausted');
+      }
+    });
+  });
+
+  describe('cost controls', () => {
+    it('should abort when escalation would exceed cost ceiling', () => {
+      const result = {
+        success: true,
+        confidence: 0.70,
+        data: null,
+        provider: 'test',
+        tier: 3,
+        costIncurred: 0.05,
+      };
+
+      const costTracker = new InMemoryCostTracker();
+      costTracker.recordCost(0.08, 'previous'); // Already spent 0.08
+
+      const decision = determineNextAction(
+        result,
+        null,
+        { ...DEFAULT_CONFIG, maxCostPerDocument: 0.10, minimumAcceptableConfidence: 0.85 },
+        costTracker,
+        3,
+        [3, 4] // Tier 4 would cost ~0.01, total would be 0.09 which exceeds
+      );
+
+      expect(decision.action).toBe('abort');
+      if (decision.action === 'abort') {
+        expect(decision.reason).toContain('Cost ceiling');
+      }
+    });
+  });
+});
+```
+
+-----
+
+## Phase 5: Fixtures and Test Utilities
+
+### 5.1 Document Fixtures
+
+```typescript
+// src/extraction/orchestrator/__tests__/fixtures/documents.ts
+
+export const TEST_DOCUMENTS = {
+  // Gas safety certificate with QR code
+  gasSafetyWithQR: Buffer.from('mock-gas-safety-qr-document'),
+  
+  // Gas safety certificate without QR (template matching needed)
+  gasSafetyNoQR: Buffer.from('mock-gas-safety-no-qr'),
+  
+  // Poorly scanned document (low quality)
+  poorQualityScan: Buffer.from('mock-poor-quality'),
+  
+  // EICR certificate
+  eicrCertificate: Buffer.from('mock-eicr'),
+  
+  // Fire safety certificate
+  fireSafety: Buffer.from('mock-fire-safety'),
+  
+  // Corrupted/unreadable document
+  corrupted: Buffer.from([0x00, 0x00, 0x00]),
+};
+```
+
+### 5.2 Result Fixtures
+
+```typescript
+// src/extraction/orchestrator/__tests__/fixtures/results.ts
+
+import { ExtractionResult } from '../../adapters/types';
+
+export const EXTRACTION_RESULTS = {
+  qrSuccess: (confidence = 0.99): ExtractionResult => ({
+    success: true,
+    confidence,
+    data: {
+      certificateType: 'GAS_SAFETY',
+      certificateNumber: 'GS-2024-001234',
+      propertyAddress: '123 Test Street',
+      expiryDate: '2025-01-15',
+    },
+    provider: 'qr-scanner',
+    tier: 1,
+    costIncurred: 0,
+  }),
+
+  templateMatch: (confidence = 0.85): ExtractionResult => ({
+    success: true,
+    confidence,
+    data: {
+      certificateType: 'GAS_SAFETY',
+      certificateNumber: 'GS-2024-001234',
+      propertyAddress: '123 Test Street',
+    },
+    provider: 'template-match',
+    tier: 2,
+    costIncurred: 0,
+  }),
+
+  claudeVision: (confidence = 0.92): ExtractionResult => ({
+    success: true,
+    confidence,
+    data: {
+      certificateType: 'GAS_SAFETY',
+      certificateNumber: 'GS-2024-001234',
+      propertyAddress: '123 Test Street, London',
+      expiryDate: '2025-01-15',
+      engineerName: 'John Smith',
+      engineerRegistration: '123456',
+    },
+    provider: 'claude-vision',
+    tier: 3,
+    costIncurred: 0.015,
+  }),
+
+  azureDocIntelligence: (confidence = 0.88): ExtractionResult => ({
+    success: true,
+    confidence,
+    data: {
+      certificateType: 'GAS_SAFETY',
+      certificateNumber: 'GS-2024-001234',
+      propertyAddress: '123 Test Street',
+      expiryDate: '2025-01-15',
+    },
+    provider: 'azure-document-intelligence',
+    tier: 4,
+    costIncurred: 0.01,
+  }),
+
+  noDataFound: (tier: number, provider: string): ExtractionResult => ({
+    success: false,
+    confidence: 0,
+    data: null,
+    provider,
+    tier,
+    costIncurred: 0,
+  }),
+};
+```
+
+-----
+
+## Summary Checklist
+
+After implementing this plan, verify the following:
+
+- [ ] All adapter interfaces defined and production adapters wrapped
+- [ ] Test double factory creates predictable stub adapters
+- [ ] Configuration injectable with test-specific values
+- [ ] Cost tracker and audit sink are injectable dependencies
+- [ ] Pure decision function extracted and unit tested
+- [ ] Orchestrator refactored to use injected dependencies
+
+### Critical Test Coverage Achieved
+
+- [ ] **Cost ceiling abort** - Orchestrator halts when budget exceeded
+- [ ] **Tier audit recording** - Every attempt recorded with correct metadata
+- [ ] **Template → Claude fallback** - Escalation triggers on low confidence
+- [ ] **Claude Vision escalation** - Escalation triggers on failure or low confidence
+- [ ] **Full tier traversal** - All tiers attempted when needed
+- [ ] **Duplicate detection bypass** - (If implemented) Verified when flag disabled
+
+### Code Quality
+
+- [ ] No `vi.mock()` chains in orchestrator tests
+- [ ] Tests are deterministic and fast
+- [ ] Audit log assertions verify complete payload structure
+- [ ] Error messages captured in escalation reasons
+
+-----
+
+## Notes for Implementation
+
+1. **Start with Phase 1** - The adapter pattern is foundational. Get this right before proceeding.
+1. **Test the pure functions first** - `decisions.test.ts` should be the easiest to write and provides confidence in core logic.
+1. **Use explicit assertions over snapshots** - For audit payloads, assert on specific fields rather than using snapshot tests which can mask regressions.
+1. **Consider adding a state machine visualisation** - A simple Mermaid diagram showing tier transitions helps document expected behaviour.
+1. **Run tests in isolation** - Each test should create its own orchestrator instance with fresh dependencies to avoid state leakage.
