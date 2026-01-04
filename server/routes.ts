@@ -53,6 +53,7 @@ import * as cacheAdminService from "./services/cache-admin";
 import { cacheRegions, cacheClearAudit } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
+// Modular route files exist in server/routes/ for future migration and testing
 
 const objectStorageService = new ObjectStorageService();
 
@@ -174,6 +175,10 @@ export async function registerRoutes(
   
   // Register observability routes (circuit breakers, queue metrics, etc.)
   app.use('/api/observability', observabilityRoutes);
+  
+  // NOTE: Modular route files exist in server/routes/ for future migration
+  // They are not mounted here to avoid conflicts with existing routes below
+  // When ready to migrate, mount routers here and comment out corresponding routes
 
   // OpenAPI/Swagger documentation - generate fresh on each request for live updates
   let cachedOpenApiSpec = generateOpenAPIDocument();

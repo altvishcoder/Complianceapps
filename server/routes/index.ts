@@ -1,1 +1,9 @@
 export { authRouter } from './auth.routes';
+export { propertiesRouter } from './properties.routes';
+export { certificatesRouter } from './certificates.routes';
+export { remedialRouter } from './remedial.routes';
+export { contractorsRouter } from './contractors.routes';
+export { adminRouter } from './admin.routes';
+export { systemRouter } from './system.routes';
+export { configRouter } from './config.routes';
+export { default as observabilityRoutes } from './observability.routes';
