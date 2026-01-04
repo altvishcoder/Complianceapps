@@ -20,6 +20,7 @@ interface TourStep {
   route?: string;
   action?: 'click' | 'hover';
   highlight?: boolean;
+  expandSection?: string;
 }
 
 const TOUR_STEPS: TourStep[] = [
@@ -49,7 +50,8 @@ const TOUR_STEPS: TourStep[] = [
     targetSelector: '[data-testid="nav-item-properties"]',
     position: 'right',
     icon: Building2,
-    route: '/properties'
+    route: '/properties',
+    expandSection: 'assets'
   },
   {
     id: 'certificates',
@@ -58,7 +60,8 @@ const TOUR_STEPS: TourStep[] = [
     targetSelector: '[data-testid="nav-item-certificates"]',
     position: 'right',
     icon: FileCheck,
-    route: '/certificates'
+    route: '/certificates',
+    expandSection: 'operate'
   },
   {
     id: 'risk-radar',
@@ -67,7 +70,8 @@ const TOUR_STEPS: TourStep[] = [
     targetSelector: '[data-testid="nav-item-risk-radar"]',
     position: 'right',
     icon: Radar,
-    route: '/risk-radar'
+    route: '/risk-radar',
+    expandSection: 'operate'
   },
   {
     id: 'ai-assistant',
@@ -85,7 +89,8 @@ const TOUR_STEPS: TourStep[] = [
     targetSelector: '[data-testid="nav-item-help-guide"]',
     position: 'right',
     icon: HelpCircle,
-    route: '/help'
+    route: '/help',
+    expandSection: 'resources'
   }
 ];
 
@@ -100,6 +105,17 @@ export function GuidedTour() {
 
   const step = TOUR_STEPS[currentStep];
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
+
+  const expandSectionIfNeeded = useCallback(() => {
+    if (!step?.expandSection) return;
+    const sectionToggle = document.querySelector(`[data-testid="section-toggle-${step.expandSection}"]`);
+    if (sectionToggle) {
+      const isExpanded = sectionToggle.getAttribute('aria-expanded') === 'true';
+      if (!isExpanded) {
+        (sectionToggle as HTMLElement).click();
+      }
+    }
+  }, [step]);
 
   const findTarget = useCallback((shouldScroll = false) => {
     if (!step) return null;
@@ -117,11 +133,14 @@ export function GuidedTour() {
     if (!isActive) return;
 
     const scrollAndUpdate = () => {
-      findTarget(true);
+      expandSectionIfNeeded();
       setTimeout(() => {
-        const rect = findTarget(false);
-        setTargetRect(rect);
-      }, 350);
+        findTarget(true);
+        setTimeout(() => {
+          const rect = findTarget(false);
+          setTargetRect(rect);
+        }, 350);
+      }, 150);
     };
 
     scrollAndUpdate();
@@ -140,7 +159,7 @@ export function GuidedTour() {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition);
     };
-  }, [isActive, currentStep, findTarget]);
+  }, [isActive, currentStep, findTarget, expandSectionIfNeeded]);
 
   useEffect(() => {
     if (isActive && step?.route) {
