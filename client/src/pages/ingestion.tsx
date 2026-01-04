@@ -721,7 +721,7 @@ export default function Ingestion() {
                     {!file ? (
                       <div 
                         {...getRootProps()}
-                        className={`group relative h-full min-h-[260px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out
+                        className={`group relative min-h-[280px] max-h-[320px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out
                           ${isDragActive 
                             ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 scale-[1.02] shadow-lg shadow-emerald-500/20' 
                             : 'border-border bg-gradient-to-br from-muted/30 to-muted/10 hover:from-emerald-50/50 hover:to-green-50/50 dark:hover:from-emerald-950/20 dark:hover:to-green-950/20 hover:border-emerald-300 hover:shadow-md'}
