@@ -644,10 +644,10 @@ export default function Dashboard() {
                   </Button>
                 </Link>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-[320px] overflow-y-auto">
                 {(stats?.urgentActions?.length || 0) > 0 ? (
                   <div className="space-y-3">
-                    {stats?.urgentActions?.slice(0, 5).map((action) => (
+                    {stats?.urgentActions?.slice(0, 8).map((action) => (
                       <Link 
                         key={action.id} 
                         href={`/actions/${action.id}`}
@@ -693,10 +693,10 @@ export default function Dashboard() {
                   </Button>
                 </Link>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-[320px] overflow-y-auto">
                 {(stats?.problemProperties?.length || 0) > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {stats?.problemProperties?.slice(0, 6).map((prop) => (
+                  <div className="space-y-3">
+                    {stats?.problemProperties?.slice(0, 8).map((prop) => (
                       <Link 
                         key={prop.id} 
                         href={`/properties/${prop.id}`}
@@ -736,8 +736,8 @@ export default function Dashboard() {
     }
   };
   
-  const fullWidthWidgets: WidgetId[] = ['stats', 'charts', 'quick-actions', 'problem-properties'];
-  const smallWidgets: WidgetId[] = ['summary', 'awaabs', 'expiring', 'urgent'];
+  const fullWidthWidgets: WidgetId[] = ['stats', 'charts', 'quick-actions'];
+  const smallWidgets: WidgetId[] = ['summary', 'awaabs', 'expiring', 'urgent', 'problem-properties'];
   
   const renderNormalLayout = () => {
     const result: React.ReactNode[] = [];
