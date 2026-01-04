@@ -1811,14 +1811,14 @@ export async function registerRoutes(
     }
   });
   
-  // ===== STAFF MEMBERS - requires authentication =====
+  // ===== STAFF MEMBERS - requires BetterAuth authentication =====
   app.get("/api/staff", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user || !user.organisationId) {
         return res.status(401).json({ error: "Invalid user or no organisation" });
       }
@@ -1835,11 +1835,11 @@ export async function registerRoutes(
   
   app.get("/api/staff/:id", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user || !user.organisationId) {
         return res.status(401).json({ error: "Invalid user or no organisation" });
       }
@@ -1859,11 +1859,11 @@ export async function registerRoutes(
   
   app.post("/api/staff", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user || !user.organisationId) {
         return res.status(401).json({ error: "Invalid user or no organisation" });
       }
@@ -1881,11 +1881,11 @@ export async function registerRoutes(
   
   app.patch("/api/staff/:id", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user || !user.organisationId) {
         return res.status(401).json({ error: "Invalid user or no organisation" });
       }
@@ -1910,11 +1910,11 @@ export async function registerRoutes(
   
   app.delete("/api/staff/:id", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user || !user.organisationId) {
         return res.status(401).json({ error: "Invalid user or no organisation" });
       }
@@ -1939,11 +1939,11 @@ export async function registerRoutes(
   
   app.post("/api/staff/bulk-import", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
       if (!user || !user.organisationId) {
         return res.status(401).json({ error: "Invalid user or no organisation" });
       }
