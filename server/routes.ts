@@ -7825,16 +7825,19 @@ export async function registerRoutes(
     res.json(openApiSpec);
   });
   
-  // Audit Trail API Routes - session-based auth only
+  // Audit Trail API Routes - BetterAuth session-based auth
   app.get("/api/audit-events", async (req, res) => {
     try {
-      // Session-based authentication only - X-User-Id header bypass removed for security
-      const userId = req.session?.userId;
-      if (!userId) {
+      const { fromNodeHeaders } = await import('better-auth/node');
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+      
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -7866,13 +7869,16 @@ export async function registerRoutes(
   
   app.get("/api/audit-events/:entityType/:entityId", async (req, res) => {
     try {
-      // Session-based authentication only - X-User-Id header bypass removed for security
-      const userId = req.session?.userId;
-      if (!userId) {
+      const { fromNodeHeaders } = await import('better-auth/node');
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+      
+      if (!session?.user?.id) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(session.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
