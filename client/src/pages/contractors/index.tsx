@@ -139,7 +139,9 @@ export default function ContractorsPage() {
     queryKey: ["contractor-alerts"],
     queryFn: async () => {
       const res = await fetch('/api/contractor-alerts', { credentials: 'include' });
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
