@@ -1059,47 +1059,47 @@ export default function PropertyHierarchy() {
               </div>
             </div>
 
-            <div className="flex md:grid md:grid-cols-6 gap-2 md:gap-3 mb-3 md:mb-6 overflow-x-auto scrollbar-hide pb-1">
-              <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 shrink-0 w-20 md:w-auto">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <Building2 className="h-4 w-4 md:h-6 md:w-6 text-purple-600 dark:text-purple-400 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-purple-900 dark:text-purple-100">{totalCounts.organisations}</div>
-                  <div className="text-xs md:text-sm text-purple-600 dark:text-purple-400 truncate">Orgs</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 shrink-0 w-20 md:w-auto">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <MapPin className="h-4 w-4 md:h-6 md:w-6 text-blue-600 dark:text-blue-400 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-blue-900 dark:text-blue-100">{totalCounts.schemes}</div>
-                  <div className="text-xs md:text-sm text-blue-600 dark:text-blue-400">Schemes</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 shrink-0 w-20 md:w-auto">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <Building className="h-4 w-4 md:h-6 md:w-6 text-amber-600 dark:text-amber-400 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-amber-900 dark:text-amber-100">{totalCounts.blocks}</div>
-                  <div className="text-xs md:text-sm text-amber-600 dark:text-amber-400">Blocks</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 shrink-0 w-24 md:w-auto md:col-span-2">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <Home className="h-4 w-4 md:h-6 md:w-6 text-emerald-600 dark:text-emerald-400 mx-auto mb-1 md:mb-2" />
-                  <div className="text-lg md:text-2xl font-bold text-emerald-900 dark:text-emerald-100">{totalCounts.properties}</div>
-                  <div className="text-xs md:text-sm text-emerald-600 dark:text-emerald-400">Dwellings</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 shrink-0 w-20 md:w-auto">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3 md:mb-6">
+              <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
                 <CardContent className="p-2 md:p-3 text-center">
-                  <FolderTree className="h-4 w-4 md:h-5 md:w-5 text-cyan-600 dark:text-cyan-400 mx-auto mb-1" />
-                  <div className="text-lg md:text-xl font-bold text-cyan-900 dark:text-cyan-100">{totalCounts.spaces}</div>
-                  <div className="text-xs text-cyan-600 dark:text-cyan-400">Spaces</div>
+                  <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400 mx-auto mb-1" />
+                  <div className="text-base md:text-lg font-bold text-purple-900 dark:text-purple-100">{totalCounts.organisations}</div>
+                  <div className="text-[10px] md:text-xs text-purple-600 dark:text-purple-400">Orgs</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0 w-24 md:w-auto">
+              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
                 <CardContent className="p-2 md:p-3 text-center">
-                  <Package className="h-4 w-4 md:h-5 md:w-5 text-slate-600 dark:text-slate-400 mx-auto mb-1" />
-                  <div className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100">{totalCounts.components}</div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400">Components</div>
+                  <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
+                  <div className="text-base md:text-lg font-bold text-blue-900 dark:text-blue-100">{totalCounts.schemes}</div>
+                  <div className="text-[10px] md:text-xs text-blue-600 dark:text-blue-400">Schemes</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                <CardContent className="p-2 md:p-3 text-center">
+                  <Building className="h-4 w-4 text-amber-600 dark:text-amber-400 mx-auto mb-1" />
+                  <div className="text-base md:text-lg font-bold text-amber-900 dark:text-amber-100">{totalCounts.blocks}</div>
+                  <div className="text-[10px] md:text-xs text-amber-600 dark:text-amber-400">Blocks</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">
+                <CardContent className="p-2 md:p-3 text-center">
+                  <Home className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mx-auto mb-1" />
+                  <div className="text-base md:text-lg font-bold text-emerald-900 dark:text-emerald-100">{totalCounts.properties}</div>
+                  <div className="text-[10px] md:text-xs text-emerald-600 dark:text-emerald-400">Dwellings</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800">
+                <CardContent className="p-2 md:p-3 text-center">
+                  <FolderTree className="h-4 w-4 text-cyan-600 dark:text-cyan-400 mx-auto mb-1" />
+                  <div className="text-base md:text-lg font-bold text-cyan-900 dark:text-cyan-100">{totalCounts.spaces}</div>
+                  <div className="text-[10px] md:text-xs text-cyan-600 dark:text-cyan-400">Spaces</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                <CardContent className="p-2 md:p-3 text-center">
+                  <Package className="h-4 w-4 text-slate-600 dark:text-slate-400 mx-auto mb-1" />
+                  <div className="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">{totalCounts.components}</div>
+                  <div className="text-[10px] md:text-xs text-slate-600 dark:text-slate-400">Components</div>
                 </CardContent>
               </Card>
             </div>
