@@ -54,6 +54,7 @@ import { cacheRegions, cacheClearAudit, userFavorites } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
 import { apiLogger } from "./logger";
+import { generateFullDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
 
 const objectStorageService = new ObjectStorageService();
@@ -3414,6 +3415,27 @@ export async function registerRoutes(
     } catch (error: any) {
       logErrorWithContext(error, "Failed to reset demo", req, { action: 'reset-demo', organisationId: ORG_ID });
       res.status(500).json({ error: "Failed to reset demo", details: error?.message });
+    }
+  });
+  
+  // Seed full demo data (comprehensive dataset with 2000 properties, 8000 components, 6000+ certificates)
+  app.post("/api/admin/seed-full-demo", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      console.log("Starting full demo data generation...");
+      const stats = await generateFullDemoData(ORG_ID);
+      res.json({ 
+        success: true, 
+        message: "Full demo data generated successfully",
+        stats
+      });
+    } catch (error: any) {
+      logErrorWithContext(error, "Failed to generate full demo data", req, { action: 'seed-full-demo', organisationId: ORG_ID });
+      const errorMessage = error?.message || "Unknown error";
+      const errorDetail = error?.detail || error?.code || "";
+      res.status(500).json({ 
+        error: "Failed to generate full demo data", 
+        details: `${errorMessage}${errorDetail ? ` (${errorDetail})` : ""}` 
+      });
     }
   });
   

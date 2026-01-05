@@ -267,6 +267,11 @@ export const adminApi = {
     fetchJSON<{ success: boolean; message: string }>(`${API_BASE}/admin/reset-demo`, {
       method: "POST",
     }),
+  
+  seedFullDemo: () => 
+    fetchJSON<{ success: boolean; message: string; stats: { schemes: number; blocks: number; properties: number; components: number; certificates: number; remedialActions: number } }>(`${API_BASE}/admin/seed-full-demo`, {
+      method: "POST",
+    }),
 };
 
 // User Types and API

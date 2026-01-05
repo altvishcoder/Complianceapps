@@ -199,7 +199,23 @@ export default function FactorySettings() {
     },
   });
 
-  const isDemoLoading = wipeDataMutation.isPending || seedDemoMutation.isPending || resetDemoMutation.isPending;
+  const seedFullDemoMutation = useMutation({
+    mutationFn: () => adminApi.seedFullDemo(),
+    onSuccess: (data) => {
+      const stats = data.stats;
+      toast({ 
+        title: "Full Demo Data Generated", 
+        description: `Created ${stats.properties} properties, ${stats.components} components, ${stats.certificates} certificates`,
+        duration: 10000,
+      });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isDemoLoading = wipeDataMutation.isPending || seedDemoMutation.isPending || resetDemoMutation.isPending || seedFullDemoMutation.isPending;
   
   const [patternFilter, setPatternFilter] = useState("");
   const [ruleFilter, setRuleFilter] = useState("");
@@ -679,7 +695,7 @@ export default function FactorySettings() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card className="border-2">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -707,6 +723,39 @@ export default function FactorySettings() {
                       <>
                         <Play className="mr-2 h-4 w-4" />
                         Load Demo Data
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-blue-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Database className="h-4 w-4 text-blue-600" />
+                    Full Demo Data
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Generate 2000+ properties, 8000+ components, 6000+ certificates for comprehensive testing.
+                  </p>
+                  <Button 
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => seedFullDemoMutation.mutate()}
+                    disabled={isDemoLoading}
+                    data-testid="button-seed-full-demo"
+                  >
+                    {seedFullDemoMutation.isPending ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="mr-2 h-4 w-4" />
+                        Full Demo Data
                       </>
                     )}
                   </Button>
