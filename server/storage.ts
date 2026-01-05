@@ -1367,6 +1367,13 @@ export class DatabaseStorage implements IStorage {
   }
   
   async seedDemoData(organisationId: string): Promise<void> {
+    // Check if demo data already exists
+    const existingSchemes = await db.select().from(schemes).where(eq(schemes.reference, "SCH-LON-001")).limit(1);
+    if (existingSchemes.length > 0) {
+      console.log("Demo data already exists, skipping seed");
+      return;
+    }
+    
     // Create demo schemes
     const [londonScheme] = await db.insert(schemes).values({
       organisationId,
