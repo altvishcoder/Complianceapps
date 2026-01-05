@@ -41,8 +41,10 @@ export default function LoginPage() {
     const result = await login(email, password);
     
     if (result.success) {
-      // Use window.location for more reliable redirect across browsers
-      window.location.href = "/dashboard";
+      // Small delay to ensure session cookie is set before redirect (Safari fix)
+      setTimeout(() => {
+        window.location.replace("/dashboard");
+      }, 100);
     } else {
       setError(result.error || "Login failed");
       setIsLoading(false);
