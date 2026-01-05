@@ -12,7 +12,7 @@ import {
   certificateDetectionPatterns, certificateOutcomeRules,
   contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
   certificateVersions, auditFieldChanges, ukhdsExports, complianceCalendarEvents,
-  staffMembers, mlPredictions, mlFeedback, extractionCorrections,
+  staffMembers, mlPredictions, mlFeedback, extractionCorrections, extractionTierAudits,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -1347,9 +1347,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(evalRuns);
     await db.delete(benchmarkItems);
     await db.delete(benchmarkSets);
+    // extractionTierAudits references extractionRuns via extractionRunId
+    await db.delete(extractionTierAudits);
     await db.delete(extractionRuns);
     
     // Then clear core certificate-related tables
+    // All tables with certificateId FK must be deleted before certificates
+    await db.delete(certificateVersions);
+    await db.delete(componentCertificates);
     await db.delete(remedialActions);
     await db.delete(extractions);
     await db.delete(certificates);
@@ -1384,9 +1389,9 @@ export class DatabaseStorage implements IStorage {
       await db.delete(ingestionJobs);
       await db.delete(ingestionBatches);
       
-      // Audit tables with propertyId
-      await db.delete(auditEvents);
+      // Audit tables - auditFieldChanges.auditEventId references auditEvents.id
       await db.delete(auditFieldChanges);
+      await db.delete(auditEvents);
       
       // ML tables with propertyId
       await db.delete(mlFeedback);
@@ -1399,8 +1404,7 @@ export class DatabaseStorage implements IStorage {
       // Contractor assignments reference properties
       await db.delete(contractorAssignments);
       
-      // Component certificates before components
-      await db.delete(componentCertificates);
+      // Components (componentCertificates already deleted above)
       await db.delete(components);
       await db.delete(spaces);
       await db.delete(properties);
