@@ -45,3 +45,20 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_components_type ON components(type);
 -- Users indexes
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_org_id ON users(organisation_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_role ON users(role);
+
+-- Composite indexes for dashboard performance optimization
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_certificates_org_status_expiry 
+  ON certificates(organisation_id, status, expiry_date) 
+  WHERE expiry_date IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_certificates_org_outcome 
+  ON certificates(organisation_id, outcome);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_certificates_org_type 
+  ON certificates(organisation_id, certificate_type);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_remedial_actions_org_status_severity 
+  ON remedial_actions(organisation_id, status, severity);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_remedial_actions_org_status_due 
+  ON remedial_actions(organisation_id, status, due_date) 
+  WHERE due_date IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_remedial_actions_property_status 
+  ON remedial_actions(property_id, status);
