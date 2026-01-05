@@ -41,14 +41,8 @@ export default function LoginPage() {
     const result = await login(email, password);
     
     if (result.success) {
-      // Safari requires more time for cookie storage - use longer delay
-      // Also use window.location.href as fallback if replace doesn't work
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      const delay = isSafari ? 300 : 100;
-      
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, delay);
+      // Let the useEffect handle redirect when isAuthenticated becomes true
+      // This avoids double redirects that cause blank screen on Safari
     } else {
       setError(result.error || "Login failed");
       setIsLoading(false);
