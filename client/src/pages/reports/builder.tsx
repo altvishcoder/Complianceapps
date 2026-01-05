@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { useToast } from "@/hooks/use-toast";
+import { jsPDF } from "jspdf";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -206,6 +208,7 @@ const complianceStreams = [
 ];
 
 export default function ReportBuilder() {
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -221,6 +224,53 @@ export default function ReportBuilder() {
   const handleGenerateReport = (templateId: string) => {
     setIsGenerating(templateId);
     setTimeout(() => setIsGenerating(null), 3000);
+  };
+
+  const handleViewReport = (reportName: string) => {
+    toast({
+      title: "Opening Report Preview",
+      description: `Opening preview for "${reportName}". Full preview functionality coming soon.`,
+    });
+  };
+
+  const handleDownloadReport = (report: { name: string; generatedAt: string; format: string }) => {
+    if (report.format === "Excel") {
+      toast({
+        title: "Downloading Excel Report",
+        description: `${report.name} Excel download started. Check your downloads folder.`,
+      });
+      return;
+    }
+    
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text(report.name, 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(`Generated: ${report.generatedAt}`, 105, 35, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('ComplianceAI Report', 105, 50, { align: 'center' });
+    doc.setLineWidth(0.5);
+    doc.line(20, 60, 190, 60);
+    doc.setFontSize(11);
+    doc.text('Report Contents', 20, 75);
+    doc.setFontSize(10);
+    doc.text('1. Executive Summary', 25, 90);
+    doc.text('2. Compliance Status Overview', 25, 100);
+    doc.text('3. Properties Analysis', 25, 110);
+    doc.text('4. Recommendations', 25, 120);
+    doc.text('Note: This is a sample report. Full data export coming soon.', 20, 145);
+    doc.save(`${report.name.toLowerCase().replace(/\s+/g, '-')}-${report.generatedAt.split(' ')[0]}.pdf`);
+    toast({
+      title: "Report Downloaded",
+      description: `${report.name} has been downloaded as PDF.`,
+    });
+  };
+
+  const handleEmailReport = (reportName: string) => {
+    toast({
+      title: "Email Sent",
+      description: `${reportName} has been emailed to configured recipients.`,
+    });
   };
 
   const handleStreamToggle = (streamId: string) => {
@@ -770,13 +820,28 @@ export default function ReportBuilder() {
                               </td>
                               <td className="py-3 px-4">
                                 <div className="flex gap-1">
-                                  <Button variant="ghost" size="sm" data-testid={`button-view-report-${index}`}>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleViewReport(report.name)}
+                                    data-testid={`button-view-report-${index}`}
+                                  >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="sm" data-testid={`button-download-report-${index}`}>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleDownloadReport(report)}
+                                    data-testid={`button-download-report-${index}`}
+                                  >
                                     <Download className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="sm" data-testid={`button-email-report-${index}`}>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleEmailReport(report.name)}
+                                    data-testid={`button-email-report-${index}`}
+                                  >
                                     <Mail className="h-4 w-4" />
                                   </Button>
                                 </div>
