@@ -1455,160 +1455,165 @@ export class DatabaseStorage implements IStorage {
     // Get property IDs for regulatory demo data
     const demoProperties = await db.select().from(properties).limit(4);
     
-    // =========== Awaab's Law Demo Data ===========
-    // Create hazard cases for damp/mould issues
-    const [hazardCase1] = await db.insert(hazardCases).values({
-      organisationId,
-      propertyId: demoProperties[0]?.id || oakHouseBlock.id,
-      caseReference: `HAZ-${Date.now()}-001`,
-      category: "MOULD",
-      severity: "MODERATE",
-      status: "INVESTIGATING",
-      description: "Condensation and mould growth in bathroom ceiling. Tenant reported 3 weeks ago.",
-      reportedAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000),
-      initialInspectionDue: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      reportedByType: "tenant",
-    }).returning();
-    
-    await db.insert(hazardCases).values({
-      organisationId,
-      propertyId: demoProperties[1]?.id || oakHouseBlock.id,
-      caseReference: `HAZ-${Date.now()}-002`,
-      category: "HEATING_FAILURE",
-      severity: "SERIOUS",
-      status: "REPORTED",
-      description: "Heating system failure causing temperatures below 18°C. Urgent repair required under Awaab's Law.",
-      reportedAt: new Date(),
-      initialInspectionDue: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      reportedByType: "tenant",
-      hasVulnerableOccupants: true,
-    });
-    
-    // Create hazard actions
-    if (hazardCase1) {
-      await db.insert(hazardActions).values({
-        hazardCaseId: hazardCase1.id,
-        actionType: "INSPECTION",
-        description: "Initial inspection completed - confirmed mould growth",
-        priority: "HIGH",
-        status: "COMPLETED",
-        completedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+    // =========== Regulatory Demo Data (wrapped in try-catch for graceful failure) ===========
+    // These tables may not exist in older production deployments
+    try {
+      // =========== Awaab's Law Demo Data ===========
+      const [hazardCase1] = await db.insert(hazardCases).values({
+        organisationId,
+        propertyId: demoProperties[0]?.id || oakHouseBlock.id,
+        caseReference: `HAZ-${Date.now()}-001`,
+        category: "MOULD",
+        severity: "MODERATE",
+        status: "INVESTIGATING",
+        description: "Condensation and mould growth in bathroom ceiling. Tenant reported 3 weeks ago.",
+        reportedAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000),
+        initialInspectionDue: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        reportedByType: "tenant",
+      }).returning();
+      
+      await db.insert(hazardCases).values({
+        organisationId,
+        propertyId: demoProperties[1]?.id || oakHouseBlock.id,
+        caseReference: `HAZ-${Date.now()}-002`,
+        category: "HEATING_FAILURE",
+        severity: "SERIOUS",
+        status: "REPORTED",
+        description: "Heating system failure causing temperatures below 18°C. Urgent repair required under Awaab's Law.",
+        reportedAt: new Date(),
+        initialInspectionDue: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        reportedByType: "tenant",
+        hasVulnerableOccupants: true,
       });
       
-      await db.insert(hazardActions).values({
-        hazardCaseId: hazardCase1.id,
-        actionType: "REMEDIATION",
-        description: "Mould treatment scheduled - contractor booked",
-        priority: "HIGH",
-        status: "PENDING",
-        scheduledDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      });
-    }
-    
-    // =========== TSM Demo Data ===========
-    // Create households
-    const [household1] = await db.insert(households).values({
-      organisationId,
-      propertyId: demoProperties[0]?.id || oakHouseBlock.id,
-      tenureType: "GENERAL_NEEDS",
-      tenancyStartDate: "2022-03-15",
-      isActive: true,
-    }).returning();
-    
-    const [household2] = await db.insert(households).values({
-      organisationId,
-      propertyId: demoProperties[2]?.id || towersBlock.id,
-      tenureType: "LEASEHOLDER",
-      tenancyStartDate: "2020-06-01",
-      isActive: true,
-    }).returning();
-    
-    // Create tenants
-    if (household1) {
-      await db.insert(tenants).values({
+      // Create hazard actions
+      if (hazardCase1) {
+        await db.insert(hazardActions).values({
+          hazardCaseId: hazardCase1.id,
+          actionType: "INSPECTION",
+          description: "Initial inspection completed - confirmed mould growth",
+          priority: "HIGH",
+          status: "COMPLETED",
+          completedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+        });
+        
+        await db.insert(hazardActions).values({
+          hazardCaseId: hazardCase1.id,
+          actionType: "REMEDIATION",
+          description: "Mould treatment scheduled - contractor booked",
+          priority: "HIGH",
+          status: "PENDING",
+          scheduledDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        });
+      }
+      
+      // =========== TSM Demo Data ===========
+      const [household1] = await db.insert(households).values({
         organisationId,
-        householdId: household1.id,
-        firstName: "Sarah",
-        lastName: "Johnson",
-        email: "sarah.johnson@example.com",
-        phone: "07700900123",
-        isPrimaryTenant: true,
-        vulnerabilities: ["ELDERLY"],
-      });
-    }
-    
-    if (household2) {
-      await db.insert(tenants).values({
+        propertyId: demoProperties[0]?.id || oakHouseBlock.id,
+        tenureType: "GENERAL_NEEDS",
+        tenancyStartDate: "2022-03-15",
+        isActive: true,
+      }).returning();
+      
+      const [household2] = await db.insert(households).values({
         organisationId,
-        householdId: household2.id,
-        firstName: "James",
-        lastName: "Williams",
-        email: "james.williams@example.com",
-        phone: "07700900456",
-        isPrimaryTenant: true,
+        propertyId: demoProperties[2]?.id || towersBlock.id,
+        tenureType: "LEASEHOLDER",
+        tenancyStartDate: "2020-06-01",
+        isActive: true,
+      }).returning();
+      
+      // Create tenants
+      if (household1) {
+        await db.insert(tenants).values({
+          organisationId,
+          householdId: household1.id,
+          firstName: "Sarah",
+          lastName: "Johnson",
+          email: "sarah.johnson@example.com",
+          phone: "07700900123",
+          isPrimaryTenant: true,
+          vulnerabilities: ["ELDERLY"],
+        });
+      }
+      
+      if (household2) {
+        await db.insert(tenants).values({
+          organisationId,
+          householdId: household2.id,
+          firstName: "James",
+          lastName: "Williams",
+          email: "james.williams@example.com",
+          phone: "07700900456",
+          isPrimaryTenant: true,
+        });
+      }
+      
+      // Create service requests (for TSM metrics)
+      await db.insert(serviceRequests).values({
+        organisationId,
+        propertyId: demoProperties[0]?.id || oakHouseBlock.id,
+        requestReference: `SR-${Date.now()}-001`,
+        requestType: "REPAIR_ROUTINE",
+        status: "COMPLETED",
+        priority: "ROUTINE",
+        title: "Leaking tap in kitchen",
+        description: "Leaking tap in kitchen - washer replacement needed",
+        reportedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        completedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        satisfactionScore: 4,
+        firstTimeFixed: true,
       });
+      
+      await db.insert(serviceRequests).values({
+        organisationId,
+        propertyId: demoProperties[1]?.id || oakHouseBlock.id,
+        requestReference: `SR-${Date.now()}-002`,
+        requestType: "COMPLAINT_STAGE_1",
+        status: "IN_PROGRESS",
+        priority: "STANDARD",
+        title: "Noise disturbance complaint",
+        description: "Noise complaint - ongoing disturbance from neighbouring property",
+        reportedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      });
+      
+      // =========== Building Safety Act Demo Data ===========
+      await db.insert(buildingSafetyProfiles).values({
+        organisationId,
+        blockId: towersBlock.id,
+        isHRB: true,
+        buildingHeight: 25.5,
+        numberOfStoreys: 8,
+        numberOfResidentialUnits: 64,
+        principalAccountablePersonName: "Manchester Housing Trust",
+        principalAccountablePersonContact: "safety@manchesterht.org.uk",
+        buildingSafetyManagerName: "Robert Thompson",
+        buildingSafetyManagerContact: "r.thompson@manchesterht.org.uk",
+        evacuationStrategy: "STAY_PUT",
+        hrbRegistrationNumber: "BSR-2024-MAN-001",
+        hrbRegistrationDate: "2024-04-01",
+        safetyCaseStatus: "ACTIVE",
+      });
+      
+      await db.insert(buildingSafetyProfiles).values({
+        organisationId,
+        blockId: oakHouseBlock.id,
+        isHRB: false,
+        buildingHeight: 12.0,
+        numberOfStoreys: 4,
+        numberOfResidentialUnits: 16,
+        evacuationStrategy: "SIMULTANEOUS",
+        safetyCaseStatus: "PARTIAL",
+      });
+      
+      console.log("Regulatory demo data seeded successfully");
+    } catch (regulatoryError) {
+      // Log but don't fail - regulatory tables may not exist in production yet
+      console.warn("Regulatory demo data skipped (tables may not exist yet):", regulatoryError);
     }
     
-    // Create service requests (for TSM metrics)
-    await db.insert(serviceRequests).values({
-      organisationId,
-      propertyId: demoProperties[0]?.id || oakHouseBlock.id,
-      requestReference: `SR-${Date.now()}-001`,
-      requestType: "REPAIR_ROUTINE",
-      status: "COMPLETED",
-      priority: "ROUTINE",
-      title: "Leaking tap in kitchen",
-      description: "Leaking tap in kitchen - washer replacement needed",
-      reportedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      completedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      satisfactionScore: 4,
-      firstTimeFixed: true,
-    });
-    
-    await db.insert(serviceRequests).values({
-      organisationId,
-      propertyId: demoProperties[1]?.id || oakHouseBlock.id,
-      requestReference: `SR-${Date.now()}-002`,
-      requestType: "COMPLAINT_STAGE_1",
-      status: "IN_PROGRESS",
-      priority: "STANDARD",
-      title: "Noise disturbance complaint",
-      description: "Noise complaint - ongoing disturbance from neighbouring property",
-      reportedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    });
-    
-    // =========== Building Safety Act Demo Data ===========
-    // Create building safety profile for high-rise block
-    await db.insert(buildingSafetyProfiles).values({
-      organisationId,
-      blockId: towersBlock.id,
-      isHRB: true,
-      buildingHeight: 25.5,
-      numberOfStoreys: 8,
-      numberOfResidentialUnits: 64,
-      principalAccountablePersonName: "Manchester Housing Trust",
-      principalAccountablePersonContact: "safety@manchesterht.org.uk",
-      buildingSafetyManagerName: "Robert Thompson",
-      buildingSafetyManagerContact: "r.thompson@manchesterht.org.uk",
-      evacuationStrategy: "STAY_PUT",
-      hrbRegistrationNumber: "BSR-2024-MAN-001",
-      hrbRegistrationDate: "2024-04-01",
-      safetyCaseStatus: "ACTIVE",
-    });
-    
-    // Create building safety profile for lower-rise block (not HRB)
-    await db.insert(buildingSafetyProfiles).values({
-      organisationId,
-      blockId: oakHouseBlock.id,
-      isHRB: false,
-      buildingHeight: 12.0,
-      numberOfStoreys: 4,
-      numberOfResidentialUnits: 16,
-      evacuationStrategy: "SIMULTANEOUS",
-      safetyCaseStatus: "PARTIAL",
-    });
-    
-    console.log("Demo data seeded successfully (including regulatory compliance data)");
+    console.log("Demo data seeded successfully");
   }
   
   // Configuration - Compliance Streams

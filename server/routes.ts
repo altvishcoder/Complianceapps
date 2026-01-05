@@ -3344,9 +3344,14 @@ export async function registerRoutes(
     try {
       await storage.seedDemoData(ORG_ID);
       res.json({ success: true, message: "Demo data seeded successfully" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error seeding demo data:", error);
-      res.status(500).json({ error: "Failed to seed demo data" });
+      const errorMessage = error?.message || "Unknown error";
+      const errorDetail = error?.detail || error?.code || "";
+      res.status(500).json({ 
+        error: "Failed to seed demo data", 
+        details: `${errorMessage}${errorDetail ? ` (${errorDetail})` : ""}` 
+      });
     }
   });
   
