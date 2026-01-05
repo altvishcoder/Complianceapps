@@ -41,12 +41,12 @@ export default function LoginPage() {
     const result = await login(email, password);
     
     if (result.success) {
-      setLocation("/dashboard");
+      // Use window.location for more reliable redirect across browsers
+      window.location.href = "/dashboard";
     } else {
       setError(result.error || "Login failed");
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
