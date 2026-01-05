@@ -1367,10 +1367,19 @@ export class DatabaseStorage implements IStorage {
   }
   
   async seedDemoData(organisationId: string): Promise<void> {
-    // Check if demo data already exists
+    // Check if demo data already exists - check both schemes AND properties (by UPRN)
     const existingSchemes = await db.select().from(schemes).where(eq(schemes.reference, "SCH-LON-001")).limit(1);
     if (existingSchemes.length > 0) {
-      console.log("Demo data already exists, skipping seed");
+      console.log("Demo data already exists (scheme found), skipping seed");
+      return;
+    }
+    
+    // Also check for existing demo properties by UPRN to avoid unique constraint violations
+    const existingProperties = await db.select().from(properties).where(
+      sql`${properties.uprn} IN ('10001001', '10001002', '10002001', '10002002')`
+    ).limit(1);
+    if (existingProperties.length > 0) {
+      console.log("Demo data already exists (properties found), skipping seed");
       return;
     }
     

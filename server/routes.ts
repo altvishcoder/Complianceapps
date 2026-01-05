@@ -59,6 +59,7 @@ import { apiLogger } from "./logger";
 const objectStorageService = new ObjectStorageService();
 
 // Helper to log errors with full context for better debugging
+// Logs to both Pino and directly to systemLogs for guaranteed visibility
 function logErrorWithContext(
   error: unknown,
   message: string,
@@ -66,8 +67,9 @@ function logErrorWithContext(
   additionalContext?: Record<string, unknown>
 ) {
   const err = error as Error;
-  const requestId = (req as any).id || req.headers['x-request-id'] || req.headers['x-correlation-id'];
-  apiLogger.error({
+  const reqId = (req as any).id || req.headers['x-request-id'] || req.headers['x-correlation-id'];
+  const requestId = reqId ? String(reqId) : undefined;
+  const context = {
     component: 'api',
     requestId,
     error: err?.message || String(error),
@@ -79,7 +81,30 @@ function logErrorWithContext(
       correlationId: req.headers['x-correlation-id'],
     },
     ...additionalContext,
-  }, message);
+  };
+  
+  // Log to Pino for console output
+  apiLogger.error(context, message);
+  
+  // Also log directly to systemLogs database for guaranteed visibility in UI
+  // Use void to spawn async task without blocking or causing unhandled rejections
+  void (async () => {
+    try {
+      const { db } = await import('./db');
+      const { systemLogs } = await import('@shared/schema');
+      await db.insert(systemLogs).values({
+        level: 'error',
+        source: 'api',
+        message,
+        context: context as Record<string, unknown>,
+        requestId,
+        timestamp: new Date(),
+      });
+    } catch (dbError) {
+      // Silently fail if database insert fails - we already logged to Pino
+      console.error('Failed to write error to systemLogs:', dbError);
+    }
+  })();
 }
 
 // Risk calculation helpers
