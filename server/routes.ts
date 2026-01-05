@@ -10299,6 +10299,448 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== Regulatory Compliance API ====================
+  
+  // Awaab's Law - Hazard Cases
+  app.get("/api/hazard-cases", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { status, severity, propertyId } = req.query;
+      const cases = await storage.listHazardCases(req.organisationId!, { 
+        status: status as string, 
+        severity: severity as string, 
+        propertyId: propertyId as string 
+      });
+      res.json(cases);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hazard cases" });
+    }
+  });
+
+  app.get("/api/hazard-cases/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const hazardCase = await storage.getHazardCase(req.params.id, req.organisationId!);
+      if (!hazardCase) return res.status(404).json({ error: "Hazard case not found" });
+      res.json(hazardCase);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hazard case" });
+    }
+  });
+
+  app.post("/api/hazard-cases", requireRole('ADMIN', 'MANAGER', 'OFFICER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const hazardCase = await storage.createHazardCase({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(hazardCase);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create hazard case" });
+    }
+  });
+
+  app.patch("/api/hazard-cases/:id", requireRole('ADMIN', 'MANAGER', 'OFFICER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const updated = await storage.updateHazardCase(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Hazard case not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update hazard case" });
+    }
+  });
+
+  // Hazard Actions
+  app.get("/api/hazard-cases/:id/actions", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actions = await storage.listHazardActions(req.params.id);
+      res.json(actions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hazard actions" });
+    }
+  });
+
+  app.post("/api/hazard-cases/:id/actions", requireRole('ADMIN', 'MANAGER', 'OFFICER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const action = await storage.createHazardAction({ ...req.body, hazardCaseId: req.params.id });
+      res.status(201).json(action);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create hazard action" });
+    }
+  });
+
+  // TSM - Households
+  app.get("/api/households", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { propertyId, isActive } = req.query;
+      const households = await storage.listHouseholds(req.organisationId!, { 
+        propertyId: propertyId as string, 
+        isActive: isActive === 'true' 
+      });
+      res.json(households);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch households" });
+    }
+  });
+
+  app.get("/api/households/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const household = await storage.getHousehold(req.params.id, req.organisationId!);
+      if (!household) return res.status(404).json({ error: "Household not found" });
+      res.json(household);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch household" });
+    }
+  });
+
+  app.post("/api/households", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const household = await storage.createHousehold({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(household);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create household" });
+    }
+  });
+
+  app.patch("/api/households/:id", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const updated = await storage.updateHousehold(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Household not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update household" });
+    }
+  });
+
+  // TSM - Tenants
+  app.get("/api/tenants", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { householdId } = req.query;
+      const tenants = await storage.listTenants(req.organisationId!, { householdId: householdId as string });
+      res.json(tenants);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tenants" });
+    }
+  });
+
+  app.get("/api/tenants/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const tenant = await storage.getTenant(req.params.id, req.organisationId!);
+      if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+      res.json(tenant);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tenant" });
+    }
+  });
+
+  app.post("/api/tenants", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const tenant = await storage.createTenant({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(tenant);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create tenant" });
+    }
+  });
+
+  app.patch("/api/tenants/:id", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const updated = await storage.updateTenant(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Tenant not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update tenant" });
+    }
+  });
+
+  // TSM - Service Requests
+  app.get("/api/service-requests", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { propertyId, status, type } = req.query;
+      const requests = await storage.listServiceRequests(req.organisationId!, { 
+        propertyId: propertyId as string, 
+        status: status as string, 
+        type: type as string 
+      });
+      res.json(requests);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch service requests" });
+    }
+  });
+
+  app.get("/api/service-requests/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const request = await storage.getServiceRequest(req.params.id, req.organisationId!);
+      if (!request) return res.status(404).json({ error: "Service request not found" });
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch service request" });
+    }
+  });
+
+  app.post("/api/service-requests", requireRole('ADMIN', 'MANAGER', 'OFFICER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const request = await storage.createServiceRequest({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create service request" });
+    }
+  });
+
+  app.patch("/api/service-requests/:id", requireRole('ADMIN', 'MANAGER', 'OFFICER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const updated = await storage.updateServiceRequest(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Service request not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update service request" });
+    }
+  });
+
+  // TSM - Measures
+  app.get("/api/tsm-measures", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const measures = await storage.listTsmMeasures();
+      res.json(measures);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch TSM measures" });
+    }
+  });
+
+  // TSM - Snapshots
+  app.get("/api/tsm-snapshots", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { measureCode } = req.query;
+      const snapshots = await storage.listTsmSnapshots(req.organisationId!, { measureCode: measureCode as string });
+      res.json(snapshots);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch TSM snapshots" });
+    }
+  });
+
+  app.post("/api/tsm-snapshots", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const snapshot = await storage.createTsmSnapshot({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(snapshot);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create TSM snapshot" });
+    }
+  });
+
+  // Building Safety Act - Safety Profiles
+  app.get("/api/building-safety-profiles", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { isHrb } = req.query;
+      const profiles = await storage.listBuildingSafetyProfiles(req.organisationId!, { 
+        isHrb: isHrb === 'true' ? true : isHrb === 'false' ? false : undefined 
+      });
+      res.json(profiles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch building safety profiles" });
+    }
+  });
+
+  app.get("/api/building-safety-profiles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const profile = await storage.getBuildingSafetyProfile(req.params.id, req.organisationId!);
+      if (!profile) return res.status(404).json({ error: "Building safety profile not found" });
+      res.json(profile);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch building safety profile" });
+    }
+  });
+
+  app.get("/api/blocks/:blockId/safety-profile", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const profile = await storage.getBuildingSafetyProfileByBlockId(req.params.blockId);
+      if (!profile) return res.status(404).json({ error: "Building safety profile not found for this block" });
+      res.json(profile);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch building safety profile" });
+    }
+  });
+
+  app.post("/api/building-safety-profiles", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const profile = await storage.createBuildingSafetyProfile({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(profile);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create building safety profile" });
+    }
+  });
+
+  app.patch("/api/building-safety-profiles/:id", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const updated = await storage.updateBuildingSafetyProfile(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Building safety profile not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update building safety profile" });
+    }
+  });
+
+  // Safety Case Reviews
+  app.get("/api/building-safety-profiles/:id/reviews", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const reviews = await storage.listSafetyCaseReviews(req.params.id);
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch safety case reviews" });
+    }
+  });
+
+  app.post("/api/building-safety-profiles/:id/reviews", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const review = await storage.createSafetyCaseReview({ ...req.body, buildingSafetyProfileId: req.params.id });
+      res.status(201).json(review);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create safety case review" });
+    }
+  });
+
+  // Mandatory Occurrence Reports
+  app.get("/api/mandatory-occurrence-reports", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const reports = await storage.listMandatoryOccurrenceReports(req.organisationId!);
+      res.json(reports);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch mandatory occurrence reports" });
+    }
+  });
+
+  app.get("/api/mandatory-occurrence-reports/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const report = await storage.getMandatoryOccurrenceReport(req.params.id, req.organisationId!);
+      if (!report) return res.status(404).json({ error: "Mandatory occurrence report not found" });
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch mandatory occurrence report" });
+    }
+  });
+
+  app.post("/api/mandatory-occurrence-reports", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const report = await storage.createMandatoryOccurrenceReport({ ...req.body, organisationId: req.organisationId! });
+      res.status(201).json(report);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create mandatory occurrence report" });
+    }
+  });
+
+  app.patch("/api/mandatory-occurrence-reports/:id", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const updated = await storage.updateMandatoryOccurrenceReport(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Mandatory occurrence report not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update mandatory occurrence report" });
+    }
+  });
+
+  // Certificate Detail Records - Gas Appliances
+  app.get("/api/certificates/:id/gas-appliances", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = await storage.listGasApplianceRecords(req.params.id);
+      res.json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch gas appliance records" });
+    }
+  });
+
+  app.post("/api/certificates/:id/gas-appliances", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = Array.isArray(req.body) 
+        ? await storage.bulkCreateGasApplianceRecords(req.body.map((r: any) => ({ ...r, certificateId: req.params.id })))
+        : [await storage.createGasApplianceRecord({ ...req.body, certificateId: req.params.id })];
+      res.status(201).json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create gas appliance records" });
+    }
+  });
+
+  // Certificate Detail Records - Electrical Circuits
+  app.get("/api/certificates/:id/electrical-circuits", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = await storage.listElectricalCircuitRecords(req.params.id);
+      res.json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch electrical circuit records" });
+    }
+  });
+
+  app.post("/api/certificates/:id/electrical-circuits", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = Array.isArray(req.body)
+        ? await storage.bulkCreateElectricalCircuitRecords(req.body.map((r: any) => ({ ...r, certificateId: req.params.id })))
+        : [await storage.createElectricalCircuitRecord({ ...req.body, certificateId: req.params.id })];
+      res.status(201).json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create electrical circuit records" });
+    }
+  });
+
+  // Certificate Detail Records - Fire Systems
+  app.get("/api/certificates/:id/fire-systems", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = await storage.listFireSystemRecords(req.params.id);
+      res.json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch fire system records" });
+    }
+  });
+
+  app.post("/api/certificates/:id/fire-systems", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = Array.isArray(req.body)
+        ? await storage.bulkCreateFireSystemRecords(req.body.map((r: any) => ({ ...r, certificateId: req.params.id })))
+        : [await storage.createFireSystemRecord({ ...req.body, certificateId: req.params.id })];
+      res.status(201).json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create fire system records" });
+    }
+  });
+
+  // Certificate Detail Records - Asbestos Surveys
+  app.get("/api/certificates/:id/asbestos-surveys", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = await storage.listAsbestosSurveyRecords(req.params.id);
+      res.json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch asbestos survey records" });
+    }
+  });
+
+  app.post("/api/certificates/:id/asbestos-surveys", requireRole('ADMIN', 'MANAGER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = Array.isArray(req.body)
+        ? await storage.bulkCreateAsbestosSurveyRecords(req.body.map((r: any) => ({ ...r, certificateId: req.params.id })))
+        : [await storage.createAsbestosSurveyRecord({ ...req.body, certificateId: req.params.id })];
+      res.status(201).json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create asbestos survey records" });
+    }
+  });
+
+  // Certificate Detail Records - Water Temperature
+  app.get("/api/water-temperature-records", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { propertyId, blockId, certificateId } = req.query;
+      const records = await storage.listWaterTemperatureRecords({ 
+        propertyId: propertyId as string, 
+        blockId: blockId as string, 
+        certificateId: certificateId as string 
+      });
+      res.json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch water temperature records" });
+    }
+  });
+
+  app.post("/api/water-temperature-records", requireRole('ADMIN', 'MANAGER', 'OFFICER'), async (req: AuthenticatedRequest, res) => {
+    try {
+      const records = Array.isArray(req.body)
+        ? await storage.bulkCreateWaterTemperatureRecords(req.body)
+        : [await storage.createWaterTemperatureRecord(req.body)];
+      res.status(201).json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create water temperature records" });
+    }
+  });
+
   return httpServer;
 }
 

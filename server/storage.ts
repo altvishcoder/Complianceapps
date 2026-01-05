@@ -65,8 +65,28 @@ import {
   navigationSections, navigationItems, iconRegistry, navigationItemRoles,
   type NavigationSection, type InsertNavigationSection,
   type NavigationItem, type InsertNavigationItem,
-  type NavigationItemRole, type NavigationItemWithRoles,
-  type IconRegistryEntry, type InsertIconRegistryEntry
+  type NavigationItemRole,
+  type IconRegistry, type InsertIconRegistry,
+  hazardCases, hazardActions, tenantCommunications,
+  households, tenants, serviceRequests, tsmMeasures, tsmSnapshots,
+  buildingSafetyProfiles, safetyCaseReviews, mandatoryOccurrenceReports,
+  gasApplianceRecords, electricalCircuitRecords, fireSystemRecords, asbestosSurveyRecords, waterTemperatureRecords,
+  type HazardCase, type InsertHazardCase,
+  type HazardAction, type InsertHazardAction,
+  type TenantCommunication, type InsertTenantCommunication,
+  type Household, type InsertHousehold,
+  type Tenant, type InsertTenant,
+  type ServiceRequest, type InsertServiceRequest,
+  type TsmMeasure, type InsertTsmMeasure,
+  type TsmSnapshot, type InsertTsmSnapshot,
+  type BuildingSafetyProfile, type InsertBuildingSafetyProfile,
+  type SafetyCaseReview, type InsertSafetyCaseReview,
+  type MandatoryOccurrenceReport, type InsertMandatoryOccurrenceReport,
+  type GasApplianceRecord, type InsertGasApplianceRecord,
+  type ElectricalCircuitRecord, type InsertElectricalCircuitRecord,
+  type FireSystemRecord, type InsertFireSystemRecord,
+  type AsbestosSurveyRecord, type InsertAsbestosSurveyRecord,
+  type WaterTemperatureRecord, type InsertWaterTemperatureRecord
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
@@ -455,8 +475,88 @@ export interface IStorage {
   
   getNavigationWithItems(organisationId?: string): Promise<Array<NavigationSection & { items: NavigationItem[] }>>;
   
-  listIconRegistry(): Promise<IconRegistryEntry[]>;
-  createIconRegistryEntry(entry: InsertIconRegistryEntry): Promise<IconRegistryEntry>;
+  listIconRegistry(): Promise<IconRegistry[]>;
+  createIconRegistryEntry(entry: InsertIconRegistry): Promise<IconRegistry>;
+
+  // Awaab's Law - Hazard Cases
+  listHazardCases(organisationId: string, filters?: { status?: string; severity?: string; propertyId?: string }): Promise<HazardCase[]>;
+  getHazardCase(id: string, organisationId?: string): Promise<HazardCase | undefined>;
+  createHazardCase(hazard: InsertHazardCase): Promise<HazardCase>;
+  updateHazardCase(id: string, updates: Partial<InsertHazardCase>): Promise<HazardCase | undefined>;
+  
+  // Hazard Actions
+  listHazardActions(hazardCaseId: string): Promise<HazardAction[]>;
+  createHazardAction(action: InsertHazardAction): Promise<HazardAction>;
+  updateHazardAction(id: string, updates: Partial<InsertHazardAction>): Promise<HazardAction | undefined>;
+  
+  // Tenant Communications
+  listTenantCommunications(filters?: { hazardCaseId?: string; propertyId?: string }): Promise<TenantCommunication[]>;
+  createTenantCommunication(comm: InsertTenantCommunication): Promise<TenantCommunication>;
+
+  // TSM - Households
+  listHouseholds(organisationId: string, filters?: { propertyId?: string; isActive?: boolean }): Promise<Household[]>;
+  getHousehold(id: string, organisationId?: string): Promise<Household | undefined>;
+  createHousehold(household: InsertHousehold): Promise<Household>;
+  updateHousehold(id: string, updates: Partial<InsertHousehold>): Promise<Household | undefined>;
+
+  // TSM - Tenants
+  listTenants(organisationId: string, filters?: { householdId?: string }): Promise<Tenant[]>;
+  getTenant(id: string, organisationId?: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(id: string, updates: Partial<InsertTenant>): Promise<Tenant | undefined>;
+
+  // TSM - Service Requests
+  listServiceRequests(organisationId: string, filters?: { propertyId?: string; status?: string; type?: string }): Promise<ServiceRequest[]>;
+  getServiceRequest(id: string, organisationId?: string): Promise<ServiceRequest | undefined>;
+  createServiceRequest(request: InsertServiceRequest): Promise<ServiceRequest>;
+  updateServiceRequest(id: string, updates: Partial<InsertServiceRequest>): Promise<ServiceRequest | undefined>;
+
+  // TSM - Measures
+  listTsmMeasures(): Promise<TsmMeasure[]>;
+  getTsmMeasure(id: string): Promise<TsmMeasure | undefined>;
+  createTsmMeasure(measure: InsertTsmMeasure): Promise<TsmMeasure>;
+
+  // TSM - Snapshots
+  listTsmSnapshots(organisationId: string, filters?: { measureCode?: string; periodStart?: Date }): Promise<TsmSnapshot[]>;
+  createTsmSnapshot(snapshot: InsertTsmSnapshot): Promise<TsmSnapshot>;
+
+  // Building Safety Act - Safety Profiles
+  listBuildingSafetyProfiles(organisationId: string, filters?: { isHrb?: boolean }): Promise<BuildingSafetyProfile[]>;
+  getBuildingSafetyProfile(id: string, organisationId?: string): Promise<BuildingSafetyProfile | undefined>;
+  getBuildingSafetyProfileByBlockId(blockId: string): Promise<BuildingSafetyProfile | undefined>;
+  createBuildingSafetyProfile(profile: InsertBuildingSafetyProfile): Promise<BuildingSafetyProfile>;
+  updateBuildingSafetyProfile(id: string, updates: Partial<InsertBuildingSafetyProfile>): Promise<BuildingSafetyProfile | undefined>;
+
+  // Safety Case Reviews
+  listSafetyCaseReviews(profileId: string): Promise<SafetyCaseReview[]>;
+  createSafetyCaseReview(review: InsertSafetyCaseReview): Promise<SafetyCaseReview>;
+
+  // Mandatory Occurrence Reports
+  listMandatoryOccurrenceReports(organisationId: string): Promise<MandatoryOccurrenceReport[]>;
+  getMandatoryOccurrenceReport(id: string, organisationId?: string): Promise<MandatoryOccurrenceReport | undefined>;
+  createMandatoryOccurrenceReport(report: InsertMandatoryOccurrenceReport): Promise<MandatoryOccurrenceReport>;
+  updateMandatoryOccurrenceReport(id: string, updates: Partial<InsertMandatoryOccurrenceReport>): Promise<MandatoryOccurrenceReport | undefined>;
+
+  // Certificate Detail Records
+  listGasApplianceRecords(certificateId: string): Promise<GasApplianceRecord[]>;
+  createGasApplianceRecord(record: InsertGasApplianceRecord): Promise<GasApplianceRecord>;
+  bulkCreateGasApplianceRecords(records: InsertGasApplianceRecord[]): Promise<GasApplianceRecord[]>;
+
+  listElectricalCircuitRecords(certificateId: string): Promise<ElectricalCircuitRecord[]>;
+  createElectricalCircuitRecord(record: InsertElectricalCircuitRecord): Promise<ElectricalCircuitRecord>;
+  bulkCreateElectricalCircuitRecords(records: InsertElectricalCircuitRecord[]): Promise<ElectricalCircuitRecord[]>;
+
+  listFireSystemRecords(certificateId: string): Promise<FireSystemRecord[]>;
+  createFireSystemRecord(record: InsertFireSystemRecord): Promise<FireSystemRecord>;
+  bulkCreateFireSystemRecords(records: InsertFireSystemRecord[]): Promise<FireSystemRecord[]>;
+
+  listAsbestosSurveyRecords(certificateId: string): Promise<AsbestosSurveyRecord[]>;
+  createAsbestosSurveyRecord(record: InsertAsbestosSurveyRecord): Promise<AsbestosSurveyRecord>;
+  bulkCreateAsbestosSurveyRecords(records: InsertAsbestosSurveyRecord[]): Promise<AsbestosSurveyRecord[]>;
+
+  listWaterTemperatureRecords(filters?: { propertyId?: string; blockId?: string; certificateId?: string }): Promise<WaterTemperatureRecord[]>;
+  createWaterTemperatureRecord(record: InsertWaterTemperatureRecord): Promise<WaterTemperatureRecord>;
+  bulkCreateWaterTemperatureRecords(records: InsertWaterTemperatureRecord[]): Promise<WaterTemperatureRecord[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2851,14 +2951,14 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async listIconRegistry(): Promise<IconRegistryEntry[]> {
+  async listIconRegistry(): Promise<IconRegistry[]> {
     return db.select()
       .from(iconRegistry)
       .where(eq(iconRegistry.isActive, true))
       .orderBy(iconRegistry.iconKey);
   }
 
-  async createIconRegistryEntry(entry: InsertIconRegistryEntry): Promise<IconRegistryEntry> {
+  async createIconRegistryEntry(entry: InsertIconRegistry): Promise<IconRegistry> {
     const [created] = await db.insert(iconRegistry).values(entry).returning();
     return created;
   }
@@ -2893,7 +2993,7 @@ export class DatabaseStorage implements IStorage {
     return roleMap;
   }
 
-  async listNavigationItemsWithRoles(sectionId?: string): Promise<NavigationItemWithRoles[]> {
+  async listNavigationItemsWithRoles(sectionId?: string): Promise<(NavigationItem & { allowedRoles: string[] })[]> {
     const items = await this.listNavigationItems(sectionId);
     const roleMap = await this.getAllNavigationItemRoles();
     
@@ -2903,7 +3003,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getNavigationWithItemsAndRoles(organisationId?: string): Promise<Array<NavigationSection & { items: NavigationItemWithRoles[] }>> {
+  async getNavigationWithItemsAndRoles(organisationId?: string): Promise<Array<NavigationSection & { items: (NavigationItem & { allowedRoles: string[] })[] }>> {
     const sections = await this.listNavigationSections(organisationId);
     const allItems = await this.listNavigationItemsWithRoles();
     
@@ -2911,6 +3011,303 @@ export class DatabaseStorage implements IStorage {
       ...section,
       items: allItems.filter(item => item.sectionId === section.id)
     }));
+  }
+
+  // Awaab's Law - Hazard Cases
+  async listHazardCases(organisationId: string, filters?: { status?: string; severity?: string; propertyId?: string }): Promise<HazardCase[]> {
+    const conditions = [eq(hazardCases.organisationId, organisationId)];
+    if (filters?.status) conditions.push(eq(hazardCases.status, filters.status as any));
+    if (filters?.severity) conditions.push(eq(hazardCases.severity, filters.severity as any));
+    if (filters?.propertyId) conditions.push(eq(hazardCases.propertyId, filters.propertyId));
+    return db.select().from(hazardCases).where(and(...conditions)).orderBy(desc(hazardCases.reportedAt));
+  }
+
+  async getHazardCase(id: string, organisationId?: string): Promise<HazardCase | undefined> {
+    const conditions = [eq(hazardCases.id, id)];
+    if (organisationId) conditions.push(eq(hazardCases.organisationId, organisationId));
+    const [hazard] = await db.select().from(hazardCases).where(and(...conditions));
+    return hazard || undefined;
+  }
+
+  async createHazardCase(hazard: InsertHazardCase): Promise<HazardCase> {
+    const [created] = await db.insert(hazardCases).values(hazard).returning();
+    return created;
+  }
+
+  async updateHazardCase(id: string, updates: Partial<InsertHazardCase>): Promise<HazardCase | undefined> {
+    const [updated] = await db.update(hazardCases).set({ ...updates, updatedAt: new Date() }).where(eq(hazardCases.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Hazard Actions
+  async listHazardActions(hazardCaseId: string): Promise<HazardAction[]> {
+    return db.select().from(hazardActions).where(eq(hazardActions.hazardCaseId, hazardCaseId));
+  }
+
+  async createHazardAction(action: InsertHazardAction): Promise<HazardAction> {
+    const [created] = await db.insert(hazardActions).values(action).returning();
+    return created;
+  }
+
+  async updateHazardAction(id: string, updates: Partial<InsertHazardAction>): Promise<HazardAction | undefined> {
+    const [updated] = await db.update(hazardActions).set({ ...updates, updatedAt: new Date() }).where(eq(hazardActions.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Tenant Communications
+  async listTenantCommunications(filters?: { hazardCaseId?: string; propertyId?: string }): Promise<TenantCommunication[]> {
+    const conditions = [];
+    if (filters?.hazardCaseId) conditions.push(eq(tenantCommunications.hazardCaseId, filters.hazardCaseId));
+    if (filters?.propertyId) conditions.push(eq(tenantCommunications.propertyId, filters.propertyId));
+    return db.select().from(tenantCommunications).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(tenantCommunications.createdAt));
+  }
+
+  async createTenantCommunication(comm: InsertTenantCommunication): Promise<TenantCommunication> {
+    const [created] = await db.insert(tenantCommunications).values(comm).returning();
+    return created;
+  }
+
+  // TSM - Households
+  async listHouseholds(organisationId: string, filters?: { propertyId?: string; isActive?: boolean }): Promise<Household[]> {
+    const conditions = [eq(households.organisationId, organisationId)];
+    if (filters?.propertyId) conditions.push(eq(households.propertyId, filters.propertyId));
+    if (filters?.isActive !== undefined) conditions.push(eq(households.isActive, filters.isActive));
+    return db.select().from(households).where(and(...conditions));
+  }
+
+  async getHousehold(id: string, organisationId?: string): Promise<Household | undefined> {
+    const conditions = [eq(households.id, id)];
+    if (organisationId) conditions.push(eq(households.organisationId, organisationId));
+    const [h] = await db.select().from(households).where(and(...conditions));
+    return h || undefined;
+  }
+
+  async createHousehold(household: InsertHousehold): Promise<Household> {
+    const [created] = await db.insert(households).values(household).returning();
+    return created;
+  }
+
+  async updateHousehold(id: string, updates: Partial<InsertHousehold>): Promise<Household | undefined> {
+    const [updated] = await db.update(households).set({ ...updates, updatedAt: new Date() }).where(eq(households.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // TSM - Tenants
+  async listTenants(organisationId: string, filters?: { householdId?: string }): Promise<Tenant[]> {
+    const conditions = [eq(tenants.organisationId, organisationId)];
+    if (filters?.householdId) conditions.push(eq(tenants.householdId, filters.householdId));
+    return db.select().from(tenants).where(and(...conditions));
+  }
+
+  async getTenant(id: string, organisationId?: string): Promise<Tenant | undefined> {
+    const conditions = [eq(tenants.id, id)];
+    if (organisationId) conditions.push(eq(tenants.organisationId, organisationId));
+    const [t] = await db.select().from(tenants).where(and(...conditions));
+    return t || undefined;
+  }
+
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const [created] = await db.insert(tenants).values(tenant).returning();
+    return created;
+  }
+
+  async updateTenant(id: string, updates: Partial<InsertTenant>): Promise<Tenant | undefined> {
+    const [updated] = await db.update(tenants).set({ ...updates, updatedAt: new Date() }).where(eq(tenants.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // TSM - Service Requests
+  async listServiceRequests(organisationId: string, filters?: { propertyId?: string; status?: string; type?: string }): Promise<ServiceRequest[]> {
+    const conditions = [eq(serviceRequests.organisationId, organisationId)];
+    if (filters?.propertyId) conditions.push(eq(serviceRequests.propertyId, filters.propertyId));
+    if (filters?.status) conditions.push(eq(serviceRequests.status, filters.status as any));
+    if (filters?.type) conditions.push(eq(serviceRequests.requestType, filters.type as any));
+    return db.select().from(serviceRequests).where(and(...conditions)).orderBy(desc(serviceRequests.reportedAt));
+  }
+
+  async getServiceRequest(id: string, organisationId?: string): Promise<ServiceRequest | undefined> {
+    const conditions = [eq(serviceRequests.id, id)];
+    if (organisationId) conditions.push(eq(serviceRequests.organisationId, organisationId));
+    const [sr] = await db.select().from(serviceRequests).where(and(...conditions));
+    return sr || undefined;
+  }
+
+  async createServiceRequest(request: InsertServiceRequest): Promise<ServiceRequest> {
+    const [created] = await db.insert(serviceRequests).values(request).returning();
+    return created;
+  }
+
+  async updateServiceRequest(id: string, updates: Partial<InsertServiceRequest>): Promise<ServiceRequest | undefined> {
+    const [updated] = await db.update(serviceRequests).set({ ...updates, updatedAt: new Date() }).where(eq(serviceRequests.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // TSM - Measures
+  async listTsmMeasures(): Promise<TsmMeasure[]> {
+    return db.select().from(tsmMeasures);
+  }
+
+  async getTsmMeasure(id: string): Promise<TsmMeasure | undefined> {
+    const [m] = await db.select().from(tsmMeasures).where(eq(tsmMeasures.id, id));
+    return m || undefined;
+  }
+
+  async createTsmMeasure(measure: InsertTsmMeasure): Promise<TsmMeasure> {
+    const [created] = await db.insert(tsmMeasures).values(measure).returning();
+    return created;
+  }
+
+  // TSM - Snapshots
+  async listTsmSnapshots(organisationId: string, filters?: { measureCode?: string; periodStart?: Date }): Promise<TsmSnapshot[]> {
+    const conditions = [eq(tsmSnapshots.organisationId, organisationId)];
+    if (filters?.measureCode) conditions.push(eq(tsmSnapshots.measureCode, filters.measureCode));
+    if (filters?.periodStart) conditions.push(gte(tsmSnapshots.periodStart, filters.periodStart.toISOString().split('T')[0]));
+    return db.select().from(tsmSnapshots).where(and(...conditions)).orderBy(desc(tsmSnapshots.periodEnd));
+  }
+
+  async createTsmSnapshot(snapshot: InsertTsmSnapshot): Promise<TsmSnapshot> {
+    const [created] = await db.insert(tsmSnapshots).values(snapshot).returning();
+    return created;
+  }
+
+  // Building Safety Act - Safety Profiles
+  async listBuildingSafetyProfiles(organisationId: string, filters?: { isHrb?: boolean }): Promise<BuildingSafetyProfile[]> {
+    const conditions = [eq(buildingSafetyProfiles.organisationId, organisationId)];
+    if (filters?.isHrb !== undefined) conditions.push(eq(buildingSafetyProfiles.isHRB, filters.isHrb));
+    return db.select().from(buildingSafetyProfiles).where(and(...conditions));
+  }
+
+  async getBuildingSafetyProfile(id: string, organisationId?: string): Promise<BuildingSafetyProfile | undefined> {
+    const conditions = [eq(buildingSafetyProfiles.id, id)];
+    if (organisationId) conditions.push(eq(buildingSafetyProfiles.organisationId, organisationId));
+    const [p] = await db.select().from(buildingSafetyProfiles).where(and(...conditions));
+    return p || undefined;
+  }
+
+  async getBuildingSafetyProfileByBlockId(blockId: string): Promise<BuildingSafetyProfile | undefined> {
+    const [p] = await db.select().from(buildingSafetyProfiles).where(eq(buildingSafetyProfiles.blockId, blockId));
+    return p || undefined;
+  }
+
+  async createBuildingSafetyProfile(profile: InsertBuildingSafetyProfile): Promise<BuildingSafetyProfile> {
+    const [created] = await db.insert(buildingSafetyProfiles).values(profile).returning();
+    return created;
+  }
+
+  async updateBuildingSafetyProfile(id: string, updates: Partial<InsertBuildingSafetyProfile>): Promise<BuildingSafetyProfile | undefined> {
+    const [updated] = await db.update(buildingSafetyProfiles).set({ ...updates, updatedAt: new Date() }).where(eq(buildingSafetyProfiles.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Safety Case Reviews
+  async listSafetyCaseReviews(profileId: string): Promise<SafetyCaseReview[]> {
+    return db.select().from(safetyCaseReviews).where(eq(safetyCaseReviews.buildingSafetyProfileId, profileId)).orderBy(desc(safetyCaseReviews.reviewDate));
+  }
+
+  async createSafetyCaseReview(review: InsertSafetyCaseReview): Promise<SafetyCaseReview> {
+    const [created] = await db.insert(safetyCaseReviews).values(review).returning();
+    return created;
+  }
+
+  // Mandatory Occurrence Reports
+  async listMandatoryOccurrenceReports(organisationId: string): Promise<MandatoryOccurrenceReport[]> {
+    return db.select().from(mandatoryOccurrenceReports).where(eq(mandatoryOccurrenceReports.organisationId, organisationId)).orderBy(desc(mandatoryOccurrenceReports.occurrenceDate));
+  }
+
+  async getMandatoryOccurrenceReport(id: string, organisationId?: string): Promise<MandatoryOccurrenceReport | undefined> {
+    const conditions = [eq(mandatoryOccurrenceReports.id, id)];
+    if (organisationId) conditions.push(eq(mandatoryOccurrenceReports.organisationId, organisationId));
+    const [r] = await db.select().from(mandatoryOccurrenceReports).where(and(...conditions));
+    return r || undefined;
+  }
+
+  async createMandatoryOccurrenceReport(report: InsertMandatoryOccurrenceReport): Promise<MandatoryOccurrenceReport> {
+    const [created] = await db.insert(mandatoryOccurrenceReports).values(report).returning();
+    return created;
+  }
+
+  async updateMandatoryOccurrenceReport(id: string, updates: Partial<InsertMandatoryOccurrenceReport>): Promise<MandatoryOccurrenceReport | undefined> {
+    const [updated] = await db.update(mandatoryOccurrenceReports).set({ ...updates, updatedAt: new Date() }).where(eq(mandatoryOccurrenceReports.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Certificate Detail Records - Gas Appliances
+  async listGasApplianceRecords(certificateId: string): Promise<GasApplianceRecord[]> {
+    return db.select().from(gasApplianceRecords).where(eq(gasApplianceRecords.certificateId, certificateId));
+  }
+
+  async createGasApplianceRecord(record: InsertGasApplianceRecord): Promise<GasApplianceRecord> {
+    const [created] = await db.insert(gasApplianceRecords).values(record).returning();
+    return created;
+  }
+
+  async bulkCreateGasApplianceRecords(records: InsertGasApplianceRecord[]): Promise<GasApplianceRecord[]> {
+    if (records.length === 0) return [];
+    return db.insert(gasApplianceRecords).values(records).returning();
+  }
+
+  // Certificate Detail Records - Electrical Circuits
+  async listElectricalCircuitRecords(certificateId: string): Promise<ElectricalCircuitRecord[]> {
+    return db.select().from(electricalCircuitRecords).where(eq(electricalCircuitRecords.certificateId, certificateId));
+  }
+
+  async createElectricalCircuitRecord(record: InsertElectricalCircuitRecord): Promise<ElectricalCircuitRecord> {
+    const [created] = await db.insert(electricalCircuitRecords).values(record).returning();
+    return created;
+  }
+
+  async bulkCreateElectricalCircuitRecords(records: InsertElectricalCircuitRecord[]): Promise<ElectricalCircuitRecord[]> {
+    if (records.length === 0) return [];
+    return db.insert(electricalCircuitRecords).values(records).returning();
+  }
+
+  // Certificate Detail Records - Fire Systems
+  async listFireSystemRecords(certificateId: string): Promise<FireSystemRecord[]> {
+    return db.select().from(fireSystemRecords).where(eq(fireSystemRecords.certificateId, certificateId));
+  }
+
+  async createFireSystemRecord(record: InsertFireSystemRecord): Promise<FireSystemRecord> {
+    const [created] = await db.insert(fireSystemRecords).values(record).returning();
+    return created;
+  }
+
+  async bulkCreateFireSystemRecords(records: InsertFireSystemRecord[]): Promise<FireSystemRecord[]> {
+    if (records.length === 0) return [];
+    return db.insert(fireSystemRecords).values(records).returning();
+  }
+
+  // Certificate Detail Records - Asbestos Surveys
+  async listAsbestosSurveyRecords(certificateId: string): Promise<AsbestosSurveyRecord[]> {
+    return db.select().from(asbestosSurveyRecords).where(eq(asbestosSurveyRecords.certificateId, certificateId));
+  }
+
+  async createAsbestosSurveyRecord(record: InsertAsbestosSurveyRecord): Promise<AsbestosSurveyRecord> {
+    const [created] = await db.insert(asbestosSurveyRecords).values(record).returning();
+    return created;
+  }
+
+  async bulkCreateAsbestosSurveyRecords(records: InsertAsbestosSurveyRecord[]): Promise<AsbestosSurveyRecord[]> {
+    if (records.length === 0) return [];
+    return db.insert(asbestosSurveyRecords).values(records).returning();
+  }
+
+  // Certificate Detail Records - Water Temperature
+  async listWaterTemperatureRecords(filters?: { propertyId?: string; blockId?: string; certificateId?: string }): Promise<WaterTemperatureRecord[]> {
+    const conditions = [];
+    if (filters?.propertyId) conditions.push(eq(waterTemperatureRecords.propertyId, filters.propertyId));
+    if (filters?.blockId) conditions.push(eq(waterTemperatureRecords.blockId, filters.blockId));
+    if (filters?.certificateId) conditions.push(eq(waterTemperatureRecords.certificateId, filters.certificateId));
+    return db.select().from(waterTemperatureRecords).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(waterTemperatureRecords.monitoringDate));
+  }
+
+  async createWaterTemperatureRecord(record: InsertWaterTemperatureRecord): Promise<WaterTemperatureRecord> {
+    const [created] = await db.insert(waterTemperatureRecords).values(record).returning();
+    return created;
+  }
+
+  async bulkCreateWaterTemperatureRecords(records: InsertWaterTemperatureRecord[]): Promise<WaterTemperatureRecord[]> {
+    if (records.length === 0) return [];
+    return db.insert(waterTemperatureRecords).values(records).returning();
   }
 }
 
