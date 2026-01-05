@@ -237,8 +237,22 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
   const statusColors: Record<string, string> = {
     COMPLIANT: 'bg-green-500',
     NON_COMPLIANT: 'bg-red-500',
+    EXPIRING_SOON: 'bg-amber-500',
+    OVERDUE: 'bg-red-600',
+    ACTION_REQUIRED: 'bg-orange-500',
     PENDING: 'bg-yellow-500',
     UNKNOWN: 'bg-gray-400',
+  };
+  
+  const getComplianceTooltip = (status: string): string => {
+    switch (status) {
+      case 'COMPLIANT': return 'All regulatory requirements met (Gas Safety Regs 1998, BS 7671, RRO 2005)';
+      case 'NON_COMPLIANT': return 'Regulatory breach - immediate action required';
+      case 'EXPIRING_SOON': return 'Certificate expiring within 30 days';
+      case 'OVERDUE': return 'Certificate expired - regulatory breach';
+      case 'ACTION_REQUIRED': return 'Remedial actions pending completion';
+      default: return 'Compliance status unknown';
+    }
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -294,7 +308,23 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
           )}
           
           {node.status && (
-            <div className={cn("w-2 h-2 rounded-full", statusColors[node.status] || statusColors.UNKNOWN)} />
+            <div className="flex items-center gap-1.5" title={getComplianceTooltip(node.status)}>
+              <div className={cn("w-2.5 h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-background", 
+                statusColors[node.status] || statusColors.UNKNOWN,
+                node.status === 'COMPLIANT' && 'ring-green-200',
+                node.status === 'NON_COMPLIANT' && 'ring-red-200',
+                node.status === 'EXPIRING_SOON' && 'ring-amber-200',
+                node.status === 'OVERDUE' && 'ring-red-300'
+              )} />
+              <span className={cn("text-xs font-medium hidden lg:inline",
+                node.status === 'COMPLIANT' && 'text-green-600 dark:text-green-400',
+                node.status === 'NON_COMPLIANT' && 'text-red-600 dark:text-red-400',
+                node.status === 'EXPIRING_SOON' && 'text-amber-600 dark:text-amber-400',
+                node.status === 'OVERDUE' && 'text-red-700 dark:text-red-300'
+              )}>
+                {node.status.replace(/_/g, ' ')}
+              </span>
+            </div>
           )}
           
           <Badge variant="secondary" className="text-xs">
@@ -624,6 +654,20 @@ export default function PropertyHierarchy() {
       return comp.assetTag || comp.serialNumber || 'Component';
     };
     
+    // Calculate aggregated compliance status from children (worst status wins)
+    const aggregateStatus = (statuses: (string | undefined)[]): string => {
+      const validStatuses = statuses.filter(Boolean) as string[];
+      if (validStatuses.length === 0) return 'UNKNOWN';
+      // Priority: NON_COMPLIANT > OVERDUE > ACTION_REQUIRED > EXPIRING_SOON > PENDING > COMPLIANT > UNKNOWN
+      if (validStatuses.includes('NON_COMPLIANT')) return 'NON_COMPLIANT';
+      if (validStatuses.includes('OVERDUE')) return 'OVERDUE';
+      if (validStatuses.includes('ACTION_REQUIRED')) return 'ACTION_REQUIRED';
+      if (validStatuses.includes('EXPIRING_SOON')) return 'EXPIRING_SOON';
+      if (validStatuses.includes('PENDING')) return 'PENDING';
+      if (validStatuses.includes('COMPLIANT')) return 'COMPLIANT';
+      return 'UNKNOWN';
+    };
+    
     // Helper to build space node - components are loaded on-demand via LazyComponentsLoader
     // Spaces can attach to: properties (dwelling rooms), blocks (communal), or schemes (estate-wide)
     const buildSpaceNode = (space: Space, context: { propertyId?: string; blockId?: string; schemeId?: string } = {}): HierarchyNode => {
@@ -687,28 +731,38 @@ export default function PropertyHierarchy() {
             };
           });
           
+          // Calculate block's aggregated compliance from dwellings
+          const blockChildren = [...blockLevelSpaces, ...dwellingNodes];
+          const blockAggregatedStatus = block.complianceStatus || 
+            aggregateStatus(dwellingNodes.map(d => d.status));
+          
           return {
             id: block.id,
             name: block.name,
             type: 'block' as const,
             reference: block.reference,
-            status: block.complianceStatus,
+            status: blockAggregatedStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
             data: block,
             // Block children: communal spaces, then dwellings (properties)
-            children: [...blockLevelSpaces, ...dwellingNodes],
+            children: blockChildren,
           };
         });
+      
+      // Calculate scheme's aggregated compliance from blocks
+      const schemeChildren = [...schemeLevelSpaces, ...blockNodes];
+      const schemeAggregatedStatus = scheme.complianceStatus || 
+        aggregateStatus(blockNodes.map(b => b.status));
       
       return {
         id: scheme.id,
         name: scheme.name,
         type: 'scheme' as const,
         reference: scheme.reference,
-        status: scheme.complianceStatus,
+        status: schemeAggregatedStatus,
         linkStatus: (scheme as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
         data: scheme,
-        children: [...schemeLevelSpaces, ...blockNodes],
+        children: schemeChildren,
       };
     });
   }, [schemes, blocks, properties, allSpaces]);
@@ -903,7 +957,7 @@ export default function PropertyHierarchy() {
   };
 
   const handleNodeClick = (node: HierarchyNode) => {
-    // Navigate to the appropriate detail page based on node type
+    // Navigate to detail pages for property/component, show info for scheme/block/space
     switch (node.type) {
       case 'property':
         setLocation(`/properties/${node.id}`);
@@ -912,28 +966,24 @@ export default function PropertyHierarchy() {
         setLocation(`/components?highlight=${node.id}`);
         break;
       case 'scheme':
-        // Filter blocks by this scheme
-        setLocation(`/admin/hierarchy?scheme=${node.id}`);
+        // Show scheme details with compliance summary
         toast({ 
-          title: "Scheme Selected", 
-          description: `Showing blocks in ${node.name}` 
+          title: node.name,
+          description: `Scheme with ${node.children.length} blocks. ${node.status === 'COMPLIANT' ? 'All compliant' : node.status === 'NON_COMPLIANT' ? 'Compliance issues detected' : 'Status: ' + (node.status || 'Unknown')}`,
         });
         break;
       case 'block':
-        // Navigate to properties filtered by this block
-        if (node.data?.id) {
-          setLocation(`/properties?block=${node.id}`);
-        } else {
-          toast({ 
-            title: "Block Selected", 
-            description: node.name 
-          });
-        }
+        // Show block details with compliance summary
+        const propertyCount = node.children.filter(c => c.type === 'property').length;
+        toast({ 
+          title: node.name,
+          description: `Block with ${propertyCount} dwellings. ${node.status === 'COMPLIANT' ? 'All compliant' : node.status === 'NON_COMPLIANT' ? 'Compliance issues detected' : 'Status: ' + (node.status || 'Unknown')}`,
+        });
         break;
       case 'space':
         toast({ 
-          title: "Space Selected", 
-          description: `${node.name} - Space details coming soon` 
+          title: node.name,
+          description: `${getSpaceTypeLabel(node.data?.spaceType)} - ${node.status === 'COMPLIANT' ? 'Compliant' : node.status || 'Status unknown'}`,
         });
         break;
     }
