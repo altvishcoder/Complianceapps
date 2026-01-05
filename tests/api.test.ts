@@ -164,6 +164,45 @@ describe('API Integration Tests', () => {
     });
   });
 
+  describe('Dashboard Stats API', () => {
+    it('should return dashboard stats with required fields', async () => {
+      const response = await fetchAPI('/dashboard/stats');
+      assertValidResponse(response, [200, 401], 'Dashboard stats');
+      
+      if (response.status === 200) {
+        const data = await response.json();
+        expect(data).toHaveProperty('totalProperties');
+        expect(data).toHaveProperty('totalCertificates');
+        expect(data).toHaveProperty('overallCompliance');
+        expect(data).toHaveProperty('activeHazards');
+        expect(data).toHaveProperty('awaabsLaw');
+        expect(data).toHaveProperty('complianceByType');
+        expect(data).toHaveProperty('hazardDistribution');
+        expect(data).toHaveProperty('expiringCertificates');
+        expect(data).toHaveProperty('urgentActions');
+        expect(data).toHaveProperty('problemProperties');
+        
+        expect(typeof data.totalProperties).toBe('number');
+        expect(typeof data.totalCertificates).toBe('number');
+        expect(Array.isArray(data.complianceByType)).toBe(true);
+        expect(Array.isArray(data.expiringCertificates)).toBe(true);
+        expect(Array.isArray(data.urgentActions)).toBe(true);
+        expect(Array.isArray(data.problemProperties)).toBe(true);
+      }
+    });
+
+    it('should return numeric values not NaN', async () => {
+      const response = await fetchAPI('/dashboard/stats');
+      if (response.status === 200) {
+        const data = await response.json();
+        expect(Number.isNaN(Number(data.overallCompliance))).toBe(false);
+        expect(Number.isNaN(data.activeHazards)).toBe(false);
+        expect(Number.isNaN(data.totalProperties)).toBe(false);
+        expect(Number.isNaN(data.totalCertificates)).toBe(false);
+      }
+    });
+  });
+
   describe('Rate Limiting Validation', () => {
     it('should return proper rate limit headers when rate limited', async () => {
       const responses = await Promise.all(
