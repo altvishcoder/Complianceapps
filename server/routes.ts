@@ -4796,8 +4796,8 @@ export async function registerRoutes(
           immediate: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'OPEN' AND ${remedialActions.severity} = 'IMMEDIATE')`
         }).from(remedialActions),
         
-        // Property count
-        db.select({ count: count() }).from(properties).where(eq(properties.organisationId, ORG_ID)),
+        // Property count (no org filter - properties scoped via block->scheme hierarchy)
+        db.select({ count: count() }).from(properties),
         
         // Hazard distribution by severity (OPEN only)
         db.select({
