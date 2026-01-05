@@ -50,6 +50,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           organisationId: u.organisationId || 'default-org',
         });
       } else {
+        // Safari ITP fallback: Check sessionStorage backup if cookies failed
+        try {
+          const backup = sessionStorage.getItem('auth_session_backup');
+          if (backup) {
+            const { user: backupUser, timestamp } = JSON.parse(backup);
+            // Only use backup if less than 5 minutes old (for immediate post-login)
+            if (Date.now() - timestamp < 5 * 60 * 1000 && backupUser) {
+              setUser({
+                id: backupUser.id,
+                username: backupUser.username || backupUser.email,
+                name: backupUser.name,
+                email: backupUser.email,
+                role: backupUser.role || 'VIEWER',
+                organisationId: backupUser.organisationId || 'default-org',
+              });
+              return;
+            }
+          }
+        } catch {
+          // Ignore storage errors
+        }
         setUser(null);
       }
     } catch {
@@ -74,6 +95,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: result.error.message || 'Login failed' };
       }
 
+      // Safari ITP fix: Store session data in sessionStorage as backup
+      // This helps when cookies are blocked by browser privacy settings
+      if (result.data?.user) {
+        try {
+          sessionStorage.setItem('auth_session_backup', JSON.stringify({
+            user: result.data.user,
+            token: result.data.token,
+            timestamp: Date.now()
+          }));
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
       await refreshUser();
       return { success: true };
     } catch (err) {
@@ -84,6 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await authClient.signOut();
+      // Clear Safari backup session on logout
+      try {
+        sessionStorage.removeItem('auth_session_backup');
+      } catch {
+        // Ignore storage errors
+      }
     } finally {
       setUser(null);
       setLocation('/login');
