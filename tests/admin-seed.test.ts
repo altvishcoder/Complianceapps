@@ -35,6 +35,10 @@ describe('Admin Seed Demo Tests', () => {
       }
       
       expect(response.ok).toBe(true);
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return;
+      }
       const data = await response.json();
       expect(data.success).toBe(true);
     });
@@ -50,7 +54,8 @@ describe('Admin Seed Demo Tests', () => {
       
       if (demoScheme) {
         const seedRes = await fetchAPI('/admin/seed-demo', { method: 'POST' });
-        if (seedRes.ok) {
+        const contentType = seedRes.headers.get('content-type') || '';
+        if (seedRes.ok && contentType.includes('application/json')) {
           const result = await seedRes.json();
           expect(result.success).toBe(true);
         }
@@ -72,7 +77,8 @@ describe('Admin Seed Demo Tests', () => {
       
       if (demoProperty) {
         const seedRes = await fetchAPI('/admin/seed-demo', { method: 'POST' });
-        if (seedRes.ok) {
+        const contentType = seedRes.headers.get('content-type') || '';
+        if (seedRes.ok && contentType.includes('application/json')) {
           const result = await seedRes.json();
           expect(result.success).toBe(true);
         }

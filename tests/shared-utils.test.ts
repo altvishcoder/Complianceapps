@@ -567,8 +567,8 @@ describe('Version Utilities', () => {
   });
 
   describe('APP_NAME constant', () => {
-    it('should be ComplianceAI', () => {
-      expect(APP_NAME).toBe('ComplianceAI');
+    it('should be SocialComply', () => {
+      expect(APP_NAME).toBe('SocialComply');
     });
   });
 
