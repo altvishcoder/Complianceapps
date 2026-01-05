@@ -53,9 +53,34 @@ import * as cacheAdminService from "./services/cache-admin";
 import { cacheRegions, cacheClearAudit, userFavorites } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
+import { apiLogger } from "./logger";
 // Modular route files exist in server/routes/ for future migration and testing
 
 const objectStorageService = new ObjectStorageService();
+
+// Helper to log errors with full context for better debugging
+function logErrorWithContext(
+  error: unknown,
+  message: string,
+  req: Request,
+  additionalContext?: Record<string, unknown>
+) {
+  const err = error as Error;
+  const requestId = (req as any).id || req.headers['x-request-id'] || req.headers['x-correlation-id'];
+  apiLogger.error({
+    component: 'api',
+    requestId,
+    error: err?.message || String(error),
+    stack: err?.stack,
+    request: {
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      correlationId: req.headers['x-correlation-id'],
+    },
+    ...additionalContext,
+  }, message);
+}
 
 // Risk calculation helpers
 function calculatePropertyRiskScore(
@@ -3333,9 +3358,9 @@ export async function registerRoutes(
       const { includeProperties } = req.body || {};
       await storage.wipeData(includeProperties === true);
       res.json({ success: true, message: includeProperties ? "All data wiped including properties" : "Certificates and actions wiped" });
-    } catch (error) {
-      console.error("Error wiping data:", error);
-      res.status(500).json({ error: "Failed to wipe data" });
+    } catch (error: any) {
+      logErrorWithContext(error, "Failed to wipe data", req, { action: 'wipe-data', includeProperties: req.body?.includeProperties });
+      res.status(500).json({ error: "Failed to wipe data", details: error?.message });
     }
   });
   
@@ -3345,7 +3370,7 @@ export async function registerRoutes(
       await storage.seedDemoData(ORG_ID);
       res.json({ success: true, message: "Demo data seeded successfully" });
     } catch (error: any) {
-      console.error("Error seeding demo data:", error);
+      logErrorWithContext(error, "Failed to seed demo data", req, { action: 'seed-demo', organisationId: ORG_ID });
       const errorMessage = error?.message || "Unknown error";
       const errorDetail = error?.detail || error?.code || "";
       res.status(500).json({ 
@@ -3361,9 +3386,9 @@ export async function registerRoutes(
       await storage.wipeData(true);
       await storage.seedDemoData(ORG_ID);
       res.json({ success: true, message: "Demo reset complete" });
-    } catch (error) {
-      console.error("Error resetting demo:", error);
-      res.status(500).json({ error: "Failed to reset demo" });
+    } catch (error: any) {
+      logErrorWithContext(error, "Failed to reset demo", req, { action: 'reset-demo', organisationId: ORG_ID });
+      res.status(500).json({ error: "Failed to reset demo", details: error?.message });
     }
   });
   

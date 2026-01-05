@@ -63,7 +63,7 @@ interface SystemLog {
   level: string;
   source: string;
   message: string;
-  metadata: Record<string, unknown> | null;
+  context: Record<string, unknown> | null;
   requestId: string | null;
   timestamp: string;
 }
@@ -138,6 +138,52 @@ function LogLevelBadge({ level }: { level: string }) {
     <Badge variant="outline" className={`text-xs ${variants[level] || ''}`}>
       {level.toUpperCase()}
     </Badge>
+  );
+}
+
+function LogContextDetails({ context }: { context: Record<string, unknown> }) {
+  const stack = context.stack as string | undefined;
+  const error = context.error as string | Record<string, unknown> | undefined;
+  const request = context.request as Record<string, unknown> | undefined;
+  const otherContext = Object.fromEntries(
+    Object.entries(context).filter(([key]) => !['stack', 'error', 'request'].includes(key))
+  );
+  
+  return (
+    <div className="mt-2 p-3 bg-background rounded border space-y-2">
+      {stack && (
+        <div>
+          <span className="font-semibold text-red-600">Stack Trace:</span>
+          <pre className="mt-1 p-2 bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+            {String(stack)}
+          </pre>
+        </div>
+      )}
+      {error && (
+        <div>
+          <span className="font-semibold text-red-600">Error:</span>
+          <pre className="mt-1 p-2 bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 rounded text-xs overflow-x-auto">
+            {typeof error === 'object' ? JSON.stringify(error, null, 2) : String(error)}
+          </pre>
+        </div>
+      )}
+      {request && (
+        <div>
+          <span className="font-semibold text-blue-600">Request Details:</span>
+          <pre className="mt-1 p-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded text-xs overflow-x-auto">
+            {JSON.stringify(request, null, 2)}
+          </pre>
+        </div>
+      )}
+      {Object.keys(otherContext).length > 0 && (
+        <div>
+          <span className="font-semibold text-muted-foreground">Additional Context:</span>
+          <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">
+            {JSON.stringify(otherContext, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1045,14 +1091,12 @@ export default function SystemHealthPage() {
                                   <p className="text-sm break-words" data-testid={`log-message-${log.id}`}>
                                     {log.message}
                                   </p>
-                                  {log.metadata && Object.keys(log.metadata).length > 0 && (
-                                    <details className="text-xs">
-                                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                                        View metadata
+                                  {log.context && Object.keys(log.context).length > 0 && (
+                                    <details className="text-xs mt-2">
+                                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">
+                                        View details ({Object.keys(log.context).length} fields)
                                       </summary>
-                                      <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto">
-                                        {JSON.stringify(log.metadata, null, 2)}
-                                      </pre>
+                                      <LogContextDetails context={log.context} />
                                     </details>
                                   )}
                                 </div>
