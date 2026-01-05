@@ -4913,14 +4913,13 @@ export async function registerRoutes(
       const allStreams = await storage.listComplianceStreams();
       const allCertTypes = await storage.listCertificateTypes();
 
-      // Get certificate counts by type using aggregation
+      // Get certificate counts by type using aggregation (no org filter - matches Properties page)
       const certCountsByType = await db.select({
         certificateType: certificates.certificateType,
         total: count(),
         satisfactory: sql<number>`COUNT(*) FILTER (WHERE ${certificates.outcome} = 'SATISFACTORY' OR ${certificates.status} = 'APPROVED')`,
         unsatisfactory: sql<number>`COUNT(*) FILTER (WHERE ${certificates.outcome} = 'UNSATISFACTORY')`
       }).from(certificates)
-        .where(eq(certificates.organisationId, ORG_ID))
         .groupBy(certificates.certificateType);
 
       // Map cert counts to streams
