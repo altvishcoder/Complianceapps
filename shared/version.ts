@@ -1,5 +1,5 @@
 export const APP_VERSION = "0.9.0";
-export const APP_NAME = "ComplianceAI";
+export const APP_NAME = "SocialComply";
 
 export interface VersionInfo {
   version: string;

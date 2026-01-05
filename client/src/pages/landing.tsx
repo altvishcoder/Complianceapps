@@ -9,7 +9,7 @@ export default function LandingPage() {
         <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6">
           <ShieldCheck className="h-8 w-8" />
         </div>
-        <h1 className="text-4xl font-display font-bold tracking-tight">ComplianceAI Suite</h1>
+        <h1 className="text-4xl font-display font-bold tracking-tight">SocialComply Suite</h1>
         <p className="text-xl text-muted-foreground max-w-lg mx-auto">
           Select the application portal you wish to access.
         </p>
@@ -60,7 +60,7 @@ export default function LandingPage() {
       </div>
 
       <div className="text-center text-sm text-muted-foreground">
-        <p>ComplianceAI Platform v1.0.0 • Local Development Build</p>
+        <p>SocialComply Platform v1.0.0 • Local Development Build</p>
       </div>
     </div>
   );

@@ -411,7 +411,7 @@ export function Sidebar() {
               </div>
             </div>
             <div>
-              <span className="text-xl font-display font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">ComplianceAI</span>
+              <span className="text-xl font-display font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">SocialComply</span>
               <p className="text-xs text-slate-500 font-medium">Enterprise Platform</p>
             </div>
           </div>

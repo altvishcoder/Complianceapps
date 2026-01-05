@@ -1,7 +1,7 @@
-# ComplianceAI
+# SocialComply
 
 ## Overview
-ComplianceAI is a compliance management platform for UK social housing organizations. It enables property managers to track compliance certificates (gas safety, electrical, fire risk, etc.), manage properties organized by schemes and blocks, and handle remedial actions. The platform uses AI-powered document extraction to process uploaded compliance certificates, aiming to streamline compliance workflows and improve safety in social housing.
+SocialComply is a compliance management platform for UK social housing organizations. It enables property managers to track compliance certificates (gas safety, electrical, fire risk, etc.), manage properties organized by schemes and blocks, and handle remedial actions. The platform uses AI-powered document extraction to process uploaded compliance certificates, aiming to streamline compliance workflows and improve safety in social housing.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

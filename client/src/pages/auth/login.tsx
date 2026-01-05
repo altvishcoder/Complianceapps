@@ -56,7 +56,7 @@ export default function LoginPage() {
           <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-2">
              <ShieldCheck className="h-6 w-6" />
           </div>
-          <h1 className="text-3xl font-display font-bold tracking-tight">ComplianceAI</h1>
+          <h1 className="text-3xl font-display font-bold tracking-tight">SocialComply</h1>
           <p className="text-muted-foreground">Secure Enterprise Access</p>
         </div>
 
