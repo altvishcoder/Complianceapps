@@ -591,6 +591,8 @@ export default function PropertyHierarchy() {
   const [editingScheme, setEditingScheme] = useState<Scheme | null>(null);
   const [editingBlock, setEditingBlock] = useState<Block | null>(null);
   
+  const [selectedNodeDetail, setSelectedNodeDetail] = useState<HierarchyNode | null>(null);
+  
   const [orgForm, setOrgForm] = useState({ name: "", slug: "" });
   const [schemeForm, setSchemeForm] = useState({ name: "", reference: "" });
   const [blockForm, setBlockForm] = useState({ 
@@ -957,7 +959,7 @@ export default function PropertyHierarchy() {
   };
 
   const handleNodeClick = (node: HierarchyNode) => {
-    // Navigate to detail pages for property/component, show info for scheme/block/space
+    // Navigate to detail pages for property/component, show modal for scheme/block/space
     switch (node.type) {
       case 'property':
         setLocation(`/properties/${node.id}`);
@@ -966,19 +968,9 @@ export default function PropertyHierarchy() {
         setLocation(`/components?highlight=${node.id}`);
         break;
       case 'scheme':
-        // Show scheme details with compliance summary
-        toast({ 
-          title: node.name,
-          description: `Scheme with ${node.children.length} blocks. ${node.status === 'COMPLIANT' ? 'All compliant' : node.status === 'NON_COMPLIANT' ? 'Compliance issues detected' : 'Status: ' + (node.status || 'Unknown')}`,
-        });
-        break;
       case 'block':
-        // Show block details with compliance summary
-        const propertyCount = node.children.filter(c => c.type === 'property').length;
-        toast({ 
-          title: node.name,
-          description: `Block with ${propertyCount} dwellings. ${node.status === 'COMPLIANT' ? 'All compliant' : node.status === 'NON_COMPLIANT' ? 'Compliance issues detected' : 'Status: ' + (node.status || 'Unknown')}`,
-        });
+        // Show detailed modal for scheme/block
+        setSelectedNodeDetail(node);
         break;
       case 'space':
         toast({ 
@@ -986,6 +978,54 @@ export default function PropertyHierarchy() {
           description: `${getSpaceTypeLabel(node.data?.spaceType)} - ${node.status === 'COMPLIANT' ? 'Compliant' : node.status || 'Status unknown'}`,
         });
         break;
+    }
+  };
+  
+  // Helper to get compliance message with UK regulatory context
+  const getComplianceMessage = (status?: string): { message: string; legislation: string; severity: 'success' | 'warning' | 'error' | 'info' } => {
+    switch (status) {
+      case 'COMPLIANT':
+        return { 
+          message: 'All compliance requirements are met', 
+          legislation: 'Meeting requirements under Gas Safety (Installation and Use) Regulations 1998, BS 7671 (Electrical), Regulatory Reform (Fire Safety) Order 2005',
+          severity: 'success' 
+        };
+      case 'NON_COMPLIANT':
+        return { 
+          message: 'Compliance breach detected - immediate action required', 
+          legislation: 'Potential breach of landlord duties under Housing Act 2004, Gas Safety Regulations 1998, or Regulatory Reform (Fire Safety) Order 2005',
+          severity: 'error' 
+        };
+      case 'EXPIRING_SOON':
+        return { 
+          message: 'Certificates expiring within 30 days', 
+          legislation: 'Proactive renewal recommended to maintain continuous compliance under relevant regulations',
+          severity: 'warning' 
+        };
+      case 'OVERDUE':
+        return { 
+          message: 'Certificates have expired - regulatory breach', 
+          legislation: 'Expired certificates may constitute breach of Gas Safety Regs 1998 (annual CP12), BS 7671 (5-year EICR), or fire safety requirements',
+          severity: 'error' 
+        };
+      case 'ACTION_REQUIRED':
+        return { 
+          message: 'Remedial actions pending completion', 
+          legislation: 'Outstanding works identified during inspections require completion to achieve compliance',
+          severity: 'warning' 
+        };
+      case 'PENDING':
+        return { 
+          message: 'Compliance status pending verification', 
+          legislation: 'Awaiting certificate upload or verification',
+          severity: 'info' 
+        };
+      default:
+        return { 
+          message: 'Compliance status unknown', 
+          legislation: 'No compliance data available for this asset',
+          severity: 'info' 
+        };
     }
   };
 
@@ -1619,6 +1659,141 @@ export default function PropertyHierarchy() {
             <Button onClick={handleBlockSubmit} disabled={!blockForm.name || !blockForm.reference || !blockForm.schemeId} data-testid="button-save-block">
               {editingBlock ? "Update" : "Create"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Node Detail Modal for Scheme/Block */}
+      <Dialog open={!!selectedNodeDetail} onOpenChange={(open) => !open && setSelectedNodeDetail(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {selectedNodeDetail?.type === 'scheme' && (
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                  <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+              )}
+              {selectedNodeDetail?.type === 'block' && (
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <Building className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+              )}
+              <div>
+                <span className="text-lg">{selectedNodeDetail?.name}</span>
+                {selectedNodeDetail?.reference && (
+                  <span className="text-sm text-muted-foreground ml-2">({selectedNodeDetail.reference})</span>
+                )}
+              </div>
+            </DialogTitle>
+            <DialogDescription>
+              {selectedNodeDetail?.type === 'scheme' && 'Scheme (Site) - UKHDS Site Layer'}
+              {selectedNodeDetail?.type === 'block' && 'Block (Building) - UKHDS Property Layer'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedNodeDetail && (
+            <div className="space-y-4">
+              {/* Entity Details */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Type</span>
+                  <p className="font-medium capitalize">{selectedNodeDetail.type}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Reference</span>
+                  <p className="font-medium">{selectedNodeDetail.reference || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">
+                    {selectedNodeDetail.type === 'scheme' ? 'Blocks' : 'Dwellings'}
+                  </span>
+                  <p className="font-medium">
+                    {selectedNodeDetail.type === 'scheme' 
+                      ? selectedNodeDetail.children.filter(c => c.type === 'block').length
+                      : selectedNodeDetail.children.filter(c => c.type === 'property').length
+                    }
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">Total Properties</span>
+                  <p className="font-medium">
+                    {selectedNodeDetail.type === 'scheme'
+                      ? selectedNodeDetail.children.reduce((acc, block) => 
+                          acc + (block.children?.filter(c => c.type === 'property').length || 0), 0)
+                      : selectedNodeDetail.children.filter(c => c.type === 'property').length
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              {/* Compliance Status */}
+              <div className={cn(
+                "rounded-lg p-4 border",
+                getComplianceMessage(selectedNodeDetail.status).severity === 'success' && 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+                getComplianceMessage(selectedNodeDetail.status).severity === 'warning' && 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+                getComplianceMessage(selectedNodeDetail.status).severity === 'error' && 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+                getComplianceMessage(selectedNodeDetail.status).severity === 'info' && 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+              )}>
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "w-3 h-3 rounded-full mt-1 ring-2 ring-offset-2 ring-offset-background",
+                    selectedNodeDetail.status === 'COMPLIANT' && 'bg-green-500 ring-green-200',
+                    selectedNodeDetail.status === 'NON_COMPLIANT' && 'bg-red-500 ring-red-200',
+                    selectedNodeDetail.status === 'EXPIRING_SOON' && 'bg-amber-500 ring-amber-200',
+                    selectedNodeDetail.status === 'OVERDUE' && 'bg-red-600 ring-red-300',
+                    selectedNodeDetail.status === 'ACTION_REQUIRED' && 'bg-orange-500 ring-orange-200',
+                    selectedNodeDetail.status === 'PENDING' && 'bg-yellow-500 ring-yellow-200',
+                    !selectedNodeDetail.status && 'bg-gray-400 ring-gray-200'
+                  )} />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "font-semibold text-sm",
+                        getComplianceMessage(selectedNodeDetail.status).severity === 'success' && 'text-green-700 dark:text-green-300',
+                        getComplianceMessage(selectedNodeDetail.status).severity === 'warning' && 'text-amber-700 dark:text-amber-300',
+                        getComplianceMessage(selectedNodeDetail.status).severity === 'error' && 'text-red-700 dark:text-red-300',
+                        getComplianceMessage(selectedNodeDetail.status).severity === 'info' && 'text-slate-700 dark:text-slate-300'
+                      )}>
+                        {selectedNodeDetail.status?.replace(/_/g, ' ') || 'UNKNOWN'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {getComplianceMessage(selectedNodeDetail.status).message}
+                    </p>
+                    <div className="pt-2 border-t border-current/10">
+                      <p className="text-xs text-muted-foreground italic">
+                        <strong>UK Regulatory Context:</strong> {getComplianceMessage(selectedNodeDetail.status).legislation}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Link Status */}
+              {selectedNodeDetail.linkStatus && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Verification Status:</span>
+                  <Badge variant={selectedNodeDetail.linkStatus === 'VERIFIED' ? 'default' : 'outline'} 
+                    className={selectedNodeDetail.linkStatus === 'UNVERIFIED' ? 'bg-orange-50 text-orange-700 border-orange-200' : ''}>
+                    {selectedNodeDetail.linkStatus}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setSelectedNodeDetail(null)}>
+              Close
+            </Button>
+            {selectedNodeDetail?.type === 'block' && (
+              <Button onClick={() => {
+                setLocation(`/properties?block=${selectedNodeDetail.id}`);
+                setSelectedNodeDetail(null);
+              }}>
+                View Properties
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
