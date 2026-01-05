@@ -1404,6 +1404,10 @@ export class DatabaseStorage implements IStorage {
       // Contractor assignments reference properties
       await db.delete(contractorAssignments);
       
+      // Staff members and contractors (no FK dependencies)
+      await db.delete(staffMembers);
+      await db.delete(contractors);
+      
       // Components (componentCertificates already deleted above)
       await db.delete(components);
       await db.delete(spaces);
@@ -1669,6 +1673,80 @@ export class DatabaseStorage implements IStorage {
     } catch (regulatoryError) {
       // Log but don't fail - regulatory tables may not exist in production yet
       console.warn("Regulatory demo data skipped (tables may not exist yet):", regulatoryError);
+    }
+    
+    // =========== Staff Members Demo Data ===========
+    try {
+      const TRADE_TYPES = ["GAS_ENGINEER", "ELECTRICIAN", "GENERAL_OPERATIVE", "PLUMBER", "FIRE_SAFETY"] as const;
+      const DLO_DEPARTMENTS = ["Gas & Heating", "Electrical", "General Maintenance", "Plumbing", "Fire Safety"];
+      const staffData = [
+        { firstName: "John", lastName: "Smith", department: "Gas & Heating", trade: "GAS_ENGINEER" },
+        { firstName: "Emma", lastName: "Brown", department: "Electrical", trade: "ELECTRICIAN" },
+        { firstName: "David", lastName: "Wilson", department: "General Maintenance", trade: "GENERAL_OPERATIVE" },
+        { firstName: "Sarah", lastName: "Taylor", department: "Plumbing", trade: "PLUMBER" },
+        { firstName: "Michael", lastName: "Davies", department: "Fire Safety", trade: "FIRE_SAFETY" },
+        { firstName: "Lisa", lastName: "Evans", department: "Gas & Heating", trade: "GAS_ENGINEER" },
+        { firstName: "James", lastName: "Thomas", department: "Electrical", trade: "ELECTRICIAN" },
+        { firstName: "Emily", lastName: "Roberts", department: "General Maintenance", trade: "GENERAL_OPERATIVE" },
+      ];
+      
+      for (let i = 0; i < staffData.length; i++) {
+        const staff = staffData[i];
+        const isGas = staff.trade === "GAS_ENGINEER";
+        const isElectric = staff.trade === "ELECTRICIAN";
+        
+        await db.insert(staffMembers).values({
+          organisationId,
+          firstName: staff.firstName,
+          lastName: staff.lastName,
+          email: `${staff.firstName.toLowerCase()}.${staff.lastName.toLowerCase()}@housing.org.uk`,
+          phone: `07${String(Math.floor(Math.random() * 999999999)).padStart(9, '0')}`,
+          department: staff.department,
+          roleTitle: `${staff.department} Technician`,
+          employeeId: `EMP-${String(i + 1).padStart(4, '0')}`,
+          status: i < 6 ? "ACTIVE" : (i === 6 ? "PENDING" : "SUSPENDED"),
+          tradeSpecialism: staff.trade,
+          gasSafeNumber: isGas ? `${Math.floor(100000 + Math.random() * 899999)}` : null,
+          nicEicNumber: isElectric ? `NICEIC${String(i).padStart(6, '0')}` : null,
+        });
+      }
+      console.log("Staff members demo data seeded successfully");
+    } catch (staffError) {
+      console.warn("Staff members demo data skipped:", staffError);
+    }
+    
+    // =========== Contractors Demo Data ===========
+    try {
+      const contractorData = [
+        { name: "SafeGas Services Ltd", trade: "GAS_ENGINEER", status: "APPROVED" },
+        { name: "Spark Electric Solutions", trade: "ELECTRICIAN", status: "APPROVED" },
+        { name: "FireSafe UK", trade: "FIRE_SAFETY", status: "APPROVED" },
+        { name: "ProPlumb Contractors", trade: "PLUMBER", status: "APPROVED" },
+        { name: "AllTrades Maintenance", trade: "GENERAL_OPERATIVE", status: "PENDING" },
+        { name: "Heating Masters Ltd", trade: "GAS_ENGINEER", status: "APPROVED" },
+      ];
+      
+      for (let i = 0; i < contractorData.length; i++) {
+        const contractor = contractorData[i];
+        const isGas = contractor.trade === "GAS_ENGINEER";
+        const isElectric = contractor.trade === "ELECTRICIAN";
+        
+        await db.insert(contractors).values({
+          organisationId,
+          companyName: contractor.name,
+          tradeType: contractor.trade,
+          registrationNumber: `REG${String(i + 1).padStart(5, '0')}`,
+          contactEmail: `info@${contractor.name.toLowerCase().replace(/\s+/g, '')}.co.uk`,
+          contactPhone: `020${String(Math.floor(10000000 + Math.random() * 89999999))}`,
+          status: contractor.status as "APPROVED" | "PENDING" | "SUSPENDED",
+          gasRegistration: isGas ? `${Math.floor(100000 + Math.random() * 899999)}` : null,
+          electricalRegistration: isElectric ? `NICEIC${String(i).padStart(6, '0')}` : null,
+          isInternal: false,
+        });
+      }
+      console.log("Contractors demo data seeded successfully");
+    } catch (contractorError) {
+      console.warn("Contractors demo data skipped:", contractorError);
     }
     
     console.log("Demo data seeded successfully");
