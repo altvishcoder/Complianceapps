@@ -87,6 +87,22 @@ import {
   cacheRegions,
   cacheStats,
   cacheClearAudit,
+  hazardCases,
+  hazardActions,
+  tenantCommunications,
+  households,
+  tenants,
+  serviceRequests,
+  tsmMeasures,
+  tsmSnapshots,
+  buildingSafetyProfiles,
+  safetyCaseReviews,
+  mandatoryOccurrenceReports,
+  gasApplianceRecords,
+  electricalCircuitRecords,
+  fireSystemRecords,
+  asbestosSurveyRecords,
+  waterTemperatureRecords,
 } from "../tables";
 
 export const insertOrganisationSchema = createInsertSchema(organisations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -284,3 +300,45 @@ export type InsertRiskSnapshot = z.infer<typeof insertRiskSnapshotSchema>;
 export type InsertCacheRegion = z.infer<typeof insertCacheRegionSchema>;
 export type InsertCacheStats = z.infer<typeof insertCacheStatsSchema>;
 export type InsertCacheClearAudit = z.infer<typeof insertCacheClearAuditSchema>;
+
+// Regulatory - Awaab's Law
+export const insertHazardCaseSchema = createInsertSchema(hazardCases).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertHazardActionSchema = createInsertSchema(hazardActions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTenantCommunicationSchema = createInsertSchema(tenantCommunications).omit({ id: true, createdAt: true });
+
+// Regulatory - TSM (Tenant Satisfaction Measures)
+export const insertHouseholdSchema = createInsertSchema(households).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTsmMeasureSchema = createInsertSchema(tsmMeasures).omit({ id: true, createdAt: true });
+export const insertTsmSnapshotSchema = createInsertSchema(tsmSnapshots).omit({ id: true, createdAt: true });
+
+// Regulatory - Building Safety Act 2022
+export const insertBuildingSafetyProfileSchema = createInsertSchema(buildingSafetyProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSafetyCaseReviewSchema = createInsertSchema(safetyCaseReviews).omit({ id: true, createdAt: true });
+export const insertMandatoryOccurrenceReportSchema = createInsertSchema(mandatoryOccurrenceReports).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Regulatory - Certificate Detail Records
+export const insertGasApplianceRecordSchema = createInsertSchema(gasApplianceRecords).omit({ id: true, createdAt: true });
+export const insertElectricalCircuitRecordSchema = createInsertSchema(electricalCircuitRecords).omit({ id: true, createdAt: true });
+export const insertFireSystemRecordSchema = createInsertSchema(fireSystemRecords).omit({ id: true, createdAt: true });
+export const insertAsbestosSurveyRecordSchema = createInsertSchema(asbestosSurveyRecords).omit({ id: true, createdAt: true });
+export const insertWaterTemperatureRecordSchema = createInsertSchema(waterTemperatureRecords).omit({ id: true, createdAt: true });
+
+// Regulatory Insert Types
+export type InsertHazardCase = z.infer<typeof insertHazardCaseSchema>;
+export type InsertHazardAction = z.infer<typeof insertHazardActionSchema>;
+export type InsertTenantCommunication = z.infer<typeof insertTenantCommunicationSchema>;
+export type InsertHousehold = z.infer<typeof insertHouseholdSchema>;
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type InsertServiceRequest = z.infer<typeof insertServiceRequestSchema>;
+export type InsertTsmMeasure = z.infer<typeof insertTsmMeasureSchema>;
+export type InsertTsmSnapshot = z.infer<typeof insertTsmSnapshotSchema>;
+export type InsertBuildingSafetyProfile = z.infer<typeof insertBuildingSafetyProfileSchema>;
+export type InsertSafetyCaseReview = z.infer<typeof insertSafetyCaseReviewSchema>;
+export type InsertMandatoryOccurrenceReport = z.infer<typeof insertMandatoryOccurrenceReportSchema>;
+export type InsertGasApplianceRecord = z.infer<typeof insertGasApplianceRecordSchema>;
+export type InsertElectricalCircuitRecord = z.infer<typeof insertElectricalCircuitRecordSchema>;
+export type InsertFireSystemRecord = z.infer<typeof insertFireSystemRecordSchema>;
+export type InsertAsbestosSurveyRecord = z.infer<typeof insertAsbestosSurveyRecordSchema>;
+export type InsertWaterTemperatureRecord = z.infer<typeof insertWaterTemperatureRecordSchema>;

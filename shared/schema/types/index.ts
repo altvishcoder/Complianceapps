@@ -87,6 +87,22 @@ import {
   cacheRegions,
   cacheStats,
   cacheClearAudit,
+  hazardCases,
+  hazardActions,
+  tenantCommunications,
+  households,
+  tenants,
+  serviceRequests,
+  tsmMeasures,
+  tsmSnapshots,
+  buildingSafetyProfiles,
+  safetyCaseReviews,
+  mandatoryOccurrenceReports,
+  gasApplianceRecords,
+  electricalCircuitRecords,
+  fireSystemRecords,
+  asbestosSurveyRecords,
+  waterTemperatureRecords,
 } from "../tables";
 
 export type Organisation = typeof organisations.$inferSelect;
@@ -180,3 +196,27 @@ export type CacheClearAudit = typeof cacheClearAudit.$inferSelect;
 
 export type CacheLayer = 'CLIENT' | 'API' | 'DATABASE' | 'MEMORY' | 'SESSION';
 export type CacheClearScope = 'REGION' | 'CATEGORY' | 'LAYER' | 'ALL';
+
+// Regulatory - Awaab's Law
+export type HazardCase = typeof hazardCases.$inferSelect;
+export type HazardAction = typeof hazardActions.$inferSelect;
+export type TenantCommunication = typeof tenantCommunications.$inferSelect;
+
+// Regulatory - TSM (Tenant Satisfaction Measures)
+export type Household = typeof households.$inferSelect;
+export type Tenant = typeof tenants.$inferSelect;
+export type ServiceRequest = typeof serviceRequests.$inferSelect;
+export type TsmMeasure = typeof tsmMeasures.$inferSelect;
+export type TsmSnapshot = typeof tsmSnapshots.$inferSelect;
+
+// Regulatory - Building Safety Act 2022
+export type BuildingSafetyProfile = typeof buildingSafetyProfiles.$inferSelect;
+export type SafetyCaseReview = typeof safetyCaseReviews.$inferSelect;
+export type MandatoryOccurrenceReport = typeof mandatoryOccurrenceReports.$inferSelect;
+
+// Regulatory - Certificate Detail Records
+export type GasApplianceRecord = typeof gasApplianceRecords.$inferSelect;
+export type ElectricalCircuitRecord = typeof electricalCircuitRecords.$inferSelect;
+export type FireSystemRecord = typeof fireSystemRecords.$inferSelect;
+export type AsbestosSurveyRecord = typeof asbestosSurveyRecords.$inferSelect;
+export type WaterTemperatureRecord = typeof waterTemperatureRecords.$inferSelect;
