@@ -196,14 +196,29 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     certificatesPerProperty = 3,
   } = config;
 
-  console.log("Starting comprehensive demo data generation...");
-  console.log(`Target: ${schemeCount} schemes, ${schemeCount * blocksPerScheme} blocks, ${schemeCount * blocksPerScheme * propertiesPerBlock} properties`);
+  const targetProperties = schemeCount * blocksPerScheme * propertiesPerBlock;
+  const targetComponents = targetProperties * componentsPerProperty;
+  const targetCertificates = targetProperties * certificatesPerProperty;
 
-  const existingSchemes = await db.select().from(schemes).where(eq(schemes.reference, "SCH-DEMO-001")).limit(1);
-  if (existingSchemes.length > 0) {
-    console.log("Comprehensive demo data already exists, skipping generation");
-    const counts = await getDataCounts();
-    return counts;
+  console.log("Starting comprehensive demo data generation...");
+  console.log(`Target: ${schemeCount} schemes, ${schemeCount * blocksPerScheme} blocks, ${targetProperties} properties`);
+
+  const existingDemoSchemes = await db.select({ id: schemes.id }).from(schemes)
+    .where(sql`${schemes.organisationId} = ${organisationId} AND ${schemes.reference} LIKE 'SCH-DEMO-%'`);
+  
+  if (existingDemoSchemes.length > 0) {
+    const demoCounts = await getDemoDataCounts(organisationId);
+    const isComplete = demoCounts.properties >= targetProperties &&
+                       demoCounts.components >= targetComponents &&
+                       demoCounts.certificates >= targetCertificates;
+    
+    if (isComplete) {
+      console.log("Comprehensive demo data already exists and is complete, skipping generation");
+      return demoCounts;
+    } else {
+      console.log(`Partial demo data detected (${demoCounts.properties}/${targetProperties} properties), cleaning up before regeneration...`);
+      await cleanupDemoData(organisationId);
+    }
   }
 
   const componentTypeMap = await getOrCreateComponentTypes();
@@ -227,7 +242,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     const [scheme] = await db.insert(schemes).values({
       organisationId,
       name: `${cityData.city} Housing Estate ${s + 1}`,
-      reference: s === 0 ? "SCH-DEMO-001" : `SCH-${cityData.postcodePrefix}-${(s + 1).toString().padStart(3, "0")}`,
+      reference: `SCH-DEMO-${(s + 1).toString().padStart(3, "0")}`,
     }).returning();
     stats.schemes++;
 
@@ -236,7 +251,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       blockBatch.push({
         schemeId: scheme.id,
         name: `${randomChoice(BLOCK_PREFIXES)} ${randomChoice(BLOCK_NAMES)}`,
-        reference: `BLK-${scheme.reference.split("-")[1]}-${(b + 1).toString().padStart(3, "0")}`,
+        reference: `BLK-DEMO-${s + 1}-${(b + 1).toString().padStart(3, "0")}`,
       });
     }
     
@@ -272,8 +287,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       stats.properties += createdProperties.length;
 
       const componentBatch: any[] = [];
-      const certBatch: any[] = [];
-      const actionBatch: any[] = [];
+      const certBatch: { cert: any; actions: any[] }[] = [];
       
       for (const property of createdProperties) {
         const hasGas = Math.random() > 0.15;
@@ -316,7 +330,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
               ? randomChoice(["SATISFACTORY", "PASS", "UNSATISFACTORY"])
               : randomChoice(["SATISFACTORY", "SATISFACTORY", "PASS", "PASS"]);
           
-          certBatch.push({
+          const certData = {
             organisationId,
             propertyId: property.id,
             blockId: block.id,
@@ -329,15 +343,15 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
             issueDate,
             expiryDate,
             outcome,
-          });
+          };
 
+          const actions: any[] = [];
           if (outcome === "UNSATISFACTORY" || outcome === "FAIL" || outcome === "AT_RISK") {
             const severities = ["IMMEDIATE", "URGENT", "PRIORITY", "ROUTINE", "ADVISORY"] as const;
             const actionCount = randomInt(1, 3);
             
             for (let a = 0; a < actionCount; a++) {
-              actionBatch.push({
-                certificateId: `PLACEHOLDER_CERT_${certIndex}`,
+              actions.push({
                 propertyId: property.id,
                 code: `DEF-${randomInt(100, 999)}`,
                 category: certType,
@@ -355,6 +369,8 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
               });
             }
           }
+          
+          certBatch.push({ cert: certData, actions });
         }
       }
 
@@ -366,28 +382,24 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
         }
       }
 
-      if (certBatch.length > 0) {
-        for (let i = 0; i < certBatch.length; i += BATCH_SIZE) {
-          const batch = certBatch.slice(i, i + BATCH_SIZE);
-          const createdCerts = await db.insert(certificates).values(batch).returning();
-          stats.certificates += createdCerts.length;
+      for (let i = 0; i < certBatch.length; i += BATCH_SIZE) {
+        const batch = certBatch.slice(i, i + BATCH_SIZE);
+        const certValues = batch.map(b => b.cert);
+        const createdCerts = await db.insert(certificates).values(certValues).returning();
+        stats.certificates += createdCerts.length;
 
-          for (let j = 0; j < actionBatch.length && j < createdCerts.length; j++) {
-            if (actionBatch[j].certificateId.startsWith("PLACEHOLDER")) {
-              actionBatch[j].certificateId = createdCerts[j % createdCerts.length].id;
-            }
+        const allActions: any[] = [];
+        for (let j = 0; j < createdCerts.length; j++) {
+          const certId = createdCerts[j].id;
+          const actionsForCert = batch[j].actions;
+          for (const action of actionsForCert) {
+            allActions.push({ ...action, certificateId: certId });
           }
         }
-      }
-
-      if (actionBatch.length > 0) {
-        const validActions = actionBatch.filter(a => !a.certificateId.startsWith("PLACEHOLDER"));
-        if (validActions.length > 0) {
-          for (let i = 0; i < validActions.length; i += BATCH_SIZE) {
-            const batch = validActions.slice(i, i + BATCH_SIZE);
-            await db.insert(remedialActions).values(batch);
-            stats.remedialActions += batch.length;
-          }
+        
+        if (allActions.length > 0) {
+          await db.insert(remedialActions).values(allActions);
+          stats.remedialActions += allActions.length;
         }
       }
     }
@@ -396,10 +408,14 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
   }
 
   console.log("Demo data generation complete:", stats);
-  return stats;
+  
+  const finalCounts = await getDemoDataCounts(organisationId);
+  console.log("Final verification counts:", finalCounts);
+  
+  return finalCounts;
 }
 
-async function getDataCounts(): Promise<{
+async function getDemoDataCounts(organisationId: string): Promise<{
   schemes: number;
   blocks: number;
   properties: number;
@@ -407,21 +423,101 @@ async function getDataCounts(): Promise<{
   certificates: number;
   remedialActions: number;
 }> {
-  const [schemeCount] = await db.select({ count: sql<number>`count(*)` }).from(schemes);
-  const [blockCount] = await db.select({ count: sql<number>`count(*)` }).from(blocks);
-  const [propertyCount] = await db.select({ count: sql<number>`count(*)` }).from(properties);
-  const [componentCount] = await db.select({ count: sql<number>`count(*)` }).from(components);
-  const [certificateCount] = await db.select({ count: sql<number>`count(*)` }).from(certificates);
-  const [actionCount] = await db.select({ count: sql<number>`count(*)` }).from(remedialActions);
+  const demoSchemes = await db.select({ id: schemes.id }).from(schemes)
+    .where(sql`${schemes.organisationId} = ${organisationId} AND ${schemes.reference} LIKE 'SCH-DEMO-%'`);
+  
+  if (demoSchemes.length === 0) {
+    return { schemes: 0, blocks: 0, properties: 0, components: 0, certificates: 0, remedialActions: 0 };
+  }
+  
+  const schemeIds = demoSchemes.map(s => s.id);
+  
+  const [blockCount] = await db.select({ count: sql<number>`count(*)` }).from(blocks)
+    .where(sql`${blocks.schemeId} IN (${sql.join(schemeIds.map(id => sql`${id}`), sql`, `)})`);
+  
+  const demoBlocks = await db.select({ id: blocks.id }).from(blocks)
+    .where(sql`${blocks.schemeId} IN (${sql.join(schemeIds.map(id => sql`${id}`), sql`, `)})`);
+  const blockIds = demoBlocks.map(b => b.id);
+  
+  if (blockIds.length === 0) {
+    return { schemes: demoSchemes.length, blocks: 0, properties: 0, components: 0, certificates: 0, remedialActions: 0 };
+  }
+  
+  const [propertyCount] = await db.select({ count: sql<number>`count(*)` }).from(properties)
+    .where(sql`${properties.blockId} IN (${sql.join(blockIds.map(id => sql`${id}`), sql`, `)})`);
+  
+  const demoProperties = await db.select({ id: properties.id }).from(properties)
+    .where(sql`${properties.blockId} IN (${sql.join(blockIds.map(id => sql`${id}`), sql`, `)})`);
+  const propertyIds = demoProperties.map(p => p.id);
+  
+  if (propertyIds.length === 0) {
+    return { schemes: demoSchemes.length, blocks: Number(blockCount.count), properties: 0, components: 0, certificates: 0, remedialActions: 0 };
+  }
+  
+  const [componentCount] = await db.select({ count: sql<number>`count(*)` }).from(components)
+    .where(sql`${components.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
+  const [certificateCount] = await db.select({ count: sql<number>`count(*)` }).from(certificates)
+    .where(sql`${certificates.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
+  const [actionCount] = await db.select({ count: sql<number>`count(*)` }).from(remedialActions)
+    .where(sql`${remedialActions.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
 
   return {
-    schemes: Number(schemeCount.count),
+    schemes: demoSchemes.length,
     blocks: Number(blockCount.count),
     properties: Number(propertyCount.count),
     components: Number(componentCount.count),
     certificates: Number(certificateCount.count),
     remedialActions: Number(actionCount.count),
   };
+}
+
+async function cleanupDemoData(organisationId: string): Promise<void> {
+  console.log("Cleaning up existing demo data...");
+  
+  const demoSchemeRefs = await db.select({ id: schemes.id }).from(schemes)
+    .where(sql`${schemes.organisationId} = ${organisationId} AND ${schemes.reference} LIKE 'SCH-DEMO-%'`);
+  
+  if (demoSchemeRefs.length === 0) {
+    console.log("No demo data to clean up");
+    return;
+  }
+  
+  const schemeIds = demoSchemeRefs.map(s => s.id);
+  
+  const demoBlocks = await db.select({ id: blocks.id }).from(blocks)
+    .where(sql`${blocks.schemeId} IN (${sql.join(schemeIds.map(id => sql`${id}`), sql`, `)})`);
+  const blockIds = demoBlocks.map(b => b.id);
+  
+  if (blockIds.length > 0) {
+    const demoProperties = await db.select({ id: properties.id }).from(properties)
+      .where(sql`${properties.blockId} IN (${sql.join(blockIds.map(id => sql`${id}`), sql`, `)})`);
+    const propertyIds = demoProperties.map(p => p.id);
+    
+    if (propertyIds.length > 0) {
+      await db.delete(remedialActions).where(
+        sql`${remedialActions.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`
+      );
+      await db.delete(certificates).where(
+        sql`${certificates.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`
+      );
+      await db.delete(components).where(
+        sql`${components.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`
+      );
+      await db.delete(properties).where(
+        sql`${properties.id} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`
+      );
+    }
+    
+    await db.delete(blocks).where(
+      sql`${blocks.id} IN (${sql.join(blockIds.map(id => sql`${id}`), sql`, `)})`
+    );
+  }
+  
+  await db.delete(schemes).where(
+    sql`${schemes.id} IN (${sql.join(schemeIds.map(id => sql`${id}`), sql`, `)})`
+  );
+  
+  console.log("Demo data cleanup complete");
 }
 
 export async function generateFullDemoData(organisationId: string): Promise<{
