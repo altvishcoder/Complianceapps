@@ -12,7 +12,7 @@ import {
   certificateDetectionPatterns, certificateOutcomeRules,
   contractorCertifications, contractorVerificationHistory, contractorAlerts, contractorAssignments,
   certificateVersions, auditFieldChanges, ukhdsExports, complianceCalendarEvents,
-  staffMembers,
+  staffMembers, mlPredictions, mlFeedback, extractionCorrections,
   type User, type InsertUser,
   type Organisation, type InsertOrganisation,
   type Scheme, type InsertScheme,
@@ -1379,6 +1379,22 @@ export class DatabaseStorage implements IStorage {
       await db.delete(fireSystemRecords);
       await db.delete(asbestosSurveyRecords);
       await db.delete(waterTemperatureRecords);
+      
+      // API/Ingestion tables with propertyId
+      await db.delete(ingestionJobs);
+      await db.delete(ingestionBatches);
+      
+      // Audit tables with propertyId
+      await db.delete(auditEvents);
+      await db.delete(auditFieldChanges);
+      
+      // ML tables with propertyId
+      await db.delete(mlFeedback);
+      await db.delete(mlPredictions);
+      await db.delete(extractionCorrections);
+      
+      // Reporting/Calendar tables with propertyId
+      await db.delete(complianceCalendarEvents);
       
       // Contractor assignments reference properties
       await db.delete(contractorAssignments);
