@@ -4783,12 +4783,12 @@ export async function registerRoutes(
         problemPropertiesRaw,
         overdueActionsRaw
       ] = await Promise.all([
-        // Certificate stats: total, valid, pending counts
+        // Certificate stats: total, valid, pending counts (no org filter - matches Properties page behavior)
         db.select({
           total: count(),
           valid: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED' OR ${certificates.outcome} = 'SATISFACTORY')`,
           pending: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} IN ('UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'))`
-        }).from(certificates).where(eq(certificates.organisationId, ORG_ID)),
+        }).from(certificates),
         
         // Remedial action stats: open, immediate (no org filter - scoped via property/cert)
         db.select({
@@ -4807,7 +4807,7 @@ export async function registerRoutes(
           .where(eq(remedialActions.status, 'OPEN'))
           .groupBy(remedialActions.severity),
         
-        // Expiring certificates (next 30 days) with property join - LIMIT 10
+        // Expiring certificates (next 30 days) with property join - LIMIT 10 (no org filter)
         db.select({
           id: certificates.id,
           certificateType: certificates.certificateType,
@@ -4817,7 +4817,6 @@ export async function registerRoutes(
         }).from(certificates)
           .leftJoin(properties, eq(certificates.propertyId, properties.id))
           .where(and(
-            eq(certificates.organisationId, ORG_ID),
             isNotNull(certificates.expiryDate),
             gte(certificates.expiryDate, now.toISOString().split('T')[0]),
             lt(certificates.expiryDate, thirtyDaysFromNow.toISOString().split('T')[0])
