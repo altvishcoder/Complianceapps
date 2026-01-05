@@ -3,7 +3,7 @@ import {
   schemes, blocks, properties, components, componentTypes,
   certificates, remedialActions, extractions, extractionRuns,
   complianceStreams, certificateTypes as certTypesTable,
-  riskSnapshots, spaces
+  riskSnapshots, spaces, propertyRiskSnapshots
 } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -448,10 +448,150 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
 
   console.log("Demo data generation complete:", stats);
   
+  console.log("Generating risk snapshots for all properties...");
+  const riskSnapshotCount = await seedPropertyRiskSnapshots(organisationId);
+  console.log(`Created ${riskSnapshotCount} property risk snapshots`);
+  
   const finalCounts = await getDemoDataCounts(organisationId);
   console.log("Final verification counts:", finalCounts);
   
   return finalCounts;
+}
+
+async function seedPropertyRiskSnapshots(organisationId: string): Promise<number> {
+  const allProperties = await db.select({
+    id: properties.id,
+    blockId: properties.blockId,
+  }).from(properties)
+  .innerJoin(blocks, eq(properties.blockId, blocks.id))
+  .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+  .where(eq(schemes.organisationId, organisationId));
+
+  if (allProperties.length === 0) {
+    return 0;
+  }
+
+  const riskTiers: ('CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW')[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+  const tierWeights = [0.08, 0.17, 0.35, 0.40];
+  
+  const triggerFactorOptions = [
+    "Gas Safety Certificate expiring within 7 days",
+    "EICR overdue by 30+ days",
+    "Multiple open defects on property",
+    "Fire Risk Assessment not completed",
+    "High-rise building without adequate fire safety coverage",
+    "Vulnerable occupants identified",
+    "Legionella assessment overdue",
+    "Lift inspection required",
+    "Asbestos survey expired",
+    "Consumer unit requires replacement",
+  ];
+
+  const recommendedActionOptions = [
+    "Schedule urgent gas safety inspection",
+    "Book electrical inspection contractor",
+    "Complete fire risk assessment",
+    "Address outstanding defects",
+    "Update compliance calendar",
+    "Contact contractor for remedial works",
+    "Review tenant vulnerability status",
+    "Commission legionella risk assessment",
+    "Arrange lift LOLER inspection",
+  ];
+
+  const snapshotBatch: any[] = [];
+  
+  for (let i = 0; i < allProperties.length; i++) {
+    const prop = allProperties[i];
+    
+    const tierRoll = Math.random();
+    let cumulative = 0;
+    let selectedTier: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+    for (let t = 0; t < tierWeights.length; t++) {
+      cumulative += tierWeights[t];
+      if (tierRoll < cumulative) {
+        selectedTier = riskTiers[t];
+        break;
+      }
+    }
+
+    const scoreRanges = {
+      CRITICAL: [75, 100],
+      HIGH: [55, 74],
+      MEDIUM: [35, 54],
+      LOW: [10, 34],
+    };
+    const range = scoreRanges[selectedTier];
+    const overallScore = range[0] + Math.floor(Math.random() * (range[1] - range[0] + 1));
+
+    const expiryRiskScore = Math.floor(Math.random() * 100);
+    const defectRiskScore = Math.floor(Math.random() * 100);
+    const assetProfileRiskScore = Math.floor(Math.random() * 100);
+    const coverageGapRiskScore = Math.floor(Math.random() * 100);
+    const externalFactorRiskScore = Math.floor(Math.random() * 100);
+
+    const numFactors = selectedTier === 'CRITICAL' ? randomInt(3, 5) 
+      : selectedTier === 'HIGH' ? randomInt(2, 4)
+      : selectedTier === 'MEDIUM' ? randomInt(1, 3)
+      : randomInt(0, 1);
+    
+    const triggeringFactors = [];
+    for (let f = 0; f < numFactors; f++) {
+      triggeringFactors.push(triggerFactorOptions[(i + f) % triggerFactorOptions.length]);
+    }
+
+    const numActions = Math.max(1, numFactors);
+    const recommendedActions = [];
+    for (let a = 0; a < numActions; a++) {
+      recommendedActions.push(recommendedActionOptions[(i + a) % recommendedActionOptions.length]);
+    }
+
+    const trendOptions = ['UP', 'DOWN', 'STABLE'];
+    const trendDirection = trendOptions[i % 3];
+    const scoreChange = trendDirection === 'UP' ? randomInt(1, 10) 
+      : trendDirection === 'DOWN' ? -randomInt(1, 10) 
+      : 0;
+
+    snapshotBatch.push({
+      organisationId,
+      propertyId: prop.id,
+      overallScore,
+      riskTier: selectedTier,
+      expiryRiskScore,
+      defectRiskScore,
+      assetProfileRiskScore,
+      coverageGapRiskScore,
+      externalFactorRiskScore,
+      factorBreakdown: {
+        expiringCertificates: selectedTier === 'CRITICAL' ? randomInt(2, 5) : selectedTier === 'HIGH' ? randomInt(1, 3) : randomInt(0, 1),
+        overdueCertificates: selectedTier === 'CRITICAL' ? randomInt(1, 3) : randomInt(0, 1),
+        openDefects: randomInt(0, 5),
+        criticalDefects: selectedTier === 'CRITICAL' ? randomInt(1, 3) : randomInt(0, 1),
+        missingStreams: selectedTier === 'HIGH' || selectedTier === 'CRITICAL' ? ['FIRE_SAFETY', 'ASBESTOS'].slice(0, randomInt(0, 2)) : [],
+        assetAge: randomInt(5, 30),
+        isHRB: Math.random() < 0.15,
+        hasVulnerableOccupants: Math.random() < 0.25,
+        epcRating: ['A', 'B', 'C', 'D', 'E', 'F', 'G'][randomInt(0, 6)],
+      },
+      triggeringFactors,
+      recommendedActions,
+      legislationReferences: ['Gas Safety (Installation and Use) Regulations 1998', 'BS 7671 Wiring Regulations'],
+      previousScore: overallScore - scoreChange,
+      scoreChange,
+      trendDirection,
+      isLatest: true,
+    });
+  }
+
+  for (let i = 0; i < snapshotBatch.length; i += BATCH_SIZE) {
+    const batch = snapshotBatch.slice(i, i + BATCH_SIZE);
+    await db.insert(propertyRiskSnapshots).values(batch);
+    if ((i / BATCH_SIZE) % 5 === 0) {
+      console.log(`  Risk snapshots: ${Math.min(i + BATCH_SIZE, snapshotBatch.length)}/${snapshotBatch.length} inserted`);
+    }
+  }
+
+  return snapshotBatch.length;
 }
 
 async function getDemoDataCounts(organisationId: string): Promise<{
@@ -533,6 +673,9 @@ async function cleanupDemoData(organisationId: string): Promise<void> {
     const propertyIds = demoProperties.map(p => p.id);
     
     if (propertyIds.length > 0) {
+      await db.delete(propertyRiskSnapshots).where(
+        sql`${propertyRiskSnapshots.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`
+      );
       await db.delete(remedialActions).where(
         sql`${remedialActions.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`
       );
