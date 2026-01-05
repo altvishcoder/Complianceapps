@@ -84,6 +84,18 @@ function generateFutureDate(minDays: number, maxDays: number): string {
   return date.toISOString().split("T")[0];
 }
 
+function generatePastDueDate(minDaysAgo: number, maxDaysAgo: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - randomInt(minDaysAgo, maxDaysAgo));
+  return date.toISOString().split("T")[0];
+}
+
+function generateExpiringSoonDate(minDays: number = 1, maxDays: number = 30): string {
+  const date = new Date();
+  date.setDate(date.getDate() + randomInt(minDays, maxDays));
+  return date.toISOString().split("T")[0];
+}
+
 function generateExpiryDate(issueDate: string, type: string): string {
   const issue = new Date(issueDate);
   const validityMonths: Record<string, number> = {
@@ -319,8 +331,18 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
         for (let ct = 0; ct < Math.min(certificatesPerProperty, certTypes.length); ct++) {
           certIndex++;
           const certType = certTypes[ct];
-          const issueDate = generateDateInPast(300);
-          const expiryDate = generateExpiryDate(issueDate, certType);
+          
+          let issueDate: string;
+          let expiryDate: string;
+          
+          if (certIndex % 8 === 0) {
+            issueDate = generateDateInPast(340);
+            expiryDate = generateExpiringSoonDate(1, 30);
+          } else {
+            issueDate = generateDateInPast(300);
+            expiryDate = generateExpiryDate(issueDate, certType);
+          }
+          
           const isExpired = new Date(expiryDate) < new Date();
           const isExpiringSoon = !isExpired && new Date(expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
           
@@ -328,7 +350,9 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
             ? randomChoice(["UNSATISFACTORY", "FAIL", "AT_RISK"])
             : isExpiringSoon 
               ? randomChoice(["SATISFACTORY", "PASS", "UNSATISFACTORY"])
-              : randomChoice(["SATISFACTORY", "SATISFACTORY", "PASS", "PASS"]);
+              : certIndex % 4 === 0
+                ? randomChoice(["UNSATISFACTORY", "FAIL", "AT_RISK"])
+                : randomChoice(["SATISFACTORY", "SATISFACTORY", "PASS", "PASS"]);
           
           const certData = {
             organisationId,
@@ -347,25 +371,40 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
 
           const actions: any[] = [];
           if (outcome === "UNSATISFACTORY" || outcome === "FAIL" || outcome === "AT_RISK") {
-            const severities = ["IMMEDIATE", "URGENT", "PRIORITY", "ROUTINE", "ADVISORY"] as const;
             const actionCount = randomInt(1, 3);
             
             for (let a = 0; a < actionCount; a++) {
+              const severityRoll = Math.random();
+              const severity = severityRoll < 0.25 ? "IMMEDIATE" 
+                : severityRoll < 0.50 ? "URGENT"
+                : severityRoll < 0.70 ? "PRIORITY"
+                : severityRoll < 0.85 ? "ROUTINE"
+                : "ADVISORY";
+              
+              const isOverdue = Math.random() < 0.25;
+              const dueDate = isOverdue 
+                ? generatePastDueDate(1, 30)
+                : generateFutureDate(7, 90);
+              
               actions.push({
                 propertyId: property.id,
                 code: `DEF-${randomInt(100, 999)}`,
                 category: certType,
                 description: randomChoice([
                   "Replace faulty component",
-                  "Urgent repair required",
+                  "Urgent repair required", 
                   "Safety inspection overdue",
                   "Maintenance work needed",
                   "Component requires servicing",
+                  "Gas appliance condemned - immediate replacement needed",
+                  "Electrical hazard - consumer unit requires upgrade",
+                  "Fire door defective - fire stopping compromised",
+                  "Damp and mould remediation required",
                 ]),
                 location: randomChoice(["Kitchen", "Hallway", "Living Room", "Bedroom", "Bathroom"]),
-                severity: randomChoice(severities),
-                status: randomChoice(["OPEN", "OPEN", "IN_PROGRESS", "SCHEDULED"]),
-                dueDate: generateFutureDate(7, 90),
+                severity,
+                status: isOverdue ? "OPEN" : randomChoice(["OPEN", "OPEN", "IN_PROGRESS", "SCHEDULED"]),
+                dueDate,
               });
             }
           }
