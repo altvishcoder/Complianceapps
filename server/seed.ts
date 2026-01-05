@@ -1,7 +1,7 @@
 // Seed script for initial ComplianceAI data
 import { db } from "./db";
 import { organisations, schemes, blocks, properties, users, accounts, complianceStreams, certificateTypes, classificationCodes, extractionSchemas, complianceRules, normalisationRules, componentTypes, factorySettings, navigationSections, navigationItems, iconRegistry } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 // Helper function to create BetterAuth credential account for a user
@@ -2237,84 +2237,82 @@ async function seedNavigation() {
   }
   console.log(`✓ Seeded ${iconsData.length} icons`);
   
-  // Seed navigation sections
+  // Seed navigation sections - consolidated structure
   const sectionsData = [
-    { id: "sec-command", slug: "command-centre", title: "Overview Hub", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
-    { id: "sec-regulatory", slug: "regulatory", title: "Regulatory", iconKey: "Shield", displayOrder: 2, defaultOpen: false, isSystem: true },
-    { id: "sec-assets", slug: "asset-management", title: "Asset Management", iconKey: "FolderTree", displayOrder: 3, defaultOpen: false, isSystem: true },
-    { id: "sec-ops", slug: "operate", title: "Operate", iconKey: "Briefcase", displayOrder: 4, defaultOpen: true, isSystem: true },
-    { id: "sec-contractor", slug: "contractor-management", title: "Contractor Management", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
-    { id: "sec-staff", slug: "staff-dlo", title: "Staff & DLO", iconKey: "Briefcase", displayOrder: 6, defaultOpen: false, isSystem: true },
-    { id: "sec-monitoring", slug: "monitoring", title: "Monitoring", iconKey: "MonitorCheck", displayOrder: 7, defaultOpen: false, requiresRole: "adminOrManager", isSystem: true },
-    { id: "sec-admin", slug: "administration", title: "Administration", iconKey: "Cog", displayOrder: 8, defaultOpen: false, requiresRole: "admin", isSystem: true },
-    { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 9, defaultOpen: false, isSystem: true },
+    { id: "sec-operate", slug: "operate", title: "Operate", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
+    { id: "sec-assure", slug: "assure", title: "Assure", iconKey: "ShieldCheck", displayOrder: 2, defaultOpen: false, isSystem: true },
+    { id: "sec-understand", slug: "understand", title: "Understand", iconKey: "BarChart3", displayOrder: 3, defaultOpen: false, isSystem: true },
+    { id: "sec-assets", slug: "assets", title: "Assets", iconKey: "Building2", displayOrder: 4, defaultOpen: false, isSystem: true },
+    { id: "sec-people", slug: "people-suppliers", title: "People & Suppliers", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
+    { id: "sec-manage", slug: "manage-system", title: "Manage System", iconKey: "Settings2", displayOrder: 6, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 7, defaultOpen: false, isSystem: true },
   ];
+  
+  // Delete old sections that are being replaced
+  await db.delete(navigationSections).where(
+    sql`${navigationSections.id} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
+  );
   
   for (const section of sectionsData) {
     await db.insert(navigationSections).values(section)
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: navigationSections.id,
+        set: { title: sql`EXCLUDED.title`, slug: sql`EXCLUDED.slug`, displayOrder: sql`EXCLUDED.display_order`, iconKey: sql`EXCLUDED.icon_key` }
+      });
   }
   console.log(`✓ Seeded ${sectionsData.length} navigation sections`);
   
-  // Seed navigation items
+  // Delete old navigation items with old section IDs
+  await db.delete(navigationItems).where(
+    sql`${navigationItems.sectionId} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
+  );
+  
+  // Seed navigation items with consolidated structure
   const itemsData = [
-    // Overview Hub
-    { sectionId: "sec-command", slug: "overview", name: "Overview", href: "/dashboard", iconKey: "LayoutDashboard", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-command", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-command", slug: "reporting", name: "Regulatory", href: "/reports", iconKey: "FileText", displayOrder: 3, isSystem: true },
-    { sectionId: "sec-command", slug: "board", name: "Board", href: "/reports/board", iconKey: "Briefcase", displayOrder: 4, isSystem: true },
-    { sectionId: "sec-command", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
+    // Operate - Day-to-day operations
+    { sectionId: "sec-operate", slug: "overview", name: "Overview", href: "/dashboard", iconKey: "LayoutDashboard", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-operate", slug: "ingestion-hub", name: "Ingestion Hub", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-operate", slug: "certificates", name: "Certificates", href: "/certificates", iconKey: "Files", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-operate", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-operate", slug: "calendar", name: "Calendar", href: "/calendar", iconKey: "Calendar", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-operate", slug: "human-review", name: "Human Review", href: "/human-review", iconKey: "Eye", displayOrder: 6, requiresAITools: true, isSystem: true },
     
-    // Regulatory
-    { sectionId: "sec-regulatory", slug: "regulatory-evidence", name: "Regulatory Evidence", href: "/reports/regulatory", iconKey: "Shield", displayOrder: 1, isSystem: true },
+    // Assure - Compliance & proof
+    { sectionId: "sec-assure", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-assure", slug: "regulatory-evidence", name: "Regulatory Evidence", href: "/reports/regulatory", iconKey: "Shield", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-assure", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-assure", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
     
-    // Asset Management
+    // Understand - Insights & analytics
+    { sectionId: "sec-understand", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-understand", slug: "reporting", name: "Reporting", href: "/reports", iconKey: "FileText", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-understand", slug: "board", name: "Board Reports", href: "/reports/board", iconKey: "Briefcase", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-understand", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-understand", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-understand", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 6, requiresFactorySettings: true, isSystem: true },
+    
+    // Assets - Property & component management
     { sectionId: "sec-assets", slug: "property-hierarchy", name: "Property Hierarchy", href: "/admin/hierarchy", iconKey: "TreePine", displayOrder: 1, requiresAITools: true, isSystem: true },
     { sectionId: "sec-assets", slug: "properties", name: "Properties", href: "/properties", iconKey: "Building2", displayOrder: 2, isSystem: true },
     { sectionId: "sec-assets", slug: "components", name: "Components", href: "/components", iconKey: "Package", displayOrder: 3, isSystem: true },
     
-    // Operate
-    { sectionId: "sec-ops", slug: "ingestion-hub", name: "Ingestion Hub", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-ops", slug: "certificates", name: "Certificates", href: "/certificates", iconKey: "Files", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-command", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 6, isSystem: true },
-    { sectionId: "sec-ops", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
-    { sectionId: "sec-ops", slug: "calendar", name: "Calendar", href: "/calendar", iconKey: "Calendar", displayOrder: 5, isSystem: true },
-    { sectionId: "sec-ops", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 6, isSystem: true },
-    { sectionId: "sec-ops", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 7, isSystem: true },
-    { sectionId: "sec-ops", slug: "remedial-kanban", name: "Remedial Kanban", href: "/admin/remedial-kanban", iconKey: "ClipboardCheck", displayOrder: 8, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-ops", slug: "human-review", name: "Human Review", href: "/human-review", iconKey: "Eye", displayOrder: 9, requiresAITools: true, isSystem: true },
+    // People & Suppliers - Combined contractors and staff
+    { sectionId: "sec-people", slug: "contractors", name: "Contractors", href: "/contractors", iconKey: "Users", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-people", slug: "staff-dlo", name: "Staff & DLO", href: "/staff", iconKey: "Briefcase", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-people", slug: "sla-tracking", name: "SLA Tracking", href: "/contractors/sla", iconKey: "Target", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-people", slug: "performance", name: "Performance", href: "/contractors/dashboard", iconKey: "BarChart3", displayOrder: 4, isSystem: true },
     
-    // Contractor Management
-    { sectionId: "sec-contractor", slug: "contractor-performance", name: "Performance", href: "/contractors/dashboard", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-contractor", slug: "contractor-sla", name: "SLA Tracking", href: "/contractors/sla", iconKey: "Target", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-contractor", slug: "contractors", name: "Contractors", href: "/contractors", iconKey: "Users", displayOrder: 3, isSystem: true },
-    { sectionId: "sec-contractor", slug: "contractor-reports", name: "Reports", href: "/contractors/reports", iconKey: "FileText", displayOrder: 4, isSystem: true },
+    // Manage System - Admin configuration
+    { sectionId: "sec-manage", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-manage", slug: "configuration", name: "Configuration", href: "/admin/configuration", iconKey: "Settings2", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-manage", slug: "factory-settings", name: "Factory Settings", href: "/admin/factory-settings", iconKey: "Shield", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-manage", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 4, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-manage", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-manage", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-manage", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 7, isSystem: true },
+    { sectionId: "sec-manage", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 8, isSystem: true },
     
-    // Staff & DLO
-    { sectionId: "sec-staff", slug: "staff-performance", name: "Performance", href: "/staff/dashboard", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-staff", slug: "staff-sla", name: "SLA Tracking", href: "/staff/sla", iconKey: "Target", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-staff", slug: "staff-directory", name: "Staff Directory", href: "/staff", iconKey: "Users", displayOrder: 3, isSystem: true },
-    { sectionId: "sec-staff", slug: "staff-reports", name: "Reports", href: "/staff/reports", iconKey: "FileText", displayOrder: 4, isSystem: true },
-    
-    // Monitoring
-    { sectionId: "sec-monitoring", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 2, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, requiresAdmin: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "ingestion-insights", name: "Ingestion Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 6, requiresAITools: true, isSystem: true },
-    { sectionId: "sec-monitoring", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
-    
-    // Administration
-    { sectionId: "sec-admin", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-admin", slug: "configuration", name: "Configuration", href: "/admin/configuration", iconKey: "Settings2", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-admin", slug: "factory-settings", name: "Factory Settings", href: "/admin/factory-settings", iconKey: "Shield", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-admin", slug: "knowledge-training", name: "Knowledge Training", href: "/admin/knowledge-training", iconKey: "BookOpen", displayOrder: 4, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-admin", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 5, isSystem: true },
-    { sectionId: "sec-admin", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 6, isSystem: true },
-    { sectionId: "sec-admin", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 7, isSystem: true },
-    
-    // Resources
+    // Resources - Help & training
     { sectionId: "sec-resources", slug: "data-import", name: "Data Import", href: "/admin/imports", iconKey: "Database", displayOrder: 1, isSystem: true },
     { sectionId: "sec-resources", slug: "video-library", name: "Video Library", href: "/video-library", iconKey: "Film", displayOrder: 2, isSystem: true },
     { sectionId: "sec-resources", slug: "help-guide", name: "Help Guide", href: "/help", iconKey: "HelpCircle", displayOrder: 3, isSystem: true },
@@ -2322,7 +2320,16 @@ async function seedNavigation() {
   
   for (const item of itemsData) {
     await db.insert(navigationItems).values(item)
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: navigationItems.slug,
+        set: { 
+          sectionId: sql`EXCLUDED.section_id`,
+          name: sql`EXCLUDED.name`,
+          href: sql`EXCLUDED.href`,
+          iconKey: sql`EXCLUDED.icon_key`,
+          displayOrder: sql`EXCLUDED.display_order`
+        }
+      });
   }
   console.log(`✓ Seeded ${itemsData.length} navigation items`);
 }
