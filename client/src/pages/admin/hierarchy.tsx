@@ -944,8 +944,8 @@ export default function PropertyHierarchy() {
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header title="Property Hierarchy" />
-        <main className="flex-1 p-3 md:p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto p-3 md:p-6">
+          <div>
             <div className="mb-3 md:mb-6">
               <div className="flex items-center gap-2 mb-1 md:mb-2">
                 <TreePine className="h-5 w-5 md:h-6 md:w-6 text-emerald-600" />
@@ -1079,8 +1079,8 @@ export default function PropertyHierarchy() {
 
               <TabsContent value="properties">
                 {showVisualView ? (
-                  <Card>
-                    <CardHeader>
+                  <Card className="flex flex-col h-[calc(100vh-320px)] min-h-[400px]">
+                    <CardHeader className="flex-shrink-0">
                       <CardTitle className="flex items-center gap-2">
                         <TreePine className="h-5 w-5 text-emerald-600" />
                         Visual Hierarchy
@@ -1089,7 +1089,7 @@ export default function PropertyHierarchy() {
                         Interactive view of your entire property portfolio structure
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex-1 overflow-y-auto">
                       {isLoading ? (
                         <div className="flex justify-center py-12">
                           <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
