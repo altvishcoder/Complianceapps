@@ -41,10 +41,14 @@ export default function LoginPage() {
     const result = await login(email, password);
     
     if (result.success) {
-      // Small delay to ensure session cookie is set before redirect (Safari fix)
+      // Safari requires more time for cookie storage - use longer delay
+      // Also use window.location.href as fallback if replace doesn't work
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const delay = isSafari ? 300 : 100;
+      
       setTimeout(() => {
-        window.location.replace("/dashboard");
-      }, 100);
+        window.location.href = "/dashboard";
+      }, delay);
     } else {
       setError(result.error || "Login failed");
       setIsLoading(false);
