@@ -3,7 +3,7 @@ import {
   users, organisations, schemes, blocks, properties, certificates, extractions, remedialActions, contractors,
   extractionRuns, humanReviews, complianceRules, normalisationRules, 
   benchmarkSets, benchmarkItems, evalRuns, extractionSchemas,
-  complianceStreams, certificateTypes, classificationCodes,
+  complianceStreams, certificateTypes, classificationCodes, propertyRiskSnapshots, riskAlerts, riskSnapshots,
   componentTypes, spaces, components, componentCertificates, dataImports, dataImportRows,
   apiLogs, apiMetrics, webhookEndpoints, webhookEvents, webhookDeliveries, incomingWebhookLogs, apiKeys,
   videos, aiSuggestions,
@@ -1355,6 +1355,12 @@ export class DatabaseStorage implements IStorage {
     await db.delete(certificates);
     
     if (includeProperties) {
+      // Delete risk-related tables first (they reference properties)
+      // riskAlerts must be deleted before propertyRiskSnapshots (snapshotId FK)
+      await db.delete(riskAlerts);
+      await db.delete(propertyRiskSnapshots);
+      await db.delete(riskSnapshots);
+      
       // Delete components before properties (components reference properties)
       await db.delete(components);
       await db.delete(spaces);
