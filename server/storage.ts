@@ -1348,9 +1348,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(benchmarkItems);
     await db.delete(benchmarkSets);
     await db.delete(extractionRuns);
-    await db.delete(complianceRules);
-    await db.delete(normalisationRules);
-    await db.delete(extractionSchemas);
     
     // Then clear core certificate-related tables
     await db.delete(remedialActions);
@@ -1358,6 +1355,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(certificates);
     
     if (includeProperties) {
+      // Delete components before properties (components reference properties)
+      await db.delete(components);
+      await db.delete(spaces);
       await db.delete(properties);
       await db.delete(blocks);
       await db.delete(schemes);

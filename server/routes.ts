@@ -3390,50 +3390,23 @@ export async function registerRoutes(
     }
   });
   
-  // Seed demo data (schemes, blocks, properties)
-  app.post("/api/admin/seed-demo", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
-    try {
-      await storage.seedDemoData(ORG_ID);
-      res.json({ success: true, message: "Demo data seeded successfully" });
-    } catch (error: any) {
-      logErrorWithContext(error, "Failed to seed demo data", req, { action: 'seed-demo', organisationId: ORG_ID });
-      const errorMessage = error?.message || "Unknown error";
-      const errorDetail = error?.detail || error?.code || "";
-      res.status(500).json({ 
-        error: "Failed to seed demo data", 
-        details: `${errorMessage}${errorDetail ? ` (${errorDetail})` : ""}` 
-      });
-    }
-  });
-  
-  // Reset demo (wipe all + reseed)
+  // Reset/regenerate demo data (wipe all + generate full demo dataset)
   app.post("/api/admin/reset-demo", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
+      console.log("Wiping existing data and regenerating full demo dataset...");
       await storage.wipeData(true);
-      await storage.seedDemoData(ORG_ID);
-      res.json({ success: true, message: "Demo reset complete" });
-    } catch (error: any) {
-      logErrorWithContext(error, "Failed to reset demo", req, { action: 'reset-demo', organisationId: ORG_ID });
-      res.status(500).json({ error: "Failed to reset demo", details: error?.message });
-    }
-  });
-  
-  // Seed full demo data (comprehensive dataset with 2000 properties, 8000 components, 6000+ certificates)
-  app.post("/api/admin/seed-full-demo", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
-    try {
-      console.log("Starting full demo data generation...");
       const stats = await generateFullDemoData(ORG_ID);
       res.json({ 
         success: true, 
-        message: "Full demo data generated successfully",
+        message: "Demo data regenerated successfully",
         stats
       });
     } catch (error: any) {
-      logErrorWithContext(error, "Failed to generate full demo data", req, { action: 'seed-full-demo', organisationId: ORG_ID });
+      logErrorWithContext(error, "Failed to regenerate demo data", req, { action: 'reset-demo', organisationId: ORG_ID });
       const errorMessage = error?.message || "Unknown error";
       const errorDetail = error?.detail || error?.code || "";
       res.status(500).json({ 
-        error: "Failed to generate full demo data", 
+        error: "Failed to regenerate demo data", 
         details: `${errorMessage}${errorDetail ? ` (${errorDetail})` : ""}` 
       });
     }

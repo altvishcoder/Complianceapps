@@ -177,37 +177,19 @@ export default function FactorySettings() {
     },
   });
 
-  const seedDemoMutation = useMutation({
-    mutationFn: () => adminApi.seedDemo(),
-    onSuccess: (data) => {
-      toast({ title: "Success", description: data.message });
-      queryClient.invalidateQueries();
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
   const resetDemoMutation = useMutation({
     mutationFn: () => adminApi.resetDemo(),
     onSuccess: (data) => {
-      toast({ title: "Success", description: data.message });
-      queryClient.invalidateQueries();
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const seedFullDemoMutation = useMutation({
-    mutationFn: () => adminApi.seedFullDemo(),
-    onSuccess: (data) => {
       const stats = data.stats;
-      toast({ 
-        title: "Full Demo Data Generated", 
-        description: `Created ${stats.properties} properties, ${stats.components} components, ${stats.certificates} certificates`,
-        duration: 10000,
-      });
+      if (stats) {
+        toast({ 
+          title: "Demo Data Regenerated", 
+          description: `Created ${stats.properties} properties, ${stats.components} components, ${stats.certificates} certificates`,
+          duration: 10000,
+        });
+      } else {
+        toast({ title: "Success", description: data.message });
+      }
       queryClient.invalidateQueries();
     },
     onError: (error: Error) => {
@@ -215,7 +197,7 @@ export default function FactorySettings() {
     },
   });
 
-  const isDemoLoading = wipeDataMutation.isPending || seedDemoMutation.isPending || resetDemoMutation.isPending || seedFullDemoMutation.isPending;
+  const isDemoLoading = wipeDataMutation.isPending || resetDemoMutation.isPending;
   
   const [patternFilter, setPatternFilter] = useState("");
   const [ruleFilter, setRuleFilter] = useState("");
@@ -695,83 +677,17 @@ export default function FactorySettings() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Play className="h-4 w-4 text-emerald-600" />
-                    Load Demo Data
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Add sample schemes, blocks, and properties for demonstration purposes.
-                  </p>
-                  <Button 
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => seedDemoMutation.mutate()}
-                    disabled={isDemoLoading}
-                    data-testid="button-seed-demo"
-                  >
-                    {seedDemoMutation.isPending ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="mr-2 h-4 w-4" />
-                        Load Demo Data
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2 border-blue-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-600" />
-                    Full Demo Data
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Generate 2000+ properties, 8000+ components, 6000+ certificates for comprehensive testing.
-                  </p>
-                  <Button 
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => seedFullDemoMutation.mutate()}
-                    disabled={isDemoLoading}
-                    data-testid="button-seed-full-demo"
-                  >
-                    {seedFullDemoMutation.isPending ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Database className="mr-2 h-4 w-4" />
-                        Full Demo Data
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
+            <div className="grid gap-4 sm:grid-cols-2">
               <Card className="border-2 border-orange-200">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Trash2 className="h-4 w-4 text-orange-600" />
-                    Wipe All Data
+                    Wipe Demo Data
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Remove all data including properties, schemes, blocks, certificates, and AI model data.
+                    Remove all demo data including properties, components, schemes, blocks, certificates, and remedial actions.
                   </p>
                   <Button 
                     className="w-full"
@@ -788,27 +704,27 @@ export default function FactorySettings() {
                     ) : (
                       <>
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Wipe All Data
+                        Wipe Demo Data
                       </>
                     )}
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="border-2 border-red-200">
+              <Card className="border-2 border-emerald-200">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4 text-red-600" />
-                    Reset Demo
+                    <RefreshCw className="h-4 w-4 text-emerald-600" />
+                    Regenerate Demo Data
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Wipe everything and start fresh with new demo data.
+                    Wipe existing data and regenerate full demo dataset (2000 properties, 8000 components, 6000+ certificates).
                   </p>
                   <Button 
                     className="w-full"
-                    variant="destructive"
+                    variant="default"
                     onClick={() => resetDemoMutation.mutate()}
                     disabled={isDemoLoading}
                     data-testid="button-reset-demo"
@@ -816,12 +732,12 @@ export default function FactorySettings() {
                     {resetDemoMutation.isPending ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Resetting...
+                        Regenerating...
                       </>
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Reset Demo
+                        Regenerate Demo Data
                       </>
                     )}
                   </Button>
