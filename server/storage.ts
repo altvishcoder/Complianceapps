@@ -1355,13 +1355,36 @@ export class DatabaseStorage implements IStorage {
     await db.delete(certificates);
     
     if (includeProperties) {
-      // Delete risk-related tables first (they reference properties)
-      // riskAlerts must be deleted before propertyRiskSnapshots (snapshotId FK)
+      // Delete ALL tables that reference properties (in dependency order)
+      
+      // Risk-related tables (riskAlerts references propertyRiskSnapshots via snapshotId)
       await db.delete(riskAlerts);
       await db.delete(propertyRiskSnapshots);
       await db.delete(riskSnapshots);
       
-      // Delete components before properties (components reference properties)
+      // Regulatory/compliance tables with propertyId
+      await db.delete(hazardActions);
+      await db.delete(hazardCases);
+      await db.delete(tenantCommunications);
+      await db.delete(tenants);
+      await db.delete(households);
+      await db.delete(serviceRequests);
+      await db.delete(tsmSnapshots);
+      await db.delete(tsmMeasures);
+      await db.delete(safetyCaseReviews);
+      await db.delete(mandatoryOccurrenceReports);
+      await db.delete(buildingSafetyProfiles);
+      await db.delete(gasApplianceRecords);
+      await db.delete(electricalCircuitRecords);
+      await db.delete(fireSystemRecords);
+      await db.delete(asbestosSurveyRecords);
+      await db.delete(waterTemperatureRecords);
+      
+      // Contractor assignments reference properties
+      await db.delete(contractorAssignments);
+      
+      // Component certificates before components
+      await db.delete(componentCertificates);
       await db.delete(components);
       await db.delete(spaces);
       await db.delete(properties);
