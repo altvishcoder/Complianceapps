@@ -7,6 +7,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { initJobQueue, stopJobQueue } from "./job-queue";
+import { applyAllOptimizations } from "./db-optimization";
 import { httpLogger, logger } from "./logger";
 import { initSentry, setupSentryErrorHandler } from "./sentry";
 import { startLogRotationScheduler } from "./services/log-rotation";
@@ -104,6 +105,15 @@ async function initializeApp() {
     console.log(`[${new Date().toISOString()}] Seeding database...`);
     await seedDatabase();
     console.log(`[${new Date().toISOString()}] Database seeded in ${Date.now() - startTime}ms`);
+    
+    // Apply database performance optimizations (indexes, views, tables)
+    console.log(`[${new Date().toISOString()}] Applying database optimizations...`);
+    const optimizationResult = await applyAllOptimizations();
+    console.log(`[${new Date().toISOString()}] Database optimizations applied:`, {
+      indexes: optimizationResult.indexes.applied,
+      views: optimizationResult.views.created,
+      tables: optimizationResult.tables.created
+    });
     
     // Seed API limit settings
     await seedApiLimitSettings();

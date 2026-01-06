@@ -1,0 +1,276 @@
+# ComplianceAI: Load Testing & Performance Optimizations
+
+## Overview
+
+Technical recommendations to prepare ComplianceAI for 50,000 property scale testing and production deployment.
+
+-----
+
+## 1. Expected Data Volumes at 50K Properties
+
+|Entity           |Estimated Count    |Calculation                                      |
+|-----------------|-------------------|-------------------------------------------------|
+|Schemes          |~500               |~100 properties per scheme                       |
+|Blocks           |~2,500             |~20 properties per block                         |
+|Properties       |50,000             |Target volume                                    |
+|Components       |~150,000           |~3 per property                                  |
+|Certificates     |500,000 - 5,000,000|10-100 per property (use upper bound for testing)|
+|Remedials        |50,000 - 200,000   |Based on certificate failure rates               |
+|Audit Log Entries|10,000,000+        |High volume - compliance systems log extensively |
+
+-----
+
+## 2. Identified Bottlenecks
+
+### 2.1 Dashboard Statistics Queries
+
+**Problem:** Live `COUNT`/`GROUP BY` queries across millions of rows without pre-aggregation.
+
+**Impact:** Slow dashboard load times, database CPU spikes.
+
+### 2.2 Risk Score Recalculation
+
+**Problem:** ML/risk scores calculated on-demand per request.
+
+**Impact:** 50K simultaneous property recalculations will overload the system. Cascade effects when certificate failure → remedial creation → property risk update → scheme aggregation creates thundering herd.
+
+### 2.3 Certificate Listing Queries
+
+**Problem:** Missing pagination guards on some queries.
+
+**Impact:** Large result sets cause timeouts; memory exhaustion on API server.
+
+### 2.4 Job Queue Processing
+
+**Problem:** Document extraction + ML scoring runs serially.
+
+**Impact:** Processing backlog grows exponentially with volume.
+
+### 2.5 Materialized View Refresh
+
+**Problem:** Reporting views refresh synchronously.
+
+**Impact:** Long refresh times block dependent queries during updates.
+
+### 2.6 Certificate Expiry Scans
+
+**Problem:** Daily/weekly expiry checks scan entire certificate table.
+
+**Impact:** At 5M certificates, full table scans cause significant load.
+
+-----
+
+## 3. Required Optimizations
+
+### 3.1 Database Indexes
+
+Add composite indexes on frequently-queried columns:
+
+```sql
+-- Certificate queries by property and status
+CREATE INDEX idx_certificates_property_status 
+ON certificates(property_id, status, expiry_date);
+
+-- Certificate expiry lookups
+CREATE INDEX idx_certificates_expiry 
+ON certificates(expiry_date) 
+WHERE status = 'active';
+
+-- Remedials by property and priority
+CREATE INDEX idx_remedials_property_priority 
+ON remedials(property_id, priority, status);
+
+-- Risk scores by scheme for aggregation
+CREATE INDEX idx_properties_scheme_risk 
+ON properties(scheme_id, risk_score);
+
+-- Audit log queries by entity
+CREATE INDEX idx_audit_entity_timestamp 
+ON audit_logs(entity_type, entity_id, created_at DESC);
+```
+
+### 3.2 Background Workers for ML/Risk Scoring
+
+**Current:** Synchronous calculation on request.
+
+**Required:**
+
+- Queue-based recalculation using job queue (e.g., BullMQ, Celery)
+- Snapshot tables store last-calculated scores
+- API serves from snapshot; background worker updates asynchronously
+- Debounce/batch cascade updates (e.g., collect all changes over 30 seconds, then recalculate once)
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  API Layer  │────▶│  Job Queue  │────▶│   Workers   │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                                       │
+       │                                       ▼
+       │                              ┌─────────────────┐
+       └─────────────────────────────▶│ Snapshot Tables │
+              (reads from)            └─────────────────┘
+```
+
+### 3.3 Pre-Aggregated Statistics
+
+Create materialized views for dashboard metrics:
+
+```sql
+-- Dashboard statistics (refresh async every 5-15 mins)
+CREATE MATERIALIZED VIEW dashboard_stats AS
+SELECT 
+    scheme_id,
+    COUNT(*) as property_count,
+    COUNT(*) FILTER (WHERE risk_score >= 0.7) as high_risk_count,
+    AVG(risk_score) as avg_risk_score,
+    COUNT(DISTINCT certificate_type) as certificate_types
+FROM properties p
+LEFT JOIN certificates c ON c.property_id = p.id
+GROUP BY scheme_id;
+
+-- Certificate compliance summary
+CREATE MATERIALIZED VIEW certificate_compliance_summary AS
+SELECT 
+    certificate_type,
+    status,
+    COUNT(*) as count,
+    COUNT(*) FILTER (WHERE expiry_date < NOW()) as expired_count,
+    COUNT(*) FILTER (WHERE expiry_date < NOW() + INTERVAL '30 days') as expiring_soon
+FROM certificates
+GROUP BY certificate_type, status;
+```
+
+**Refresh strategy:** Use `REFRESH MATERIALIZED VIEW CONCURRENTLY` to avoid blocking reads.
+
+### 3.4 Pagination & Query Guards
+
+Enforce pagination on all list endpoints:
+
+```javascript
+// Example: Certificate listing
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 25;
+
+async function getCertificates(propertyId, { page = 1, pageSize = DEFAULT_PAGE_SIZE }) {
+    const limit = Math.min(pageSize, MAX_PAGE_SIZE);
+    const offset = (page - 1) * limit;
+    
+    return db.certificates.findMany({
+        where: { propertyId },
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' }
+    });
+}
+```
+
+Add query timeout guards:
+
+```javascript
+// Database query timeout (prevent runaway queries)
+const QUERY_TIMEOUT_MS = 30000;
+```
+
+### 3.5 Certificate Expiry Optimization
+
+**Option A:** Partition certificates table by expiry_date
+
+**Option B:** Separate expiry tracking table updated on certificate changes
+
+```sql
+-- Lightweight expiry tracking
+CREATE TABLE certificate_expiry_tracker (
+    certificate_id UUID PRIMARY KEY,
+    expiry_date DATE NOT NULL,
+    notified_30_day BOOLEAN DEFAULT FALSE,
+    notified_7_day BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX idx_expiry_tracker_date ON certificate_expiry_tracker(expiry_date);
+```
+
+### 3.6 Worker Scaling
+
+Configure job queue for horizontal scaling:
+
+```javascript
+// Worker configuration
+const workerConfig = {
+    concurrency: 10,           // Process 10 jobs simultaneously
+    limiter: {
+        max: 100,              // Max 100 jobs per duration
+        duration: 1000         // Per second
+    }
+};
+```
+
+-----
+
+## 4. Staged Load Testing Plan
+
+### Stage 1: 10,000 Properties
+
+- Baseline performance metrics
+- Identify first bottlenecks
+- Validate index effectiveness
+
+### Stage 2: 25,000 Properties
+
+- Test background worker scaling
+- Validate materialized view refresh times
+- Monitor queue depth under load
+
+### Stage 3: 50,000 Properties
+
+- Full scale validation
+- Stress test with concurrent users (simulate 50+ simultaneous users)
+- Measure cascade effects during bulk certificate uploads
+
+### Metrics to Track at Each Stage
+
+|Metric                        |Target              |Alert Threshold|
+|------------------------------|--------------------|---------------|
+|Dashboard load time (p95)     |< 2 seconds         |> 5 seconds    |
+|Certificate list API (p95)    |< 500ms             |> 2 seconds    |
+|Risk recalculation queue depth|< 1,000             |> 5,000        |
+|ML scoring worker latency     |< 200ms per property|> 1 second     |
+|Database CPU utilization      |< 60%               |> 80%          |
+|Memory usage (API server)     |< 70%               |> 85%          |
+
+-----
+
+## 5. Synthetic Data Generator Requirements
+
+For realistic load testing, generate data with:
+
+- **Certificate distribution:** Weighted toward Gas Safety (annual), EICR (5-year), EPC (10-year)
+- **Failure rates:** 5-15% certificates requiring remedial actions
+- **Property age distribution:** Mix of new build (sparse certificates) and older stock (dense histories)
+- **Temporal patterns:** Clustered expiry dates (realistic batch renewals)
+
+-----
+
+## 6. Implementation Priority
+
+|Priority|Task                                   |Effort Estimate|
+|--------|---------------------------------------|---------------|
+|1       |Add database indexes                   |2-4 hours      |
+|2       |Implement pagination guards            |4-8 hours      |
+|3       |Create materialized views for dashboard|4-8 hours      |
+|4       |Move risk scoring to background workers|1-2 days       |
+|5       |Add cascade debouncing                 |4-8 hours      |
+|6       |Synthetic data generator               |1 day          |
+|7       |Load testing framework + metrics       |1-2 days       |
+
+-----
+
+## Questions for Development Team
+
+1. What job queue system is currently in use (if any)?
+1. Are there existing materialized views or caching layers?
+1. What’s the current database (PostgreSQL assumed)?
+1. Any existing monitoring/APM tools in place?
+
+-----
+
+*Document prepared for LASHAN Digital - ComplianceAI Productisation*

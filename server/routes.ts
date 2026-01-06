@@ -3491,6 +3491,53 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to reclassify certificates" });
     }
   });
+  
+  // ===== DATABASE OPTIMIZATION MANAGEMENT =====
+  // Get optimization status
+  app.get("/api/admin/db-optimization/status", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { getOptimizationStatus } = await import("./db-optimization");
+      const status = await getOptimizationStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting optimization status:", error);
+      res.status(500).json({ error: "Failed to get optimization status" });
+    }
+  });
+  
+  // Refresh a specific materialized view
+  app.post("/api/admin/db-optimization/refresh-view", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { viewName } = req.body;
+      if (!viewName) {
+        return res.status(400).json({ error: "View name is required" });
+      }
+      
+      const validViews = ['mv_dashboard_stats', 'mv_certificate_compliance', 'mv_asset_health'];
+      if (!validViews.includes(viewName)) {
+        return res.status(400).json({ error: "Invalid view name" });
+      }
+      
+      const { refreshMaterializedView } = await import("./db-optimization");
+      const result = await refreshMaterializedView(viewName);
+      res.json(result);
+    } catch (error) {
+      console.error("Error refreshing view:", error);
+      res.status(500).json({ error: "Failed to refresh view" });
+    }
+  });
+  
+  // Reapply all optimizations
+  app.post("/api/admin/db-optimization/apply-all", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { applyAllOptimizations } = await import("./db-optimization");
+      const result = await applyAllOptimizations();
+      res.json(result);
+    } catch (error) {
+      console.error("Error applying optimizations:", error);
+      res.status(500).json({ error: "Failed to apply optimizations" });
+    }
+  });
 
   // ===== USER MANAGEMENT =====
   app.get("/api/users", async (req, res) => {

@@ -105,6 +105,11 @@ Preferred communication style: Simple, everyday language.
 -   **Logging**: Structured JSON logging using Pino.
 -   **Error Tracking**: Sentry integration for error monitoring.
 -   **System Health Monitoring**: Admin page to monitor database, API server, and job queue status.
+-   **Database Optimization**: Applied at startup via `server/db-optimization.ts`:
+    - **Performance Indexes**: ~15 indexes for high-frequency queries (certificates, remedials, properties, components, audit events)
+    - **Materialized Views**: 3 views for dashboard aggregations (mv_dashboard_stats, mv_certificate_compliance, mv_asset_health) with concurrent refresh support
+    - **Optimization Tables**: risk_snapshots for cached ML calculations
+    - **Admin API**: `/api/admin/db-optimization/status`, `/api/admin/db-optimization/refresh-view`, `/api/admin/db-optimization/apply-all`
 
 ### Version Management
 -   **Current Version**: 0.9.0 (pre-release)

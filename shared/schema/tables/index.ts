@@ -13,3 +13,4 @@ export * from './reporting';
 export * from './ml';
 export * from './cache';
 export * from './regulatory';
+export * from './performance-indexes';
