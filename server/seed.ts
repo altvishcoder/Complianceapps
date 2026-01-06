@@ -331,11 +331,8 @@ async function seedConfiguration() {
     await seedFactorySettings();
   }
   
-  // Always seed navigation if it doesn't exist
-  const [existingNavSection] = await db.select().from(navigationSections).limit(1);
-  if (!existingNavSection) {
-    await seedNavigation();
-  }
+  // Always update navigation to ensure consistent structure across environments
+  await seedNavigation();
   
   console.log("🔧 Seeding/updating configuration data (upsert mode)...");
   
