@@ -151,6 +151,10 @@ export const propertiesApi = {
       method: "POST",
       body: JSON.stringify({ ids }),
     }),
+  verify: (id: string) => 
+    fetchJSON<{ success: boolean; verified: number }>(`${API_BASE}/properties/${id}/verify`, {
+      method: "POST",
+    }),
   bulkReject: (ids: string[]) => 
     fetchJSON<{ success: boolean; rejected: number }>(`${API_BASE}/properties/bulk-reject`, {
       method: "POST",
@@ -565,6 +569,10 @@ export const componentsApi = {
   
   delete: (id: string) => fetchJSON<{ success: boolean }>(`${API_BASE}/components/${id}`, {
     method: "DELETE",
+  }),
+  
+  approve: (id: string) => fetchJSON<{ success: boolean; approved: number }>(`${API_BASE}/components/${id}/approve`, {
+    method: "POST",
   }),
   
   bulkApprove: (ids: string[]) => fetchJSON<{ success: boolean; approved: number }>(`${API_BASE}/components/bulk-approve`, {

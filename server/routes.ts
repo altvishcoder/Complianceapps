@@ -1720,6 +1720,25 @@ export async function registerRoutes(
     }
   });
   
+  // Single property verify
+  app.post("/api/properties/:id/verify", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+      const verified = await storage.bulkVerifyProperties([id]);
+      if (verified === 0) {
+        return res.status(404).json({ error: "Property not found or already verified" });
+      }
+      res.json({ success: true, verified });
+    } catch (error) {
+      console.error("Error verifying property:", error);
+      res.status(500).json({ error: "Failed to verify property" });
+    }
+  });
+  
   // Bulk verify properties
   app.post("/api/properties/bulk-verify", async (req, res) => {
     try {
@@ -6039,6 +6058,21 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting component:", error);
       res.status(500).json({ error: "Failed to delete component" });
+    }
+  });
+  
+  // Single component approve
+  app.post("/api/components/:id/approve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateComponent(id, { needsVerification: false, isActive: true });
+      if (!updated) {
+        return res.status(404).json({ error: "Component not found" });
+      }
+      res.json({ success: true, approved: 1 });
+    } catch (error) {
+      console.error("Error approving component:", error);
+      res.status(500).json({ error: "Failed to approve component" });
     }
   });
   

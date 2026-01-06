@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft, Wrench } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Home, Building2, Calendar, UploadCloud, ChevronLeft, Wrench, Loader2 } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { propertiesApi } from "@/lib/api";
 import { Breadcrumb, useBreadcrumbContext } from "@/components/Breadcrumb";
+import { useToast } from "@/hooks/use-toast";
 
 function truncateAddress(address: string, maxLength: number = 60): string {
   if (!address) return "Property";
@@ -81,11 +82,25 @@ function PropertyDetailSkeleton() {
 export default function PropertyDetail() {
   const [match, params] = useRoute("/properties/:id");
   const { buildContextUrl } = useBreadcrumbContext();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const { data: property, isLoading } = useQuery({
     queryKey: ["property", params?.id],
     queryFn: () => propertiesApi.get(params?.id!),
     enabled: !!params?.id,
+  });
+  
+  const verifyMutation = useMutation({
+    mutationFn: () => propertiesApi.verify(params?.id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["property", params?.id] });
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast({ title: "Property Verified", description: "Property has been verified and approved." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to verify property.", variant: "destructive" });
+    }
   });
 
   if (isLoading || !property) return <PropertyDetailSkeleton />;
@@ -133,6 +148,22 @@ export default function PropertyDetail() {
              </div>
              <div className="ml-auto flex items-center gap-2">
                 {getStatusBadge(property.complianceStatus)}
+                {property.needsVerification && (
+                  <Button 
+                    variant="default" 
+                    className="gap-2"
+                    onClick={() => verifyMutation.mutate()}
+                    disabled={verifyMutation.isPending}
+                    data-testid="button-verify-property"
+                  >
+                    {verifyMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" />
+                    )}
+                    Verify Property
+                  </Button>
+                )}
                 <Link href={buildContextUrl("/certificates/upload")}>
                    <Button variant="outline" className="gap-2">
                       <UploadCloud className="h-4 w-4" /> Upload Certificate

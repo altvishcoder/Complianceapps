@@ -187,6 +187,17 @@ export default function ComponentsPage() {
     });
   };
   
+  const approveMutation = useMutation({
+    mutationFn: componentsApi.approve,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["components"] });
+      toast({ title: "Component Approved", description: "Component has been verified and approved." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to approve component.", variant: "destructive" });
+    },
+  });
+  
   const bulkApproveMutation = useMutation({
     mutationFn: componentsApi.bulkApprove,
     onSuccess: (data) => {
@@ -645,6 +656,18 @@ export default function ComponentsPage() {
                       )}
                     </TableCell>
                     <TableCell className="flex gap-1">
+                      {comp.needsVerification && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => approveMutation.mutate(comp.id)}
+                          disabled={approveMutation.isPending}
+                          data-testid={`approve-component-${comp.id}`}
+                          title="Approve component"
+                        >
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
