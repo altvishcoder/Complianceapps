@@ -2228,19 +2228,17 @@ async function seedNavigation() {
     { iconKey: "Library", lucideName: "Library", category: "navigation" },
   ];
   
-  for (const icon of iconsData) {
-    await db.insert(iconRegistry).values(icon)
-      .onConflictDoNothing();
-  }
+  // Batch insert icons for performance
+  await db.insert(iconRegistry).values(iconsData).onConflictDoNothing();
   console.log(`✓ Seeded ${iconsData.length} icons`);
   
-  // IMPORTANT: Delete items FIRST (before sections) to respect FK constraints
-  // Delete old navigation items with old section IDs
+  // IMPORTANT: Delete ALL items FIRST (before sections) to respect FK constraints
+  // Delete both old-style and new-style navigation items
   await db.delete(navigationItems).where(
-    sql`${navigationItems.sectionId} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
+    sql`${navigationItems.sectionId} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin', 'sec-operate', 'sec-assure', 'sec-understand', 'sec-assets', 'sec-people', 'sec-manage', 'sec-resources')`
   );
   
-  // Delete old sections that are being replaced (after items are deleted)
+  // Delete old sections that are being replaced
   await db.delete(navigationSections).where(
     sql`${navigationSections.id} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
   );
@@ -2256,13 +2254,11 @@ async function seedNavigation() {
     { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 7, defaultOpen: false, isSystem: true },
   ];
   
-  for (const section of sectionsData) {
-    await db.insert(navigationSections).values(section)
-      .onConflictDoUpdate({
-        target: navigationSections.id,
-        set: { title: sql`EXCLUDED.title`, slug: sql`EXCLUDED.slug`, displayOrder: sql`EXCLUDED.display_order`, iconKey: sql`EXCLUDED.icon_key` }
-      });
-  }
+  // Delete existing new-style sections and re-insert for clean state
+  await db.delete(navigationSections).where(
+    sql`${navigationSections.id} IN ('sec-operate', 'sec-assure', 'sec-understand', 'sec-assets', 'sec-people', 'sec-manage', 'sec-resources')`
+  );
+  await db.insert(navigationSections).values(sectionsData);
   console.log(`✓ Seeded ${sectionsData.length} navigation sections`);
   
   // Seed navigation items with consolidated structure
@@ -2316,18 +2312,7 @@ async function seedNavigation() {
     { sectionId: "sec-resources", slug: "help-guide", name: "Help Guide", href: "/help", iconKey: "HelpCircle", displayOrder: 3, isSystem: true },
   ];
   
-  for (const item of itemsData) {
-    await db.insert(navigationItems).values(item)
-      .onConflictDoUpdate({
-        target: navigationItems.slug,
-        set: { 
-          sectionId: sql`EXCLUDED.section_id`,
-          name: sql`EXCLUDED.name`,
-          href: sql`EXCLUDED.href`,
-          iconKey: sql`EXCLUDED.icon_key`,
-          displayOrder: sql`EXCLUDED.display_order`
-        }
-      });
-  }
+  // Batch insert items for performance (items were deleted above)
+  await db.insert(navigationItems).values(itemsData);
   console.log(`✓ Seeded ${itemsData.length} navigation items`);
 }
