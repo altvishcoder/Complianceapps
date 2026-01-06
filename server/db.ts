@@ -4,11 +4,22 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+// Log database URL status at module load (don't throw - let server start for health checks)
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error(`[${new Date().toISOString()}] WARNING: DATABASE_URL not set - database operations will fail`);
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+// Create pool only if DATABASE_URL is set, otherwise create a dummy that will fail gracefully
+export const pool = databaseUrl 
+  ? new Pool({ connectionString: databaseUrl })
+  : null as unknown as pg.Pool;
+
+export const db = databaseUrl 
+  ? drizzle(pool, { schema })
+  : null as unknown as ReturnType<typeof drizzle>;
+
+// Helper to check if database is available
+export function isDatabaseAvailable(): boolean {
+  return !!databaseUrl && !!pool;
+}

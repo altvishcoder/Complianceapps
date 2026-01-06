@@ -12,11 +12,14 @@ import { initSentry, setupSentryErrorHandler } from "./sentry";
 import { startLogRotationScheduler } from "./services/log-rotation";
 import { createGlobalRateLimiter, seedApiLimitSettings } from "./services/api-limits";
 import { loadSecurityConfig, loadCompressionConfig } from "./services/middleware-config";
+import { isDatabaseAvailable } from "./db";
 
 // Immediate startup logging
 console.log(`[${new Date().toISOString()}] Starting server...`);
 console.log(`[${new Date().toISOString()}] NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`[${new Date().toISOString()}] DATABASE_URL: ${process.env.DATABASE_URL ? 'set' : 'NOT SET'}`);
+console.log(`[${new Date().toISOString()}] PORT: ${process.env.PORT || '5000'}`);
+console.log(`[${new Date().toISOString()}] Imports completed, setting up server...`);
 
 const app = express();
 const httpServer = createServer(app);
@@ -34,6 +37,7 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ 
     status: 'ok', 
     initialized: isInitialized,
+    database: isDatabaseAvailable() ? 'available' : 'unavailable',
     timestamp: new Date().toISOString()
   });
 });

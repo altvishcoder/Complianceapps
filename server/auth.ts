@@ -7,8 +7,12 @@ import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 12;
 
+// Fallback secret for development - production MUST set SESSION_SECRET or BETTER_AUTH_SECRET
+const authSecret = process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET || "development-only-secret-change-in-production";
+
 export const auth = betterAuth({
   basePath: "/api/auth",
+  secret: authSecret,
   
   database: drizzleAdapter(db, {
     provider: "pg",
