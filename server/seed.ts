@@ -2251,8 +2251,9 @@ async function seedNavigation() {
     { id: "sec-understand", slug: "understand", title: "Understand", iconKey: "BarChart3", displayOrder: 3, defaultOpen: false, isSystem: true },
     { id: "sec-assets", slug: "assets", title: "Assets", iconKey: "Building2", displayOrder: 4, defaultOpen: false, isSystem: true },
     { id: "sec-people", slug: "people-suppliers", title: "People & Suppliers", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
-    { id: "sec-manage", slug: "manage-system", title: "Manage System", iconKey: "Settings2", displayOrder: 6, defaultOpen: false, requiresRole: "admin", isSystem: true },
-    { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 7, defaultOpen: false, isSystem: true },
+    { id: "sec-monitor", slug: "system-monitoring", title: "System Monitoring", iconKey: "MonitorCheck", displayOrder: 6, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-manage", slug: "manage-system", title: "Manage System", iconKey: "Settings2", displayOrder: 7, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 8, defaultOpen: false, isSystem: true },
   ];
   
   // Batch insert sections
@@ -2298,18 +2299,20 @@ async function seedNavigation() {
     { sectionId: "sec-people", slug: "sla-tracking", name: "SLA Tracking", href: "/contractors/sla", iconKey: "Target", displayOrder: 3, isSystem: true },
     { sectionId: "sec-people", slug: "performance", name: "Performance", href: "/contractors/dashboard", iconKey: "BarChart3", displayOrder: 4, isSystem: true },
     
-    // Manage System - Admin configuration & monitoring
+    // System Monitoring - Health & analytics
+    { sectionId: "sec-monitor", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-monitor", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-monitor", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-monitor", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-monitor", slug: "jobs-queue", name: "Job Queue", href: "/admin/jobs-management", iconKey: "Cog", displayOrder: 5, isSystem: true },
+    
+    // Manage System - Admin configuration
     { sectionId: "sec-manage", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },
     { sectionId: "sec-manage", slug: "configuration", name: "Configuration", href: "/admin/configuration", iconKey: "Settings2", displayOrder: 2, isSystem: true },
     { sectionId: "sec-manage", slug: "factory-settings", name: "Factory Settings", href: "/admin/factory-settings", iconKey: "Shield", displayOrder: 3, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 4, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 6, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "jobs-queue", name: "Job Queue", href: "/admin/jobs-management", iconKey: "Cog", displayOrder: 8, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 9, isSystem: true },
-    { sectionId: "sec-manage", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 10, isSystem: true },
-    { sectionId: "sec-manage", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 11, isSystem: true },
+    { sectionId: "sec-manage", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-manage", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-manage", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 6, isSystem: true },
     
     // Resources - Help & training
     { sectionId: "sec-resources", slug: "data-import", name: "Data Import", href: "/admin/imports", iconKey: "Database", displayOrder: 1, isSystem: true },
