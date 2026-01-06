@@ -2232,16 +2232,17 @@ async function seedNavigation() {
   await db.insert(iconRegistry).values(iconsData).onConflictDoNothing();
   console.log(`✓ Seeded ${iconsData.length} icons`);
   
-  // IMPORTANT: Delete ALL items FIRST (before sections) to respect FK constraints
-  // Delete both old-style and new-style navigation items
-  await db.delete(navigationItems).where(
-    sql`${navigationItems.sectionId} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin', 'sec-operate', 'sec-assure', 'sec-understand', 'sec-assets', 'sec-people', 'sec-manage', 'sec-resources')`
-  );
-  
-  // Delete old sections that are being replaced
-  await db.delete(navigationSections).where(
-    sql`${navigationSections.id} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
-  );
+  // IMPORTANT: Delete ALL navigation items and sections for clean slate
+  // This ensures consistent navigation across all environments
+  try {
+    await db.delete(navigationItems);
+    console.log("✓ Cleared all navigation items");
+    
+    await db.delete(navigationSections);
+    console.log("✓ Cleared all navigation sections");
+  } catch (error) {
+    console.error("Error clearing navigation:", error);
+  }
   
   // Seed navigation sections - consolidated structure
   const sectionsData = [
@@ -2254,12 +2255,13 @@ async function seedNavigation() {
     { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 7, defaultOpen: false, isSystem: true },
   ];
   
-  // Delete existing new-style sections and re-insert for clean state
-  await db.delete(navigationSections).where(
-    sql`${navigationSections.id} IN ('sec-operate', 'sec-assure', 'sec-understand', 'sec-assets', 'sec-people', 'sec-manage', 'sec-resources')`
-  );
-  await db.insert(navigationSections).values(sectionsData);
-  console.log(`✓ Seeded ${sectionsData.length} navigation sections`);
+  // Batch insert sections
+  try {
+    await db.insert(navigationSections).values(sectionsData);
+    console.log(`✓ Seeded ${sectionsData.length} navigation sections`);
+  } catch (error) {
+    console.error("Error seeding navigation sections:", error);
+  }
   
   // Seed navigation items with consolidated structure
   const itemsData = [
@@ -2313,6 +2315,10 @@ async function seedNavigation() {
   ];
   
   // Batch insert items for performance (items were deleted above)
-  await db.insert(navigationItems).values(itemsData);
-  console.log(`✓ Seeded ${itemsData.length} navigation items`);
+  try {
+    await db.insert(navigationItems).values(itemsData);
+    console.log(`✓ Seeded ${itemsData.length} navigation items`);
+  } catch (error) {
+    console.error("Error seeding navigation items:", error);
+  }
 }
