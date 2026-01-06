@@ -2251,8 +2251,8 @@ async function seedNavigation() {
     { id: "sec-understand", slug: "understand", title: "Understand", iconKey: "BarChart3", displayOrder: 3, defaultOpen: false, isSystem: true },
     { id: "sec-assets", slug: "assets", title: "Assets", iconKey: "Building2", displayOrder: 4, defaultOpen: false, isSystem: true },
     { id: "sec-people", slug: "people-suppliers", title: "People & Suppliers", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
-    { id: "sec-monitor", slug: "system-monitoring", title: "System Monitoring", iconKey: "MonitorCheck", displayOrder: 6, defaultOpen: false, requiresRole: "admin", isSystem: true },
-    { id: "sec-manage", slug: "manage-system", title: "Manage System", iconKey: "Settings2", displayOrder: 7, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-monitor", slug: "monitoring", title: "Monitoring", iconKey: "MonitorCheck", displayOrder: 6, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-manage", slug: "administration", title: "Administration", iconKey: "Settings2", displayOrder: 7, defaultOpen: false, requiresRole: "admin", isSystem: true },
     { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 8, defaultOpen: false, isSystem: true },
   ];
   
