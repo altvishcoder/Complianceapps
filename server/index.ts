@@ -166,65 +166,69 @@ async function initializeApp() {
   }
 }
 
-(async () => {
-  try {
-    // Initialize Sentry first (must be before Express routes)
-    initSentry(app);
+// Start server IMMEDIATELY - no async operations before listen
+const port = parseInt(process.env.PORT || "5000", 10);
+
+// Initialize Sentry (sync operation)
+initSentry(app);
+
+// Error handler for unhandled errors
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  logger.error({ err, status }, "Unhandled error");
+  res.status(status).json({ message });
+});
+
+// Start listening IMMEDIATELY
+httpServer.listen(
+  {
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  },
+  () => {
+    console.log(`[${new Date().toISOString()}] Server listening on port ${port}`);
+    log(`serving on port ${port}`);
     
-    // Register routes BEFORE starting server
-    await registerRoutes(httpServer, app);
-
-    // Sentry error handler must be after routes but before other error handlers
-    setupSentryErrorHandler(app);
-
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-
-      logger.error({ err, status }, "Unhandled error");
-      res.status(status).json({ message });
-    });
-
-    // Setup static serving or Vite
-    if (process.env.NODE_ENV === "production") {
-      serveStatic(app);
-    } else {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
-    }
-
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    const port = parseInt(process.env.PORT || "5000", 10);
-    
-    httpServer.listen(
-      {
-        port,
-        host: "0.0.0.0",
-        reusePort: true,
-      },
-      () => {
-        console.log(`[${new Date().toISOString()}] Server listening on port ${port}`);
-        log(`serving on port ${port}`);
+    // Now do all async initialization AFTER server is listening
+    (async () => {
+      try {
+        console.log(`[${new Date().toISOString()}] Starting async initialization...`);
         
-        // Start background initialization AFTER server is listening
-        initializeApp().catch(err => {
-          console.error(`[${new Date().toISOString()}] Background initialization failed:`, err);
-        });
-      },
-    );
-    
-    // Handle server errors
-    httpServer.on('error', (error: NodeJS.ErrnoException) => {
-      console.error(`[${new Date().toISOString()}] Server error:`, error);
-      if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use`);
+        // Register routes (includes database operations)
+        await registerRoutes(httpServer, app);
+        console.log(`[${new Date().toISOString()}] Routes registered`);
+
+        // Sentry error handler must be after routes
+        setupSentryErrorHandler(app);
+
+        // Setup static serving or Vite
+        if (process.env.NODE_ENV === "production") {
+          serveStatic(app);
+          console.log(`[${new Date().toISOString()}] Static files configured`);
+        } else {
+          const { setupVite } = await import("./vite");
+          await setupVite(httpServer, app);
+          console.log(`[${new Date().toISOString()}] Vite configured`);
+        }
+        
+        // Background initialization (seeding, job queue, etc.)
+        await initializeApp();
+        
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Async initialization failed:`, error);
+        // Don't exit - server is already running for health checks
       }
-      process.exit(1);
-    });
-    
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Failed to start server:`, error);
-    process.exit(1);
+    })();
+  },
+);
+
+// Handle server errors
+httpServer.on('error', (error: NodeJS.ErrnoException) => {
+  console.error(`[${new Date().toISOString()}] Server error:`, error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${port} is already in use`);
   }
-})();
+  process.exit(1);
+});
