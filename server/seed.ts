@@ -2306,9 +2306,10 @@ async function seedNavigation() {
     { sectionId: "sec-manage", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
     { sectionId: "sec-manage", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 6, requiresFactorySettings: true, isSystem: true },
     { sectionId: "sec-manage", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-manage", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 8, isSystem: true },
-    { sectionId: "sec-manage", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 9, isSystem: true },
-    { sectionId: "sec-manage", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 10, isSystem: true },
+    { sectionId: "sec-manage", slug: "jobs-queue", name: "Job Queue", href: "/admin/jobs-management", iconKey: "Cog", displayOrder: 8, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-manage", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 9, isSystem: true },
+    { sectionId: "sec-manage", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 10, isSystem: true },
+    { sectionId: "sec-manage", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 11, isSystem: true },
     
     // Resources - Help & training
     { sectionId: "sec-resources", slug: "data-import", name: "Data Import", href: "/admin/imports", iconKey: "Database", displayOrder: 1, isSystem: true },
