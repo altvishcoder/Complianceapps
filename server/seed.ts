@@ -2237,6 +2237,17 @@ async function seedNavigation() {
   }
   console.log(`✓ Seeded ${iconsData.length} icons`);
   
+  // IMPORTANT: Delete items FIRST (before sections) to respect FK constraints
+  // Delete old navigation items with old section IDs
+  await db.delete(navigationItems).where(
+    sql`${navigationItems.sectionId} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
+  );
+  
+  // Delete old sections that are being replaced (after items are deleted)
+  await db.delete(navigationSections).where(
+    sql`${navigationSections.id} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
+  );
+  
   // Seed navigation sections - consolidated structure
   const sectionsData = [
     { id: "sec-operate", slug: "operate", title: "Operate", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
@@ -2248,11 +2259,6 @@ async function seedNavigation() {
     { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 7, defaultOpen: false, isSystem: true },
   ];
   
-  // Delete old sections that are being replaced
-  await db.delete(navigationSections).where(
-    sql`${navigationSections.id} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
-  );
-  
   for (const section of sectionsData) {
     await db.insert(navigationSections).values(section)
       .onConflictDoUpdate({
@@ -2261,11 +2267,6 @@ async function seedNavigation() {
       });
   }
   console.log(`✓ Seeded ${sectionsData.length} navigation sections`);
-  
-  // Delete old navigation items with old section IDs
-  await db.delete(navigationItems).where(
-    sql`${navigationItems.sectionId} IN ('sec-command', 'sec-regulatory', 'sec-ops', 'sec-contractor', 'sec-staff', 'sec-monitoring', 'sec-admin')`
-  );
   
   // Seed navigation items with consolidated structure
   const itemsData = [
