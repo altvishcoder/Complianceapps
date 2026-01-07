@@ -864,9 +864,13 @@ export default function RiskRadarPage() {
       return res.json();
     },
     onSuccess: (data) => {
+      const durationSec = data.durationMs ? (data.durationMs / 1000).toFixed(1) : null;
+      const errorNote = data.errors > 0 ? ` (${data.errors} errors)` : '';
       toast({
         title: 'Risk Calculation Complete',
-        description: `Processed ${data.processed} properties`,
+        description: durationSec 
+          ? `Processed ${data.processed} of ${data.totalProperties} properties in ${durationSec}s${errorNote}`
+          : `Processed ${data.processed} properties${errorNote}`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/risk/portfolio-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/risk/properties'] });

@@ -670,45 +670,144 @@ export async function createRiskAlert(
   return alert.id;
 }
 
+const BATCH_CONCURRENCY = 10;
+
+async function processPropertyWithRetry(
+  propertyId: string,
+  organisationId: string,
+  retries = 1
+): Promise<RiskTier> {
+  try {
+    const riskData = await calculatePropertyRiskScore(propertyId, organisationId);
+    const snapshotId = await saveRiskSnapshot(riskData);
+    await createRiskAlert(riskData, snapshotId);
+    return riskData.riskTier;
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return processPropertyWithRetry(propertyId, organisationId, retries - 1);
+    }
+    throw error;
+  }
+}
+
+async function processPropertyBatch(
+  propertyIds: string[],
+  organisationId: string
+): Promise<{ processed: number; critical: number; high: number; medium: number; low: number; errors: number; failedIds: string[] }> {
+  const results = await Promise.allSettled(
+    propertyIds.map(async (propertyId) => {
+      const tier = await processPropertyWithRetry(propertyId, organisationId);
+      return { propertyId, tier };
+    })
+  );
+
+  const stats = { processed: 0, critical: 0, high: 0, medium: 0, low: 0, errors: 0, failedIds: [] as string[] };
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      stats.processed++;
+      switch (result.value.tier) {
+        case 'CRITICAL': stats.critical++; break;
+        case 'HIGH': stats.high++; break;
+        case 'MEDIUM': stats.medium++; break;
+        case 'LOW': stats.low++; break;
+      }
+    } else {
+      stats.errors++;
+      stats.failedIds.push(propertyIds[i]);
+      logger.error({ propertyId: propertyIds[i], error: result.reason }, 'Failed to calculate risk score');
+    }
+  }
+
+  return stats;
+}
+
 export async function calculateAllPropertyRisks(organisationId: string): Promise<{
   processed: number;
   critical: number;
   high: number;
   medium: number;
   low: number;
+  totalProperties: number;
+  errors: number;
+  failedPropertyIds: string[];
+  durationMs: number;
 }> {
+  const startTime = Date.now();
+  
   const orgProperties = await db.select({
     id: properties.id,
-    blockId: properties.blockId,
   })
   .from(properties)
   .innerJoin(blocks, eq(properties.blockId, blocks.id))
   .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
   .where(eq(schemes.organisationId, organisationId));
 
-  const stats = { processed: 0, critical: 0, high: 0, medium: 0, low: 0 };
+  const totalProperties = orgProperties.length;
+  const stats = { processed: 0, critical: 0, high: 0, medium: 0, low: 0, errors: 0, failedPropertyIds: [] as string[] };
 
-  for (const prop of orgProperties) {
-    try {
-      const riskData = await calculatePropertyRiskScore(prop.id, organisationId);
-      const snapshotId = await saveRiskSnapshot(riskData);
-      await createRiskAlert(riskData, snapshotId);
+  if (totalProperties === 0) {
+    return { ...stats, totalProperties: 0, durationMs: Date.now() - startTime };
+  }
 
-      stats.processed++;
-      switch (riskData.riskTier) {
-        case 'CRITICAL': stats.critical++; break;
-        case 'HIGH': stats.high++; break;
-        case 'MEDIUM': stats.medium++; break;
-        case 'LOW': stats.low++; break;
-      }
-    } catch (error) {
-      logger.error({ propertyId: prop.id, error }, 'Failed to calculate risk score');
+  const propertyIds = orgProperties.map(p => p.id);
+  
+  const LOG_INTERVAL = 100;
+  
+  for (let i = 0; i < propertyIds.length; i += BATCH_CONCURRENCY) {
+    const batch = propertyIds.slice(i, i + BATCH_CONCURRENCY);
+    const batchStats = await processPropertyBatch(batch, organisationId);
+    
+    stats.processed += batchStats.processed;
+    stats.critical += batchStats.critical;
+    stats.high += batchStats.high;
+    stats.medium += batchStats.medium;
+    stats.low += batchStats.low;
+    stats.errors += batchStats.errors;
+    stats.failedPropertyIds.push(...batchStats.failedIds);
+
+    const currentProgress = Math.min(i + BATCH_CONCURRENCY, propertyIds.length);
+    const isFirstBatch = i === 0;
+    const isLastBatch = currentProgress >= propertyIds.length;
+    const isLogInterval = currentProgress % LOG_INTERVAL < BATCH_CONCURRENCY;
+    
+    if (isFirstBatch || isLastBatch || isLogInterval) {
+      logger.info({
+        organisationId,
+        progress: currentProgress,
+        total: totalProperties,
+        percentComplete: Math.round((currentProgress / totalProperties) * 100),
+        batchErrors: batchStats.errors,
+      }, 'Risk calculation progress');
     }
   }
 
-  logger.info({ organisationId, ...stats }, 'Batch risk calculation complete');
+  const durationMs = Date.now() - startTime;
+  
+  if (stats.failedPropertyIds.length > 0) {
+    logger.warn({ 
+      organisationId, 
+      failedCount: stats.failedPropertyIds.length,
+      failedPropertyIds: stats.failedPropertyIds.slice(0, 20),
+    }, 'Some properties failed risk calculation');
+  }
+  
+  logger.info({ 
+    organisationId, 
+    processed: stats.processed,
+    errors: stats.errors,
+    critical: stats.critical,
+    high: stats.high,
+    medium: stats.medium,
+    low: stats.low,
+    totalProperties,
+    durationMs,
+    propertiesPerSecond: stats.processed > 0 ? Math.round((stats.processed / durationMs) * 1000) : 0,
+  }, 'Batch risk calculation complete');
 
-  return stats;
+  return { ...stats, totalProperties, durationMs };
 }
 
 export async function getPortfolioRiskSummary(organisationId: string): Promise<{
