@@ -779,7 +779,7 @@ export default function Dashboard() {
         if (smallWidgetBuffer.length > 0) {
           const cols = smallWidgetBuffer.length <= 2 ? 2 : 3;
           result.push(
-            <div key={`grid-${index}`} className={`grid gap-6 md:grid-cols-${cols}`}>
+            <div key={`grid-${index}`} className={cols === 2 ? "grid gap-6 md:grid-cols-2" : "grid gap-6 md:grid-cols-3"}>
               {smallWidgetBuffer.map(id => renderWidget(id))}
             </div>
           );
