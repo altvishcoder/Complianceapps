@@ -196,6 +196,9 @@ export default function CertificatesPage() {
   const totalPages = paginatedData?.totalPages || 1;
   const totalItems = paginatedData?.total || 0;
   
+  // Stats from API (counts across entire dataset, not just current page)
+  const apiStats = (paginatedData as any)?.stats || null;
+  
   const isOverdue = (cert: EnrichedCertificate) => {
     if (!cert.expiryDate) return false;
     return new Date(cert.expiryDate) < new Date();
@@ -242,10 +245,11 @@ export default function CertificatesPage() {
   
   const selectedProp = selectedCert?.property;
   
-  const expiredCount = certificates.filter(isOverdue).length;
-  const expiringCount = certificates.filter(isExpiringSoon).length;
-  const pendingReviewCount = certificates.filter(c => c.status === 'NEEDS_REVIEW').length;
-  const approvedCount = certificates.filter(c => c.status === 'APPROVED').length;
+  // Use API stats for accurate counts across entire dataset (not just current page)
+  const expiredCount = apiStats?.expired ?? certificates.filter(isOverdue).length;
+  const expiringCount = apiStats?.expiringSoon ?? certificates.filter(isExpiringSoon).length;
+  const pendingReviewCount = apiStats?.pendingReview ?? certificates.filter(c => c.status === 'NEEDS_REVIEW').length;
+  const approvedCount = apiStats?.approved ?? certificates.filter(c => c.status === 'APPROVED').length;
 
   const getStatusColor = (status: string) => {
     switch (status) {

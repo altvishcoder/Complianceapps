@@ -2971,7 +2971,27 @@ export async function registerRoutes(
         extractedData: cert.extraction?.extractedData,
       }));
       
-      res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit) });
+      // Get certificate stats across the entire dataset (not just current page)
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      const [certStats] = await db.select({
+        expired: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} < ${now.toISOString()}::timestamp)`,
+        expiringSoon: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} >= ${now.toISOString()}::timestamp AND ${certificates.expiryDate} <= ${thirtyDaysFromNow.toISOString()}::timestamp)`,
+        pendingReview: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'NEEDS_REVIEW')`,
+        approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
+      })
+      .from(certificates)
+      .where(eq(certificates.organisationId, ORG_ID));
+      
+      const stats = {
+        expired: Number(certStats?.expired || 0),
+        expiringSoon: Number(certStats?.expiringSoon || 0),
+        pendingReview: Number(certStats?.pendingReview || 0),
+        approved: Number(certStats?.approved || 0),
+      };
+      
+      res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit), stats });
     } catch (error) {
       console.error("Error fetching certificates:", error);
       res.status(500).json({ error: "Failed to fetch certificates" });
