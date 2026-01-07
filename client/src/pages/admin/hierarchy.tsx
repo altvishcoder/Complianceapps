@@ -135,43 +135,29 @@ function LazyPropertiesLoader({
     );
   }
   
+  // Convert properties to HierarchyNode format for TreeNode rendering
+  const propertyNodes: HierarchyNode[] = visibleProperties.map((property) => ({
+    id: property.id,
+    name: property.addressLine1 || `Dwelling ${property.id.slice(0, 8)}`,
+    type: 'property' as const,
+    reference: property.uprn || undefined,
+    status: property.complianceStatus || 'UNKNOWN',
+    data: property,
+    children: [], // Spaces would go here if we fetched them
+    propertyId: property.id,
+    hasComponents: true, // Enable lazy component loading
+  }));
+  
   return (
     <>
-      {visibleProperties.map((property) => (
-        <div key={property.id}>
-          <div
-            className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-            style={{ marginLeft: `${level * 24}px` }}
-            onClick={() => onNodeClick?.({
-              id: property.id,
-              name: property.addressLine1 || `Dwelling ${property.id.slice(0, 8)}`,
-              type: 'property',
-              reference: property.uprn || undefined,
-              status: property.complianceStatus || 'UNKNOWN',
-              data: property,
-              children: [],
-              propertyId: property.id,
-              hasComponents: true,
-            })}
-            data-testid={`tree-node-property-${property.id}`}
-          >
-            <div className="w-6" />
-            <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
-              <Home className="h-4 w-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-slate-900 dark:text-slate-100 truncate hover:underline">
-                  {property.addressLine1 || `Dwelling ${property.id.slice(0, 8)}`}
-                </span>
-                {property.uprn && (
-                  <span className="text-xs text-slate-500">UPRN: {property.uprn}</span>
-                )}
-              </div>
-            </div>
-            <Badge variant="secondary" className="text-xs">Dwelling (Property)</Badge>
-          </div>
-        </div>
+      {propertyNodes.map((node) => (
+        <TreeNode 
+          key={`property-${node.id}`} 
+          node={node} 
+          level={level} 
+          defaultOpen={false} 
+          onNodeClick={onNodeClick} 
+        />
       ))}
       
       {hasMore && (
