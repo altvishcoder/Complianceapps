@@ -452,49 +452,58 @@ export default function DbOptimizationPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Database Optimization" />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 md:p-6">
           <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">Database Optimization</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight">Database Optimization</h1>
+                <p className="text-sm text-muted-foreground hidden sm:block">
                   Manage performance indexes, materialized views, and scheduling for 50k+ scale
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => refetch()}
                   disabled={isLoading}
                   data-testid="button-refresh-status"
+                  className="flex-1 sm:flex-none"
                 >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Refresh Status
+                  <RefreshCcw className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="sm:hidden">Refresh</span>
+                  <span className="hidden sm:inline">Refresh Status</span>
                 </Button>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => refreshAllMutation.mutate()}
                   disabled={isRefreshingAll || refreshAllMutation.isPending}
                   data-testid="button-refresh-all-views"
+                  className="flex-1 sm:flex-none"
                 >
                   {isRefreshingAll ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-1 sm:mr-2 animate-spin" />
                   ) : (
-                    <RefreshCcw className="h-4 w-4 mr-2" />
+                    <RefreshCcw className="h-4 w-4 mr-1 sm:mr-2" />
                   )}
-                  Refresh All Views
+                  <span className="sm:hidden">Views</span>
+                  <span className="hidden sm:inline">Refresh All Views</span>
                 </Button>
                 <Button
+                  size="sm"
                   onClick={() => applyAllMutation.mutate()}
                   disabled={applyAllMutation.isPending}
                   data-testid="button-apply-all"
+                  className="w-full sm:w-auto"
                 >
                   {applyAllMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-1 sm:mr-2 animate-spin" />
                   ) : (
-                    <Zap className="h-4 w-4 mr-2" />
+                    <Zap className="h-4 w-4 mr-1 sm:mr-2" />
                   )}
-                  Apply All Optimizations
+                  <span className="sm:hidden">Apply</span>
+                  <span className="hidden sm:inline">Apply All Optimizations</span>
                 </Button>
               </div>
             </div>
@@ -538,77 +547,81 @@ export default function DbOptimizationPage() {
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-500" />
-                    Performance Indexes
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+              <Card className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+                    <Database className="h-3 w-3 md:h-4 md:w-4 text-blue-500" />
+                    <span className="hidden sm:inline">Performance Indexes</span>
+                    <span className="sm:hidden">Indexes</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold" data-testid="text-index-count">
+                <CardContent className="p-2 md:p-6 pt-0">
+                  <div className="text-xl md:text-3xl font-bold" data-testid="text-index-count">
                     {status?.indexes.length ?? 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground hidden sm:block">
                     Active indexes
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-green-500" />
-                    Materialized Views
+              <Card className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+                    <Eye className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
+                    <span className="hidden sm:inline">Materialized Views</span>
+                    <span className="sm:hidden">Views</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold" data-testid="text-view-count">
+                <CardContent className="p-2 md:p-6 pt-0">
+                  <div className="text-xl md:text-3xl font-bold" data-testid="text-view-count">
                     {status?.materializedViews.length ?? 0}
-                    <span className="text-lg text-muted-foreground ml-1">
+                    <span className="text-sm md:text-lg text-muted-foreground ml-1">
                       / {categories ? Object.values(categories).reduce((acc, cat) => acc + cat.views.length, 0) : 0}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Created / Total defined
+                  <p className="text-xs text-muted-foreground hidden sm:block">
+                    Created / Total
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Table className="h-4 w-4 text-purple-500" />
-                    Optimization Tables
+              <Card className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+                    <Table className="h-3 w-3 md:h-4 md:w-4 text-purple-500" />
+                    <span className="hidden sm:inline">Optimization Tables</span>
+                    <span className="sm:hidden">Tables</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold" data-testid="text-table-count">
+                <CardContent className="p-2 md:p-6 pt-0">
+                  <div className="text-xl md:text-3xl font-bold" data-testid="text-table-count">
                     {status?.optimizationTables.length ?? 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground hidden sm:block">
                     Cache tables
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Card className="p-2 md:p-0">
+                <CardHeader className="p-2 md:p-6 pb-1 md:pb-2">
+                  <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
                     {freshnessData?.isStale ? (
-                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                      <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-yellow-500" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
                     )}
-                    Freshness Status
+                    <span className="hidden sm:inline">Freshness Status</span>
+                    <span className="sm:hidden">Status</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-xl font-bold" data-testid="text-freshness-status">
+                <CardContent className="p-2 md:p-6 pt-0">
+                  <div className="text-lg md:text-xl font-bold" data-testid="text-freshness-status">
                     {freshnessData?.isStale ? "Stale" : "Fresh"}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground hidden sm:block">
                     {freshnessData?.freshViews.length ?? 0} fresh, {(freshnessData?.staleViews.length ?? 0) + (freshnessData?.viewsNeverRefreshed.length ?? 0)} need refresh
                   </p>
                 </CardContent>
@@ -616,22 +629,26 @@ export default function DbOptimizationPage() {
             </div>
 
             <Tabs defaultValue="views" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="views" className="flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  Views
+              <TabsList className="w-full flex-wrap h-auto p-1 gap-1">
+                <TabsTrigger value="views" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-none">
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Views</span>
+                  <span className="sm:hidden">Views</span>
                 </TabsTrigger>
-                <TabsTrigger value="schedule" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Schedule
+                <TabsTrigger value="schedule" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-none">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Schedule</span>
+                  <span className="sm:hidden">Sched</span>
                 </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  History
+                <TabsTrigger value="history" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-none">
+                  <History className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">History</span>
+                  <span className="sm:hidden">Hist</span>
                 </TabsTrigger>
-                <TabsTrigger value="indexes" className="flex items-center gap-2">
-                  <Database className="h-4 w-4" />
-                  Indexes
+                <TabsTrigger value="indexes" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-none">
+                  <Database className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Indexes</span>
+                  <span className="sm:hidden">Idx</span>
                 </TabsTrigger>
               </TabsList>
 

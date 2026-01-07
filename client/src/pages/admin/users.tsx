@@ -310,21 +310,22 @@ export default function AdminUsersPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="User Management" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main">
+        <main id="main-content" className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6" role="main">
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight font-display">User Management</h2>
-                <p className="text-muted-foreground">Manage system access, user roles, and organization settings.</p>
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display">User Management</h2>
+                <p className="text-sm text-muted-foreground hidden sm:block">Manage system access, user roles, and organization settings.</p>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => refetch()}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  <RefreshCw className="h-4 w-4 mr-1 sm:mr-2" />
                   Refresh
                 </Button>
-                <Button onClick={() => setIsAddUserDialogOpen(true)} data-testid="button-add-user">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Add User
+                <Button size="sm" onClick={() => setIsAddUserDialogOpen(true)} data-testid="button-add-user">
+                  <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="sm:hidden">Add</span>
+                  <span className="hidden sm:inline">Add User</span>
                 </Button>
               </div>
             </div>
@@ -363,14 +364,16 @@ export default function AdminUsersPage() {
             />
 
             <Tabs defaultValue="users" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="users" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Active Users
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="users" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-none">
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Active Users</span>
+                  <span className="sm:hidden">Users</span>
                 </TabsTrigger>
-                <TabsTrigger value="organization" className="flex items-center gap-2">
-                  <Building className="h-4 w-4" />
-                  Organization
+                <TabsTrigger value="organization" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-1 sm:flex-none">
+                  <Building className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Organization</span>
+                  <span className="sm:hidden">Org</span>
                 </TabsTrigger>
               </TabsList>
 

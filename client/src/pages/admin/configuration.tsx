@@ -516,14 +516,14 @@ export default function Configuration() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="System Configuration" />
-        <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="System configuration content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6" role="main" aria-label="System configuration content">
           <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight font-display" data-testid="text-config-title">Configuration</h2>
-                <p className="text-muted-foreground">Manage certificate types, classification codes, extraction schemas, and domain rules.</p>
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display" data-testid="text-config-title">Configuration</h2>
+                <p className="text-sm text-muted-foreground hidden sm:block">Manage certificate types, classification codes, extraction schemas, and domain rules.</p>
               </div>
-              <Settings className="h-8 w-8 text-muted-foreground" />
+              <Settings className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground hidden sm:block" />
             </div>
 
             <HeroStatsGrid
