@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { LucideIcon, AlertTriangle, Clock, FileWarning, Wrench, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type RiskLevel = "critical" | "high" | "medium" | "low" | "good";
 
@@ -105,6 +106,44 @@ interface HeroStatsGridProps {
     slaInfo?: string;
     testId?: string;
   }>;
+}
+
+function HeroStatSkeleton() {
+  return (
+    <div className="rounded-lg p-4 border border-muted bg-muted/30 h-full min-h-[120px] animate-pulse">
+      <div className="flex items-start justify-between h-full">
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-8 w-12" />
+          <Skeleton className="h-3 w-32 mt-1" />
+        </div>
+        <Skeleton className="h-5 w-5 flex-shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+interface HeroStatsGridSkeletonProps {
+  count?: number;
+}
+
+export function HeroStatsGridSkeleton({ count = 4 }: HeroStatsGridSkeletonProps) {
+  const gridCols = count <= 4 
+    ? "grid-cols-2 md:grid-cols-4" 
+    : count === 5 
+      ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5" 
+      : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6";
+  
+  return (
+    <div className={`grid ${gridCols} gap-3`}>
+      {Array.from({ length: count }).map((_, index) => (
+        <HeroStatSkeleton key={index} />
+      ))}
+    </div>
+  );
 }
 
 export function HeroStatsGrid({ stats }: HeroStatsGridProps) {
