@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton, CardSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { Plus, Pencil, Trash2, BookOpen, FileText, Scale, HelpCircle, ClipboardList, Search, RefreshCw } from "lucide-react";
 
 interface KnowledgeDocument {
@@ -186,10 +187,11 @@ export default function KnowledgeTrainingPage() {
     }
   };
 
-  const filteredDocuments = documents.filter(doc => 
-    !searchTerm || 
+  const filteredDocuments = (documents || []).filter(doc => 
+    (!searchTerm || 
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.content.toLowerCase().includes(searchTerm.toLowerCase())
+    doc.content.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (categoryFilter === 'all' || doc.category === categoryFilter)
   );
 
   const getSourceTypeIcon = (sourceType: string) => {
@@ -263,8 +265,8 @@ export default function KnowledgeTrainingPage() {
             </Select>
           </div>
 
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          {isLoading && !documents ? (
+            <TableSkeleton rows={5} columns={4} />
           ) : filteredDocuments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {searchTerm || categoryFilter !== 'all' 

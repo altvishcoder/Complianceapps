@@ -40,6 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Skeleton, CardSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 
 interface Role {
   id: string;
@@ -240,8 +241,10 @@ export default function AdminNavigationManagement() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <div className="text-center py-8 text-muted-foreground">Loading navigation...</div>
+                {isLoading && !navigation ? (
+                  <div className="space-y-4">
+                    <TableSkeleton rows={6} columns={10} />
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     <Accordion type="multiple" defaultValue={navigation?.map(s => s.id) || []} className="w-full">

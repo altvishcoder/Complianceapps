@@ -29,6 +29,7 @@ import {
 import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 
 interface CircuitBreakerStatus {
   name: string;
@@ -230,8 +231,39 @@ export default function ObservabilityDashboard() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <RefreshCcw className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="space-y-4 w-full max-w-md p-6">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  const isInitialLoad = cbLoading && queueLoading && processingLoading && !circuitBreakers && !queueMetrics && !processingMetrics;
+
+  if (isInitialLoad) {
+    return (
+      <div className="flex h-screen bg-background" data-testid="observability-dashboard">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Observability Dashboard" />
+          <main className="flex-1 overflow-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-4 w-36" />
+              </div>
+              <Skeleton className="h-9 w-28" />
+            </div>
+            <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <CardSkeleton key={i} hasHeader={false} contentHeight={80} />
+              ))}
+            </div>
+            <CardSkeleton contentHeight={300} />
+          </main>
+        </div>
       </div>
     );
   }

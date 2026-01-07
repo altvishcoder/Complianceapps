@@ -15,6 +15,7 @@ import {
   Eye, Accessibility, Database, Settings, FileText, Link2, Zap, Activity,
   BarChart3, AlertCircle
 } from "lucide-react";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 
 interface CoverageData {
   totals: {
@@ -622,9 +623,15 @@ export default function TestSuite() {
 
   const [testSuites] = useState<TestSuite[]>(testSuiteData);
   const [isRunning, setIsRunning] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [lastRun, setLastRun] = useState<Date | null>(new Date());
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedSuites, setExpandedSuites] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsInitialLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const totalTests = testSuites.reduce((sum, suite) => sum + suite.totalTests, 0);
   const passedTests = testSuites.reduce((sum, suite) => sum + suite.passedTests, 0);
@@ -661,6 +668,37 @@ export default function TestSuite() {
     setLastRun(new Date());
     setIsRunning(false);
   };
+
+  if (isInitialLoading) {
+    return (
+      <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Test Suite" />
+          <main id="main-content" className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6" role="main" aria-label="Test suite content" data-testid="test-suite-page">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-2">
+                <Skeleton className="h-7 w-44" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+              <Skeleton className="h-9 w-32" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <CardSkeleton key={i} hasHeader={false} contentHeight={60} />
+              ))}
+            </div>
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <CardSkeleton key={i} contentHeight={80} />
+              ))}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-muted/30">

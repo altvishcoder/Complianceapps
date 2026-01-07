@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, FileJson, Code, RefreshCw, Clock, Server, Key } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 
 interface OpenApiStatus {
   lastGenerated: string;
@@ -65,6 +66,37 @@ export default function ApiDocs() {
       minute: '2-digit',
     });
   };
+
+  if (statusLoading && !status) {
+    return (
+      <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="API Documentation" />
+          <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="API documentation content" data-testid="api-docs-page">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="space-y-2">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-72" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-10 w-10" />
+              </div>
+            </div>
+            <div className="flex gap-2 mb-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <Skeleton key={i} className="h-6 w-24" />
+              ))}
+            </div>
+            <CardSkeleton contentHeight={400} />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-muted/30">

@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { adminApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 
 interface FactorySetting {
   id: string;
@@ -151,7 +152,10 @@ export default function FactorySettings() {
   if (authLoading) {
     return (
       <div className="flex h-screen bg-muted/30 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="space-y-4 w-full max-w-md p-6">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
       </div>
     );
   }
@@ -1113,9 +1117,11 @@ export default function FactorySettings() {
                   </Alert>
                 )}
 
-                {isLoading ? (
-                  <div className="flex items-center justify-center p-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                {isLoading && !data ? (
+                  <div className="space-y-4">
+                    <CardSkeleton contentHeight={120} />
+                    <CardSkeleton contentHeight={80} />
+                    <CardSkeleton contentHeight={100} />
                   </div>
                 ) : error ? (
                   <Alert variant="destructive">

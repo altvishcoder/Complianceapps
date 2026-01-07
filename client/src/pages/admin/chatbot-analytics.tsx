@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -52,16 +53,27 @@ export default function ChatbotAnalyticsPage() {
     },
   });
 
-  if (isLoading) {
+  if (isLoading && !analytics) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
+      <div className="flex h-screen bg-muted/30" data-testid="chatbot-analytics-page">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="AI Assistant Analytics" />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">
+              <div className="space-y-2">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+              <Skeleton className="h-9 w-36" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <CardSkeleton key={i} hasHeader={false} contentHeight={80} />
+              ))}
+            </div>
+            <CardSkeleton contentHeight={300} />
+          </main>
         </div>
       </div>
     );

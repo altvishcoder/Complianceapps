@@ -40,6 +40,7 @@ import {
 import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton, CardSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 
 interface IngestionStats {
   queue: {
@@ -510,6 +511,33 @@ export default function IngestionControlRoom() {
   const processingCerts = stats?.certificates?.processing || 0;
   const approvedCerts = stats?.certificates?.approved || 0;
   const certSuccessRate = stats?.certificates?.successRate || 0;
+
+  if (statsLoading && !stats) {
+    return (
+      <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Ingestion Control Room" />
+          <main id="main-content" className="flex-1 overflow-auto p-6" role="main" aria-label="Ingestion control room content" data-testid="ingestion-control-page">
+            <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+              <div className="space-y-2">
+                <Skeleton className="h-7 w-56" />
+                <Skeleton className="h-4 w-72" />
+              </div>
+              <Skeleton className="h-9 w-24" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {[1, 2, 3, 4].map(i => (
+                <CardSkeleton key={i} hasHeader={false} contentHeight={80} />
+              ))}
+            </div>
+            <CardSkeleton contentHeight={150} />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-muted/30">

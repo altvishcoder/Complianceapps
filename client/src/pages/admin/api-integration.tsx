@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Copy, Key, Plus, RefreshCw, Trash2, ExternalLink, Code2, FileJson, Shield, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 
 interface ApiClient {
   id: string;
@@ -179,6 +180,28 @@ def check_status(ingestion_id: str):
   },
   "timestamp": "2024-01-15T10:30:00Z"
 }`;
+
+  if (keysLoading && !apiKeys) {
+    return (
+      <div className="flex h-screen bg-muted/30">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="API Integration" />
+          <main id="main-content" className="flex-1 overflow-y-auto p-6" role="main" aria-label="API integration content">
+            <div className="max-w-6xl mx-auto" data-testid="api-integration-page">
+              <div className="mb-8 space-y-2">
+                <Skeleton className="h-9 w-64" />
+                <Skeleton className="h-4 w-96" />
+              </div>
+              <Skeleton className="h-10 w-full mb-6" />
+              <CardSkeleton contentHeight={300} />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-muted/30">

@@ -16,6 +16,7 @@ import {
   Webhook, Key, ArrowDownToLine, Book, Plus, Trash2, TestTube2, 
   CheckCircle, XCircle, Clock, Copy, Eye, EyeOff
 } from "lucide-react";
+import { Skeleton, CardSkeleton, ListItemSkeleton } from "@/components/ui/skeleton";
 
 export default function IntegrationsPage() {
   return (
@@ -253,8 +254,12 @@ function WebhooksTab() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <p className="text-muted-foreground">Loading...</p>
+          {isLoading && !webhooks.length ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <ListItemSkeleton key={i} />
+              ))}
+            </div>
           ) : webhooks.length === 0 ? (
             <p className="text-muted-foreground">No webhooks configured yet.</p>
           ) : (
@@ -491,8 +496,12 @@ function ApiKeysTab() {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <p className="text-muted-foreground">Loading...</p>
+        {isLoading && !apiKeys.length ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <ListItemSkeleton key={i} />
+            ))}
+          </div>
         ) : apiKeys.length === 0 ? (
           <p className="text-muted-foreground">No API keys generated yet.</p>
         ) : (
@@ -547,8 +556,12 @@ function IncomingWebhooksTab() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <p className="text-muted-foreground">Loading...</p>
+        {isLoading && !logs.length ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map(i => (
+              <ListItemSkeleton key={i} />
+            ))}
+          </div>
         ) : logs.length === 0 ? (
           <p className="text-muted-foreground">No incoming webhooks received yet.</p>
         ) : (

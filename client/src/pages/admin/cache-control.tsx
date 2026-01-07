@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Skeleton, CardSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { 
   Database, 
   Server, 
@@ -255,6 +256,36 @@ export default function CacheControlPage() {
         : [...prev, regionId]
     );
   };
+
+  if (overviewLoading && !overview) {
+    return (
+      <div className="flex h-screen bg-muted/30" data-testid="page-cache-control">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Cache Control" />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+              <Skeleton className="h-10 w-28" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <CardSkeleton key={i} hasHeader={false} contentHeight={60} />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <CardSkeleton contentHeight={200} />
+              <CardSkeleton contentHeight={200} />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-muted/30" data-testid="page-cache-control">

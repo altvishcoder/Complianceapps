@@ -9,6 +9,7 @@ import {
   Pause, AlertTriangle, Calendar, Timer, Zap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton, CardSkeleton } from '@/components/ui/skeleton';
 
 interface ScheduledJobInfo {
   name: string;
@@ -256,9 +257,11 @@ export default function JobsManagement() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                  {isLoading && !jobs.length ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map(i => (
+                        <CardSkeleton key={i} hasHeader={false} contentHeight={60} />
+                      ))}
                     </div>
                   ) : scheduledJobs.length > 0 ? (
                     scheduledJobs.map(job => (
@@ -288,9 +291,11 @@ export default function JobsManagement() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                  {isLoading && !jobs.length ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map(i => (
+                        <CardSkeleton key={i} hasHeader={false} contentHeight={60} />
+                      ))}
                     </div>
                   ) : onDemandJobs.length > 0 ? (
                     onDemandJobs.map(job => (

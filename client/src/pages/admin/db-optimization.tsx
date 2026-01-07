@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -438,10 +439,42 @@ export default function DbOptimizationPage() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen">
+      <div className="flex h-screen bg-muted/30 items-center justify-center">
+        <div className="space-y-4 w-full max-w-md p-6">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading && !status) {
+    return (
+      <div className="flex h-screen bg-background" data-testid="db-optimization-page">
         <Sidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Database Optimization" />
+          <main className="flex-1 overflow-y-auto p-3 md:p-6">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-7 w-56" />
+                  <Skeleton className="h-4 w-96 hidden sm:block" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-32" />
+                  <Skeleton className="h-9 w-36" />
+                  <Skeleton className="h-9 w-40" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                {[1, 2, 3, 4].map(i => (
+                  <CardSkeleton key={i} hasHeader={false} contentHeight={60} />
+                ))}
+              </div>
+              <CardSkeleton contentHeight={300} />
+            </div>
+          </main>
         </div>
       </div>
     );
