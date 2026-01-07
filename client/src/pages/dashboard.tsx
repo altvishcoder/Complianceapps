@@ -3,9 +3,10 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
-import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw, FileWarning, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw, FileWarning, Zap, Database } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -162,6 +163,23 @@ export default function Dashboard() {
       return res.json();
     },
     staleTime: 30000,
+  });
+
+  const { data: freshnessData } = useQuery<{
+    isStale: boolean;
+    oldestRefresh: string | null;
+    viewsNeverRefreshed: string[];
+    staleViews: string[];
+    freshViews: string[];
+  }>({
+    queryKey: ['db-freshness-dashboard'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/db-optimization/freshness', { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60000,
+    retry: false,
   });
   
   const visibleWidgets = useMemo(() => 
@@ -795,6 +813,20 @@ export default function Dashboard() {
                 <Badge variant="secondary" className="animate-pulse">
                   <GripVertical className="h-3 w-3 mr-1" />
                   Drag widgets to reorder
+                </Badge>
+              )}
+              {freshnessData && (
+                <Badge 
+                  variant={freshnessData.isStale ? "outline" : "secondary"} 
+                  className={freshnessData.isStale ? "border-yellow-500 text-yellow-700 dark:text-yellow-300" : ""}
+                  data-testid="badge-data-freshness"
+                >
+                  <Database className="h-3 w-3 mr-1" />
+                  {freshnessData.oldestRefresh ? (
+                    <>Data as of {formatDistanceToNow(new Date(freshnessData.oldestRefresh), { addSuffix: true })}</>
+                  ) : (
+                    <>Data not yet cached</>
+                  )}
                 </Badge>
               )}
             </div>

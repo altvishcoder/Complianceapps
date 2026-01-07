@@ -3396,6 +3396,7 @@ export async function registerRoutes(
   // ===== ADMIN / DEMO DATA MANAGEMENT =====
   // All admin routes require admin role
   const SUPER_ADMIN_ROLES = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'];
+  const ADMIN_AND_ABOVE_ROLES = ['LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'COMPLIANCE_MANAGER', 'ADMIN', 'MANAGER'];
   
   // Wipe all data (certificates, actions, extractions)
   app.post("/api/admin/wipe-data", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
