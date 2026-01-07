@@ -154,7 +154,7 @@ export function HeroStatsGrid({ stats }: HeroStatsGridProps) {
       : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6";
   
   return (
-    <div className={`grid ${gridCols} gap-3`}>
+    <div className={`grid ${gridCols} gap-3 animate-in fade-in duration-300`}>
       {stats.map((stat, index) => (
         <HeroStat
           key={index}
