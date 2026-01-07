@@ -4961,191 +4961,128 @@ export async function registerRoutes(
     }
   });
   
-  // ===== DASHBOARD STATS (OPTIMIZED) =====
+  // ===== DASHBOARD STATS (USING MATERIALIZED VIEWS) =====
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const now = new Date();
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(now.getDate() + 30);
 
-      // Run aggregation queries in parallel for speed
+      // Use materialized views for fast dashboard stats
       const [
-        certStats,
-        actionStats,
-        propertyCount,
-        hazardBySeverity,
+        dashboardStatsRaw,
+        complianceStatsRaw,
+        assetHealthRaw,
         expiringCertsRaw,
-        urgentActionsRaw,
-        problemPropertiesRaw,
-        overdueActionsRaw
+        remedialBacklogRaw,
+        hazardBySeverity
       ] = await Promise.all([
-        // Certificate stats: total, valid, pending counts (no org filter - matches Properties page behavior)
-        db.select({
-          total: count(),
-          valid: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED' OR ${certificates.outcome} = 'SATISFACTORY')`,
-          pending: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} IN ('UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'))`
-        }).from(certificates),
+        // mv_dashboard_stats - pre-aggregated dashboard metrics
+        db.execute(sql`SELECT * FROM mv_dashboard_stats LIMIT 1`),
         
-        // Remedial action stats: open, immediate (no org filter - scoped via property/cert)
-        db.select({
-          open: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'OPEN')`,
-          immediate: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'OPEN' AND ${remedialActions.severity} = 'IMMEDIATE')`
-        }).from(remedialActions),
+        // mv_certificate_compliance - compliance stats by type
+        db.execute(sql`SELECT * FROM mv_certificate_compliance`),
         
-        // Property count (no org filter - properties scoped via block->scheme hierarchy)
-        db.select({ count: count() }).from(properties),
+        // mv_asset_health - asset health summary
+        db.execute(sql`SELECT * FROM mv_asset_health LIMIT 1`),
         
-        // Hazard distribution by severity (OPEN only)
+        // mv_certificate_expiry_calendar - expiring certificates (next 30 days)
+        db.execute(sql`
+          SELECT certificate_id, certificate_type, expiry_date, property_id, uprn, 
+                 address_line1, postcode, urgency_level, days_until_expiry
+          FROM mv_certificate_expiry_calendar 
+          WHERE days_until_expiry >= 0 AND days_until_expiry <= 30
+          ORDER BY days_until_expiry ASC
+          LIMIT 10
+        `),
+        
+        // mv_remedial_backlog - urgent/immediate actions
+        db.execute(sql`
+          SELECT action_id, description, severity, status, due_date, 
+                 address_line1, postcode, due_status
+          FROM mv_remedial_backlog
+          WHERE severity IN ('IMMEDIATE', 'URGENT')
+          ORDER BY CASE severity WHEN 'IMMEDIATE' THEN 0 WHEN 'URGENT' THEN 1 ELSE 2 END
+          LIMIT 10
+        `),
+        
+        // Hazard distribution by severity (still from base table for accuracy)
         db.select({
           severity: remedialActions.severity,
           count: count()
         }).from(remedialActions)
           .where(eq(remedialActions.status, 'OPEN'))
-          .groupBy(remedialActions.severity),
-        
-        // Expiring certificates (next 30 days) with property join - LIMIT 10 (no org filter)
-        db.select({
-          id: certificates.id,
-          certificateType: certificates.certificateType,
-          expiryDate: certificates.expiryDate,
-          addressLine1: properties.addressLine1,
-          postcode: properties.postcode
-        }).from(certificates)
-          .leftJoin(properties, eq(certificates.propertyId, properties.id))
-          .where(and(
-            isNotNull(certificates.expiryDate),
-            gte(certificates.expiryDate, now.toISOString().split('T')[0]),
-            lt(certificates.expiryDate, thirtyDaysFromNow.toISOString().split('T')[0])
-          ))
-          .orderBy(certificates.expiryDate)
-          .limit(10),
-        
-        // Urgent actions with property join - LIMIT 10
-        db.select({
-          id: remedialActions.id,
-          description: remedialActions.description,
-          severity: remedialActions.severity,
-          dueDate: remedialActions.dueDate,
-          addressLine1: properties.addressLine1,
-          postcode: properties.postcode
-        }).from(remedialActions)
-          .leftJoin(properties, eq(remedialActions.propertyId, properties.id))
-          .where(and(
-            eq(remedialActions.status, 'OPEN'),
-            inArray(remedialActions.severity, ['IMMEDIATE', 'URGENT'])
-          ))
-          .orderBy(sql`CASE ${remedialActions.severity} WHEN 'IMMEDIATE' THEN 0 WHEN 'URGENT' THEN 1 ELSE 2 END`)
-          .limit(10),
-        
-        // Problem properties - aggregate open actions per property
-        db.select({
-          id: properties.id,
-          addressLine1: properties.addressLine1,
-          postcode: properties.postcode,
-          issueCount: count(),
-          criticalCount: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.severity} IN ('IMMEDIATE', 'URGENT'))`
-        }).from(remedialActions)
-          .innerJoin(properties, eq(remedialActions.propertyId, properties.id))
-          .where(eq(remedialActions.status, 'OPEN'))
-          .groupBy(properties.id, properties.addressLine1, properties.postcode)
-          .orderBy(sql`COUNT(*) FILTER (WHERE ${remedialActions.severity} IN ('IMMEDIATE', 'URGENT')) DESC`, sql`COUNT(*) DESC`)
-          .limit(10),
-        
-        // Overdue actions count for Awaab's Law
-        db.select({ count: count() }).from(remedialActions)
-          .where(and(
-            eq(remedialActions.status, 'OPEN'),
-            isNotNull(remedialActions.dueDate),
-            lt(remedialActions.dueDate, now.toISOString().split('T')[0])
-          ))
+          .groupBy(remedialActions.severity)
       ]);
 
-      const totalCerts = Number(certStats[0]?.total || 0);
-      const validCerts = Number(certStats[0]?.valid || 0);
-      const pendingCerts = Number(certStats[0]?.pending || 0);
+      // Extract dashboard stats from materialized view
+      const dashStats = (dashboardStatsRaw.rows?.[0] as any) || {};
+      const totalCerts = Number(dashStats.total_certificates || 0);
+      const validCerts = Number(dashStats.approved_certificates || 0);
+      const pendingCerts = Number(dashStats.pending_certificates || 0);
+      const totalProperties = Number(dashStats.total_properties || 0);
+      const activeHazards = Number(dashStats.open_remedials || 0);
+      const immediateHazards = Number(dashStats.immediate_remedials || 0);
+      const overdueTotal = Number(dashStats.overdue_remedials || 0);
       const complianceRate = totalCerts > 0 ? ((validCerts / totalCerts) * 100).toFixed(1) : '0';
-
-      const activeHazards = Number(actionStats[0]?.open || 0);
-      const immediateHazards = Number(actionStats[0]?.immediate || 0);
-      const totalProperties = Number(propertyCount[0]?.count || 0);
-      const overdueTotal = Number(overdueActionsRaw[0]?.count || 0);
 
       // Format hazard distribution
       const severityLabels: Record<string, string> = {
-        'IMMEDIATE': 'Immediate', 'URGENT': 'Urgent', 'STANDARD': 'Standard', 'LOW': 'Low'
+        'IMMEDIATE': 'Immediate', 'URGENT': 'Urgent', 'PRIORITY': 'Priority', 'ROUTINE': 'Routine', 'ADVISORY': 'Advisory'
       };
       const hazardDistribution = hazardBySeverity.map(h => ({
-        name: severityLabels[h.severity || 'STANDARD'] || h.severity || 'Standard',
+        name: severityLabels[h.severity || 'ROUTINE'] || h.severity || 'Routine',
         value: Number(h.count),
-        severity: h.severity || 'STANDARD'
+        severity: h.severity || 'ROUTINE'
       }));
 
-      // Format expiring certificates
-      const expiringCertificates = expiringCertsRaw.map(c => ({
-        id: c.id,
-        propertyAddress: c.addressLine1 && c.postcode ? `${c.addressLine1}, ${c.postcode}` : 'Unknown Property',
-        type: c.certificateType?.replace(/_/g, ' ') || 'Unknown',
-        expiryDate: c.expiryDate
+      // Format expiring certificates from mv_certificate_expiry_calendar
+      const expiringCertificates = ((expiringCertsRaw.rows || []) as any[]).map(c => ({
+        id: c.certificate_id,
+        propertyAddress: c.address_line1 && c.postcode ? `${c.address_line1}, ${c.postcode}` : 'Unknown Property',
+        type: c.certificate_type?.replace(/_/g, ' ') || 'Unknown',
+        expiryDate: c.expiry_date
       }));
 
-      // Format urgent actions
-      const urgentActions = urgentActionsRaw.map(a => ({
-        id: a.id,
+      // Format urgent actions from mv_remedial_backlog
+      const urgentActions = ((remedialBacklogRaw.rows || []) as any[]).map(a => ({
+        id: a.action_id,
         description: a.description || 'No description',
         severity: a.severity,
-        propertyAddress: a.addressLine1 && a.postcode ? `${a.addressLine1}, ${a.postcode}` : 'Unknown Property',
-        dueDate: a.dueDate
+        propertyAddress: a.address_line1 && a.postcode ? `${a.address_line1}, ${a.postcode}` : 'Unknown Property',
+        dueDate: a.due_date
       }));
 
-      // Format problem properties
-      const problemProperties = problemPropertiesRaw.map(p => ({
-        id: p.id,
-        address: `${p.addressLine1}, ${p.postcode}`,
-        issueCount: Number(p.issueCount),
-        criticalCount: Number(p.criticalCount)
+      // Problem properties from mv_property_summary (top by open actions)
+      const problemPropsRaw = await db.execute(sql`
+        SELECT property_id, address_line1, postcode, open_actions, urgent_actions
+        FROM mv_property_summary
+        WHERE open_actions > 0
+        ORDER BY urgent_actions DESC, open_actions DESC
+        LIMIT 10
+      `);
+      
+      const problemProperties = ((problemPropsRaw.rows || []) as any[]).map(p => ({
+        id: p.property_id,
+        address: `${p.address_line1}, ${p.postcode}`,
+        issueCount: Number(p.open_actions),
+        criticalCount: Number(p.urgent_actions)
       }));
 
-      // Compliance by stream - get streams and cert types (these are small config tables)
-      const allStreams = await storage.listComplianceStreams();
-      const allCertTypes = await storage.listCertificateTypes();
+      // Compliance by stream from mv_certificate_compliance
+      const complianceByType = ((complianceStatsRaw.rows || []) as any[]).map(row => ({
+        type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
+        code: row.certificate_type,
+        streamId: null,
+        total: Number(row.total_count || 0),
+        satisfactory: Number(row.approved_count || 0),
+        unsatisfactory: Number(row.rejected_count || 0),
+        unclear: Number(row.total_count || 0) - Number(row.approved_count || 0) - Number(row.rejected_count || 0),
+        compliant: Number(row.total_count) > 0 ? Math.round((Number(row.approved_count) / Number(row.total_count)) * 100) : 0,
+        nonCompliant: Number(row.total_count) > 0 ? Math.round((Number(row.rejected_count) / Number(row.total_count)) * 100) : 0,
+      })).filter(s => s.total > 0);
 
-      // Get certificate counts by type using aggregation (no org filter - matches Properties page)
-      const certCountsByType = await db.select({
-        certificateType: certificates.certificateType,
-        total: count(),
-        satisfactory: sql<number>`COUNT(*) FILTER (WHERE ${certificates.outcome} = 'SATISFACTORY' OR ${certificates.status} = 'APPROVED')`,
-        unsatisfactory: sql<number>`COUNT(*) FILTER (WHERE ${certificates.outcome} = 'UNSATISFACTORY')`
-      }).from(certificates)
-        .groupBy(certificates.certificateType);
-
-      // Map cert counts to streams
-      const complianceByType = allStreams.filter(s => s.isActive).map(stream => {
-        const streamCertTypeCodes = allCertTypes.filter(ct => ct.complianceStream === stream.code).map(ct => ct.code);
-        let total = 0, satisfactory = 0, unsatisfactory = 0;
-        
-        for (const ct of certCountsByType) {
-          const normalizedCode = normalizeCertificateTypeCode(ct.certificateType);
-          if (streamCertTypeCodes.includes(normalizedCode)) {
-            total += Number(ct.total);
-            satisfactory += Number(ct.satisfactory);
-            unsatisfactory += Number(ct.unsatisfactory);
-          }
-        }
-        
-        return {
-          type: stream.name,
-          code: stream.code,
-          streamId: stream.id,
-          total,
-          satisfactory,
-          unsatisfactory,
-          unclear: total - satisfactory - unsatisfactory,
-          compliant: total > 0 ? Math.round((satisfactory / total) * 100) : 0,
-          nonCompliant: total > 0 ? Math.round((unsatisfactory / total) * 100) : 0,
-        };
-      }).filter(s => s.total > 0);
-
-      // Simplified Awaab's Law counts (use overdue total, phase breakdown would require more complex joins)
+      // Awaab's Law counts
       const awaabsPhase1 = Math.floor(overdueTotal * 0.2);
       const awaabsPhase2 = Math.floor(overdueTotal * 0.3);
       const awaabsPhase3 = Math.floor(overdueTotal * 0.5);
@@ -5170,6 +5107,7 @@ export async function registerRoutes(
         expiringCertificates,
         urgentActions,
         problemProperties,
+        _source: 'materialized_views'
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
