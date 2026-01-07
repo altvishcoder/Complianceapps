@@ -6,6 +6,42 @@ export async function createReportingViews() {
   log.info("Creating materialized views for reporting...");
 
   try {
+    // Core stats views for dashboard cards
+    await db.execute(sql`
+      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_component_stats AS
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE condition = 'CRITICAL') as critical,
+        COUNT(*) FILTER (WHERE condition = 'POOR') as poor,
+        COUNT(*) FILTER (WHERE condition = 'FAIR') as fair,
+        COUNT(*) FILTER (WHERE condition = 'GOOD') as good,
+        COUNT(*) FILTER (WHERE condition IS NULL OR condition = 'UNKNOWN') as unknown
+      FROM components
+    `);
+    
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS mv_component_stats_idx ON mv_component_stats (total)
+    `);
+    
+    await db.execute(sql`
+      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_property_stats AS
+      SELECT 
+        s.organisation_id,
+        COUNT(*) as total_properties,
+        COUNT(*) FILTER (WHERE p.has_gas = true AND p.compliance_status != 'COMPLIANT') as no_gas_safety_cert,
+        COUNT(*) FILTER (WHERE p.link_status = 'UNVERIFIED') as unverified,
+        COUNT(*) FILTER (WHERE p.compliance_status IN ('NON_COMPLIANT', 'OVERDUE')) as non_compliant,
+        COUNT(DISTINCT s.id) as scheme_count
+      FROM properties p
+      INNER JOIN blocks b ON p.block_id = b.id
+      INNER JOIN schemes s ON b.scheme_id = s.id
+      GROUP BY s.organisation_id
+    `);
+    
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS mv_property_stats_org_idx ON mv_property_stats (organisation_id)
+    `);
+
     await db.execute(sql`
       CREATE MATERIALIZED VIEW IF NOT EXISTS mv_compliance_summary AS
       SELECT 
@@ -103,14 +139,50 @@ export async function createReportingViews() {
   }
 }
 
+// Whitelist of valid materialized view names to prevent SQL injection
+const MATERIALIZED_VIEWS = {
+  mv_component_stats: sql`REFRESH MATERIALIZED VIEW mv_component_stats`,
+  mv_property_stats: sql`REFRESH MATERIALIZED VIEW mv_property_stats`,
+  mv_compliance_summary: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_compliance_summary`,
+  mv_property_health: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_property_health`,
+  mv_contractor_performance: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_contractor_performance`,
+  mv_monthly_trends: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_trends`,
+} as const;
+
+type MaterializedViewName = keyof typeof MATERIALIZED_VIEWS;
+
+async function safeRefreshView(viewName: MaterializedViewName) {
+  const refreshQuery = MATERIALIZED_VIEWS[viewName];
+  if (!refreshQuery) {
+    log.warn({ viewName }, 'Unknown materialized view, skipping refresh');
+    return false;
+  }
+  
+  try {
+    await db.execute(refreshQuery);
+    return true;
+  } catch (error: any) {
+    if (error.message?.includes('does not exist')) {
+      log.warn({ viewName }, 'Materialized view does not exist, skipping refresh');
+      return false;
+    }
+    throw error;
+  }
+}
+
 export async function refreshReportingViews() {
   log.info("Refreshing materialized views...");
   
   try {
-    await db.execute(sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_compliance_summary`);
-    await db.execute(sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_property_health`);
-    await db.execute(sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_contractor_performance`);
-    await db.execute(sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_trends`);
+    // Core stats views (used by dashboard cards)
+    await safeRefreshView('mv_component_stats');
+    await safeRefreshView('mv_property_stats');
+    
+    // Reporting views (use CONCURRENTLY for concurrent reads)
+    await safeRefreshView('mv_compliance_summary');
+    await safeRefreshView('mv_property_health');
+    await safeRefreshView('mv_contractor_performance');
+    await safeRefreshView('mv_monthly_trends');
     
     log.info("Materialized views refreshed successfully");
   } catch (error) {

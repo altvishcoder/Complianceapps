@@ -1320,31 +1320,51 @@ export async function registerRoutes(
   });
   
   // ===== PROPERTY STATS =====
+  // Uses materialized view for fast reads at scale
   app.get("/api/properties/stats", async (req, res) => {
     try {
-      // Get counts directly from database for accurate statistics
-      const stats = await db.select({
-        totalProperties: sql<number>`COUNT(*)`,
-        noGasSafetyCert: sql<number>`SUM(CASE WHEN ${properties.hasGas} = true AND ${properties.complianceStatus} != 'COMPLIANT' THEN 1 ELSE 0 END)`,
-        unverified: sql<number>`SUM(CASE WHEN ${properties.linkStatus} = 'UNVERIFIED' THEN 1 ELSE 0 END)`,
-        nonCompliant: sql<number>`SUM(CASE WHEN ${properties.complianceStatus} IN ('NON_COMPLIANT', 'OVERDUE') THEN 1 ELSE 0 END)`,
-      })
-      .from(properties)
-      .innerJoin(blocks, eq(properties.blockId, blocks.id))
-      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
-      .where(eq(schemes.organisationId, ORG_ID));
+      const result = await db.execute(sql`
+        SELECT total_properties, no_gas_safety_cert, unverified, non_compliant, scheme_count
+        FROM mv_property_stats
+        WHERE organisation_id = ${ORG_ID}
+        LIMIT 1
+      `);
       
-      const schemeCount = await db.select({ count: sql<number>`COUNT(DISTINCT ${schemes.id})` })
-        .from(schemes)
+      const row = (result.rows as any[])[0];
+      
+      if (row) {
+        res.json({
+          totalProperties: parseInt(row.total_properties || '0'),
+          noGasSafetyCert: parseInt(row.no_gas_safety_cert || '0'),
+          unverified: parseInt(row.unverified || '0'),
+          nonCompliant: parseInt(row.non_compliant || '0'),
+          schemeCount: parseInt(row.scheme_count || '0'),
+        });
+      } else {
+        // Fallback to direct query if materialized view is empty
+        const stats = await db.select({
+          totalProperties: sql<number>`COUNT(*)`,
+          noGasSafetyCert: sql<number>`SUM(CASE WHEN ${properties.hasGas} = true AND ${properties.complianceStatus} != 'COMPLIANT' THEN 1 ELSE 0 END)`,
+          unverified: sql<number>`SUM(CASE WHEN ${properties.linkStatus} = 'UNVERIFIED' THEN 1 ELSE 0 END)`,
+          nonCompliant: sql<number>`SUM(CASE WHEN ${properties.complianceStatus} IN ('NON_COMPLIANT', 'OVERDUE') THEN 1 ELSE 0 END)`,
+        })
+        .from(properties)
+        .innerJoin(blocks, eq(properties.blockId, blocks.id))
+        .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
         .where(eq(schemes.organisationId, ORG_ID));
-      
-      res.json({
-        totalProperties: Number(stats[0]?.totalProperties ?? 0),
-        noGasSafetyCert: Number(stats[0]?.noGasSafetyCert ?? 0),
-        unverified: Number(stats[0]?.unverified ?? 0),
-        nonCompliant: Number(stats[0]?.nonCompliant ?? 0),
-        schemeCount: Number(schemeCount[0]?.count ?? 0),
-      });
+        
+        const schemeCount = await db.select({ count: sql<number>`COUNT(DISTINCT ${schemes.id})` })
+          .from(schemes)
+          .where(eq(schemes.organisationId, ORG_ID));
+        
+        res.json({
+          totalProperties: Number(stats[0]?.totalProperties ?? 0),
+          noGasSafetyCert: Number(stats[0]?.noGasSafetyCert ?? 0),
+          unverified: Number(stats[0]?.unverified ?? 0),
+          nonCompliant: Number(stats[0]?.nonCompliant ?? 0),
+          schemeCount: Number(schemeCount[0]?.count ?? 0),
+        });
+      }
     } catch (error) {
       console.error("Error fetching property stats:", error);
       res.status(500).json({ error: "Failed to fetch property statistics" });
@@ -6084,18 +6104,13 @@ export async function registerRoutes(
   
   // ===== HACT ARCHITECTURE - COMPONENTS (ASSETS) =====
   
-  // Component stats endpoint - efficient SQL aggregation for all components
+  // Component stats endpoint - uses materialized view for fast reads at scale
   app.get("/api/components/stats", async (req, res) => {
     try {
       const result = await db.execute(sql`
-        SELECT 
-          COUNT(*) as total,
-          COUNT(*) FILTER (WHERE condition = 'CRITICAL') as critical,
-          COUNT(*) FILTER (WHERE condition = 'POOR') as poor,
-          COUNT(*) FILTER (WHERE condition = 'FAIR') as fair,
-          COUNT(*) FILTER (WHERE condition = 'GOOD') as good,
-          COUNT(*) FILTER (WHERE condition IS NULL OR condition = 'UNKNOWN') as unknown
-        FROM components
+        SELECT total, critical, poor, fair, good, unknown
+        FROM mv_component_stats
+        LIMIT 1
       `);
       
       const row = (result.rows as any[])[0] || {};
