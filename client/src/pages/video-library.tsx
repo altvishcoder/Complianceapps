@@ -13,6 +13,7 @@ import {
   Video, Play, Download, Eye, Upload, Plus, Search, 
   Clock, Film, Trash2, Edit, MoreVertical, Calendar
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
@@ -253,48 +254,82 @@ export default function VideoLibrary() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-lg p-3 md:p-4 border bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-l-emerald-500 border-emerald-200 dark:border-emerald-900">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 rounded-md bg-emerald-500">
-                  <Film className="h-4 w-4 text-white" />
+          {isLoading && !videos.length ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="rounded-lg p-3 md:p-4 border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <Skeleton className="h-8 w-16" />
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Total Videos</span>
-              </div>
-              <p className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{videos.length}</p>
+              ))}
             </div>
-            <div className="rounded-lg p-3 md:p-4 border bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500 border-blue-200 dark:border-blue-900">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 rounded-md bg-blue-500">
-                  <Eye className="h-4 w-4 text-white" />
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-lg p-3 md:p-4 border bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-l-emerald-500 border-emerald-200 dark:border-emerald-900">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-1.5 rounded-md bg-emerald-500">
+                    <Film className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground">Total Videos</span>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Total Views</span>
+                <p className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{videos.length}</p>
               </div>
-              <p className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">{videos.reduce((sum, v) => sum + v.viewCount, 0)}</p>
-            </div>
-            <div className="rounded-lg p-3 md:p-4 border bg-purple-50 dark:bg-purple-950/40 border-l-4 border-l-purple-500 border-purple-200 dark:border-purple-900">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 rounded-md bg-purple-500">
-                  <Download className="h-4 w-4 text-white" />
+              <div className="rounded-lg p-3 md:p-4 border bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500 border-blue-200 dark:border-blue-900">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-1.5 rounded-md bg-blue-500">
+                    <Eye className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground">Total Views</span>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Downloads</span>
+                <p className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">{videos.reduce((sum, v) => sum + v.viewCount, 0)}</p>
               </div>
-              <p className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">{videos.reduce((sum, v) => sum + v.downloadCount, 0)}</p>
-            </div>
-            <div className="rounded-lg p-3 md:p-4 border bg-orange-50 dark:bg-orange-950/40 border-l-4 border-l-orange-500 border-orange-200 dark:border-orange-900">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 rounded-md bg-orange-500">
-                  <Clock className="h-4 w-4 text-white" />
+              <div className="rounded-lg p-3 md:p-4 border bg-purple-50 dark:bg-purple-950/40 border-l-4 border-l-purple-500 border-purple-200 dark:border-purple-900">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-1.5 rounded-md bg-purple-500">
+                    <Download className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground">Downloads</span>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Categories</span>
+                <p className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">{videos.reduce((sum, v) => sum + v.downloadCount, 0)}</p>
               </div>
-              <p className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">{VIDEO_CATEGORIES.length}</p>
+              <div className="rounded-lg p-3 md:p-4 border bg-orange-50 dark:bg-orange-950/40 border-l-4 border-l-orange-500 border-orange-200 dark:border-orange-900">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-1.5 rounded-md bg-orange-500">
+                    <Clock className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground">Categories</span>
+                </div>
+                <p className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">{VIDEO_CATEGORIES.length}</p>
+              </div>
             </div>
-          </div>
+          )}
 
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full" />
+          {isLoading && !videos.length ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <Skeleton className="aspect-video w-full" />
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                    <Skeleton className="h-4 w-full mt-2" />
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-3">
+                        <Skeleton className="h-4 w-10" />
+                        <Skeleton className="h-4 w-10" />
+                      </div>
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : filteredVideos.length === 0 ? (
             <Card>
@@ -321,7 +356,7 @@ export default function VideoLibrary() {
                   <Video className="w-5 h-5 text-emerald-600" />
                   {group.category}
                 </h2>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {group.videos.map(video => (
                     <VideoCard 
                       key={video.id} 
@@ -334,7 +369,7 @@ export default function VideoLibrary() {
               </div>
             ))
           ) : (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredVideos.map(video => (
                 <VideoCard 
                   key={video.id} 
