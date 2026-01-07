@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { HeroStatsGrid } from '@/components/dashboard/HeroStats';
+import { HeroStatsGrid, HeroStatsGridSkeleton } from '@/components/dashboard/HeroStats';
 import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend } from '@/components/maps';
 import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -170,40 +170,45 @@ export default function MapsIndexPage() {
               </div>
             </div>
 
-            <HeroStatsGrid
-              stats={[
-                {
-                  title: aggregationLevel === 'property' ? 'Total Properties' : 
-                         aggregationLevel === 'scheme' ? 'Total Schemes' : 'Total Wards',
-                  value: riskSummary.total,
-                  icon: MapPin,
-                  riskLevel: "good",
-                  testId: "stat-total-properties",
-                },
-                {
-                  title: "High Risk",
-                  value: riskSummary.high,
-                  icon: AlertTriangle,
-                  riskLevel: riskSummary.high > 0 ? "critical" : "good",
-                  testId: "stat-high-risk",
-                },
-                {
-                  title: "Medium Risk",
-                  value: riskSummary.medium,
-                  icon: Clock,
-                  riskLevel: riskSummary.medium > 5 ? "high" : "medium",
-                  testId: "stat-medium-risk",
-                },
-                {
-                  title: "Average Score",
-                  value: riskSummary.avgScore,
-                  subtitle: "%",
-                  icon: Shield,
-                  riskLevel: riskSummary.avgScore >= 85 ? "good" : riskSummary.avgScore >= 70 ? "medium" : "critical",
-                  testId: "stat-avg-score",
-                },
-              ]}
-            />
+            {isLoading && properties.length === 0 ? (
+              <HeroStatsGridSkeleton count={4} />
+            ) : (
+              <HeroStatsGrid
+                stats={[
+                  {
+                    title: aggregationLevel === 'property' ? 'Total Properties' : 
+                           aggregationLevel === 'scheme' ? 'Total Schemes' : 'Total Wards',
+                    value: riskSummary.total,
+                    subtitle: riskSummary.total === 0 ? "No geocoded data" : undefined,
+                    icon: MapPin,
+                    riskLevel: "good",
+                    testId: "stat-total-properties",
+                  },
+                  {
+                    title: "High Risk",
+                    value: riskSummary.high,
+                    icon: AlertTriangle,
+                    riskLevel: riskSummary.high > 0 ? "critical" : "good",
+                    testId: "stat-high-risk",
+                  },
+                  {
+                    title: "Medium Risk",
+                    value: riskSummary.medium,
+                    icon: Clock,
+                    riskLevel: riskSummary.medium > 5 ? "high" : "medium",
+                    testId: "stat-medium-risk",
+                  },
+                  {
+                    title: "Average Score",
+                    value: riskSummary.avgScore,
+                    subtitle: riskSummary.total > 0 ? "%" : "No data",
+                    icon: Shield,
+                    riskLevel: riskSummary.avgScore >= 85 ? "good" : riskSummary.avgScore >= 70 ? "medium" : "critical",
+                    testId: "stat-avg-score",
+                  },
+                ]}
+              />
+            )}
 
             {geocodingStatus && geocodingStatus.notGeocoded > 0 && (
               <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
