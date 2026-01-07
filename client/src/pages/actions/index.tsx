@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
+import { HeroStatsGrid, HeroStatsGridSkeleton } from "@/components/dashboard/HeroStats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -241,48 +241,52 @@ export default function ActionsPage() {
             </div>
           </div>
 
-          <HeroStatsGrid
-            stats={[
-              {
-                title: "Overdue Actions",
-                value: overdueCount,
-                subtitle: "past due date",
-                icon: Clock,
-                riskLevel: overdueCount > 0 ? "critical" : "good",
-                href: "/actions?overdue=true",
-                slaInfo: "Requires immediate attention",
-                testId: "hero-overdue-actions",
-              },
-              {
-                title: "Immediate/Emergency",
-                value: emergencyCount,
-                subtitle: "24hr SLA",
-                icon: AlertOctagon,
-                riskLevel: emergencyCount > 0 ? "critical" : "good",
-                href: "/actions?severity=IMMEDIATE",
-                slaInfo: "Must respond within 24 hours",
-                testId: "hero-emergency",
-              },
-              {
-                title: "In Progress",
-                value: inProgressCount,
-                subtitle: "being worked on",
-                icon: Wrench,
-                riskLevel: inProgressCount > 10 ? "medium" : "low",
-                href: "/actions?status=IN_PROGRESS",
-                testId: "hero-in-progress",
-              },
-              {
-                title: "Total Open",
-                value: totalOpen,
-                subtitle: "awaiting resolution",
-                icon: AlertTriangle,
-                riskLevel: totalOpen > 20 ? "medium" : "low",
-                href: "/actions?status=OPEN",
-                testId: "hero-total-open",
-              },
-            ]}
-          />
+          {isLoadingActions && !apiStats ? (
+            <HeroStatsGridSkeleton count={4} />
+          ) : (
+            <HeroStatsGrid
+              stats={[
+                {
+                  title: "Overdue Actions",
+                  value: overdueCount,
+                  subtitle: "past due date",
+                  icon: Clock,
+                  riskLevel: overdueCount > 0 ? "critical" : "good",
+                  href: "/actions?overdue=true",
+                  slaInfo: "Requires immediate attention",
+                  testId: "hero-overdue-actions",
+                },
+                {
+                  title: "Immediate/Emergency",
+                  value: emergencyCount,
+                  subtitle: "24hr SLA",
+                  icon: AlertOctagon,
+                  riskLevel: emergencyCount > 0 ? "critical" : "good",
+                  href: "/actions?severity=IMMEDIATE",
+                  slaInfo: "Must respond within 24 hours",
+                  testId: "hero-emergency",
+                },
+                {
+                  title: "In Progress",
+                  value: inProgressCount,
+                  subtitle: "being worked on",
+                  icon: Wrench,
+                  riskLevel: inProgressCount > 10 ? "medium" : "low",
+                  href: "/actions?status=IN_PROGRESS",
+                  testId: "hero-in-progress",
+                },
+                {
+                  title: "Total Open",
+                  value: totalOpen,
+                  subtitle: "awaiting resolution",
+                  icon: AlertTriangle,
+                  riskLevel: totalOpen > 20 ? "medium" : "low",
+                  href: "/actions?status=OPEN",
+                  testId: "hero-total-open",
+                },
+              ]}
+            />
+          )}
 
           <Card>
             <CardHeader>
