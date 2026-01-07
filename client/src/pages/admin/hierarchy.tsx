@@ -17,6 +17,7 @@ import {
   ChevronRight, ChevronDown, TreePine, Package, List, LayoutGrid, Network,
   Boxes, Eye, FolderTree
 } from "lucide-react";
+import { TreeSkeleton, TableSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState, useMemo } from "react";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useMutation, useQueryClient, useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -1262,9 +1263,7 @@ export default function PropertyHierarchy() {
                     </CardHeader>
                     <CardContent className="flex-1 overflow-y-auto">
                       {isLoading ? (
-                        <div className="flex justify-center py-12">
-                          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-                        </div>
+                        <TreeSkeleton rows={12} />
                       ) : hierarchyData.length === 0 ? (
                         <div className="text-center py-12 text-slate-500">
                           <FolderTree className="h-12 w-12 mx-auto mb-4 text-slate-300" />
@@ -1308,9 +1307,7 @@ export default function PropertyHierarchy() {
                         </CardHeader>
                         <CardContent>
                           {orgsLoading ? (
-                            <div className="flex justify-center py-8">
-                              <Loader2 className="h-6 w-6 animate-spin" />
-                            </div>
+                            <TableSkeleton rows={4} columns={4} />
                           ) : (
                             <Table>
                               <TableHeader>
@@ -1370,9 +1367,7 @@ export default function PropertyHierarchy() {
                         </CardHeader>
                         <CardContent>
                           {schemesLoading ? (
-                            <div className="flex justify-center py-8">
-                              <Loader2 className="h-6 w-6 animate-spin" />
-                            </div>
+                            <TableSkeleton rows={5} columns={4} />
                           ) : (
                             <Table>
                               <TableHeader>
@@ -1436,9 +1431,7 @@ export default function PropertyHierarchy() {
                         </CardHeader>
                         <CardContent>
                           {blocksLoading ? (
-                            <div className="flex justify-center py-8">
-                              <Loader2 className="h-6 w-6 animate-spin" />
-                            </div>
+                            <TableSkeleton rows={5} columns={6} />
                           ) : (
                             <Table>
                               <TableHeader>
@@ -1523,9 +1516,7 @@ export default function PropertyHierarchy() {
                     />
                     
                     {assetsLoading && !assetsResponse ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      </div>
+                      <TableSkeleton rows={6} columns={6} />
                     ) : (
                       <Table>
                         <TableHeader>

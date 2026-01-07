@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Search, Download, Clock, User, FileText, Settings, CheckCircle, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { TableSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
@@ -260,9 +261,7 @@ export default function AuditLogPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <TableSkeleton rows={10} columns={6} />
           ) : error ? (
             <div className="text-center py-12 text-muted-foreground">
               Failed to load audit logs. Please try again.

@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { componentsApi, componentTypesApi, propertiesApi, type EnrichedComponent } from "@/lib/api";
 import { Plus, Search, Wrench, Info, Loader2, Trash2, CheckCircle, XCircle, Eye, Pencil, Settings, AlertTriangle, Clock } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
 import { ComponentTypePicker } from "@/components/ComponentTypePicker";
 import { useToast } from "@/hooks/use-toast";
@@ -570,10 +571,7 @@ export default function ComponentsPage() {
         </CardHeader>
         <CardContent className={`transition-opacity duration-200 ${componentsFetching ? 'opacity-60' : 'opacity-100'}`}>
           {componentsLoading && !componentsResponse ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
-              <span className="sr-only">Loading components</span>
-            </div>
+            <TableSkeleton rows={8} columns={7} />
           ) : filteredComponents.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />

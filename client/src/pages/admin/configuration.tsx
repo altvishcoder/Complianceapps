@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileText, AlertTriangle, Tags, Code, Plus, Pencil, Trash2, Lock, Loader2, Info, Zap, CheckCircle2, Layers, Filter, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import { TableSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -60,8 +61,14 @@ export default function Configuration() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen bg-muted/30 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex h-screen bg-muted/30">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="System Configuration" />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            <PageSkeleton showStats={true} statsCount={4} showTable={true} tableRows={8} />
+          </main>
+        </div>
       </div>
     );
   }
@@ -758,9 +765,7 @@ export default function Configuration() {
                   </CardHeader>
                   <CardContent>
                     {streamsLoading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
+                      <TableSkeleton rows={5} columns={5} />
                     ) : complianceStreams.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -936,9 +941,7 @@ export default function Configuration() {
                   </CardHeader>
                   <CardContent>
                     {typesLoading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
+                      <TableSkeleton rows={6} columns={5} />
                     ) : certificateTypes.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1098,9 +1101,7 @@ export default function Configuration() {
                   </CardHeader>
                   <CardContent>
                     {codesLoading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
+                      <TableSkeleton rows={6} columns={6} />
                     ) : classificationCodes.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Tags className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1171,9 +1172,7 @@ export default function Configuration() {
                   </CardHeader>
                   <CardContent>
                     {schemasLoading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
+                      <TableSkeleton rows={5} columns={4} />
                     ) : extractionSchemas.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Code className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1305,9 +1304,7 @@ export default function Configuration() {
                     </CardHeader>
                     <CardContent>
                       {rulesLoading ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        </div>
+                        <TableSkeleton rows={6} columns={5} />
                       ) : complianceRules.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
