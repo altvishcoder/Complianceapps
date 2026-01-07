@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HeroStatsGrid, HeroStatsGridSkeleton } from "@/components/dashboard/HeroStats";
+import { Skeleton, ListItemSkeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -321,10 +322,11 @@ export default function ActionsPage() {
               <CardDescription>Remedial works identified from recent inspections</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingActions ? (
-                <div className="text-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">Loading actions...</p>
+              {isLoadingActions && !paginatedData ? (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <ListItemSkeleton key={i} />
+                  ))}
                 </div>
               ) : filteredActions.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
