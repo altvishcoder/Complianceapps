@@ -122,9 +122,17 @@ interface RefreshSchedule {
   timezone: string;
   postIngestionEnabled: boolean;
   staleThresholdHours: number;
+  targetViews: string[] | null;
+  refreshAll: boolean;
   lastRunAt: string | null;
   lastRunStatus: string | null;
   nextRunAt: string | null;
+}
+
+interface ViewScheduleConfig {
+  viewName: string;
+  isEnabled: boolean;
+  scheduleTime: string;
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -147,6 +155,9 @@ export default function DbOptimizationPage() {
   const [scheduleEnabled, setScheduleEnabled] = useState(true);
   const [postIngestionEnabled, setPostIngestionEnabled] = useState(false);
   const [staleThresholdHours, setStaleThresholdHours] = useState(6);
+  const [refreshAll, setRefreshAll] = useState(true);
+  const [selectedViews, setSelectedViews] = useState<Set<string>>(new Set());
+  const [expandedScheduleCategories, setExpandedScheduleCategories] = useState<Set<string>>(new Set());
 
   const { data: status, isLoading, refetch } = useQuery<OptimizationStatus>({
     queryKey: ["db-optimization-status"],
@@ -206,10 +217,19 @@ export default function DbOptimizationPage() {
       if (!res.ok) throw new Error("Failed to fetch schedule");
       const data = await res.json();
       if (data.schedule) {
-        setScheduleTime(data.schedule.scheduleTime);
-        setScheduleEnabled(data.schedule.isEnabled);
-        setPostIngestionEnabled(data.schedule.postIngestionEnabled);
-        setStaleThresholdHours(data.schedule.staleThresholdHours);
+        setScheduleTime(data.schedule.scheduleTime || '05:30');
+        setScheduleEnabled(data.schedule.isEnabled ?? true);
+        setPostIngestionEnabled(data.schedule.postIngestionEnabled ?? false);
+        setStaleThresholdHours(data.schedule.staleThresholdHours ?? 6);
+        // Explicitly handle refreshAll - only default to true if undefined
+        const storedRefreshAll = data.schedule.refreshAll;
+        setRefreshAll(storedRefreshAll === undefined || storedRefreshAll === null ? true : storedRefreshAll);
+        // Always populate selectedViews from stored targetViews if present
+        if (data.schedule.targetViews && Array.isArray(data.schedule.targetViews)) {
+          setSelectedViews(new Set(data.schedule.targetViews));
+        } else {
+          setSelectedViews(new Set());
+        }
       }
       return data;
     },
@@ -348,7 +368,9 @@ export default function DbOptimizationPage() {
           scheduleTime,
           isEnabled: scheduleEnabled,
           postIngestionEnabled,
-          staleThresholdHours
+          staleThresholdHours,
+          refreshAll,
+          targetViews: refreshAll ? null : Array.from(selectedViews)
         })
       });
       if (!res.ok) throw new Error("Failed to update schedule");
@@ -740,7 +762,7 @@ export default function DbOptimizationPage() {
                       Refresh Schedule
                     </CardTitle>
                     <CardDescription>
-                      Configure automatic daily refresh and staleness thresholds
+                      Configure automatic daily refresh with per-view scheduling
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -750,7 +772,7 @@ export default function DbOptimizationPage() {
                           <div className="space-y-0.5">
                             <Label>Enable Scheduled Refresh</Label>
                             <p className="text-sm text-muted-foreground">
-                              Automatically refresh all views daily
+                              Run automatic refresh at scheduled time
                             </p>
                           </div>
                           <Switch
@@ -808,6 +830,107 @@ export default function DbOptimizationPage() {
                           </p>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Per-View Selection */}
+                    <div className="border-t pt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Refresh All Views</Label>
+                          <p className="text-sm text-muted-foreground">
+                            When disabled, only selected views are refreshed
+                          </p>
+                        </div>
+                        <Switch
+                          checked={refreshAll}
+                          onCheckedChange={setRefreshAll}
+                          data-testid="switch-refresh-all"
+                        />
+                      </div>
+
+                      {!refreshAll && categories && (
+                        <div className="mt-4 space-y-3">
+                          <Label>Select Views to Include in Scheduled Refresh</Label>
+                          <div className="border rounded-lg max-h-80 overflow-y-auto">
+                            {Object.entries(categories).map(([key, category]) => (
+                              <Collapsible
+                                key={key}
+                                open={expandedScheduleCategories.has(key)}
+                                onOpenChange={() => {
+                                  const newSet = new Set(expandedScheduleCategories);
+                                  if (newSet.has(key)) {
+                                    newSet.delete(key);
+                                  } else {
+                                    newSet.add(key);
+                                  }
+                                  setExpandedScheduleCategories(newSet);
+                                }}
+                              >
+                                <CollapsibleTrigger asChild>
+                                  <div className="flex items-center justify-between p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0">
+                                    <div className="flex items-center gap-2">
+                                      {expandedScheduleCategories.has(key) ? (
+                                        <ChevronDown className="h-4 w-4" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                      )}
+                                      {categoryIcons[key] || <Eye className="h-4 w-4" />}
+                                      <span className="font-medium text-sm">{category.name}</span>
+                                      <Badge variant="outline" className="text-xs">
+                                        {category.views.filter(v => selectedViews.has(v)).length}/{category.views.length} selected
+                                      </Badge>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const allSelected = category.views.every(v => selectedViews.has(v));
+                                        const newSet = new Set(selectedViews);
+                                        category.views.forEach(v => {
+                                          if (allSelected) {
+                                            newSet.delete(v);
+                                          } else {
+                                            newSet.add(v);
+                                          }
+                                        });
+                                        setSelectedViews(newSet);
+                                      }}
+                                    >
+                                      {category.views.every(v => selectedViews.has(v)) ? 'Deselect All' : 'Select All'}
+                                    </Button>
+                                  </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="pl-8 pr-4 pb-2 space-y-1">
+                                    {category.views.map(viewName => (
+                                      <div key={viewName} className="flex items-center gap-2 py-1.5">
+                                        <Switch
+                                          checked={selectedViews.has(viewName)}
+                                          onCheckedChange={(checked) => {
+                                            const newSet = new Set(selectedViews);
+                                            if (checked) {
+                                              newSet.add(viewName);
+                                            } else {
+                                              newSet.delete(viewName);
+                                            }
+                                            setSelectedViews(newSet);
+                                          }}
+                                          data-testid={`switch-view-${viewName}`}
+                                        />
+                                        <span className="font-mono text-xs">{viewName}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedViews.size} view(s) selected for scheduled refresh
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex justify-end pt-4 border-t">

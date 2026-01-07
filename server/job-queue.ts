@@ -276,7 +276,7 @@ async function registerWorkers(): Promise<void> {
     QUEUE_NAMES.MV_REFRESH,
     async () => {
       try {
-        const { refreshAllMaterializedViews, getRefreshSchedule } = await import("./db-optimization");
+        const { refreshAllMaterializedViews, refreshMaterializedView, getRefreshSchedule } = await import("./db-optimization");
         
         const schedule = await getRefreshSchedule();
         if (schedule && !schedule.isEnabled) {
@@ -285,14 +285,32 @@ async function registerWorkers(): Promise<void> {
         }
         
         jobLogger.info("Starting scheduled materialized view refresh");
-        const result = await refreshAllMaterializedViews('SCHEDULED');
         
-        const successCount = result.results.filter(r => r.success).length;
-        jobLogger.info({ 
-          successCount,
-          totalViews: result.results.length,
-          totalDurationMs: result.totalDurationMs 
-        }, "Scheduled materialized view refresh completed");
+        // Check if we should refresh all views or specific ones
+        if (!schedule || schedule.refreshAll || !schedule.targetViews || schedule.targetViews.length === 0) {
+          // Refresh all views
+          const result = await refreshAllMaterializedViews('SCHEDULED');
+          const successCount = result.results.filter(r => r.success).length;
+          jobLogger.info({ 
+            successCount,
+            totalViews: result.results.length,
+            totalDurationMs: result.totalDurationMs 
+          }, "Scheduled materialized view refresh completed (all views)");
+        } else {
+          // Refresh only selected views
+          const results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[] = [];
+          for (const viewName of schedule.targetViews) {
+            const result = await refreshMaterializedView(viewName, 'SCHEDULED');
+            results.push({ viewName, ...result });
+          }
+          const successCount = results.filter(r => r.success).length;
+          const totalDurationMs = results.reduce((sum, r) => sum + r.durationMs, 0);
+          jobLogger.info({ 
+            successCount,
+            totalViews: results.length,
+            totalDurationMs 
+          }, "Scheduled materialized view refresh completed (selected views)");
+        }
       } catch (error) {
         jobLogger.error({ error }, "Scheduled materialized view refresh failed");
         throw error;

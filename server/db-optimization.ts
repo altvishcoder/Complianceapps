@@ -224,23 +224,31 @@ export async function getOptimizationStatus(): Promise<{
   optimizationTables: { name: string; rowCount: number }[];
 }> {
   try {
+    // Get performance indexes (idx_*) with sizes
     const indexResult = await db.execute(sql`
-      SELECT indexname as name, tablename as table_name, pg_size_pretty(pg_relation_size(indexrelid)) as size
-      FROM pg_indexes
-      JOIN pg_class ON pg_class.relname = indexname
-      WHERE schemaname = 'public' 
-      AND indexname LIKE 'idx_%'
-      ORDER BY tablename, indexname
+      SELECT 
+        i.indexname as name, 
+        i.tablename as table_name, 
+        COALESCE(pg_size_pretty(pg_relation_size(c.oid)), '0 bytes') as size
+      FROM pg_indexes i
+      LEFT JOIN pg_class c ON c.relname = i.indexname AND c.relkind = 'i'
+      WHERE i.schemaname = 'public' 
+      AND i.indexname LIKE 'idx_%'
+      ORDER BY i.tablename, i.indexname
     `);
     
+    // Get materialized views from pg_matviews (correct catalog for MVs)
     const viewResult = await db.execute(sql`
-      SELECT relname as name, n_live_tup as row_count
-      FROM pg_stat_user_tables
-      WHERE relname LIKE 'mv_%'
+      SELECT matviewname as name
+      FROM pg_matviews
+      WHERE schemaname = 'public'
+      AND matviewname LIKE 'mv_%'
+      ORDER BY matviewname
     `);
     
+    // Get optimization tables with row counts from pg_stat_user_tables
     const tableResult = await db.execute(sql`
-      SELECT relname as name, n_live_tup as row_count
+      SELECT relname as name, COALESCE(n_live_tup, 0) as row_count
       FROM pg_stat_user_tables
       WHERE relname IN ('certificate_expiry_tracker', 'risk_snapshots', 'asset_health_summary')
     `);
@@ -256,11 +264,37 @@ export async function getOptimizationStatus(): Promise<{
       ORDER BY view_name, completed_at DESC
     `);
     
-    const lastRefreshMap = new Map<string, { completedAt: string; durationMs: number }>();
+    const lastRefreshMap = new Map<string, { completedAt: string; durationMs: number; rowCount: number }>();
     for (const row of (lastRefreshResult.rows || []) as any[]) {
       lastRefreshMap.set(row.view_name, {
         completedAt: row.completed_at,
-        durationMs: row.duration_ms
+        durationMs: row.duration_ms,
+        rowCount: parseInt(row.row_count_after) || 0
+      });
+    }
+    
+    // Get actual row counts for each materialized view
+    const viewsWithCounts: { name: string; rowCount: number; lastRefresh: string | null; lastDurationMs: number | null }[] = [];
+    for (const row of (viewResult.rows || []) as any[]) {
+      const viewName = row.name;
+      const refreshInfo = lastRefreshMap.get(viewName);
+      let rowCount = refreshInfo?.rowCount || 0;
+      
+      // If no refresh history, try to get current row count directly
+      if (rowCount === 0) {
+        try {
+          const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${viewName}`));
+          rowCount = parseInt((countResult.rows?.[0] as any)?.cnt || '0');
+        } catch {
+          rowCount = 0;
+        }
+      }
+      
+      viewsWithCounts.push({
+        name: viewName,
+        rowCount,
+        lastRefresh: refreshInfo?.completedAt || null,
+        lastDurationMs: refreshInfo?.durationMs || null
       });
     }
     
@@ -268,17 +302,9 @@ export async function getOptimizationStatus(): Promise<{
       indexes: (indexResult.rows || []).map((r: any) => ({
         name: r.name,
         tableName: r.table_name,
-        size: r.size || 'unknown'
+        size: r.size || '0 bytes'
       })),
-      materializedViews: (viewResult.rows || []).map((r: any) => {
-        const refreshInfo = lastRefreshMap.get(r.name);
-        return {
-          name: r.name,
-          rowCount: parseInt(r.row_count) || 0,
-          lastRefresh: refreshInfo?.completedAt || null,
-          lastDurationMs: refreshInfo?.durationMs || null
-        };
-      }),
+      materializedViews: viewsWithCounts,
       optimizationTables: (tableResult.rows || []).map((r: any) => ({
         name: r.name,
         rowCount: parseInt(r.row_count) || 0
@@ -516,12 +542,18 @@ export async function upsertRefreshSchedule(schedule: {
   isEnabled?: boolean;
   postIngestionEnabled?: boolean;
   staleThresholdHours?: number;
+  refreshAll?: boolean;
+  targetViews?: string[] | null;
   updatedBy?: string;
 }): Promise<typeof mvRefreshSchedule.$inferSelect | null> {
   try {
     const existing = await getRefreshSchedule();
     
     if (existing) {
+      // When refreshAll is true, clear targetViews; otherwise preserve or update them
+      const shouldRefreshAll = schedule.refreshAll ?? existing.refreshAll;
+      const newTargetViews = shouldRefreshAll ? null : (schedule.targetViews ?? existing.targetViews);
+      
       const [updated] = await db.update(mvRefreshSchedule)
         .set({
           scheduleTime: schedule.scheduleTime,
@@ -529,6 +561,8 @@ export async function upsertRefreshSchedule(schedule: {
           isEnabled: schedule.isEnabled ?? existing.isEnabled,
           postIngestionEnabled: schedule.postIngestionEnabled ?? existing.postIngestionEnabled,
           staleThresholdHours: schedule.staleThresholdHours ?? existing.staleThresholdHours,
+          refreshAll: shouldRefreshAll,
+          targetViews: newTargetViews,
           updatedBy: schedule.updatedBy,
           updatedAt: new Date()
         })
@@ -544,6 +578,8 @@ export async function upsertRefreshSchedule(schedule: {
         isEnabled: schedule.isEnabled ?? true,
         postIngestionEnabled: schedule.postIngestionEnabled ?? false,
         staleThresholdHours: schedule.staleThresholdHours ?? 6,
+        refreshAll: schedule.refreshAll ?? true,
+        targetViews: schedule.targetViews ?? null,
         createdBy: schedule.updatedBy
       }).returning();
       return created;

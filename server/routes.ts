@@ -3628,7 +3628,15 @@ export async function registerRoutes(
   app.post("/api/admin/db-optimization/schedule", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
-      const { scheduleTime, timezone = 'Europe/London', isEnabled = true, postIngestionEnabled, staleThresholdHours } = req.body;
+      const { 
+        scheduleTime, 
+        timezone = 'Europe/London', 
+        isEnabled = true, 
+        postIngestionEnabled, 
+        staleThresholdHours,
+        refreshAll,
+        targetViews
+      } = req.body;
       
       if (!scheduleTime) {
         return res.status(400).json({ error: "scheduleTime is required" });
@@ -3641,6 +3649,8 @@ export async function registerRoutes(
         isEnabled,
         postIngestionEnabled,
         staleThresholdHours,
+        refreshAll,
+        targetViews,
         updatedBy: session?.user?.id
       });
       
