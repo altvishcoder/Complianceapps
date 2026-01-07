@@ -3383,16 +3383,14 @@ export async function registerRoutes(
       
       // Fallback to direct query if materialized view not available
       if (!stats) {
-        const now = new Date();
         const [actionStats] = await db.select({
-          totalOpen: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED'))`,
-          overdue: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED') AND ${remedialActions.dueDate} < ${now.toISOString()}::timestamp)`,
-          immediate: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED') AND ${remedialActions.severity} = 'IMMEDIATE')`,
-          inProgress: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'IN_PROGRESS')`,
-          completed: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'COMPLETED')`,
+          totalOpen: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED'))`,
+          overdue: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND due_date::date < CURRENT_DATE)`,
+          immediate: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND severity = 'IMMEDIATE')`,
+          inProgress: sql<number>`COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')`,
+          completed: sql<number>`COUNT(*) FILTER (WHERE status = 'COMPLETED')`,
         })
-        .from(remedialActions)
-        .where(eq(remedialActions.organisationId, ORG_ID));
+        .from(remedialActions);
         
         stats = {
           totalOpen: Number(actionStats?.totalOpen || 0),
