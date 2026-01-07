@@ -453,8 +453,8 @@ export default function BoardReporting() {
               </CardContent>
             </Card>
 
-            {/* Key Metrics Row - Horizontal scroll on mobile, grid on desktop */}
-            <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-4 md:gap-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+            {/* Key Metrics Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
               {keyMetrics.map((metric, index) => {
                 const metricLinks: Record<string, string> = {
                   "Total Properties": "/properties",
@@ -465,31 +465,28 @@ export default function BoardReporting() {
                 const href = metricLinks[metric.label] || "#";
                 const MetricIcon = metricIcons[metric.label] || Shield;
                 return (
-                  <Link key={index} href={href} className="flex-shrink-0 w-[160px] md:w-auto">
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow h-full" data-testid={`card-metric-${index}`}>
-                      <CardContent className="p-4 md:p-6">
-                        <div className="flex items-center justify-between gap-2">
+                  <Link key={index} href={href}>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow h-full group" data-testid={`card-metric-${index}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
-                            <MetricIcon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                            <MetricIcon className="h-5 w-5 text-primary" />
                           </div>
-                          <div className="flex items-center gap-1">
-                            <TrendIndicator trend={metric.trend} />
-                            <span className={`text-xs md:text-sm ${
-                              metric.trend === "up" ? "text-green-500" : 
-                              metric.trend === "down" ? "text-red-500" : 
-                              "text-muted-foreground"
-                            }`}>
-                              {metric.change}
-                            </span>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <div className="mt-3 md:mt-4">
-                          <p className="text-xl md:text-2xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
-                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-                            {metric.label}
-                            {metric.sublabel && <span className="text-xs ml-1 hidden md:inline">{metric.sublabel}</span>}
-                          </p>
+                        <p className="text-2xl md:text-3xl font-bold" data-testid={`text-metric-value-${index}`}>{metric.value}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {metric.label}
+                        </p>
+                        <div className="flex items-center gap-1 mt-2">
+                          <TrendIndicator trend={metric.trend} />
+                          <span className={`text-xs ${
+                            metric.trend === "up" ? "text-green-500" : 
+                            metric.trend === "down" ? "text-red-500" : 
+                            "text-muted-foreground"
+                          }`}>
+                            {metric.change}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -506,16 +503,24 @@ export default function BoardReporting() {
                   <CardTitle className="text-base">Overall Risk Score</CardTitle>
                   <CardDescription>Portfolio-wide compliance health indicator</CardDescription>
                 </CardHeader>
-                <CardContent className="flex items-center gap-4 pt-0">
-                  <RiskGauge score={overallRiskScore} previousScore={previousRiskScore} size="small" />
-                  <div className="flex-1 space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Target Score</span>
-                      <span className="font-medium" data-testid="text-target-score">85</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Industry Average</span>
-                      <span className="font-medium" data-testid="text-industry-avg">72</span>
+                <CardContent className="pt-0">
+                  <div className="flex flex-col items-center">
+                    <RiskGauge score={overallRiskScore} previousScore={previousRiskScore} size="small" />
+                    <div className="w-full mt-4 pt-4 border-t grid grid-cols-2 gap-4">
+                      <div className="text-center p-2 rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <Target className="h-4 w-4 text-primary" />
+                          <span className="text-xs text-muted-foreground">Target</span>
+                        </div>
+                        <span className="text-lg font-bold text-primary" data-testid="text-target-score">85</span>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Industry Avg</span>
+                        </div>
+                        <span className="text-lg font-bold" data-testid="text-industry-avg">72</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
