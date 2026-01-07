@@ -8,6 +8,7 @@ import { useExtractionEvents } from "@/hooks/useExtractionEvents";
 import { useEffect, useState, ComponentType } from "react";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 
 function ProtectedRoute({ component: Component }: { component: ComponentType }) {
   const [, setLocation] = useLocation();
@@ -79,6 +80,7 @@ import AdminNavigationManagement from "@/pages/admin/navigation-management";
 import AdminMLInsights from "@/pages/admin/ml-insights";
 import AdminCacheControl from "@/pages/admin/cache-control";
 import AdminJobsManagement from "@/pages/admin/jobs-management";
+import AdminLoginPage from "@/pages/admin/login";
 import ModelInsightsPage from "@/pages/model-insights";
 import HumanReviewPage from "@/pages/human-review";
 import ComponentsPage from "@/pages/components";
@@ -130,29 +132,30 @@ function Router() {
       <Route path="/reports/regulatory">{() => <ProtectedRoute component={RegulatoryEvidencePage} />}</Route>
       <Route path="/reports/builder">{() => <ProtectedRoute component={ReportBuilderPage} />}</Route>
       <Route path="/calendar">{() => <ProtectedRoute component={ComplianceCalendar} />}</Route>
-      <Route path="/admin/setup">{() => <ProtectedRoute component={AdminSetup} />}</Route>
-      <Route path="/admin/users">{() => <ProtectedRoute component={AdminUsersPage} />}</Route>
-      <Route path="/admin/configuration">{() => <ProtectedRoute component={AdminConfiguration} />}</Route>
-      <Route path="/admin/imports">{() => <ProtectedRoute component={AdminImportsPage} />}</Route>
-      <Route path="/admin/tests">{() => <ProtectedRoute component={AdminTestSuite} />}</Route>
-      <Route path="/admin/integrations">{() => <ProtectedRoute component={AdminIntegrationsPage} />}</Route>
-      <Route path="/admin/hierarchy">{() => <ProtectedRoute component={AdminHierarchy} />}</Route>
-      <Route path="/admin/factory-settings">{() => <ProtectedRoute component={AdminFactorySettings} />}</Route>
-      <Route path="/admin/api-integration">{() => <ProtectedRoute component={AdminApiIntegration} />}</Route>
-      <Route path="/admin/system-health">{() => <ProtectedRoute component={AdminSystemHealth} />}</Route>
-      <Route path="/admin/db-optimization">{() => <ProtectedRoute component={AdminDbOptimization} />}</Route>
-      <Route path="/admin/observability">{() => <ProtectedRoute component={AdminObservabilityDashboard} />}</Route>
-      <Route path="/admin/ingestion-control">{() => <ProtectedRoute component={AdminIngestionControl} />}</Route>
-      <Route path="/admin/remedial-kanban">{() => <ProtectedRoute component={AdminRemedialKanban} />}</Route>
-      <Route path="/admin/asset-health">{() => <ProtectedRoute component={AdminAssetHealth} />}</Route>
-      <Route path="/admin/audit-log">{() => <ProtectedRoute component={AdminAuditLog} />}</Route>
-      <Route path="/admin/api-docs">{() => <ProtectedRoute component={AdminApiDocs} />}</Route>
-      <Route path="/admin/chatbot-analytics">{() => <ProtectedRoute component={AdminChatbotAnalytics} />}</Route>
-      <Route path="/admin/knowledge-training">{() => <ProtectedRoute component={AdminKnowledgeTraining} />}</Route>
-      <Route path="/admin/navigation">{() => <ProtectedRoute component={AdminNavigationManagement} />}</Route>
-      <Route path="/admin/ml-insights">{() => <ProtectedRoute component={AdminMLInsights} />}</Route>
-      <Route path="/admin/cache-control">{() => <ProtectedRoute component={AdminCacheControl} />}</Route>
-      <Route path="/admin/jobs">{() => <ProtectedRoute component={AdminJobsManagement} />}</Route>
+      <Route path="/admin/login" component={AdminLoginPage} />
+      <Route path="/admin/setup">{() => <AdminProtectedRoute component={AdminSetup} />}</Route>
+      <Route path="/admin/users">{() => <AdminProtectedRoute component={AdminUsersPage} />}</Route>
+      <Route path="/admin/configuration">{() => <AdminProtectedRoute component={AdminConfiguration} />}</Route>
+      <Route path="/admin/imports">{() => <AdminProtectedRoute component={AdminImportsPage} />}</Route>
+      <Route path="/admin/tests">{() => <AdminProtectedRoute component={AdminTestSuite} />}</Route>
+      <Route path="/admin/integrations">{() => <AdminProtectedRoute component={AdminIntegrationsPage} />}</Route>
+      <Route path="/admin/hierarchy">{() => <AdminProtectedRoute component={AdminHierarchy} />}</Route>
+      <Route path="/admin/factory-settings">{() => <AdminProtectedRoute component={AdminFactorySettings} />}</Route>
+      <Route path="/admin/api-integration">{() => <AdminProtectedRoute component={AdminApiIntegration} />}</Route>
+      <Route path="/admin/system-health">{() => <AdminProtectedRoute component={AdminSystemHealth} />}</Route>
+      <Route path="/admin/db-optimization">{() => <AdminProtectedRoute component={AdminDbOptimization} />}</Route>
+      <Route path="/admin/observability">{() => <AdminProtectedRoute component={AdminObservabilityDashboard} />}</Route>
+      <Route path="/admin/ingestion-control">{() => <AdminProtectedRoute component={AdminIngestionControl} />}</Route>
+      <Route path="/admin/remedial-kanban">{() => <AdminProtectedRoute component={AdminRemedialKanban} />}</Route>
+      <Route path="/admin/asset-health">{() => <AdminProtectedRoute component={AdminAssetHealth} />}</Route>
+      <Route path="/admin/audit-log">{() => <AdminProtectedRoute component={AdminAuditLog} />}</Route>
+      <Route path="/admin/api-docs">{() => <AdminProtectedRoute component={AdminApiDocs} />}</Route>
+      <Route path="/admin/chatbot-analytics">{() => <AdminProtectedRoute component={AdminChatbotAnalytics} />}</Route>
+      <Route path="/admin/knowledge-training">{() => <AdminProtectedRoute component={AdminKnowledgeTraining} />}</Route>
+      <Route path="/admin/navigation">{() => <AdminProtectedRoute component={AdminNavigationManagement} />}</Route>
+      <Route path="/admin/ml-insights">{() => <AdminProtectedRoute component={AdminMLInsights} />}</Route>
+      <Route path="/admin/cache-control">{() => <AdminProtectedRoute component={AdminCacheControl} />}</Route>
+      <Route path="/admin/jobs">{() => <AdminProtectedRoute component={AdminJobsManagement} />}</Route>
       <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
       <Route path="/human-review">{() => <ProtectedRoute component={HumanReviewPage} />}</Route>
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
@@ -173,7 +176,7 @@ function AppContent() {
   useExtractionEvents();
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
-  const isProtectedRoute = !["/", "/login", "/register", "/mfa"].includes(location);
+  const isProtectedRoute = !["/", "/login", "/register", "/mfa", "/admin/login"].includes(location);
   
   return (
     <>

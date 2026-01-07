@@ -30,7 +30,7 @@ export default function ApiIntegrationPage() {
   const [showNewKey, setShowNewKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const { data: apiClients, refetch: refetchClients } = useQuery<ApiClient[]>({
+  const { data: apiClients, isLoading: clientsLoading, refetch: refetchClients } = useQuery<ApiClient[]>({
     queryKey: ["/api/admin/api-clients"],
     queryFn: async () => {
       const res = await fetch("/api/admin/api-clients", { credentials: 'include' });
@@ -181,7 +181,7 @@ def check_status(ingestion_id: str):
   "timestamp": "2024-01-15T10:30:00Z"
 }`;
 
-  if (keysLoading && !apiKeys) {
+  if (clientsLoading && !apiClients) {
     return (
       <div className="flex h-screen bg-muted/30">
         <a href="#main-content" className="skip-link">Skip to main content</a>
