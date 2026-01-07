@@ -280,7 +280,9 @@ export async function getCertificateStats(organisationId: string): Promise<{
     }
     return null;
   } catch (error: any) {
-    if (error.message?.includes('does not exist')) {
+    // Handle both direct error and wrapped Drizzle error
+    const errorMsg = error.message || error.cause?.message || '';
+    if (errorMsg.includes('does not exist') || error.cause?.code === '42P01') {
       log.warn('mv_certificate_stats does not exist, using direct query');
       return null;
     }
@@ -315,7 +317,9 @@ export async function getRemedialStats(organisationId: string): Promise<{
     }
     return null;
   } catch (error: any) {
-    if (error.message?.includes('does not exist')) {
+    // Handle both direct error and wrapped Drizzle error
+    const errorMsg = error.message || error.cause?.message || '';
+    if (errorMsg.includes('does not exist') || error.cause?.code === '42P01') {
       log.warn('mv_remedial_stats does not exist, using direct query');
       return null;
     }
