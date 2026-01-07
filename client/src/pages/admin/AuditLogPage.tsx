@@ -78,20 +78,27 @@ const eventIcons: Record<string, React.ReactNode> = {
   default: <Clock className="h-4 w-4 text-gray-500" />,
 };
 
+const ITEMS_PER_PAGE = 50;
+
 export default function AuditLogPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
   const [eventTypeFilter, setEventTypeFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [allEvents, setAllEvents] = useState<AuditEvent[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const { data, isLoading, error } = useQuery<AuditResponse>({
-    queryKey: ["/api/audit-events", entityTypeFilter, eventTypeFilter, searchQuery],
+  const { data, isLoading, error, refetch } = useQuery<AuditResponse>({
+    queryKey: ["/api/audit-events", entityTypeFilter, eventTypeFilter, offset],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (entityTypeFilter && entityTypeFilter !== "all") params.set("entityType", entityTypeFilter);
       if (eventTypeFilter && eventTypeFilter !== "all") params.set("eventType", eventTypeFilter);
-      params.set("limit", "100");
+      params.set("limit", String(ITEMS_PER_PAGE));
+      params.set("offset", String(offset));
       
       const res = await fetch(`/api/audit-events?${params}`, {
         credentials: 'include',
@@ -101,6 +108,31 @@ export default function AuditLogPage() {
     },
     enabled: !!user?.id,
   });
+
+  React.useEffect(() => {
+    if (data?.events) {
+      if (offset === 0) {
+        setAllEvents(data.events);
+      } else {
+        setAllEvents(prev => [...prev, ...data.events]);
+      }
+      setHasMore(data.events.length === ITEMS_PER_PAGE && (offset + data.events.length) < data.total);
+      setIsLoadingMore(false);
+    }
+  }, [data, offset]);
+
+  React.useEffect(() => {
+    setOffset(0);
+    setAllEvents([]);
+    setHasMore(true);
+  }, [entityTypeFilter, eventTypeFilter]);
+
+  const loadMore = () => {
+    if (!isLoadingMore && hasMore) {
+      setIsLoadingMore(true);
+      setOffset(prev => prev + ITEMS_PER_PAGE);
+    }
+  };
 
   const toggleRow = (id: string) => {
     const next = new Set(expandedRows);
@@ -112,7 +144,7 @@ export default function AuditLogPage() {
     setExpandedRows(next);
   };
 
-  const filteredEvents = data?.events?.filter(event => {
+  const filteredEvents = allEvents.filter(event => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -121,7 +153,7 @@ export default function AuditLogPage() {
       event.entityName?.toLowerCase().includes(query) ||
       event.eventType.toLowerCase().includes(query)
     );
-  }) || [];
+  });
 
   if (authLoading) {
     return (
@@ -340,6 +372,36 @@ export default function AuditLogPage() {
                     </TableBody>
                   </Table>
                 </ScrollArea>
+                {hasMore && (
+                  <div className="flex justify-center pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
+                      data-testid="button-load-more"
+                      className="gap-2"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          Load More
+                          <span className="text-xs text-muted-foreground">
+                            ({allEvents.length} of {data?.total || '...'})
+                          </span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+                {!hasMore && allEvents.length > 0 && (
+                  <div className="text-center text-sm text-muted-foreground pt-4 border-t">
+                    Showing all {allEvents.length} events
+                  </div>
+                )}
               </div>
             </div>
           )}
