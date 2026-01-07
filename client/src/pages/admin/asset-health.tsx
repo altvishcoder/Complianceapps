@@ -544,6 +544,24 @@ export default function AssetHealth() {
 
           <ErrorBoundary sectionName="Statistics">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
+            {summaryLoading && !summary ? (
+              <>
+                {[...Array(5)].map((_, i) => (
+                  <Card key={i} className={i === 4 ? "col-span-2 md:col-span-1" : ""}>
+                    <CardContent className="pt-4 md:pt-6 pb-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <Skeleton className="h-3 w-16" />
+                          <Skeleton className="h-7 w-12" />
+                        </div>
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            ) : (
+              <>
             <Card>
               <CardContent className="pt-4 md:pt-6 pb-4">
                 <div className="flex items-center justify-between">
@@ -613,6 +631,8 @@ export default function AssetHealth() {
                 </div>
               </CardContent>
             </Card>
+              </>
+            )}
           </div>
           </ErrorBoundary>
 
