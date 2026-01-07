@@ -13,6 +13,7 @@ import {
   Lightbulb, Sparkles, ArrowRight, Wrench, BookOpen, Shield,
   X, ExternalLink, Clock
 } from 'lucide-react';
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
@@ -348,13 +349,29 @@ export default function ModelInsightsPage() {
     },
   });
   
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-background">
         <Sidebar />
-        <main className="flex-1 p-4 pt-16 md:pt-4 md:p-6 lg:p-6 xl:p-8">
-          <div className="flex items-center justify-center h-64">
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 pt-16 md:pt-8 md:p-6 lg:p-6 xl:p-8 space-y-4 md:space-y-5 lg:space-y-6">
+            <div className="flex justify-between items-start gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 lg:gap-4">
+              {[...Array(4)].map((_, i) => (
+                <CardSkeleton key={i} contentHeight={80} />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-5 xl:grid-cols-5 gap-4">
+              <CardSkeleton contentHeight={200} />
+              <div className="col-span-1 md:col-span-1 lg:col-span-4 xl:col-span-4">
+                <CardSkeleton contentHeight={400} />
+              </div>
+            </div>
           </div>
         </main>
       </div>
@@ -503,9 +520,16 @@ export default function ModelInsightsPage() {
                 <CardContent className="pt-4">
                   <TabsContent value="ai-suggestions" className="mt-0">
                     <div className="space-y-4">
-                      {suggestionsLoading ? (
-                        <div className="flex items-center justify-center h-48">
-                          <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                      {suggestionsLoading && !suggestionsData ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                            {[...Array(4)].map((_, i) => (
+                              <Skeleton key={i} className="h-20 rounded-lg" />
+                            ))}
+                          </div>
+                          {[...Array(3)].map((_, i) => (
+                            <CardSkeleton key={i} contentHeight={80} />
+                          ))}
                         </div>
                       ) : suggestionsData?.suggestions && suggestionsData.suggestions.length > 0 ? (
                         <>
@@ -870,9 +894,14 @@ export default function ModelInsightsPage() {
                   </TabsContent>
                   
                   <TabsContent value="tiers" className="mt-0">
-                    {tierStatsLoading ? (
-                      <div className="flex items-center justify-center h-48">
-                        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                    {tierStatsLoading && !tierStats ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[...Array(4)].map((_, i) => (
+                            <Skeleton key={i} className="h-20 rounded-lg" />
+                          ))}
+                        </div>
+                        <CardSkeleton contentHeight={200} />
                       </div>
                     ) : tierStats ? (
                       <div className="space-y-6">
@@ -1062,9 +1091,14 @@ export default function ModelInsightsPage() {
                   </TabsContent>
                   
                   <TabsContent value="learning" className="mt-0">
-                    {learningLoading ? (
-                      <div className="flex items-center justify-center h-48">
-                        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                    {learningLoading && !learningData ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[...Array(4)].map((_, i) => (
+                            <Skeleton key={i} className="h-20 rounded-lg" />
+                          ))}
+                        </div>
+                        <CardSkeleton contentHeight={200} />
                       </div>
                     ) : learningData ? (
                       <div className="space-y-4">

@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Building2, AlertTriangle, CheckCircle, 
-  Clock, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, ExternalLink, ChevronLeft, Home
+  Clock, RefreshCw, TrendingUp, TrendingDown, Minus, ExternalLink, ChevronLeft, Home
 } from "lucide-react";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
@@ -664,9 +665,14 @@ export default function AssetHealth() {
               </div>
             </CardHeader>
             <CardContent className="px-2 md:px-6">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12 md:py-24">
-                  <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin" />
+              {isLoading && !treeData.length ? (
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[...Array(8)].map((_, i) => (
+                      <Skeleton key={i} className="h-24 rounded-lg" />
+                    ))}
+                  </div>
+                  <Skeleton className="h-[200px] md:h-[300px] w-full rounded-lg" />
                 </div>
               ) : treeData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 md:py-24 text-muted-foreground">

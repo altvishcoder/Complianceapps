@@ -32,6 +32,7 @@ import {
   ChevronRight,
   LucideIcon
 } from "lucide-react";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Legend,
@@ -380,10 +381,20 @@ export default function BoardReporting() {
             </Dialog>
 
             {/* Loading State */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading board report data...</span>
+            {isLoading && !stats && (
+              <div className="space-y-6">
+                <CardSkeleton contentHeight={150} />
+                <div className="grid gap-4 md:grid-cols-4">
+                  {[...Array(4)].map((_, i) => (
+                    <CardSkeleton key={i} contentHeight={80} />
+                  ))}
+                </div>
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <CardSkeleton contentHeight={200} />
+                  <CardSkeleton contentHeight={200} />
+                  <CardSkeleton contentHeight={200} />
+                </div>
+                <span className="sr-only">Loading board report data...</span>
               </div>
             )}
             

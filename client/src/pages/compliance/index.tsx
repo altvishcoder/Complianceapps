@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  CheckCircle2, AlertTriangle, TrendingUp, TrendingDown, ArrowUpRight, RefreshCw, 
+  CheckCircle2, AlertTriangle, TrendingUp, TrendingDown, ArrowUpRight, 
   ShieldCheck, Clock, XCircle, ChevronRight, Building2, MapPin, CalendarDays,
   Scale, Target, AlertOctagon, FileWarning, BarChart3, ListChecks
 } from "lucide-react";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { certificatesApi, actionsApi } from "@/lib/api";
@@ -172,15 +173,28 @@ export default function CompliancePage() {
   // Streams needing attention (below 95% compliance)
   const streamsNeedingAttention = streamAnalytics.filter(s => s.hasData && s.rate < 95);
 
-  if (isLoading) {
+  if (isLoading && !certificates.length) {
     return (
       <div className="flex h-screen bg-muted/30">
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Compliance Analytics Hub" />
-          <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Compliance analytics content">
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
+          <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-6" role="main" aria-label="Compliance analytics content">
+            <CardSkeleton contentHeight={120} />
+            <div className="grid gap-4 md:grid-cols-3">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-lg" />
+              ))}
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))}
+              </div>
+              <CardSkeleton contentHeight={300} />
+            </div>
             <span className="sr-only">Loading compliance analytics</span>
           </main>
         </div>
