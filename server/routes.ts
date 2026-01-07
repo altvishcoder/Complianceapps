@@ -1319,6 +1319,38 @@ export async function registerRoutes(
     }
   });
   
+  // ===== PROPERTY STATS =====
+  app.get("/api/properties/stats", async (req, res) => {
+    try {
+      // Get counts directly from database for accurate statistics
+      const stats = await db.select({
+        totalProperties: sql<number>`COUNT(*)`,
+        noGasSafetyCert: sql<number>`SUM(CASE WHEN ${properties.hasGas} = true AND ${properties.complianceStatus} != 'COMPLIANT' THEN 1 ELSE 0 END)`,
+        unverified: sql<number>`SUM(CASE WHEN ${properties.linkStatus} = 'UNVERIFIED' THEN 1 ELSE 0 END)`,
+        nonCompliant: sql<number>`SUM(CASE WHEN ${properties.complianceStatus} IN ('NON_COMPLIANT', 'OVERDUE') THEN 1 ELSE 0 END)`,
+      })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(eq(schemes.organisationId, ORG_ID));
+      
+      const schemeCount = await db.select({ count: sql<number>`COUNT(DISTINCT ${schemes.id})` })
+        .from(schemes)
+        .where(eq(schemes.organisationId, ORG_ID));
+      
+      res.json({
+        totalProperties: Number(stats[0]?.totalProperties ?? 0),
+        noGasSafetyCert: Number(stats[0]?.noGasSafetyCert ?? 0),
+        unverified: Number(stats[0]?.unverified ?? 0),
+        nonCompliant: Number(stats[0]?.nonCompliant ?? 0),
+        schemeCount: Number(schemeCount[0]?.count ?? 0),
+      });
+    } catch (error) {
+      console.error("Error fetching property stats:", error);
+      res.status(500).json({ error: "Failed to fetch property statistics" });
+    }
+  });
+  
   // ===== PROPERTY GEODATA MANUAL UPDATE =====
   app.patch("/api/properties/:id/geodata", async (req, res) => {
     try {

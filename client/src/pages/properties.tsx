@@ -94,6 +94,21 @@ export default function Properties() {
     queryFn: () => blocksApi.list(),
   });
   
+  const { data: propertyStats } = useQuery<{
+    totalProperties: number;
+    noGasSafetyCert: number;
+    unverified: number;
+    nonCompliant: number;
+    schemeCount: number;
+  }>({
+    queryKey: ["property-stats"],
+    queryFn: async () => {
+      const res = await fetch('/api/properties/stats', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch property stats');
+      return res.json();
+    },
+  });
+  
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<any>(null);
@@ -325,34 +340,34 @@ export default function Properties() {
               stats={[
                 {
                   title: "No Gas Safety Cert",
-                  value: properties.filter(p => p.hasGas && p.complianceStatus !== 'COMPLIANT').length,
+                  value: propertyStats?.noGasSafetyCert ?? 0,
                   subtitle: "gas properties",
                   icon: Flame,
-                  riskLevel: properties.filter(p => p.hasGas && p.complianceStatus !== 'COMPLIANT').length > 0 ? "critical" : "good",
+                  riskLevel: (propertyStats?.noGasSafetyCert ?? 0) > 0 ? "critical" : "good",
                   href: "/certificates?type=GAS_SAFETY&status=OVERDUE",
                   testId: "hero-no-gas-cert",
                 },
                 {
                   title: "Unverified",
-                  value: properties.filter(p => p.linkStatus === 'UNVERIFIED').length,
+                  value: propertyStats?.unverified ?? 0,
                   subtitle: "need verification",
                   icon: ShieldCheck,
-                  riskLevel: properties.filter(p => p.linkStatus === 'UNVERIFIED').length > 5 ? "medium" : properties.filter(p => p.linkStatus === 'UNVERIFIED').length > 0 ? "low" : "good",
+                  riskLevel: (propertyStats?.unverified ?? 0) > 5 ? "medium" : (propertyStats?.unverified ?? 0) > 0 ? "low" : "good",
                   testId: "hero-unverified",
                 },
                 {
                   title: "Non-Compliant",
-                  value: properties.filter(p => p.complianceStatus === 'NON_COMPLIANT' || p.complianceStatus === 'OVERDUE').length,
+                  value: propertyStats?.nonCompliant ?? 0,
                   subtitle: "properties",
                   icon: AlertTriangle,
-                  riskLevel: properties.filter(p => p.complianceStatus === 'NON_COMPLIANT' || p.complianceStatus === 'OVERDUE').length > 0 ? "high" : "good",
+                  riskLevel: (propertyStats?.nonCompliant ?? 0) > 0 ? "high" : "good",
                   href: "/properties?status=NON_COMPLIANT",
                   testId: "hero-non-compliant",
                 },
                 {
                   title: "Total Properties",
-                  value: totalProperties,
-                  subtitle: `${schemes.length} schemes`,
+                  value: propertyStats?.totalProperties ?? totalProperties,
+                  subtitle: `${propertyStats?.schemeCount ?? schemes.length} schemes`,
                   icon: Home,
                   riskLevel: "low",
                   testId: "hero-total-properties",
