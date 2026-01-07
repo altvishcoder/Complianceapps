@@ -4964,27 +4964,38 @@ export async function registerRoutes(
   // ===== DASHBOARD STATS (USING MATERIALIZED VIEWS) =====
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const now = new Date();
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(now.getDate() + 30);
-
       // Use materialized views for fast dashboard stats
       const [
         dashboardStatsRaw,
         complianceStatsRaw,
-        assetHealthRaw,
         expiringCertsRaw,
         remedialBacklogRaw,
-        hazardBySeverity
+        hazardBySeverity,
+        overdueCountRaw
       ] = await Promise.all([
-        // mv_dashboard_stats - pre-aggregated dashboard metrics
-        db.execute(sql`SELECT * FROM mv_dashboard_stats LIMIT 1`),
+        // mv_dashboard_stats - aggregated across all schemes (sum up grouped rows)
+        db.execute(sql`
+          SELECT 
+            SUM(property_count)::int as total_properties,
+            SUM(certificate_count)::int as total_certificates,
+            SUM(compliant_count)::int as compliant_properties,
+            SUM(open_actions_count)::int as open_actions
+          FROM mv_dashboard_stats
+        `),
         
-        // mv_certificate_compliance - compliance stats by type
-        db.execute(sql`SELECT * FROM mv_certificate_compliance`),
-        
-        // mv_asset_health - asset health summary
-        db.execute(sql`SELECT * FROM mv_asset_health LIMIT 1`),
+        // mv_certificate_compliance - grouped by certificate_type and status
+        // Aggregate to get total/approved/rejected per certificate type
+        db.execute(sql`
+          SELECT 
+            certificate_type,
+            SUM(count)::int as total_count,
+            SUM(CASE WHEN status = 'APPROVED' THEN count ELSE 0 END)::int as approved_count,
+            SUM(CASE WHEN status = 'REJECTED' THEN count ELSE 0 END)::int as rejected_count,
+            SUM(expired_count)::int as expired_count,
+            SUM(expiring_soon_count)::int as expiring_soon_count
+          FROM mv_certificate_compliance
+          GROUP BY certificate_type
+        `),
         
         // mv_certificate_expiry_calendar - expiring certificates (next 30 days)
         db.execute(sql`
@@ -5001,36 +5012,57 @@ export async function registerRoutes(
           SELECT action_id, description, severity, status, due_date, 
                  address_line1, postcode, due_status
           FROM mv_remedial_backlog
-          WHERE severity IN ('IMMEDIATE', 'URGENT')
+          WHERE severity IN ('IMMEDIATE', 'URGENT') AND status = 'OPEN'
           ORDER BY CASE severity WHEN 'IMMEDIATE' THEN 0 WHEN 'URGENT' THEN 1 ELSE 2 END
           LIMIT 10
         `),
         
-        // Hazard distribution by severity (still from base table for accuracy)
-        db.select({
-          severity: remedialActions.severity,
-          count: count()
-        }).from(remedialActions)
-          .where(eq(remedialActions.status, 'OPEN'))
-          .groupBy(remedialActions.severity)
+        // Hazard distribution by severity from mv_remedial_backlog
+        db.execute(sql`
+          SELECT severity, COUNT(*)::int as count
+          FROM mv_remedial_backlog
+          WHERE status = 'OPEN'
+          GROUP BY severity
+        `),
+        
+        // Overdue actions from mv_remedial_backlog
+        db.execute(sql`
+          SELECT COUNT(*)::int as count
+          FROM mv_remedial_backlog
+          WHERE status = 'OPEN' AND due_status = 'OVERDUE'
+        `)
       ]);
 
-      // Extract dashboard stats from materialized view
+      // Extract dashboard stats from aggregated materialized view
       const dashStats = (dashboardStatsRaw.rows?.[0] as any) || {};
-      const totalCerts = Number(dashStats.total_certificates || 0);
-      const validCerts = Number(dashStats.approved_certificates || 0);
-      const pendingCerts = Number(dashStats.pending_certificates || 0);
       const totalProperties = Number(dashStats.total_properties || 0);
-      const activeHazards = Number(dashStats.open_remedials || 0);
-      const immediateHazards = Number(dashStats.immediate_remedials || 0);
-      const overdueTotal = Number(dashStats.overdue_remedials || 0);
+      const totalCerts = Number(dashStats.total_certificates || 0);
+      const activeHazards = Number(dashStats.open_actions || 0);
+      
+      // Get approved/pending certificate counts from mv_certificate_compliance
+      const complianceRows = (complianceStatsRaw.rows || []) as any[];
+      let validCerts = 0;
+      let pendingCerts = 0;
+      for (const row of complianceRows) {
+        validCerts += Number(row.approved_count || 0);
+      }
+      // Pending = total - approved - rejected (from base view stats)
+      const totalFromCompliance = complianceRows.reduce((sum, r) => sum + Number(r.total_count || 0), 0);
+      const rejectedCerts = complianceRows.reduce((sum, r) => sum + Number(r.rejected_count || 0), 0);
+      pendingCerts = Math.max(0, totalFromCompliance - validCerts - rejectedCerts);
+      
+      // Get immediate count from hazard distribution
+      const hazardRows = (hazardBySeverity.rows || []) as any[];
+      const immediateHazards = hazardRows.find((h: any) => h.severity === 'IMMEDIATE')?.count || 0;
+      
+      const overdueTotal = Number((overdueCountRaw.rows?.[0] as any)?.count || 0);
       const complianceRate = totalCerts > 0 ? ((validCerts / totalCerts) * 100).toFixed(1) : '0';
 
       // Format hazard distribution
       const severityLabels: Record<string, string> = {
         'IMMEDIATE': 'Immediate', 'URGENT': 'Urgent', 'PRIORITY': 'Priority', 'ROUTINE': 'Routine', 'ADVISORY': 'Advisory'
       };
-      const hazardDistribution = hazardBySeverity.map(h => ({
+      const hazardDistribution = hazardRows.map((h: any) => ({
         name: severityLabels[h.severity || 'ROUTINE'] || h.severity || 'Routine',
         value: Number(h.count),
         severity: h.severity || 'ROUTINE'
@@ -5069,8 +5101,8 @@ export async function registerRoutes(
         criticalCount: Number(p.urgent_actions)
       }));
 
-      // Compliance by stream from mv_certificate_compliance
-      const complianceByType = ((complianceStatsRaw.rows || []) as any[]).map(row => ({
+      // Compliance by certificate type from mv_certificate_compliance
+      const complianceByType = complianceRows.map(row => ({
         type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
         code: row.certificate_type,
         streamId: null,
@@ -5090,7 +5122,7 @@ export async function registerRoutes(
       res.json({
         overallCompliance: complianceRate,
         activeHazards,
-        immediateHazards,
+        immediateHazards: Number(immediateHazards),
         awaabsLawBreaches: awaabsPhase1,
         awaabsLaw: {
           phase1: { count: awaabsPhase1, status: 'active', label: 'Damp & Mould' },
@@ -5101,7 +5133,7 @@ export async function registerRoutes(
         pendingCertificates: pendingCerts,
         totalProperties,
         totalHomes: totalProperties,
-        totalCertificates: totalCerts,
+        totalCertificates: totalCerts > 0 ? totalCerts : totalFromCompliance,
         complianceByType,
         hazardDistribution,
         expiringCertificates,
