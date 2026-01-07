@@ -41,7 +41,7 @@ certificatesRouter.get("/", paginationMiddleware(), async (req: Request, res: Re
       filtered = filtered.filter(c => 
         c.certificateNumber?.toLowerCase().includes(searchLower) ||
         c.fileName?.toLowerCase().includes(searchLower) ||
-        c.type?.toLowerCase().includes(searchLower)
+        c.certificateType?.toLowerCase().includes(searchLower)
       );
     }
     
@@ -116,6 +116,18 @@ certificatesRouter.post("/", async (req: Request, res: Response) => {
     });
     
     const certificate = await storage.createCertificate(data);
+    
+    await recordAudit({
+      organisationId: certificate.organisationId,
+      eventType: 'CERTIFICATE_UPLOADED',
+      entityType: 'CERTIFICATE',
+      entityId: certificate.id,
+      entityName: certificate.fileName,
+      propertyId: certificate.propertyId,
+      afterState: certificate,
+      message: `Certificate "${certificate.fileName}" uploaded for processing`,
+      context: extractAuditContext(req),
+    });
     
     (async () => {
       try {
@@ -210,7 +222,7 @@ certificatesRouter.patch("/:id", async (req: Request, res: Response) => {
     
     await recordAudit({
       organisationId: certificate.organisationId,
-      eventType: 'CERTIFICATE_UPDATED',
+      eventType: 'CERTIFICATE_STATUS_CHANGED',
       entityType: 'CERTIFICATE',
       entityId: certificate.id,
       entityName: certificate.fileName,
@@ -245,6 +257,18 @@ certificatesRouter.delete("/:id", async (req: Request, res: Response) => {
       id: req.params.id,
       propertyId: certificate.propertyId,
       type: certificate.certificateType
+    });
+    
+    await recordAudit({
+      organisationId: certificate.organisationId,
+      eventType: 'CERTIFICATE_DELETED',
+      entityType: 'CERTIFICATE',
+      entityId: certificate.id,
+      entityName: certificate.fileName,
+      propertyId: certificate.propertyId,
+      beforeState: certificate,
+      message: `Certificate "${certificate.fileName}" deleted`,
+      context: extractAuditContext(req),
     });
     
     res.json({ success: true });
