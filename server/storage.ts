@@ -723,6 +723,78 @@ export class DatabaseStorage implements IStorage {
       .then(results => results.map(r => r.properties));
   }
   
+  // Paginated version for enterprise scale
+  async listPropertiesPaginated(
+    organisationId: string,
+    options: {
+      blockId?: string;
+      schemeId?: string;
+      search?: string;
+      complianceStatus?: string;
+      limit: number;
+      offset: number;
+    }
+  ): Promise<{ data: (Property & { block?: Block; scheme?: Scheme })[]; total: number }> {
+    const conditions: any[] = [
+      eq(schemes.organisationId, organisationId),
+      sql`${properties.deletedAt} IS NULL`
+    ];
+    
+    if (options.blockId) {
+      conditions.push(eq(properties.blockId, options.blockId));
+    }
+    
+    if (options.schemeId) {
+      conditions.push(eq(blocks.schemeId, options.schemeId));
+    }
+    
+    if (options.complianceStatus) {
+      conditions.push(eq(properties.complianceStatus, options.complianceStatus as any));
+    }
+    
+    // Search filter on DB level using ILIKE
+    if (options.search) {
+      const searchPattern = `%${options.search}%`;
+      conditions.push(or(
+        ilike(properties.addressLine1, searchPattern),
+        ilike(properties.postcode, searchPattern),
+        ilike(properties.uprn, searchPattern)
+      ));
+    }
+    
+    // Get total count first
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(...conditions));
+    const total = countResult?.count || 0;
+    
+    // Get paginated data with JOINs
+    const rows = await db
+      .select({
+        property: properties,
+        block: blocks,
+        scheme: schemes,
+      })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(...conditions))
+      .orderBy(desc(properties.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+    
+    const data = rows.map(row => ({
+      ...row.property,
+      block: row.block || undefined,
+      scheme: row.scheme || undefined,
+    }));
+    
+    return { data, total };
+  }
+  
   async getProperty(id: string): Promise<Property | undefined> {
     const [property] = await db.select().from(properties).where(eq(properties.id, id));
     return property || undefined;
@@ -900,6 +972,77 @@ export class DatabaseStorage implements IStorage {
     }
     
     return db.select().from(certificates).where(and(...conditions)).orderBy(desc(certificates.createdAt));
+  }
+  
+  // Paginated version for enterprise scale - queries at DB level with JOINs
+  async listCertificatesPaginated(
+    organisationId: string, 
+    options: { 
+      propertyId?: string; 
+      status?: string | string[];
+      search?: string;
+      limit: number; 
+      offset: number;
+    }
+  ): Promise<{ data: (Certificate & { property?: Property; extraction?: Extraction })[]; total: number }> {
+    const conditions: any[] = [
+      eq(certificates.organisationId, organisationId),
+      sql`${certificates.deletedAt} IS NULL`
+    ];
+    
+    if (options.propertyId) {
+      conditions.push(eq(certificates.propertyId, options.propertyId));
+    }
+    
+    // Handle single status or array of statuses
+    if (options.status) {
+      if (Array.isArray(options.status)) {
+        conditions.push(inArray(certificates.status, options.status as any));
+      } else {
+        conditions.push(eq(certificates.status, options.status as any));
+      }
+    }
+    
+    // Search filter on DB level using ILIKE
+    if (options.search) {
+      const searchPattern = `%${options.search}%`;
+      conditions.push(or(
+        ilike(certificates.certificateNumber, searchPattern),
+        ilike(certificates.fileName, searchPattern),
+        ilike(certificates.certificateType, searchPattern)
+      ));
+    }
+    
+    // Get total count first (uses covering indexes)
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(certificates)
+      .where(and(...conditions));
+    const total = countResult?.count || 0;
+    
+    // Get paginated data with LEFT JOINs for property and extraction
+    const rows = await db
+      .select({
+        certificate: certificates,
+        property: properties,
+        extraction: extractions,
+      })
+      .from(certificates)
+      .leftJoin(properties, eq(certificates.propertyId, properties.id))
+      .leftJoin(extractions, eq(certificates.id, extractions.certificateId))
+      .where(and(...conditions))
+      .orderBy(desc(certificates.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+    
+    // Flatten results
+    const data = rows.map(row => ({
+      ...row.certificate,
+      property: row.property || undefined,
+      extraction: row.extraction || undefined,
+    }));
+    
+    return { data, total };
   }
   
   async getCertificate(id: string): Promise<Certificate | undefined> {

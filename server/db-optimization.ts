@@ -7,6 +7,9 @@ import {
   expiryTrackerTableDefinition,
   riskSnapshotTableDefinition,
   assetHealthSummaryTableDefinition,
+  auditArchivalTableDefinition,
+  archiveOldAuditEventsSQL,
+  purgeOldArchivesSQL,
   materializedViewCategories
 } from "@shared/schema/tables/performance-indexes";
 import { mvRefreshHistory, mvRefreshSchedule } from "@shared/schema/tables/cache";
@@ -147,7 +150,8 @@ export async function createOptimizationTables(): Promise<{ success: boolean; cr
     const allDefinitions = [
       expiryTrackerTableDefinition,
       riskSnapshotTableDefinition,
-      assetHealthSummaryTableDefinition
+      assetHealthSummaryTableDefinition,
+      auditArchivalTableDefinition
     ];
     
     for (const definition of allDefinitions) {
@@ -179,14 +183,16 @@ export async function createOptimizationTables(): Promise<{ success: boolean; cr
 export async function refreshMaterializedView(
   viewName: string, 
   trigger: RefreshTrigger = 'MANUAL',
-  initiatedBy?: string
-): Promise<{ success: boolean; durationMs: number; rowCount: number }> {
+  initiatedBy?: string,
+  allowBlockingRefresh: boolean = false
+): Promise<{ success: boolean; durationMs: number; rowCount: number; wasBlocking?: boolean }> {
   const startTime = new Date();
   const startMs = Date.now();
   const category = getViewCategory(viewName);
   const rowCountBefore = await getViewRowCount(viewName);
   
   try {
+    // Always try CONCURRENTLY first (non-blocking, requires unique index)
     await db.execute(sql.raw(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${viewName}`));
     const durationMs = Date.now() - startMs;
     const rowCountAfter = await getViewRowCount(viewName);
@@ -194,20 +200,31 @@ export async function refreshMaterializedView(
     await logRefreshHistory(viewName, category, 'SUCCESS', trigger, startTime, durationMs, rowCountBefore, rowCountAfter, initiatedBy);
     
     optimizationLogger.info(`Refreshed ${viewName} in ${durationMs}ms (${rowCountAfter} rows, delta: ${rowCountAfter - rowCountBefore})`);
-    return { success: true, durationMs, rowCount: rowCountAfter };
+    return { success: true, durationMs, rowCount: rowCountAfter, wasBlocking: false };
   } catch (error: any) {
-    if (error.message?.includes('CONCURRENTLY')) {
-      try {
-        await db.execute(sql.raw(`REFRESH MATERIALIZED VIEW ${viewName}`));
+    // CONCURRENTLY requires a unique index - if missing, only allow blocking refresh if explicitly permitted
+    if (error.message?.includes('CONCURRENTLY') || error.message?.includes('unique index')) {
+      if (allowBlockingRefresh) {
+        optimizationLogger.info(`${viewName}: CONCURRENT refresh unavailable, using blocking refresh (allowed by caller)`);
+        try {
+          await db.execute(sql.raw(`REFRESH MATERIALIZED VIEW ${viewName}`));
+          const durationMs = Date.now() - startMs;
+          const rowCountAfter = await getViewRowCount(viewName);
+          
+          await logRefreshHistory(viewName, category, 'SUCCESS', trigger, startTime, durationMs, rowCountBefore, rowCountAfter, initiatedBy);
+          return { success: true, durationMs, rowCount: rowCountAfter, wasBlocking: true };
+        } catch (retryError: any) {
+          const durationMs = Date.now() - startMs;
+          await logRefreshHistory(viewName, category, 'FAILED', trigger, startTime, durationMs, rowCountBefore, 0, initiatedBy, retryError.message);
+          optimizationLogger.error(`Failed blocking refresh of ${viewName}`, retryError);
+          return { success: false, durationMs, rowCount: 0 };
+        }
+      } else {
+        // Don't fallback to blocking - return error so caller knows view needs unique index
         const durationMs = Date.now() - startMs;
-        const rowCountAfter = await getViewRowCount(viewName);
-        
-        await logRefreshHistory(viewName, category, 'SUCCESS', trigger, startTime, durationMs, rowCountBefore, rowCountAfter, initiatedBy);
-        return { success: true, durationMs, rowCount: rowCountAfter };
-      } catch (retryError: any) {
-        const durationMs = Date.now() - startMs;
-        await logRefreshHistory(viewName, category, 'FAILED', trigger, startTime, durationMs, rowCountBefore, 0, initiatedBy, retryError.message);
-        optimizationLogger.error(`Failed to refresh ${viewName}`, retryError);
+        const errorMsg = `CONCURRENT refresh failed for ${viewName} - requires unique index. Blocking refresh disabled to prevent table locks at scale.`;
+        await logRefreshHistory(viewName, category, 'FAILED', trigger, startTime, durationMs, rowCountBefore, 0, initiatedBy, errorMsg);
+        optimizationLogger.error(errorMsg);
         return { success: false, durationMs, rowCount: 0 };
       }
     }
@@ -360,23 +377,33 @@ export function getViewCategory(viewName: string): string | null {
   return null;
 }
 
-// Refresh all materialized views
+// Refresh all materialized views with optional staggering to prevent load spikes
 export async function refreshAllMaterializedViews(
   trigger: RefreshTrigger = 'MANUAL',
-  initiatedBy?: string
+  initiatedBy?: string,
+  options: { staggerDelayMs?: number; allowBlockingRefresh?: boolean } = {}
 ): Promise<{
   success: boolean;
-  results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[];
+  results: { viewName: string; success: boolean; durationMs: number; rowCount: number; wasBlocking?: boolean }[];
   totalDurationMs: number;
 }> {
   const startTime = Date.now();
   const allViews = getAllViewNames();
-  const results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[] = [];
+  const results: { viewName: string; success: boolean; durationMs: number; rowCount: number; wasBlocking?: boolean }[] = [];
+  const staggerDelayMs = options.staggerDelayMs ?? 0;
+  const allowBlockingRefresh = options.allowBlockingRefresh ?? false;
   
-  optimizationLogger.info(`Refreshing all ${allViews.length} materialized views...`);
+  optimizationLogger.info(`Refreshing all ${allViews.length} materialized views (stagger: ${staggerDelayMs}ms, allowBlocking: ${allowBlockingRefresh})...`);
   
-  for (const viewName of allViews) {
-    const result = await refreshMaterializedView(viewName, trigger, initiatedBy);
+  for (let i = 0; i < allViews.length; i++) {
+    const viewName = allViews[i];
+    
+    // Apply stagger delay between views (skip first one)
+    if (staggerDelayMs > 0 && i > 0) {
+      await new Promise(resolve => setTimeout(resolve, staggerDelayMs));
+    }
+    
+    const result = await refreshMaterializedView(viewName, trigger, initiatedBy, allowBlockingRefresh);
     results.push({ viewName, ...result });
   }
   
@@ -386,6 +413,44 @@ export async function refreshAllMaterializedViews(
   optimizationLogger.info(`Refreshed all views in ${totalDurationMs}ms. Success: ${allSuccess}`);
   
   return { success: allSuccess, results, totalDurationMs };
+}
+
+// Refresh views staggered by category (core first, then hierarchy, etc.)
+// This approach reduces DB load by refreshing one category at a time with delays
+export async function refreshViewsStaggeredByCategory(
+  trigger: RefreshTrigger = 'SCHEDULED',
+  initiatedBy?: string,
+  delayBetweenCategoriesMs: number = 5000
+): Promise<{
+  success: boolean;
+  categoryResults: { category: string; results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[] }[];
+  totalDurationMs: number;
+}> {
+  const startTime = Date.now();
+  const categories = Object.keys(materializedViewCategories);
+  const categoryResults: { category: string; results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[] }[] = [];
+  
+  optimizationLogger.info(`Starting staggered refresh across ${categories.length} categories (${delayBetweenCategoriesMs}ms delay between categories)...`);
+  
+  for (let i = 0; i < categories.length; i++) {
+    const category = categories[i];
+    
+    // Apply delay between categories (skip first one)
+    if (delayBetweenCategoriesMs > 0 && i > 0) {
+      optimizationLogger.info(`Waiting ${delayBetweenCategoriesMs}ms before refreshing category: ${category}`);
+      await new Promise(resolve => setTimeout(resolve, delayBetweenCategoriesMs));
+    }
+    
+    const result = await refreshViewsByCategory(category, trigger, initiatedBy);
+    categoryResults.push({ category, results: result.results });
+  }
+  
+  const totalDurationMs = Date.now() - startTime;
+  const allSuccess = categoryResults.every(cr => cr.results.every(r => r.success));
+  
+  optimizationLogger.info(`Staggered refresh complete in ${totalDurationMs}ms. Success: ${allSuccess}`);
+  
+  return { success: allSuccess, categoryResults, totalDurationMs };
 }
 
 // Refresh views by category
@@ -533,6 +598,101 @@ export async function getRefreshSchedule(): Promise<typeof mvRefreshSchedule.$in
   } catch (error) {
     optimizationLogger.error('Failed to get refresh schedule', error);
     return null;
+  }
+}
+
+// ============================================================================
+// Audit Event Archival Functions
+// ============================================================================
+
+export async function archiveOldAuditEvents(
+  daysOld: number = 90,
+  initiatedBy?: string
+): Promise<{ success: boolean; archivedCount: number; deletedCount: number; error?: string }> {
+  const startTime = Date.now();
+  
+  try {
+    optimizationLogger.info(`Archiving audit events older than ${daysOld} days...`);
+    
+    // Get count of events to archive
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as count FROM audit_events 
+      WHERE created_at < NOW() - INTERVAL '${sql.raw(daysOld.toString())} days'
+    `);
+    const toArchiveCount = parseInt((countResult.rows?.[0] as any)?.count || '0');
+    
+    if (toArchiveCount === 0) {
+      optimizationLogger.info('No audit events to archive');
+      return { success: true, archivedCount: 0, deletedCount: 0 };
+    }
+    
+    // Execute archive SQL
+    const archiveSQL = archiveOldAuditEventsSQL(daysOld);
+    const statements = archiveSQL.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'));
+    
+    let archivedCount = 0;
+    let deletedCount = 0;
+    
+    for (const statement of statements) {
+      const result = await db.execute(sql.raw(statement));
+      if (statement.toLowerCase().includes('insert into')) {
+        archivedCount = result.rowCount || 0;
+      } else if (statement.toLowerCase().includes('delete from')) {
+        deletedCount = result.rowCount || 0;
+      }
+    }
+    
+    const durationMs = Date.now() - startTime;
+    optimizationLogger.info(`Archived ${archivedCount} events, deleted ${deletedCount} from main table in ${durationMs}ms`);
+    
+    return { success: true, archivedCount, deletedCount };
+  } catch (error: any) {
+    optimizationLogger.error('Failed to archive audit events', error);
+    return { success: false, archivedCount: 0, deletedCount: 0, error: error.message };
+  }
+}
+
+export async function purgeOldArchivedEvents(
+  daysOld: number = 730
+): Promise<{ success: boolean; purgedCount: number; error?: string }> {
+  try {
+    optimizationLogger.info(`Purging archived events older than ${daysOld} days...`);
+    
+    const purgeSQL = purgeOldArchivesSQL(daysOld);
+    const result = await db.execute(sql.raw(purgeSQL));
+    const purgedCount = result.rowCount || 0;
+    
+    optimizationLogger.info(`Purged ${purgedCount} archived events`);
+    return { success: true, purgedCount };
+  } catch (error: any) {
+    optimizationLogger.error('Failed to purge archived events', error);
+    return { success: false, purgedCount: 0, error: error.message };
+  }
+}
+
+export async function getAuditEventStats(): Promise<{
+  mainTableCount: number;
+  archiveTableCount: number;
+  oldestMainEvent: Date | null;
+  oldestArchiveEvent: Date | null;
+}> {
+  try {
+    const [mainCount, archiveCount, oldestMain, oldestArchive] = await Promise.all([
+      db.execute(sql`SELECT COUNT(*) as count FROM audit_events`),
+      db.execute(sql`SELECT COUNT(*) as count FROM audit_events_archive`).catch(() => ({ rows: [{ count: 0 }] })),
+      db.execute(sql`SELECT MIN(created_at) as oldest FROM audit_events`),
+      db.execute(sql`SELECT MIN(created_at) as oldest FROM audit_events_archive`).catch(() => ({ rows: [{ oldest: null }] })),
+    ]);
+    
+    return {
+      mainTableCount: parseInt((mainCount.rows?.[0] as any)?.count || '0'),
+      archiveTableCount: parseInt((archiveCount.rows?.[0] as any)?.count || '0'),
+      oldestMainEvent: (oldestMain.rows?.[0] as any)?.oldest || null,
+      oldestArchiveEvent: (oldestArchive.rows?.[0] as any)?.oldest || null,
+    };
+  } catch (error) {
+    optimizationLogger.error('Failed to get audit event stats', error);
+    return { mainTableCount: 0, archiveTableCount: 0, oldestMainEvent: null, oldestArchiveEvent: null };
   }
 }
 

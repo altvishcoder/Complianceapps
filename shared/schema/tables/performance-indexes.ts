@@ -1,6 +1,10 @@
 export const performanceIndexDefinitions = `
--- Performance indexes for scale optimization
--- These are applied at startup if they don't exist
+-- Performance indexes for enterprise scale optimization (50k+ properties, millions of records)
+-- These are applied via admin UI "Apply All Optimizations" after deployment
+
+-- ============================================================================
+-- CERTIFICATES (hundreds of thousands of records)
+-- ============================================================================
 
 -- Certificate queries by property and status (high frequency)
 CREATE INDEX IF NOT EXISTS idx_certificates_property_status 
@@ -11,9 +15,27 @@ CREATE INDEX IF NOT EXISTS idx_certificates_expiry
 ON certificates(expiry_date) 
 WHERE status IN ('UPLOADED', 'PROCESSED', 'APPROVED');
 
--- Certificate by organisation for list queries
+-- Certificate by organisation for list queries (CRITICAL for org-scoped filtering)
 CREATE INDEX IF NOT EXISTS idx_certificates_org_created 
 ON certificates(organisation_id, created_at DESC);
+
+-- Certificate by org + status + type for filtered queries
+CREATE INDEX IF NOT EXISTS idx_certificates_org_status_type 
+ON certificates(organisation_id, status, certificate_type);
+
+-- Certificate by org + expiry for compliance dashboards
+CREATE INDEX IF NOT EXISTS idx_certificates_org_expiry 
+ON certificates(organisation_id, expiry_date) 
+WHERE deleted_at IS NULL;
+
+-- Certificate soft deletes filter
+CREATE INDEX IF NOT EXISTS idx_certificates_deleted 
+ON certificates(deleted_at) 
+WHERE deleted_at IS NULL;
+
+-- ============================================================================
+-- REMEDIAL ACTIONS (millions of records)
+-- ============================================================================
 
 -- Remedials by property and severity for dashboard
 CREATE INDEX IF NOT EXISTS idx_remedials_property_severity 
@@ -23,9 +45,53 @@ ON remedial_actions(property_id, severity, status);
 CREATE INDEX IF NOT EXISTS idx_remedials_status_due 
 ON remedial_actions(status, due_date);
 
+-- Remedials by org + status + due_date (CRITICAL for org-scoped filtering)
+CREATE INDEX IF NOT EXISTS idx_remedials_org_status_due 
+ON remedial_actions(organisation_id, status, due_date);
+
+-- Remedials by org + severity for urgent actions
+CREATE INDEX IF NOT EXISTS idx_remedials_org_severity 
+ON remedial_actions(organisation_id, severity, status) 
+WHERE deleted_at IS NULL;
+
+-- Remedials by certificate for linking
+CREATE INDEX IF NOT EXISTS idx_remedials_certificate 
+ON remedial_actions(certificate_id);
+
+-- Remedials soft deletes filter
+CREATE INDEX IF NOT EXISTS idx_remedials_deleted 
+ON remedial_actions(deleted_at) 
+WHERE deleted_at IS NULL;
+
+-- ============================================================================
+-- PROPERTIES (50k+ records)
+-- ============================================================================
+
 -- Properties by block for hierarchy queries
 CREATE INDEX IF NOT EXISTS idx_properties_block 
 ON properties(block_id, compliance_status);
+
+-- Properties by org for filtered list queries (CRITICAL)
+CREATE INDEX IF NOT EXISTS idx_properties_org_status 
+ON properties(organisation_id, compliance_status);
+
+-- Properties by org + created for pagination
+CREATE INDEX IF NOT EXISTS idx_properties_org_created 
+ON properties(organisation_id, created_at DESC);
+
+-- Properties by UPRN for lookups
+CREATE INDEX IF NOT EXISTS idx_properties_uprn 
+ON properties(uprn) 
+WHERE uprn IS NOT NULL;
+
+-- Properties soft deletes filter
+CREATE INDEX IF NOT EXISTS idx_properties_deleted 
+ON properties(deleted_at) 
+WHERE deleted_at IS NULL;
+
+-- ============================================================================
+-- COMPONENTS/ASSETS (thousands of records)
+-- ============================================================================
 
 -- Components by property for asset health
 CREATE INDEX IF NOT EXISTS idx_components_property_type 
@@ -35,13 +101,42 @@ ON components(property_id, component_type_id, compliance_status);
 CREATE INDEX IF NOT EXISTS idx_components_block 
 ON components(block_id, is_active);
 
+-- Components by org for filtered list
+CREATE INDEX IF NOT EXISTS idx_components_org_active 
+ON components(organisation_id, is_active);
+
+-- Components condition for health queries
+CREATE INDEX IF NOT EXISTS idx_components_condition 
+ON components(condition, is_active) 
+WHERE is_active = true;
+
+-- ============================================================================
+-- AUDIT EVENTS (millions of records) 
+-- ============================================================================
+
 -- Audit events for entity lookup (high frequency)
 CREATE INDEX IF NOT EXISTS idx_audit_entity_timestamp 
 ON audit_events(entity_type, entity_id, created_at DESC);
 
--- Audit events by organisation for audit log page
+-- Audit events by organisation for audit log page (CRITICAL)
 CREATE INDEX IF NOT EXISTS idx_audit_org_created 
 ON audit_events(organisation_id, created_at DESC);
+
+-- Audit events by event type for filtering
+CREATE INDEX IF NOT EXISTS idx_audit_event_type 
+ON audit_events(event_type, created_at DESC);
+
+-- Audit events by user for user activity tracking
+CREATE INDEX IF NOT EXISTS idx_audit_user_created 
+ON audit_events(user_id, created_at DESC);
+
+-- Audit events composite for common queries
+CREATE INDEX IF NOT EXISTS idx_audit_org_type_created 
+ON audit_events(organisation_id, event_type, created_at DESC);
+
+-- ============================================================================
+-- HIERARCHY TABLES
+-- ============================================================================
 
 -- Extraction runs by certificate for processing queries
 CREATE INDEX IF NOT EXISTS idx_extraction_runs_cert_status 
@@ -51,12 +146,44 @@ ON extraction_runs(certificate_id, status);
 CREATE INDEX IF NOT EXISTS idx_blocks_scheme 
 ON blocks(scheme_id);
 
+-- Blocks by org for filtered list
+CREATE INDEX IF NOT EXISTS idx_blocks_org 
+ON blocks(organisation_id);
+
+-- Schemes by org for filtered list
+CREATE INDEX IF NOT EXISTS idx_schemes_org 
+ON schemes(organisation_id);
+
 -- Spaces by property/block for hierarchy
 CREATE INDEX IF NOT EXISTS idx_spaces_property 
 ON spaces(property_id);
 
 CREATE INDEX IF NOT EXISTS idx_spaces_block 
 ON spaces(block_id);
+
+-- Spaces by scheme for estate-wide spaces
+CREATE INDEX IF NOT EXISTS idx_spaces_scheme 
+ON spaces(scheme_id);
+
+-- ============================================================================
+-- CONTRACTORS
+-- ============================================================================
+
+-- Contractors by org
+CREATE INDEX IF NOT EXISTS idx_contractors_org 
+ON contractors(organisation_id, status);
+
+-- ============================================================================
+-- USERS & AUTH
+-- ============================================================================
+
+-- Users by org for filtered list
+CREATE INDEX IF NOT EXISTS idx_users_org 
+ON users(organisation_id);
+
+-- Users by email for login lookups (partial unique)
+CREATE INDEX IF NOT EXISTS idx_users_email 
+ON users(email);
 `;
 
 export const materializedViewDefinitions = `
@@ -635,4 +762,113 @@ ${riskViewIndexDefinitions}
 ${operationalViewIndexDefinitions}
 ${regulatoryViewIndexDefinitions}
 ${contractorViewIndexDefinitions}
+`;
+
+// ============================================================================
+// Audit Event Archival & Retention (for millions of audit records)
+// ============================================================================
+
+export const auditArchivalTableDefinition = `
+-- Archive table for old audit events (cold storage structure)
+CREATE TABLE IF NOT EXISTS audit_events_archive (
+    id VARCHAR PRIMARY KEY,
+    organisation_id VARCHAR NOT NULL,
+    actor_id VARCHAR,
+    actor_name TEXT,
+    actor_type TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id VARCHAR NOT NULL,
+    entity_name TEXT,
+    property_id VARCHAR,
+    certificate_id VARCHAR,
+    before_state JSONB,
+    after_state JSONB,
+    changes JSONB,
+    message TEXT NOT NULL,
+    metadata JSONB,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TIMESTAMP NOT NULL,
+    archived_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_archive_org_created 
+ON audit_events_archive(organisation_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_archive_entity 
+ON audit_events_archive(entity_type, entity_id);
+
+-- Audit retention settings table
+CREATE TABLE IF NOT EXISTS audit_retention_settings (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    organisation_id VARCHAR NOT NULL UNIQUE,
+    hot_retention_days INTEGER NOT NULL DEFAULT 90,
+    archive_retention_days INTEGER NOT NULL DEFAULT 730,
+    auto_archive_enabled BOOLEAN NOT NULL DEFAULT true,
+    last_archive_run TIMESTAMP,
+    last_purge_run TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+`;
+
+// ============================================================================
+// Connection Pooling & Scalability Notes
+// ============================================================================
+
+export const scalabilityNotes = {
+  connectionPooling: {
+    current: 'Neon HTTP driver (single connection per request)',
+    recommended: 'Neon WebSocket driver with connection pooling OR PgBouncer',
+    reasoning: 'At 50k+ properties with concurrent users, single-connection model will saturate. Need pooled connections.',
+    implementation: [
+      '1. Switch from @neondatabase/serverless HTTP to WebSocket mode',
+      '2. Or deploy PgBouncer sidecar in production',
+      '3. Configure pool_size based on expected concurrent connections (10-50)',
+      '4. Monitor connection pool saturation via pg_stat_activity'
+    ]
+  },
+  queryOptimization: {
+    implemented: [
+      'DB-level pagination for /api/properties and /api/certificates',
+      'LEFT JOINs instead of N+1 queries for enrichment',
+      'Composite indexes on organisation_id + status/date columns',
+      'Soft delete filters using partial indexes'
+    ],
+    pending: [
+      'Audit event archival/retention job',
+      'Connection pool monitoring dashboard'
+    ]
+  },
+  materializedViews: {
+    refreshStrategy: 'CONCURRENT-only (no blocking) with staggered scheduling',
+    staleness: 'Configurable threshold (default 6 hours)',
+    categories: ['core', 'hierarchy', 'risk', 'operational', 'regulatory', 'contractor']
+  }
+};
+
+// Export archival function SQL
+export const archiveOldAuditEventsSQL = (daysOld: number = 90) => `
+-- Archive audit events older than ${daysOld} days
+INSERT INTO audit_events_archive 
+SELECT 
+    id, organisation_id, actor_id, actor_name, actor_type::text,
+    event_type::text, entity_type::text, entity_id, entity_name,
+    property_id, certificate_id, before_state, after_state, changes,
+    message, metadata, ip_address, user_agent, created_at, NOW()
+FROM audit_events
+WHERE created_at < NOW() - INTERVAL '${daysOld} days'
+ON CONFLICT (id) DO NOTHING;
+
+-- Delete archived events from main table
+DELETE FROM audit_events
+WHERE created_at < NOW() - INTERVAL '${daysOld} days'
+AND id IN (SELECT id FROM audit_events_archive);
+`;
+
+export const purgeOldArchivesSQL = (daysOld: number = 730) => `
+-- Purge archived events older than ${daysOld} days
+DELETE FROM audit_events_archive
+WHERE archived_at < NOW() - INTERVAL '${daysOld} days';
 `;

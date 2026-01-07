@@ -1289,36 +1289,26 @@ export async function registerRoutes(
   app.get("/api/properties", paginationMiddleware(), async (req, res) => {
     try {
       const pagination = (req as any).pagination as PaginationParams;
-      const { page, limit, offset, hasFilters } = pagination;
+      const { page, limit, offset } = pagination;
       const blockId = req.query.blockId as string | undefined;
       const schemeId = req.query.schemeId as string | undefined;
       const search = req.query.search as string | undefined;
-      const allProperties = await storage.listProperties(ORG_ID, { blockId, schemeId });
+      const complianceStatus = req.query.complianceStatus as string | undefined;
       
-      // Apply search filter
-      let filtered = allProperties;
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filtered = allProperties.filter(p => 
-          p.addressLine1?.toLowerCase().includes(searchLower) ||
-          p.postcode?.toLowerCase().includes(searchLower) ||
-          p.uprn?.toLowerCase().includes(searchLower)
-        );
-      }
+      // Use DB-level pagination for enterprise scale (no in-memory filtering)
+      const { data, total } = await storage.listPropertiesPaginated(ORG_ID, {
+        blockId,
+        schemeId,
+        search,
+        complianceStatus,
+        limit,
+        offset,
+      });
       
-      const total = filtered.length;
-      const paginatedProperties = filtered.slice(offset, offset + limit);
-      
-      // Enrich properties with block and scheme information
-      const enrichedProperties = await Promise.all(paginatedProperties.map(async (prop) => {
-        const block = await storage.getBlock(prop.blockId);
-        const scheme = block ? await storage.getScheme(block.schemeId) : null;
-        return {
-          ...prop,
-          block,
-          scheme,
-          fullAddress: `${prop.addressLine1}, ${prop.city}, ${prop.postcode}`,
-        };
+      // Data already includes block and scheme from JOINs
+      const enrichedProperties = data.map(prop => ({
+        ...prop,
+        fullAddress: `${prop.addressLine1}, ${prop.city || ''}, ${prop.postcode}`,
       }));
       
       res.json({ data: enrichedProperties, total, page, limit, totalPages: Math.ceil(total / limit) });
@@ -2904,7 +2894,7 @@ export async function registerRoutes(
   app.get("/api/certificates", paginationMiddleware(), async (req, res) => {
     try {
       const pagination = (req as any).pagination as PaginationParams;
-      const { page, limit, offset, hasFilters } = pagination;
+      const { page, limit, offset } = pagination;
       const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
@@ -2913,38 +2903,19 @@ export async function registerRoutes(
       const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
       const isPendingFilter = status === 'PENDING';
       
-      const certificates = await storage.listCertificates(ORG_ID, { 
-        propertyId, 
-        status: isPendingFilter ? undefined : status 
+      // Use DB-level pagination for enterprise scale (no in-memory filtering)
+      const { data, total } = await storage.listCertificatesPaginated(ORG_ID, {
+        propertyId,
+        status: isPendingFilter ? PENDING_STATUSES : status,
+        search,
+        limit,
+        offset,
       });
       
-      // Apply PENDING filter if needed
-      let filtered = isPendingFilter 
-        ? certificates.filter(c => PENDING_STATUSES.includes(c.status))
-        : certificates;
-      
-      // Apply search filter
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filtered = filtered.filter(c => 
-          c.certificateNumber?.toLowerCase().includes(searchLower) ||
-          c.fileName?.toLowerCase().includes(searchLower) ||
-          c.type?.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      const total = filtered.length;
-      const paginatedCertificates = filtered.slice(offset, offset + limit);
-      
-      // Enrich with property and extraction data
-      const enrichedCertificates = await Promise.all(paginatedCertificates.map(async (cert) => {
-        const property = await storage.getProperty(cert.propertyId);
-        const extraction = await storage.getExtractionByCertificate(cert.id);
-        return {
-          ...cert,
-          property,
-          extractedData: extraction?.extractedData,
-        };
+      // Data already includes property and extraction from JOINs
+      const enrichedCertificates = data.map(cert => ({
+        ...cert,
+        extractedData: cert.extraction?.extractedData,
       }));
       
       res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit) });
