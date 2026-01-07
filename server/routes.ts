@@ -6083,6 +6083,38 @@ export async function registerRoutes(
   });
   
   // ===== HACT ARCHITECTURE - COMPONENTS (ASSETS) =====
+  
+  // Component stats endpoint - efficient SQL aggregation for all components
+  app.get("/api/components/stats", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE condition = 'CRITICAL') as critical,
+          COUNT(*) FILTER (WHERE condition = 'POOR') as poor,
+          COUNT(*) FILTER (WHERE condition = 'FAIR') as fair,
+          COUNT(*) FILTER (WHERE condition = 'GOOD') as good,
+          COUNT(*) FILTER (WHERE condition IS NULL OR condition = 'UNKNOWN') as unknown
+        FROM components
+      `);
+      
+      const row = (result.rows as any[])[0] || {};
+      res.json({
+        total: parseInt(row.total || '0'),
+        conditionSummary: {
+          CRITICAL: parseInt(row.critical || '0'),
+          POOR: parseInt(row.poor || '0'),
+          FAIR: parseInt(row.fair || '0'),
+          GOOD: parseInt(row.good || '0'),
+          UNKNOWN: parseInt(row.unknown || '0'),
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching component stats:", error);
+      res.status(500).json({ error: "Failed to fetch component stats" });
+    }
+  });
+  
   app.get("/api/components", paginationMiddleware(), async (req, res) => {
     try {
       const pagination = (req as any).pagination as PaginationParams;

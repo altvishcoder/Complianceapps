@@ -601,7 +601,20 @@ export interface EnrichedComponent extends Component {
   property?: { id: string; addressLine1: string; postcode: string };
 }
 
+export interface ComponentStatsResponse {
+  total: number;
+  conditionSummary: {
+    CRITICAL: number;
+    POOR: number;
+    FAIR: number;
+    GOOD: number;
+    UNKNOWN: number;
+  };
+}
+
 export const componentsApi = {
+  stats: () => fetchJSON<ComponentStatsResponse>(`${API_BASE}/components/stats`),
+  
   list: (filters?: { propertyId?: string; spaceId?: string; blockId?: string; componentTypeId?: string; page?: number; limit?: number; search?: string }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);

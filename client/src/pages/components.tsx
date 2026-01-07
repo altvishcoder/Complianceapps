@@ -89,9 +89,16 @@ export default function ComponentsPage() {
   });
   
   const components = componentsResponse?.data || [];
-  const totalComponents = componentsResponse?.total || 0;
   const totalPages = componentsResponse?.totalPages || 1;
-  const conditionSummary = componentsResponse?.conditionSummary || { CRITICAL: 0, POOR: 0, FAIR: 0, GOOD: 0, UNKNOWN: 0 };
+  
+  // Fetch component stats from dedicated endpoint (accurate totals across ALL components)
+  const { data: componentStats } = useQuery({
+    queryKey: ["component-stats"],
+    queryFn: componentsApi.stats,
+  });
+  
+  const totalComponents = componentStats?.total || componentsResponse?.total || 0;
+  const conditionSummary = componentStats?.conditionSummary || { CRITICAL: 0, POOR: 0, FAIR: 0, GOOD: 0, UNKNOWN: 0 };
   
   // Auto-adjust page if current page exceeds total pages (e.g., after deletion)
   useEffect(() => {
@@ -141,6 +148,7 @@ export default function ComponentsPage() {
     mutationFn: (data: InsertComponent) => componentsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
       setShowAddDialog(false);
       setNewComponent({});
     },
@@ -150,6 +158,7 @@ export default function ComponentsPage() {
     mutationFn: componentsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
     },
   });
   
@@ -166,6 +175,7 @@ export default function ComponentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
       setEditingComponent(null);
       setEditFormData({});
       toast({ title: "Component Updated", description: "Component details saved successfully." });
@@ -191,6 +201,7 @@ export default function ComponentsPage() {
     mutationFn: componentsApi.approve,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
       toast({ title: "Component Approved", description: "Component has been verified and approved." });
     },
     onError: () => {
@@ -202,6 +213,7 @@ export default function ComponentsPage() {
     mutationFn: componentsApi.bulkApprove,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
       setSelectedIds(new Set());
       toast({ title: "Components Approved", description: `${data.approved} components approved successfully.` });
     },
@@ -211,6 +223,7 @@ export default function ComponentsPage() {
     mutationFn: componentsApi.bulkReject,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
       setSelectedIds(new Set());
       toast({ title: "Components Rejected", description: `${data.rejected} components rejected/deactivated.` });
     },
@@ -220,6 +233,7 @@ export default function ComponentsPage() {
     mutationFn: componentsApi.bulkDelete,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["components"] });
+      queryClient.invalidateQueries({ queryKey: ["component-stats"] });
       setSelectedIds(new Set());
       toast({ title: "Components Deleted", description: `${data.deleted} components deleted.` });
     },
