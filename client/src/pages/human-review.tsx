@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { HeroStatsGrid } from '@/components/dashboard/HeroStats';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import { 
   Check, X, AlertTriangle, Eye, Edit2, FileText, Clock, Filter,
   ChevronLeft, ChevronRight, RefreshCw, Save, Tag, Search, ExternalLink, ImageIcon,
@@ -351,9 +352,11 @@ export default function HumanReviewPage() {
             </Select>
           </div>
           
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          {isLoading && runs.length === 0 ? (
+            <div className="space-y-4">
+              <CardSkeleton contentHeight={80} />
+              <CardSkeleton contentHeight={80} />
+              <CardSkeleton contentHeight={80} />
             </div>
           ) : filteredRuns.length === 0 ? (
             <Card>
