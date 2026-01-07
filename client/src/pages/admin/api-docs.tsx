@@ -17,12 +17,18 @@ interface OpenApiStatus {
 
 export default function ApiDocs() {
   const [iframeKey, setIframeKey] = useState(0);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   useEffect(() => {
     document.title = "API Documentation - ComplianceAI";
   }, []);
+
+  // Reset iframe loaded state when key changes (refresh)
+  useEffect(() => {
+    setIframeLoaded(false);
+  }, [iframeKey]);
 
   const { data: status, isLoading: statusLoading } = useQuery<OpenApiStatus>({
     queryKey: ['openapi-status'],
@@ -169,13 +175,28 @@ export default function ApiDocs() {
               <CardTitle className="text-base">Interactive API Explorer</CardTitle>
               <CardDescription>Test API endpoints directly from this page</CardDescription>
             </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] p-0">
+            <CardContent className="h-[calc(100%-80px)] p-0 relative">
+              {!iframeLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
+                  <div className="w-full h-full p-4 space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-8 w-3/4" />
+                    <div className="space-y-3 mt-6">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  </div>
+                </div>
+              )}
               <iframe 
                 key={iframeKey}
                 src="/api/docs" 
                 className="w-full h-full border-0 rounded-b-lg"
                 title="Swagger UI API Documentation"
                 data-testid="iframe-swagger"
+                onLoad={() => setIframeLoaded(true)}
               />
             </CardContent>
           </Card>
