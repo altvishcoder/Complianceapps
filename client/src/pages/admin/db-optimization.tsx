@@ -1051,9 +1051,9 @@ export default function DbOptimizationPage() {
                           <p>No custom indexes found.</p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
+                        <div className="max-h-96 overflow-y-auto overflow-x-auto">
                           <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 bg-card">
                               <tr className="border-b">
                                 <th className="text-left py-2 px-3 font-medium">Index Name</th>
                                 <th className="text-left py-2 px-3 font-medium">Table</th>
@@ -1096,7 +1096,7 @@ export default function DbOptimizationPage() {
                           <p>No optimization tables found. Click "Apply All Optimizations" to create them.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="max-h-64 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
                           {status?.optimizationTables.map((table) => (
                             <div
                               key={table.name}
