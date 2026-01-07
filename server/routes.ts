@@ -2971,25 +2971,31 @@ export async function registerRoutes(
         extractedData: cert.extraction?.extractedData,
       }));
       
-      // Get certificate stats across the entire dataset (not just current page)
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      // Get certificate stats from materialized view (fast) with fallback to direct query
+      const { getCertificateStats } = await import('./reporting/materialized-views');
+      let stats = await getCertificateStats(ORG_ID);
       
-      const [certStats] = await db.select({
-        expired: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} < ${now.toISOString()}::timestamp)`,
-        expiringSoon: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} >= ${now.toISOString()}::timestamp AND ${certificates.expiryDate} <= ${thirtyDaysFromNow.toISOString()}::timestamp)`,
-        pendingReview: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'NEEDS_REVIEW')`,
-        approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
-      })
-      .from(certificates)
-      .where(eq(certificates.organisationId, ORG_ID));
-      
-      const stats = {
-        expired: Number(certStats?.expired || 0),
-        expiringSoon: Number(certStats?.expiringSoon || 0),
-        pendingReview: Number(certStats?.pendingReview || 0),
-        approved: Number(certStats?.approved || 0),
-      };
+      // Fallback to direct query if materialized view not available
+      if (!stats) {
+        const now = new Date();
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        const [certStats] = await db.select({
+          expired: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} < ${now.toISOString()}::timestamp)`,
+          expiringSoon: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} >= ${now.toISOString()}::timestamp AND ${certificates.expiryDate} <= ${thirtyDaysFromNow.toISOString()}::timestamp)`,
+          pendingReview: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'NEEDS_REVIEW')`,
+          approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
+        })
+        .from(certificates)
+        .where(eq(certificates.organisationId, ORG_ID));
+        
+        stats = {
+          expired: Number(certStats?.expired || 0),
+          expiringSoon: Number(certStats?.expiringSoon || 0),
+          pendingReview: Number(certStats?.pendingReview || 0),
+          approved: Number(certStats?.approved || 0),
+        };
+      }
       
       res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit), stats });
     } catch (error) {
@@ -3374,7 +3380,33 @@ export async function registerRoutes(
         };
       }));
       
-      res.json({ data: enrichedActions, total, page, limit, totalPages: Math.ceil(total / limit) });
+      // Get remedial action stats from materialized view (fast) with fallback to direct query
+      const { getRemedialStats } = await import('./reporting/materialized-views');
+      let stats = await getRemedialStats(ORG_ID);
+      
+      // Fallback to direct query if materialized view not available
+      if (!stats) {
+        const now = new Date();
+        const [actionStats] = await db.select({
+          totalOpen: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED'))`,
+          overdue: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED') AND ${remedialActions.dueDate} < ${now.toISOString()}::timestamp)`,
+          immediate: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED') AND ${remedialActions.severity} = 'IMMEDIATE')`,
+          inProgress: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'IN_PROGRESS')`,
+          completed: sql<number>`COUNT(*) FILTER (WHERE ${remedialActions.status} = 'COMPLETED')`,
+        })
+        .from(remedialActions)
+        .where(eq(remedialActions.organisationId, ORG_ID));
+        
+        stats = {
+          totalOpen: Number(actionStats?.totalOpen || 0),
+          overdue: Number(actionStats?.overdue || 0),
+          immediate: Number(actionStats?.immediate || 0),
+          inProgress: Number(actionStats?.inProgress || 0),
+          completed: Number(actionStats?.completed || 0),
+        };
+      }
+      
+      res.json({ data: enrichedActions, total, page, limit, totalPages: Math.ceil(total / limit), stats });
     } catch (error) {
       console.error("Error fetching actions:", error);
       res.status(500).json({ error: "Failed to fetch actions" });

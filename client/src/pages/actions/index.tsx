@@ -129,11 +129,15 @@ export default function ActionsPage() {
   const totalPages = paginatedData?.totalPages || 1;
   const totalItems = paginatedData?.total || 0;
   
-  const totalOpen = totalItems;
-  const emergencyCount = apiSeverity === 'IMMEDIATE' ? totalItems : 0;
-  const inProgressCount = apiStatus === 'IN_PROGRESS' ? totalItems : 0;
-  const resolvedCount = apiStatus === 'COMPLETED' ? totalItems : 0;
-  const overdueCount = remedialActions.filter(a => a.dueDate && new Date(a.dueDate) < new Date() && a.status === 'OPEN').length;
+  // Stats from API (counts across entire dataset, not just current page)
+  const apiStats = (paginatedData as any)?.stats || null;
+  
+  // Use API stats for accurate counts, fallback to current-page calculation
+  const totalOpen = apiStats?.totalOpen ?? totalItems;
+  const emergencyCount = apiStats?.immediate ?? (apiSeverity === 'IMMEDIATE' ? totalItems : 0);
+  const inProgressCount = apiStats?.inProgress ?? (apiStatus === 'IN_PROGRESS' ? totalItems : 0);
+  const resolvedCount = apiStats?.completed ?? (apiStatus === 'COMPLETED' ? totalItems : 0);
+  const overdueCount = apiStats?.overdue ?? remedialActions.filter(a => a.dueDate && new Date(a.dueDate) < new Date() && a.status === 'OPEN').length;
   
   const filteredActions = typeFilter 
     ? remedialActions.filter(action => action.certificate?.certificateType === typeFilter)

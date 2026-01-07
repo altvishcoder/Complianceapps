@@ -132,6 +132,66 @@ export async function createReportingViews() {
       ON mv_contractor_performance (success_rate)
     `);
 
+    // Certificate stats materialized view (for hero cards on certificates page)
+    await db.execute(sql`
+      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_certificate_stats AS
+      SELECT 
+        c.organisation_id,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE c.expiry_date < CURRENT_DATE) as expired,
+        COUNT(*) FILTER (WHERE c.expiry_date >= CURRENT_DATE AND c.expiry_date < CURRENT_DATE + INTERVAL '30 days') as expiring_soon,
+        COUNT(*) FILTER (WHERE c.status = 'NEEDS_REVIEW') as pending_review,
+        COUNT(*) FILTER (WHERE c.status = 'APPROVED') as approved,
+        COUNT(*) FILTER (WHERE c.status = 'EXTRACTED') as extracted,
+        COUNT(*) FILTER (WHERE c.status = 'PROCESSING') as processing,
+        COUNT(*) FILTER (WHERE c.status = 'FAILED') as failed
+      FROM certificates c
+      GROUP BY c.organisation_id
+    `);
+    
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS mv_certificate_stats_org_idx ON mv_certificate_stats (organisation_id)
+    `);
+
+    // Remedial action stats materialized view (for hero cards on actions page)
+    await db.execute(sql`
+      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_remedial_stats AS
+      SELECT 
+        ra.organisation_id,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED')) as total_open,
+        COUNT(*) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED') AND ra.due_date < CURRENT_DATE) as overdue,
+        COUNT(*) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED') AND ra.severity = 'IMMEDIATE') as immediate,
+        COUNT(*) FILTER (WHERE ra.status = 'IN_PROGRESS') as in_progress,
+        COUNT(*) FILTER (WHERE ra.status = 'COMPLETED') as completed,
+        COUNT(*) FILTER (WHERE ra.severity = 'IMMEDIATE') as severity_immediate,
+        COUNT(*) FILTER (WHERE ra.severity = 'URGENT') as severity_urgent,
+        COUNT(*) FILTER (WHERE ra.severity = 'PRIORITY') as severity_priority,
+        COUNT(*) FILTER (WHERE ra.severity = 'ROUTINE') as severity_routine
+      FROM remedial_actions ra
+      GROUP BY ra.organisation_id
+    `);
+    
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS mv_remedial_stats_org_idx ON mv_remedial_stats (organisation_id)
+    `);
+
+    // Performance indexes on base tables
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_certificates_org_status_expiry 
+      ON certificates (organisation_id, status, expiry_date)
+    `);
+    
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_remedial_actions_org_status_due 
+      ON remedial_actions (organisation_id, status, due_date)
+    `);
+    
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_remedial_actions_org_severity 
+      ON remedial_actions (organisation_id, severity)
+    `);
+
     log.info("Materialized views created successfully");
   } catch (error) {
     log.error({ error }, "Error creating materialized views");
@@ -143,6 +203,8 @@ export async function createReportingViews() {
 const MATERIALIZED_VIEWS = {
   mv_component_stats: sql`REFRESH MATERIALIZED VIEW mv_component_stats`,
   mv_property_stats: sql`REFRESH MATERIALIZED VIEW mv_property_stats`,
+  mv_certificate_stats: sql`REFRESH MATERIALIZED VIEW mv_certificate_stats`,
+  mv_remedial_stats: sql`REFRESH MATERIALIZED VIEW mv_remedial_stats`,
   mv_compliance_summary: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_compliance_summary`,
   mv_property_health: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_property_health`,
   mv_contractor_performance: sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_contractor_performance`,
@@ -177,6 +239,8 @@ export async function refreshReportingViews() {
     // Core stats views (used by dashboard cards)
     await safeRefreshView('mv_component_stats');
     await safeRefreshView('mv_property_stats');
+    await safeRefreshView('mv_certificate_stats');
+    await safeRefreshView('mv_remedial_stats');
     
     // Reporting views (use CONCURRENTLY for concurrent reads)
     await safeRefreshView('mv_compliance_summary');
@@ -187,6 +251,74 @@ export async function refreshReportingViews() {
     log.info("Materialized views refreshed successfully");
   } catch (error) {
     log.error({ error }, "Error refreshing materialized views");
+    throw error;
+  }
+}
+
+// Helper to get certificate stats from materialized view (fast) or fallback to direct query
+export async function getCertificateStats(organisationId: string): Promise<{
+  expired: number;
+  expiringSoon: number;
+  pendingReview: number;
+  approved: number;
+} | null> {
+  try {
+    const result = await db.execute(sql`
+      SELECT expired, expiring_soon, pending_review, approved 
+      FROM mv_certificate_stats 
+      WHERE organisation_id = ${organisationId}
+    `);
+    
+    if (result.rows && result.rows.length > 0) {
+      const row = result.rows[0] as any;
+      return {
+        expired: Number(row.expired || 0),
+        expiringSoon: Number(row.expiring_soon || 0),
+        pendingReview: Number(row.pending_review || 0),
+        approved: Number(row.approved || 0),
+      };
+    }
+    return null;
+  } catch (error: any) {
+    if (error.message?.includes('does not exist')) {
+      log.warn('mv_certificate_stats does not exist, using direct query');
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Helper to get remedial action stats from materialized view (fast) or fallback to direct query
+export async function getRemedialStats(organisationId: string): Promise<{
+  totalOpen: number;
+  overdue: number;
+  immediate: number;
+  inProgress: number;
+  completed: number;
+} | null> {
+  try {
+    const result = await db.execute(sql`
+      SELECT total_open, overdue, immediate, in_progress, completed 
+      FROM mv_remedial_stats 
+      WHERE organisation_id = ${organisationId}
+    `);
+    
+    if (result.rows && result.rows.length > 0) {
+      const row = result.rows[0] as any;
+      return {
+        totalOpen: Number(row.total_open || 0),
+        overdue: Number(row.overdue || 0),
+        immediate: Number(row.immediate || 0),
+        inProgress: Number(row.in_progress || 0),
+        completed: Number(row.completed || 0),
+      };
+    }
+    return null;
+  } catch (error: any) {
+    if (error.message?.includes('does not exist')) {
+      log.warn('mv_remedial_stats does not exist, using direct query');
+      return null;
+    }
     throw error;
   }
 }
