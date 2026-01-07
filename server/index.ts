@@ -28,6 +28,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Track initialization state
 let isInitialized = false;
+let frontendReady = false;
 
 // Trust proxy for proper rate limiting behind Replit's load balancer
 app.set('trust proxy', 1);
@@ -66,6 +67,67 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Middleware to handle frontend routes before Vite/static is ready
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // Let API routes, health check, and static assets through
+  if (req.path.startsWith('/api/') || 
+      req.path === '/health' || 
+      req.path.startsWith('/src/') ||
+      req.path.startsWith('/@') ||
+      req.path.startsWith('/node_modules/') ||
+      req.path.includes('.')) {
+    return next();
+  }
+  
+  // If frontend is ready, proceed normally
+  if (frontendReady) {
+    return next();
+  }
+  
+  // Return a loading page for frontend routes while initializing
+  res.status(200).set({ 'Content-Type': 'text/html' }).send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>SocialComply - Loading</title>
+        <style>
+          body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: #0f172a; 
+            color: #e2e8f0;
+          }
+          .loader { text-align: center; }
+          .spinner { 
+            width: 40px; 
+            height: 40px; 
+            border: 3px solid #334155; 
+            border-top: 3px solid #3b82f6; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+            margin: 0 auto 16px;
+          }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          p { margin: 0; opacity: 0.8; }
+          .refresh { margin-top: 16px; font-size: 12px; opacity: 0.5; }
+        </style>
+        <script>setTimeout(() => location.reload(), 2000);</script>
+      </head>
+      <body>
+        <div class="loader">
+          <div class="spinner"></div>
+          <p>Starting up...</p>
+          <p class="refresh">Refreshing automatically...</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 // API versioning middleware - rewrites /api/v1/* to /api/* and adds version headers
 app.use('/api/v1', (req: Request, res: Response, next: NextFunction) => {
@@ -219,6 +281,10 @@ httpServer.listen(
           await setupVite(httpServer, app);
           console.log(`[${new Date().toISOString()}] Vite configured`);
         }
+        
+        // Mark frontend as ready - stops showing loading page
+        frontendReady = true;
+        console.log(`[${new Date().toISOString()}] Frontend ready`);
         
         // Background initialization (seeding, job queue, etc.)
         await initializeApp();
