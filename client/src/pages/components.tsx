@@ -505,20 +505,20 @@ export default function ComponentsPage() {
       ]} />
       
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Component Registry</CardTitle>
-              <CardDescription>{totalComponents.toLocaleString()} components registered (showing {filteredComponents.length})</CardDescription>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <CardTitle className="text-lg sm:text-xl">Component Registry</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">{totalComponents.toLocaleString()} components registered (showing {filteredComponents.length})</CardDescription>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search components..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64"
+                  className="pl-9 w-full"
                   data-testid="input-search-components"
                 />
               </div>
@@ -533,39 +533,41 @@ export default function ComponentsPage() {
           </div>
           
           {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 mt-4 p-3 bg-muted rounded-lg">
+            <div className="flex flex-wrap items-center gap-2 p-3 bg-muted rounded-lg">
               <span className="text-sm font-medium">{selectedIds.size} selected</span>
-              <div className="flex-1" />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => bulkApproveMutation.mutate(Array.from(selectedIds))}
-                disabled={bulkApproveMutation.isPending}
-                data-testid="button-bulk-approve"
-              >
-                {bulkApproveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle className="h-4 w-4 mr-1" />}
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => bulkRejectMutation.mutate(Array.from(selectedIds))}
-                disabled={bulkRejectMutation.isPending}
-                data-testid="button-bulk-reject"
-              >
-                {bulkRejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
-                Reject
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
-                disabled={bulkDeleteMutation.isPending}
-                data-testid="button-bulk-delete"
-              >
-                {bulkDeleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
-                Delete
-              </Button>
+              <div className="flex-1 min-w-4" />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => bulkApproveMutation.mutate(Array.from(selectedIds))}
+                  disabled={bulkApproveMutation.isPending}
+                  data-testid="button-bulk-approve"
+                >
+                  {bulkApproveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1" /> : <CheckCircle className="h-4 w-4 sm:mr-1" />}
+                  <span className="hidden sm:inline">Approve</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => bulkRejectMutation.mutate(Array.from(selectedIds))}
+                  disabled={bulkRejectMutation.isPending}
+                  data-testid="button-bulk-reject"
+                >
+                  {bulkRejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1" /> : <XCircle className="h-4 w-4 sm:mr-1" />}
+                  <span className="hidden sm:inline">Reject</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+                  disabled={bulkDeleteMutation.isPending}
+                  data-testid="button-bulk-delete"
+                >
+                  {bulkDeleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1" /> : <Trash2 className="h-4 w-4 sm:mr-1" />}
+                  <span className="hidden sm:inline">Delete</span>
+                </Button>
+              </div>
             </div>
           )}
         </CardHeader>
