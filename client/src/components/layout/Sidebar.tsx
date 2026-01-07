@@ -17,6 +17,7 @@ import {
   Pin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sidebarApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -476,8 +477,13 @@ export function Sidebar() {
           )}
           
           {navLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
+            <div className="space-y-1 px-1">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-4 flex-1" />
+                </div>
+              ))}
             </div>
           ) : navError ? (
             <>
