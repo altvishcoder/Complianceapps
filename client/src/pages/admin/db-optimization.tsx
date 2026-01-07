@@ -309,21 +309,26 @@ export default function DbOptimizationPage() {
         body: JSON.stringify({ category })
       });
       if (!res.ok) throw new Error("Failed to refresh category");
-      return res.json();
+      const data = await res.json();
+      return { ...data, categoryKey: category };
     },
     onSuccess: (data) => {
       const successCount = data.results.filter((r: any) => r.success).length;
+      const categoryInfo = categories?.[data.categoryKey];
+      const categoryName = categoryInfo?.name || data.categoryKey;
       toast({
-        title: "Category Refreshed",
+        title: `${categoryName} Refreshed`,
         description: `Refreshed ${successCount}/${data.results.length} views in ${data.totalDurationMs}ms`,
       });
       refetch();
       refetchHistory();
     },
     onError: (error: Error, category) => {
+      const categoryInfo = categories?.[category];
+      const categoryName = categoryInfo?.name || category;
       toast({
         title: "Refresh Failed",
-        description: `Failed to refresh ${category}: ${error.message}`,
+        description: `Failed to refresh ${categoryName}: ${error.message}`,
         variant: "destructive",
       });
     },
