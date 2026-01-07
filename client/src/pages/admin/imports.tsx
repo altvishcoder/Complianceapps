@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { dataImportsApi } from "@/lib/api";
 import { Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Clock, Play, Loader2, Info } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ImportType = "properties" | "units" | "components" | "geocoding";
 
@@ -532,10 +533,29 @@ export default function ImportsPage() {
               <CardDescription>View past import operations and their results</CardDescription>
             </CardHeader>
             <CardContent>
-              {importsLoading ? (
-                <div className="flex justify-center p-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
+              {importsLoading && !imports.length ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Rows</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : imports.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No imports yet. Start by creating a new import.
