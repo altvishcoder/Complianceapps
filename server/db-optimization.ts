@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, desc, eq } from "drizzle-orm";
 import { 
   performanceIndexDefinitions, 
   allMaterializedViewDefinitions,
@@ -9,11 +9,55 @@ import {
   assetHealthSummaryTableDefinition,
   materializedViewCategories
 } from "@shared/schema/tables/performance-indexes";
+import { mvRefreshHistory, mvRefreshSchedule } from "@shared/schema/tables/cache";
 
 const optimizationLogger = {
   info: (msg: string, data?: any) => console.log(`[DB-OPT] ${msg}`, data || ''),
   error: (msg: string, error?: any) => console.error(`[DB-OPT ERROR] ${msg}`, error || ''),
 };
+
+type RefreshTrigger = 'MANUAL' | 'SCHEDULED' | 'POST_INGESTION' | 'SYSTEM';
+
+async function getViewRowCount(viewName: string): Promise<number> {
+  try {
+    const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM ${viewName}`));
+    return parseInt((result.rows?.[0] as any)?.count || '0');
+  } catch {
+    return 0;
+  }
+}
+
+async function logRefreshHistory(
+  viewName: string,
+  category: string | null,
+  status: 'SUCCESS' | 'FAILED' | 'RUNNING',
+  trigger: RefreshTrigger,
+  startedAt: Date,
+  durationMs: number,
+  rowCountBefore: number,
+  rowCountAfter: number,
+  initiatedBy?: string,
+  errorMessage?: string
+): Promise<void> {
+  try {
+    await db.insert(mvRefreshHistory).values({
+      viewName,
+      category,
+      status,
+      trigger,
+      startedAt,
+      completedAt: new Date(),
+      durationMs,
+      rowCountBefore,
+      rowCountAfter,
+      rowDelta: rowCountAfter - rowCountBefore,
+      initiatedBy,
+      errorMessage,
+    });
+  } catch (error) {
+    optimizationLogger.error('Failed to log refresh history', error);
+  }
+}
 
 export async function applyPerformanceIndexes(): Promise<{ success: boolean; applied: number; errors: string[] }> {
   const errors: string[] = [];
@@ -132,32 +176,51 @@ export async function createOptimizationTables(): Promise<{ success: boolean; cr
   }
 }
 
-export async function refreshMaterializedView(viewName: string): Promise<{ success: boolean; durationMs: number }> {
-  const startTime = Date.now();
+export async function refreshMaterializedView(
+  viewName: string, 
+  trigger: RefreshTrigger = 'MANUAL',
+  initiatedBy?: string
+): Promise<{ success: boolean; durationMs: number; rowCount: number }> {
+  const startTime = new Date();
+  const startMs = Date.now();
+  const category = getViewCategory(viewName);
+  const rowCountBefore = await getViewRowCount(viewName);
+  
   try {
     await db.execute(sql.raw(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${viewName}`));
-    const durationMs = Date.now() - startTime;
-    optimizationLogger.info(`Refreshed ${viewName} in ${durationMs}ms`);
-    return { success: true, durationMs };
+    const durationMs = Date.now() - startMs;
+    const rowCountAfter = await getViewRowCount(viewName);
+    
+    await logRefreshHistory(viewName, category, 'SUCCESS', trigger, startTime, durationMs, rowCountBefore, rowCountAfter, initiatedBy);
+    
+    optimizationLogger.info(`Refreshed ${viewName} in ${durationMs}ms (${rowCountAfter} rows, delta: ${rowCountAfter - rowCountBefore})`);
+    return { success: true, durationMs, rowCount: rowCountAfter };
   } catch (error: any) {
     if (error.message?.includes('CONCURRENTLY')) {
       try {
         await db.execute(sql.raw(`REFRESH MATERIALIZED VIEW ${viewName}`));
-        const durationMs = Date.now() - startTime;
-        return { success: true, durationMs };
+        const durationMs = Date.now() - startMs;
+        const rowCountAfter = await getViewRowCount(viewName);
+        
+        await logRefreshHistory(viewName, category, 'SUCCESS', trigger, startTime, durationMs, rowCountBefore, rowCountAfter, initiatedBy);
+        return { success: true, durationMs, rowCount: rowCountAfter };
       } catch (retryError: any) {
+        const durationMs = Date.now() - startMs;
+        await logRefreshHistory(viewName, category, 'FAILED', trigger, startTime, durationMs, rowCountBefore, 0, initiatedBy, retryError.message);
         optimizationLogger.error(`Failed to refresh ${viewName}`, retryError);
-        return { success: false, durationMs: Date.now() - startTime };
+        return { success: false, durationMs, rowCount: 0 };
       }
     }
+    const durationMs = Date.now() - startMs;
+    await logRefreshHistory(viewName, category, 'FAILED', trigger, startTime, durationMs, rowCountBefore, 0, initiatedBy, error.message);
     optimizationLogger.error(`Failed to refresh ${viewName}`, error);
-    return { success: false, durationMs: Date.now() - startTime };
+    return { success: false, durationMs, rowCount: 0 };
   }
 }
 
 export async function getOptimizationStatus(): Promise<{
   indexes: { name: string; tableName: string; size: string }[];
-  materializedViews: { name: string; rowCount: number; lastRefresh: string | null }[];
+  materializedViews: { name: string; rowCount: number; lastRefresh: string | null; lastDurationMs: number | null }[];
   optimizationTables: { name: string; rowCount: number }[];
 }> {
   try {
@@ -182,17 +245,40 @@ export async function getOptimizationStatus(): Promise<{
       WHERE relname IN ('certificate_expiry_tracker', 'risk_snapshots', 'asset_health_summary')
     `);
     
+    const lastRefreshResult = await db.execute(sql`
+      SELECT DISTINCT ON (view_name) 
+        view_name, 
+        completed_at, 
+        duration_ms,
+        status
+      FROM mv_refresh_history
+      WHERE status = 'SUCCESS'
+      ORDER BY view_name, completed_at DESC
+    `);
+    
+    const lastRefreshMap = new Map<string, { completedAt: string; durationMs: number }>();
+    for (const row of (lastRefreshResult.rows || []) as any[]) {
+      lastRefreshMap.set(row.view_name, {
+        completedAt: row.completed_at,
+        durationMs: row.duration_ms
+      });
+    }
+    
     return {
       indexes: (indexResult.rows || []).map((r: any) => ({
         name: r.name,
         tableName: r.table_name,
         size: r.size || 'unknown'
       })),
-      materializedViews: (viewResult.rows || []).map((r: any) => ({
-        name: r.name,
-        rowCount: parseInt(r.row_count) || 0,
-        lastRefresh: null
-      })),
+      materializedViews: (viewResult.rows || []).map((r: any) => {
+        const refreshInfo = lastRefreshMap.get(r.name);
+        return {
+          name: r.name,
+          rowCount: parseInt(r.row_count) || 0,
+          lastRefresh: refreshInfo?.completedAt || null,
+          lastDurationMs: refreshInfo?.durationMs || null
+        };
+      }),
       optimizationTables: (tableResult.rows || []).map((r: any) => ({
         name: r.name,
         rowCount: parseInt(r.row_count) || 0
@@ -238,20 +324,33 @@ export function getAllViewNames(): string[] {
   return Object.values(materializedViewCategories).flatMap(cat => cat.views);
 }
 
+// Get category for a view name
+export function getViewCategory(viewName: string): string | null {
+  for (const [key, cat] of Object.entries(materializedViewCategories)) {
+    if (cat.views.includes(viewName)) {
+      return key;
+    }
+  }
+  return null;
+}
+
 // Refresh all materialized views
-export async function refreshAllMaterializedViews(): Promise<{
+export async function refreshAllMaterializedViews(
+  trigger: RefreshTrigger = 'MANUAL',
+  initiatedBy?: string
+): Promise<{
   success: boolean;
-  results: { viewName: string; success: boolean; durationMs: number }[];
+  results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[];
   totalDurationMs: number;
 }> {
   const startTime = Date.now();
   const allViews = getAllViewNames();
-  const results: { viewName: string; success: boolean; durationMs: number }[] = [];
+  const results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[] = [];
   
   optimizationLogger.info(`Refreshing all ${allViews.length} materialized views...`);
   
   for (const viewName of allViews) {
-    const result = await refreshMaterializedView(viewName);
+    const result = await refreshMaterializedView(viewName, trigger, initiatedBy);
     results.push({ viewName, ...result });
   }
   
@@ -264,10 +363,14 @@ export async function refreshAllMaterializedViews(): Promise<{
 }
 
 // Refresh views by category
-export async function refreshViewsByCategory(category: string): Promise<{
+export async function refreshViewsByCategory(
+  category: string,
+  trigger: RefreshTrigger = 'MANUAL',
+  initiatedBy?: string
+): Promise<{
   success: boolean;
   category: string;
-  results: { viewName: string; success: boolean; durationMs: number }[];
+  results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[];
   totalDurationMs: number;
 }> {
   const startTime = Date.now();
@@ -282,12 +385,12 @@ export async function refreshViewsByCategory(category: string): Promise<{
     };
   }
   
-  const results: { viewName: string; success: boolean; durationMs: number }[] = [];
+  const results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[] = [];
   
   optimizationLogger.info(`Refreshing ${categoryData.views.length} views in category: ${category}...`);
   
   for (const viewName of categoryData.views) {
-    const result = await refreshMaterializedView(viewName);
+    const result = await refreshMaterializedView(viewName, trigger, initiatedBy);
     results.push({ viewName, ...result });
   }
   
@@ -297,12 +400,156 @@ export async function refreshViewsByCategory(category: string): Promise<{
   return { success: allSuccess, category, results, totalDurationMs };
 }
 
-// Get category for a view name
-export function getViewCategory(viewName: string): string | null {
-  for (const [key, cat] of Object.entries(materializedViewCategories)) {
-    if (cat.views.includes(viewName)) {
-      return key;
+// Get refresh history
+export async function getRefreshHistory(limit: number = 50): Promise<{
+  history: {
+    id: string;
+    viewName: string;
+    category: string | null;
+    status: string;
+    trigger: string;
+    startedAt: Date;
+    completedAt: Date | null;
+    durationMs: number | null;
+    rowCountBefore: number | null;
+    rowCountAfter: number | null;
+    rowDelta: number | null;
+    initiatedBy: string | null;
+    errorMessage: string | null;
+  }[];
+}> {
+  try {
+    const history = await db.select().from(mvRefreshHistory).orderBy(desc(mvRefreshHistory.createdAt)).limit(limit);
+    return { history: history as any };
+  } catch (error) {
+    optimizationLogger.error('Failed to get refresh history', error);
+    return { history: [] };
+  }
+}
+
+// Get last refresh times for all views
+export async function getLastRefreshTimes(): Promise<Map<string, { timestamp: Date; durationMs: number }>> {
+  const result = new Map<string, { timestamp: Date; durationMs: number }>();
+  try {
+    const lastRefreshResult = await db.execute(sql`
+      SELECT DISTINCT ON (view_name) 
+        view_name, 
+        completed_at, 
+        duration_ms
+      FROM mv_refresh_history
+      WHERE status = 'SUCCESS'
+      ORDER BY view_name, completed_at DESC
+    `);
+    
+    for (const row of (lastRefreshResult.rows || []) as any[]) {
+      result.set(row.view_name, {
+        timestamp: new Date(row.completed_at),
+        durationMs: row.duration_ms
+      });
+    }
+  } catch (error) {
+    optimizationLogger.error('Failed to get last refresh times', error);
+  }
+  return result;
+}
+
+// Get overall freshness status
+export async function getFreshnessStatus(staleThresholdHours: number = 6): Promise<{
+  isStale: boolean;
+  oldestRefresh: Date | null;
+  viewsNeverRefreshed: string[];
+  staleViews: string[];
+  freshViews: string[];
+}> {
+  const allViews = getAllViewNames();
+  const lastRefreshTimes = await getLastRefreshTimes();
+  const now = new Date();
+  const thresholdMs = staleThresholdHours * 60 * 60 * 1000;
+  
+  const viewsNeverRefreshed: string[] = [];
+  const staleViews: string[] = [];
+  const freshViews: string[] = [];
+  let oldestRefresh: Date | null = null;
+  
+  for (const viewName of allViews) {
+    const refreshInfo = lastRefreshTimes.get(viewName);
+    if (!refreshInfo) {
+      viewsNeverRefreshed.push(viewName);
+    } else {
+      const age = now.getTime() - refreshInfo.timestamp.getTime();
+      if (age > thresholdMs) {
+        staleViews.push(viewName);
+      } else {
+        freshViews.push(viewName);
+      }
+      if (!oldestRefresh || refreshInfo.timestamp < oldestRefresh) {
+        oldestRefresh = refreshInfo.timestamp;
+      }
     }
   }
-  return null;
+  
+  const isStale = viewsNeverRefreshed.length > 0 || staleViews.length > 0;
+  
+  return {
+    isStale,
+    oldestRefresh,
+    viewsNeverRefreshed,
+    staleViews,
+    freshViews
+  };
+}
+
+// Schedule management
+export async function getRefreshSchedule(): Promise<typeof mvRefreshSchedule.$inferSelect | null> {
+  try {
+    const schedules = await db.select().from(mvRefreshSchedule).limit(1);
+    return schedules[0] || null;
+  } catch (error) {
+    optimizationLogger.error('Failed to get refresh schedule', error);
+    return null;
+  }
+}
+
+export async function upsertRefreshSchedule(schedule: {
+  scheduleTime: string;
+  timezone?: string;
+  isEnabled?: boolean;
+  postIngestionEnabled?: boolean;
+  staleThresholdHours?: number;
+  updatedBy?: string;
+}): Promise<typeof mvRefreshSchedule.$inferSelect | null> {
+  try {
+    const existing = await getRefreshSchedule();
+    
+    if (existing) {
+      const [updated] = await db.update(mvRefreshSchedule)
+        .set({
+          scheduleTime: schedule.scheduleTime,
+          timezone: schedule.timezone || existing.timezone,
+          isEnabled: schedule.isEnabled ?? existing.isEnabled,
+          postIngestionEnabled: schedule.postIngestionEnabled ?? existing.postIngestionEnabled,
+          staleThresholdHours: schedule.staleThresholdHours ?? existing.staleThresholdHours,
+          updatedBy: schedule.updatedBy,
+          updatedAt: new Date()
+        })
+        .where(eq(mvRefreshSchedule.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(mvRefreshSchedule).values({
+        name: 'default',
+        description: 'Default daily refresh schedule',
+        scheduleTime: schedule.scheduleTime,
+        timezone: schedule.timezone || 'Europe/London',
+        isEnabled: schedule.isEnabled ?? true,
+        postIngestionEnabled: schedule.postIngestionEnabled ?? false,
+        staleThresholdHours: schedule.staleThresholdHours ?? 6,
+        createdBy: schedule.updatedBy
+      }).returning();
+      return created;
+    }
+  } catch (error) {
+    optimizationLogger.error('Failed to upsert refresh schedule', error);
+    return null;
+  }
 }

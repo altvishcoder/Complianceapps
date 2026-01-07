@@ -119,3 +119,71 @@ export const cacheClearAudit = pgTable("cache_clear_audit", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const refreshStatusEnum = pgEnum('refresh_status', [
+  'SUCCESS',
+  'FAILED',
+  'RUNNING',
+  'CANCELLED'
+]);
+
+export const refreshTriggerEnum = pgEnum('refresh_trigger', [
+  'MANUAL',
+  'SCHEDULED',
+  'POST_INGESTION',
+  'SYSTEM'
+]);
+
+export const mvRefreshHistory = pgTable("mv_refresh_history", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  viewName: text("view_name").notNull(),
+  category: text("category"),
+  
+  status: refreshStatusEnum("status").notNull(),
+  trigger: refreshTriggerEnum("trigger").notNull().default('MANUAL'),
+  
+  startedAt: timestamp("started_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  rowCountBefore: integer("row_count_before"),
+  rowCountAfter: integer("row_count_after"),
+  rowDelta: integer("row_delta"),
+  
+  initiatedBy: varchar("initiated_by"),
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const mvRefreshSchedule = pgTable("mv_refresh_schedule", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  
+  scheduleType: text("schedule_type").notNull().default('daily'),
+  scheduleTime: text("schedule_time").notNull().default('05:30'),
+  timezone: text("timezone").notNull().default('Europe/London'),
+  
+  targetViews: text("target_views").array(),
+  targetCategories: text("target_categories").array(),
+  refreshAll: boolean("refresh_all").notNull().default(true),
+  
+  postIngestionEnabled: boolean("post_ingestion_enabled").notNull().default(false),
+  
+  lastRunAt: timestamp("last_run_at"),
+  lastRunStatus: refreshStatusEnum("last_run_status"),
+  lastRunDurationMs: integer("last_run_duration_ms"),
+  nextRunAt: timestamp("next_run_at"),
+  
+  staleThresholdHours: integer("stale_threshold_hours").notNull().default(6),
+  
+  createdBy: varchar("created_by"),
+  updatedBy: varchar("updated_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

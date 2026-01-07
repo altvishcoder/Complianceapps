@@ -3584,6 +3584,71 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to apply optimizations" });
     }
   });
+  
+  // Get refresh history
+  app.get("/api/admin/db-optimization/refresh-history", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const { getRefreshHistory } = await import("./db-optimization");
+      const result = await getRefreshHistory(limit);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting refresh history:", error);
+      res.status(500).json({ error: "Failed to get refresh history" });
+    }
+  });
+  
+  // Get freshness status
+  app.get("/api/admin/db-optimization/freshness", requireRole(...ADMIN_AND_ABOVE_ROLES), async (req, res) => {
+    try {
+      const staleThresholdHours = parseInt(req.query.staleThresholdHours as string) || 6;
+      const { getFreshnessStatus } = await import("./db-optimization");
+      const result = await getFreshnessStatus(staleThresholdHours);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting freshness status:", error);
+      res.status(500).json({ error: "Failed to get freshness status" });
+    }
+  });
+  
+  // Get refresh schedule
+  app.get("/api/admin/db-optimization/schedule", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { getRefreshSchedule } = await import("./db-optimization");
+      const schedule = await getRefreshSchedule();
+      res.json({ schedule });
+    } catch (error) {
+      console.error("Error getting refresh schedule:", error);
+      res.status(500).json({ error: "Failed to get refresh schedule" });
+    }
+  });
+  
+  // Update refresh schedule
+  app.post("/api/admin/db-optimization/schedule", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      const { scheduleTime, timezone, isEnabled, postIngestionEnabled, staleThresholdHours } = req.body;
+      
+      if (!scheduleTime) {
+        return res.status(400).json({ error: "scheduleTime is required" });
+      }
+      
+      const { upsertRefreshSchedule } = await import("./db-optimization");
+      const schedule = await upsertRefreshSchedule({
+        scheduleTime,
+        timezone,
+        isEnabled,
+        postIngestionEnabled,
+        staleThresholdHours,
+        updatedBy: session?.user?.id
+      });
+      
+      res.json({ schedule });
+    } catch (error) {
+      console.error("Error updating refresh schedule:", error);
+      res.status(500).json({ error: "Failed to update refresh schedule" });
+    }
+  });
 
   // ===== USER MANAGEMENT =====
   app.get("/api/users", async (req, res) => {

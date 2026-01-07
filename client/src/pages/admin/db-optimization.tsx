@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { 
   Database, 
   RefreshCcw, 
@@ -24,8 +28,14 @@ import {
   Calendar,
   FileText,
   Users,
-  Info
+  Info,
+  Clock,
+  History,
+  Settings,
+  AlertTriangle,
+  CheckCircle2
 } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
 
 interface OptimizationIndex {
   name: string;
@@ -37,6 +47,7 @@ interface MaterializedView {
   name: string;
   rowCount: number;
   lastRefresh: string | null;
+  lastDurationMs: number | null;
 }
 
 interface OptimizationTable {
@@ -63,11 +74,12 @@ interface ViewCategories {
 interface RefreshResult {
   success: boolean;
   durationMs: number;
+  rowCount: number;
 }
 
 interface RefreshAllResult {
   success: boolean;
-  results: { viewName: string; success: boolean; durationMs: number }[];
+  results: { viewName: string; success: boolean; durationMs: number; rowCount: number }[];
   totalDurationMs: number;
 }
 
@@ -76,6 +88,43 @@ interface ApplyResult {
   indexes: { applied: number; errors: string[] };
   views: { created: number; errors: string[] };
   tables: { created: number; errors: string[] };
+}
+
+interface RefreshHistoryItem {
+  id: string;
+  viewName: string;
+  category: string | null;
+  status: string;
+  trigger: string;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  rowCountBefore: number | null;
+  rowCountAfter: number | null;
+  rowDelta: number | null;
+  initiatedBy: string | null;
+  errorMessage: string | null;
+}
+
+interface FreshnessStatus {
+  isStale: boolean;
+  oldestRefresh: string | null;
+  viewsNeverRefreshed: string[];
+  staleViews: string[];
+  freshViews: string[];
+}
+
+interface RefreshSchedule {
+  id: string;
+  name: string;
+  isEnabled: boolean;
+  scheduleTime: string;
+  timezone: string;
+  postIngestionEnabled: boolean;
+  staleThresholdHours: number;
+  lastRunAt: string | null;
+  lastRunStatus: string | null;
+  nextRunAt: string | null;
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -94,6 +143,10 @@ export default function DbOptimizationPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['core', 'hierarchy']));
   const [refreshingCategory, setRefreshingCategory] = useState<string | null>(null);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  const [scheduleTime, setScheduleTime] = useState("05:30");
+  const [scheduleEnabled, setScheduleEnabled] = useState(true);
+  const [postIngestionEnabled, setPostIngestionEnabled] = useState(false);
+  const [staleThresholdHours, setStaleThresholdHours] = useState(6);
 
   const { data: status, isLoading, refetch } = useQuery<OptimizationStatus>({
     queryKey: ["db-optimization-status"],
@@ -119,6 +172,50 @@ export default function DbOptimizationPage() {
     enabled: !!user?.id,
   });
 
+  const { data: freshnessData } = useQuery<FreshnessStatus>({
+    queryKey: ["db-optimization-freshness"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/db-optimization/freshness", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch freshness");
+      return res.json();
+    },
+    enabled: !!user?.id,
+    refetchInterval: 60000,
+  });
+
+  const { data: historyData, refetch: refetchHistory } = useQuery<{ history: RefreshHistoryItem[] }>({
+    queryKey: ["db-optimization-history"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/db-optimization/refresh-history?limit=50", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch history");
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: scheduleData, refetch: refetchSchedule } = useQuery<{ schedule: RefreshSchedule | null }>({
+    queryKey: ["db-optimization-schedule"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/db-optimization/schedule", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch schedule");
+      const data = await res.json();
+      if (data.schedule) {
+        setScheduleTime(data.schedule.scheduleTime);
+        setScheduleEnabled(data.schedule.isEnabled);
+        setPostIngestionEnabled(data.schedule.postIngestionEnabled);
+        setStaleThresholdHours(data.schedule.staleThresholdHours);
+      }
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const refreshViewMutation = useMutation({
     mutationFn: async (viewName: string) => {
       setRefreshingView(viewName);
@@ -134,9 +231,10 @@ export default function DbOptimizationPage() {
     onSuccess: (data, viewName) => {
       toast({
         title: "View Refreshed",
-        description: `${viewName} refreshed in ${data.durationMs}ms`,
+        description: `${viewName} refreshed in ${data.durationMs}ms (${data.rowCount} rows)`,
       });
       refetch();
+      refetchHistory();
     },
     onError: (error: Error, viewName) => {
       toast({
@@ -167,6 +265,7 @@ export default function DbOptimizationPage() {
         description: `Refreshed ${successCount}/${data.results.length} views in ${data.totalDurationMs}ms`,
       });
       refetch();
+      refetchHistory();
     },
     onError: (error: Error) => {
       toast({
@@ -199,6 +298,7 @@ export default function DbOptimizationPage() {
         description: `Refreshed ${successCount}/${data.results.length} views in ${data.totalDurationMs}ms`,
       });
       refetch();
+      refetchHistory();
     },
     onError: (error: Error, category) => {
       toast({
@@ -238,6 +338,38 @@ export default function DbOptimizationPage() {
     }
   });
 
+  const updateScheduleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/db-optimization/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+        body: JSON.stringify({
+          scheduleTime,
+          isEnabled: scheduleEnabled,
+          postIngestionEnabled,
+          staleThresholdHours
+        })
+      });
+      if (!res.ok) throw new Error("Failed to update schedule");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Schedule Updated",
+        description: "Refresh schedule has been saved",
+      });
+      refetchSchedule();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev);
@@ -255,8 +387,22 @@ export default function DbOptimizationPage() {
     return view?.rowCount ?? 0;
   };
 
+  const getViewLastRefresh = (viewName: string): string | null => {
+    const view = status?.materializedViews.find(v => v.name === viewName);
+    return view?.lastRefresh || null;
+  };
+
   const isViewCreated = (viewName: string): boolean => {
     return status?.materializedViews.some(v => v.name === viewName) ?? false;
+  };
+
+  const formatLastRefresh = (timestamp: string | null): string => {
+    if (!timestamp) return "Never";
+    try {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    } catch {
+      return "Unknown";
+    }
   };
 
   if (authLoading) {
@@ -281,7 +427,7 @@ export default function DbOptimizationPage() {
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">Database Optimization</h1>
                 <p className="text-muted-foreground">
-                  Manage performance indexes, materialized views, and caching tables for 50k+ scale
+                  Manage performance indexes, materialized views, and scheduling for 50k+ scale
                 </p>
               </div>
               <div className="flex gap-2">
@@ -322,23 +468,46 @@ export default function DbOptimizationPage() {
               </div>
             </div>
 
+            {freshnessData?.isStale && (
+              <Card className="border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-950/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-yellow-900 dark:text-yellow-100">Dashboard Data May Be Stale</p>
+                      <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                        {freshnessData.viewsNeverRefreshed.length > 0 && (
+                          <span>{freshnessData.viewsNeverRefreshed.length} views have never been refreshed. </span>
+                        )}
+                        {freshnessData.staleViews.length > 0 && (
+                          <span>{freshnessData.staleViews.length} views are older than {staleThresholdHours} hours. </span>
+                        )}
+                        Click "Refresh All Views" to update dashboard metrics.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-3">
                   <Info className="h-5 w-5 text-blue-500 mt-0.5" />
                   <div className="text-sm">
-                    <p className="font-medium text-blue-900 dark:text-blue-100">Deployment Workflow</p>
+                    <p className="font-medium text-blue-900 dark:text-blue-100">Data Freshness Guide</p>
                     <p className="text-blue-700 dark:text-blue-300 mt-1">
-                      Database optimizations are managed via migrations, not at server startup. 
-                      Use "Apply All Optimizations" after deployment to create indexes and views. 
-                      Use "Refresh All Views" to update materialized view data after bulk imports.
+                      <strong>Real-time:</strong> Property lists, certificate lists, component lists, hierarchy tree structure.
+                      <br />
+                      <strong>Eventual consistency:</strong> Dashboard compliance %, scheme/block badges, risk scores, TSM metrics.
+                      Refresh views after bulk imports to update these calculations.
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -351,7 +520,7 @@ export default function DbOptimizationPage() {
                     {status?.indexes.length ?? 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Active indexes for query optimization
+                    Active indexes
                   </p>
                 </CardContent>
               </Card>
@@ -371,7 +540,7 @@ export default function DbOptimizationPage() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Pre-computed aggregations for dashboards
+                    Created / Total defined
                   </p>
                 </CardContent>
               </Card>
@@ -388,215 +557,444 @@ export default function DbOptimizationPage() {
                     {status?.optimizationTables.length ?? 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Cache and snapshot tables
+                    Cache tables
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    {freshnessData?.isStale ? (
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    )}
+                    Freshness Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold" data-testid="text-freshness-status">
+                    {freshnessData?.isStale ? "Stale" : "Fresh"}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {freshnessData?.freshViews.length ?? 0} fresh, {(freshnessData?.staleViews.length ?? 0) + (freshnessData?.viewsNeverRefreshed.length ?? 0)} need refresh
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Materialized Views by Category
-                </CardTitle>
-                <CardDescription>
-                  Pre-computed views for fast queries. Organized by functional area for targeted refresh.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : !categories ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                    <p>Failed to load view categories.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {Object.entries(categories).map(([key, category]) => (
-                      <Collapsible
-                        key={key}
-                        open={expandedCategories.has(key)}
-                        onOpenChange={() => toggleCategory(key)}
-                      >
-                        <div className="border rounded-lg overflow-hidden">
-                          <CollapsibleTrigger asChild>
-                            <div className="flex items-center justify-between p-4 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center gap-3">
-                                {expandedCategories.has(key) ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                                {categoryIcons[key] || <Eye className="h-4 w-4" />}
-                                <div>
-                                  <span className="font-medium">{category.name}</span>
-                                  <span className="text-muted-foreground ml-2 text-sm">
-                                    ({category.views.filter(v => isViewCreated(v)).length}/{category.views.length} created)
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  refreshCategoryMutation.mutate(key);
-                                }}
-                                disabled={refreshingCategory === key}
-                                data-testid={`button-refresh-category-${key}`}
-                              >
-                                {refreshingCategory === key ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <RefreshCcw className="h-4 w-4" />
-                                )}
-                                <span className="ml-2 hidden sm:inline">Refresh Category</span>
-                              </Button>
-                            </div>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="p-4 pt-0 space-y-2">
-                              <p className="text-sm text-muted-foreground mb-3 mt-2">
-                                {category.description}
-                              </p>
-                              {category.views.map((viewName) => {
-                                const isCreated = isViewCreated(viewName);
-                                const rowCount = getViewRowCount(viewName);
-                                return (
-                                  <div
-                                    key={viewName}
-                                    className={`flex items-center justify-between p-3 rounded-lg ${
-                                      isCreated ? 'bg-muted/50' : 'bg-yellow-50/50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800'
-                                    }`}
-                                    data-testid={`view-${viewName}`}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono text-sm">{viewName}</span>
-                                      {isCreated ? (
-                                        <Badge variant="outline" className="text-xs">
-                                          {rowCount.toLocaleString()} rows
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="outline" className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
-                                          Not Created
-                                        </Badge>
-                                      )}
+            <Tabs defaultValue="views" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="views" className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  Views
+                </TabsTrigger>
+                <TabsTrigger value="schedule" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Schedule
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  History
+                </TabsTrigger>
+                <TabsTrigger value="indexes" className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Indexes
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="views">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Materialized Views by Category
+                    </CardTitle>
+                    <CardDescription>
+                      Pre-computed views for fast queries. Organized by functional area for targeted refresh.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : !categories ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                        <p>Failed to load view categories.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {Object.entries(categories).map(([key, category]) => (
+                          <Collapsible
+                            key={key}
+                            open={expandedCategories.has(key)}
+                            onOpenChange={() => toggleCategory(key)}
+                          >
+                            <div className="border rounded-lg overflow-hidden">
+                              <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between p-4 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    {expandedCategories.has(key) ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                    {categoryIcons[key] || <Eye className="h-4 w-4" />}
+                                    <div>
+                                      <span className="font-medium">{category.name}</span>
+                                      <span className="text-muted-foreground ml-2 text-sm">
+                                        ({category.views.filter(v => isViewCreated(v)).length}/{category.views.length} created)
+                                      </span>
                                     </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => refreshViewMutation.mutate(viewName)}
-                                      disabled={refreshingView === viewName || !isCreated}
-                                      data-testid={`button-refresh-${viewName}`}
-                                    >
-                                      {refreshingView === viewName ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <RefreshCcw className="h-4 w-4" />
-                                      )}
-                                    </Button>
                                   </div>
-                                );
-                              })}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      refreshCategoryMutation.mutate(key);
+                                    }}
+                                    disabled={refreshingCategory === key}
+                                    data-testid={`button-refresh-category-${key}`}
+                                  >
+                                    {refreshingCategory === key ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCcw className="h-4 w-4" />
+                                    )}
+                                    <span className="ml-2 hidden sm:inline">Refresh Category</span>
+                                  </Button>
+                                </div>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="p-4 pt-0 space-y-2">
+                                  <p className="text-sm text-muted-foreground mb-3 mt-2">
+                                    {category.description}
+                                  </p>
+                                  {category.views.map((viewName) => {
+                                    const isCreated = isViewCreated(viewName);
+                                    const rowCount = getViewRowCount(viewName);
+                                    const lastRefresh = getViewLastRefresh(viewName);
+                                    return (
+                                      <div
+                                        key={viewName}
+                                        className={`flex items-center justify-between p-3 rounded-lg ${
+                                          isCreated ? 'bg-muted/50' : 'bg-yellow-50/50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800'
+                                        }`}
+                                        data-testid={`view-${viewName}`}
+                                      >
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-mono text-sm">{viewName}</span>
+                                            {isCreated ? (
+                                              <>
+                                                <Badge variant="outline" className="text-xs">
+                                                  {rowCount.toLocaleString()} rows
+                                                </Badge>
+                                                <Badge variant="secondary" className="text-xs">
+                                                  {formatLastRefresh(lastRefresh)}
+                                                </Badge>
+                                              </>
+                                            ) : (
+                                              <Badge variant="outline" className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
+                                                Not Created
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => refreshViewMutation.mutate(viewName)}
+                                          disabled={refreshingView === viewName || !isCreated}
+                                          data-testid={`button-refresh-${viewName}`}
+                                        >
+                                          {refreshingView === viewName ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <RefreshCcw className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </CollapsibleContent>
                             </div>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Performance Indexes
-                </CardTitle>
-                <CardDescription>
-                  Database indexes for optimizing common query patterns
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : status?.indexes.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                    <p>No custom indexes found.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-3 font-medium">Index Name</th>
-                          <th className="text-left py-2 px-3 font-medium">Table</th>
-                          <th className="text-right py-2 px-3 font-medium">Size</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {status?.indexes.map((idx) => (
-                          <tr key={idx.name} className="border-b last:border-0" data-testid={`index-${idx.name}`}>
-                            <td className="py-2 px-3 font-mono text-xs">{idx.name}</td>
-                            <td className="py-2 px-3">{idx.tableName}</td>
-                            <td className="py-2 px-3 text-right text-muted-foreground">{idx.size}</td>
-                          </tr>
+                          </Collapsible>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <HardDrive className="h-5 w-5" />
-                  Optimization Tables
-                </CardTitle>
-                <CardDescription>
-                  Tables for caching computed data and snapshots
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : status?.optimizationTables.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                    <p>No optimization tables found. Click "Apply All Optimizations" to create them.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {status?.optimizationTables.map((table) => (
-                      <div
-                        key={table.name}
-                        className="p-4 bg-muted/50 rounded-lg"
-                        data-testid={`table-${table.name}`}
-                      >
+              <TabsContent value="schedule">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Refresh Schedule
+                    </CardTitle>
+                    <CardDescription>
+                      Configure automatic daily refresh and staleness thresholds
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium">{table.name}</span>
-                          <Badge variant="secondary">
-                            {table.rowCount.toLocaleString()} rows
-                          </Badge>
+                          <div className="space-y-0.5">
+                            <Label>Enable Scheduled Refresh</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Automatically refresh all views daily
+                            </p>
+                          </div>
+                          <Switch
+                            checked={scheduleEnabled}
+                            onCheckedChange={setScheduleEnabled}
+                            data-testid="switch-schedule-enabled"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="schedule-time">Daily Refresh Time</Label>
+                          <Input
+                            id="schedule-time"
+                            type="time"
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                            className="w-40"
+                            data-testid="input-schedule-time"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            UK/London timezone. Recommended: early morning (05:30)
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Post-Ingestion Refresh</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Auto-refresh after bulk certificate imports
+                            </p>
+                          </div>
+                          <Switch
+                            checked={postIngestionEnabled}
+                            onCheckedChange={setPostIngestionEnabled}
+                            data-testid="switch-post-ingestion"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="stale-threshold">Stale Threshold (hours)</Label>
+                          <Input
+                            id="stale-threshold"
+                            type="number"
+                            min={1}
+                            max={72}
+                            value={staleThresholdHours}
+                            onChange={(e) => setStaleThresholdHours(parseInt(e.target.value) || 6)}
+                            className="w-24"
+                            data-testid="input-stale-threshold"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Show staleness warning when views are older than this
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4 border-t">
+                      <Button
+                        onClick={() => updateScheduleMutation.mutate()}
+                        disabled={updateScheduleMutation.isPending}
+                        data-testid="button-save-schedule"
+                      >
+                        {updateScheduleMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                        )}
+                        Save Schedule
+                      </Button>
+                    </div>
+
+                    {scheduleData?.schedule?.lastRunAt && (
+                      <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                        <p className="text-sm">
+                          <strong>Last scheduled run:</strong>{" "}
+                          {format(new Date(scheduleData.schedule.lastRunAt), "PPpp")}
+                          {scheduleData.schedule.lastRunStatus && (
+                            <Badge variant={scheduleData.schedule.lastRunStatus === 'SUCCESS' ? 'default' : 'destructive'} className="ml-2">
+                              {scheduleData.schedule.lastRunStatus}
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="history">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-5 w-5" />
+                      Refresh History
+                    </CardTitle>
+                    <CardDescription>
+                      Recent view refresh operations with timing and row counts
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {!historyData?.history || historyData.history.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No refresh history yet. Refresh a view to see history.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-3 font-medium">View</th>
+                              <th className="text-left py-2 px-3 font-medium">Status</th>
+                              <th className="text-left py-2 px-3 font-medium">Trigger</th>
+                              <th className="text-right py-2 px-3 font-medium">Duration</th>
+                              <th className="text-right py-2 px-3 font-medium">Rows</th>
+                              <th className="text-right py-2 px-3 font-medium">Delta</th>
+                              <th className="text-left py-2 px-3 font-medium">When</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historyData.history.slice(0, 20).map((item) => (
+                              <tr key={item.id} className="border-b last:border-0">
+                                <td className="py-2 px-3 font-mono text-xs">{item.viewName}</td>
+                                <td className="py-2 px-3">
+                                  <Badge variant={item.status === 'SUCCESS' ? 'default' : 'destructive'} className="text-xs">
+                                    {item.status}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-3 text-muted-foreground text-xs">{item.trigger}</td>
+                                <td className="py-2 px-3 text-right">{item.durationMs ? `${item.durationMs}ms` : '-'}</td>
+                                <td className="py-2 px-3 text-right">{item.rowCountAfter?.toLocaleString() ?? '-'}</td>
+                                <td className="py-2 px-3 text-right">
+                                  {item.rowDelta !== null ? (
+                                    <span className={item.rowDelta > 0 ? 'text-green-600' : item.rowDelta < 0 ? 'text-red-600' : ''}>
+                                      {item.rowDelta > 0 ? '+' : ''}{item.rowDelta}
+                                    </span>
+                                  ) : '-'}
+                                </td>
+                                <td className="py-2 px-3 text-muted-foreground text-xs">
+                                  {item.completedAt ? formatDistanceToNow(new Date(item.completedAt), { addSuffix: true }) : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="indexes">
+                <div className="grid gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Database className="h-5 w-5" />
+                        Performance Indexes
+                      </CardTitle>
+                      <CardDescription>
+                        Database indexes for optimizing common query patterns
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : status?.indexes.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                          <p>No custom indexes found.</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-3 font-medium">Index Name</th>
+                                <th className="text-left py-2 px-3 font-medium">Table</th>
+                                <th className="text-right py-2 px-3 font-medium">Size</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {status?.indexes.map((idx) => (
+                                <tr key={idx.name} className="border-b last:border-0" data-testid={`index-${idx.name}`}>
+                                  <td className="py-2 px-3 font-mono text-xs">{idx.name}</td>
+                                  <td className="py-2 px-3">{idx.tableName}</td>
+                                  <td className="py-2 px-3 text-right text-muted-foreground">{idx.size}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <HardDrive className="h-5 w-5" />
+                        Optimization Tables
+                      </CardTitle>
+                      <CardDescription>
+                        Tables for caching computed data and snapshots
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : status?.optimizationTables.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                          <p>No optimization tables found. Click "Apply All Optimizations" to create them.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {status?.optimizationTables.map((table) => (
+                            <div
+                              key={table.name}
+                              className="p-4 bg-muted/50 rounded-lg"
+                              data-testid={`table-${table.name}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{table.name}</span>
+                                <Badge variant="secondary">
+                                  {table.rowCount.toLocaleString()} rows
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </main>
       </div>
