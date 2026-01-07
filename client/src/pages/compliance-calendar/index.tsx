@@ -24,6 +24,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import { cn } from "@/lib/utils";
 import { useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { CardSkeleton } from "@/components/ui/skeleton";
 
 function parseCalendarParams(search: string) {
   const params = new URLSearchParams(search);
@@ -655,10 +656,8 @@ export default function ComplianceCalendar() {
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
+              {isLoading && !events.length ? (
+                <CardSkeleton hasHeader={false} contentHeight={600} />
               ) : (
                 <div className="h-[600px]" data-testid="calendar-container">
                   <Calendar

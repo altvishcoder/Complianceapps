@@ -47,6 +47,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { contractorsApi } from "@/lib/api";
 import type { Contractor, ContractorCertification } from "@shared/schema";
 import { Textarea } from "@/components/ui/textarea";
+import { TableSkeleton } from "@/components/ui/skeleton";
 
 const REGISTRATION_TYPES = [
   { value: "GAS_SAFE", label: "Gas Safe Register", lookupUrl: "https://www.gassaferegister.co.uk/find-an-engineer/" },
@@ -601,10 +602,8 @@ export default function ContractorsPage() {
                   <CardDescription>Click on a contractor to view their verification passport</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-muted-foreground">Loading contractors...</p>
-                    </div>
+                  {isLoading && !contractors.length ? (
+                    <TableSkeleton rows={6} columns={4} />
                   ) : contractors.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">

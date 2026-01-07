@@ -61,14 +61,8 @@ export default function Configuration() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen bg-muted/30">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="System Configuration" />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            <PageSkeleton showStats={true} statsCount={4} showTable={true} tableRows={8} />
-          </main>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-muted/30">
+        <Settings className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

@@ -55,6 +55,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { PageSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 
 interface User {
   id: string;
@@ -167,8 +168,8 @@ export default function AdminUsersPage() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen bg-muted/30 items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center h-screen bg-muted/30">
+        <Users className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -412,10 +413,10 @@ export default function AdminUsersPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {isLoading ? (
+                          {isLoading && !users.length ? (
                             <TableRow>
-                              <TableCell colSpan={5} className="h-24 text-center">
-                                Loading users...
+                              <TableCell colSpan={5} className="p-0">
+                                <TableSkeleton rows={5} columns={5} />
                               </TableCell>
                             </TableRow>
                           ) : filteredUsers.length === 0 ? (

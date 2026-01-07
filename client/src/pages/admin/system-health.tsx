@@ -35,6 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
+import { PageSkeleton } from "@/components/ui/skeleton";
 
 interface QueueStats {
   ingestion: {
@@ -408,11 +409,8 @@ export default function SystemHealthPage() {
 
   if (authLoading) {
     return (
-      <div className="flex h-screen bg-muted/30 items-center justify-center">
-        <div className="text-center">
-          <Activity className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-muted/30">
+        <Activity className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

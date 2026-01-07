@@ -260,7 +260,7 @@ export default function AuditLogPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading && !allEvents.length ? (
             <TableSkeleton rows={10} columns={6} />
           ) : error ? (
             <div className="text-center py-12 text-muted-foreground">
