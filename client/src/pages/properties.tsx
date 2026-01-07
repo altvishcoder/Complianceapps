@@ -337,6 +337,7 @@ export default function Properties() {
           
           <div className="mb-6">
             <HeroStatsGrid
+              isLoading={isLoading && !propertiesResponse}
               stats={[
                 {
                   title: "No Gas Safety Cert",

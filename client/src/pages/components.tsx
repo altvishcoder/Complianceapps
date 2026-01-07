@@ -461,7 +461,7 @@ export default function ComponentsPage() {
       </div>
       
       {/* Hero Stats Grid */}
-      <HeroStatsGrid stats={[
+      <HeroStatsGrid isLoading={componentsLoading && !componentsResponse} stats={[
         {
           title: "Total Components",
           value: totalComponents,
