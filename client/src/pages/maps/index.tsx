@@ -112,7 +112,7 @@ export default function MapsIndexPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Risk Maps" />
-        <main id="main-content" className="flex-1 overflow-hidden p-6" role="main" aria-label="Risk maps content">
+        <main id="main-content" className="flex-1 overflow-hidden p-4 md:p-6" role="main" aria-label="Risk maps content">
           {showBackButton && (
             <div className="mb-4">
               <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
@@ -212,49 +212,54 @@ export default function MapsIndexPage() {
 
             {geocodingStatus && geocodingStatus.notGeocoded > 0 && (
               <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-                <CardContent className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    <div>
-                      <p className="font-medium text-amber-800 dark:text-amber-300">
-                        {geocodingStatus.geocoded} of {geocodingStatus.total} properties have map coordinates
-                      </p>
-                      <p className="text-sm text-amber-600 dark:text-amber-400">
-                        {geocodingStatus.canAutoGeocode} properties can be auto-geocoded from their postcodes
-                      </p>
+                <CardContent className="py-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                      <MapPin className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-amber-800 dark:text-amber-300 text-sm sm:text-base">
+                          {geocodingStatus.geocoded} of {geocodingStatus.total} properties have map coordinates
+                        </p>
+                        <p className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
+                          {geocodingStatus.canAutoGeocode} properties can be auto-geocoded from their postcodes
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {geocodingStatus.canAutoGeocode > 0 && (
-                      <Button 
-                        onClick={() => geocodeMutation.mutate()}
-                        disabled={geocodeMutation.isPending}
-                        data-testid="button-geocode"
-                      >
-                        {geocodeMutation.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Geocoding...
-                          </>
-                        ) : (
-                          <>
-                            <MapPin className="h-4 w-4 mr-2" />
-                            Geocode Properties
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    <Link href="/admin/imports?type=geocoding">
-                      <Button variant="outline" data-testid="button-import-geocoding">
-                        Import Geocoding
-                      </Button>
-                    </Link>
+                    <div className="flex flex-wrap gap-2 ml-8 sm:ml-0">
+                      {geocodingStatus.canAutoGeocode > 0 && (
+                        <Button 
+                          size="sm"
+                          onClick={() => geocodeMutation.mutate()}
+                          disabled={geocodeMutation.isPending}
+                          data-testid="button-geocode"
+                        >
+                          {geocodeMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <span className="hidden sm:inline">Geocoding...</span>
+                              <span className="sm:hidden">...</span>
+                            </>
+                          ) : (
+                            <>
+                              <MapPin className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Geocode Properties</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      <Link href="/admin/imports?type=geocoding">
+                        <Button variant="outline" size="sm" data-testid="button-import-geocoding">
+                          <span className="hidden sm:inline">Import Geocoding</span>
+                          <span className="sm:hidden">Import</span>
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            <div className="flex-1 relative rounded-lg overflow-hidden border shadow-sm" style={{ minHeight: '400px' }}>
+            <div className="flex-1 relative rounded-lg overflow-hidden border shadow-sm min-h-[300px] sm:min-h-[400px]">
               {isLoading && (
                 <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
