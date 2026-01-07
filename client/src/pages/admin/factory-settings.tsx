@@ -530,9 +530,11 @@ export default function FactorySettings() {
               <Badge variant="secondary">{filteredPatterns.length} patterns</Badge>
             </div>
 
-            {patternsLoading ? (
-              <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
+            {patternsLoading && !detectionPatterns ? (
+              <div className="space-y-4 p-4">
+                <CardSkeleton contentHeight={100} />
+                <CardSkeleton contentHeight={100} />
+                <CardSkeleton contentHeight={100} />
               </div>
             ) : (
               <ScrollArea className="h-[500px]">
@@ -620,9 +622,11 @@ export default function FactorySettings() {
               <Badge variant="secondary">{filteredRules.length} rules</Badge>
             </div>
 
-            {rulesLoading ? (
-              <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
+            {rulesLoading && !outcomeRules ? (
+              <div className="space-y-4 p-4">
+                <CardSkeleton contentHeight={100} />
+                <CardSkeleton contentHeight={100} />
+                <CardSkeleton contentHeight={100} />
               </div>
             ) : (
               <ScrollArea className="h-[500px]">
