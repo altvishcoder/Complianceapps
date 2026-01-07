@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { actionsApi } from "@/lib/api";
 import type { EnrichedRemedialAction } from "@/lib/api";
 import { 
@@ -76,9 +77,10 @@ export default function ActionsPage() {
     document.title = "Remedial Actions - ComplianceAI";
   }, []);
 
+  const searchString = useSearch();
   const [selectedAction, setSelectedAction] = useState<EnrichedRemedialAction | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterType>(getInitialFilterFromUrl);
-  const [typeFilter, setTypeFilter] = useState<string | null>(getInitialTypeFromUrl);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -86,6 +88,28 @@ export default function ActionsPage() {
   const queryClient = useQueryClient();
   
   const showBackButton = useMemo(() => hasUrlFilters(), []);
+  
+  // React to URL parameter changes
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const status = params.get('status');
+    const severity = params.get('severity');
+    const awaabs = params.get('awaabs');
+    const type = params.get('type');
+    
+    // Determine filter from URL params
+    let newFilter: FilterType = 'all';
+    if (awaabs === 'true') newFilter = 'overdue';
+    else if (severity === 'IMMEDIATE') newFilter = 'immediate';
+    else if (severity === 'URGENT') newFilter = 'urgent';
+    else if (status === 'OPEN') newFilter = 'open';
+    else if (status === 'IN_PROGRESS') newFilter = 'in_progress';
+    else if (status === 'COMPLETED') newFilter = 'resolved';
+    
+    setActiveFilter(newFilter);
+    setTypeFilter(type);
+    setPage(1);
+  }, [searchString]);
   
   useEffect(() => {
     const timer = setTimeout(() => {
