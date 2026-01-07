@@ -953,7 +953,7 @@ export default function PropertyHierarchy() {
     organisations: organisations.length,
     schemes: schemes.length,
     blocks: blocks.length,
-    properties: properties.length,
+    properties: propertiesResponse?.total ?? properties.length, // Use API total for accurate count
     spaces: allSpaces.length,
     components: assetsTotalCount, // Use pagination total for accurate count
   };
