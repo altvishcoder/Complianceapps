@@ -2977,12 +2977,9 @@ export async function registerRoutes(
       
       // Fallback to direct query if materialized view not available
       if (!stats) {
-        const now = new Date();
-        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        
         const [certStats] = await db.select({
-          expired: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} < ${now.toISOString()}::timestamp)`,
-          expiringSoon: sql<number>`COUNT(*) FILTER (WHERE ${certificates.expiryDate} >= ${now.toISOString()}::timestamp AND ${certificates.expiryDate} <= ${thirtyDaysFromNow.toISOString()}::timestamp)`,
+          expired: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date < CURRENT_DATE)`,
+          expiringSoon: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date >= CURRENT_DATE AND expiry_date::date < CURRENT_DATE + INTERVAL '30 days')`,
           pendingReview: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'NEEDS_REVIEW')`,
           approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
         })
