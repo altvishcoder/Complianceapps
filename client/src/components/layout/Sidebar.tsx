@@ -40,6 +40,27 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'resources': 'Help & Training Materials',
 };
 
+const FALLBACK_NAVIGATION: NavigationSection[] = [
+  {
+    id: 'fallback-emergency',
+    slug: 'emergency-access',
+    title: 'Emergency Access',
+    iconKey: 'AlertTriangle',
+    displayOrder: 0,
+    defaultOpen: true,
+    isActive: true,
+    isSystem: true,
+    items: [
+      { id: 'fb-system-health', sectionId: 'fallback-emergency', slug: 'system-health', name: 'System Health', href: '/system-health', iconKey: 'Activity', displayOrder: 1, isActive: true, isSystem: true },
+      { id: 'fb-properties', sectionId: 'fallback-emergency', slug: 'properties', name: 'Properties', href: '/properties', iconKey: 'Building2', displayOrder: 2, isActive: true, isSystem: true },
+      { id: 'fb-certificates', sectionId: 'fallback-emergency', slug: 'certificates', name: 'Certificates', href: '/certificates', iconKey: 'FileCheck', displayOrder: 3, isActive: true, isSystem: true },
+      { id: 'fb-ingestion', sectionId: 'fallback-emergency', slug: 'ingestion', name: 'Ingestion Hub', href: '/ingestion', iconKey: 'Upload', displayOrder: 4, isActive: true, isSystem: true },
+      { id: 'fb-actions', sectionId: 'fallback-emergency', slug: 'actions', name: 'Remedial Actions', href: '/actions', iconKey: 'ClipboardList', displayOrder: 5, isActive: true, isSystem: true },
+      { id: 'fb-dashboard', sectionId: 'fallback-emergency', slug: 'dashboard', name: 'Overview', href: '/dashboard', iconKey: 'LayoutDashboard', displayOrder: 6, isActive: true, isSystem: true },
+    ]
+  }
+];
+
 interface NavigationItem {
   id: string;
   sectionId: string;
@@ -459,15 +480,44 @@ export function Sidebar() {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
             </div>
           ) : navError ? (
-            <div className="px-3 py-4 text-center">
-              <AlertTriangle className="h-6 w-6 text-amber-400 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">Navigation unavailable</p>
-              <Link href="/dashboard">
-                <div className="mt-2 px-3 py-2 text-sm text-emerald-400 hover:text-emerald-300 cursor-pointer">
-                  Go to Dashboard
+            <>
+              <div className="mx-1 mb-4 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/30" data-testid="fallback-nav-warning">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-amber-300">Fallback Mode</p>
+                    <p className="text-[10px] text-amber-400/70">Limited navigation - check System Health</p>
+                  </div>
                 </div>
-              </Link>
-            </div>
+              </div>
+              <nav className="space-y-0.5" aria-label="Emergency navigation">
+                {FALLBACK_NAVIGATION[0].items.map((item) => {
+                  const isActive = location === item.href;
+                  const ItemIcon = getIconComponent(item.iconKey);
+                  return (
+                    <Link key={item.id} href={item.href} onClick={handleNavClick}>
+                      <div
+                        className={cn(
+                          "flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
+                          isActive
+                            ? "bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white shadow-lg shadow-green-500/20"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+                        )}
+                        data-testid={`fallback-nav-${item.slug}`}
+                      >
+                        <ItemIcon
+                          className={cn(
+                            "mr-3 h-4 w-4 flex-shrink-0",
+                            isActive ? "text-white" : "text-slate-500"
+                          )}
+                        />
+                        <span>{item.name}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </>
           ) : searchQuery && filteredSections.length === 0 ? (
             <div className="px-3 py-8 text-center">
               <Search className="h-6 w-6 text-slate-400 mx-auto mb-2" />
