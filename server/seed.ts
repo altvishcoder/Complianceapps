@@ -2301,10 +2301,11 @@ async function seedNavigation() {
     
     // System Monitoring - Health & analytics
     { sectionId: "sec-monitor", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-monitor", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-monitor", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 3, isSystem: true },
-    { sectionId: "sec-monitor", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 4, isSystem: true },
-    { sectionId: "sec-monitor", slug: "jobs-queue", name: "Job Queue", href: "/admin/jobs-management", iconKey: "Cog", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-monitor", slug: "db-optimization", name: "DB Optimization", href: "/admin/db-optimization", iconKey: "Database", displayOrder: 2, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-monitor", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-monitor", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-monitor", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-monitor", slug: "jobs-queue", name: "Job Queue", href: "/admin/jobs-management", iconKey: "Cog", displayOrder: 6, isSystem: true },
     
     // Manage System - Admin configuration
     { sectionId: "sec-manage", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },

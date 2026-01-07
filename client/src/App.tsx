@@ -66,6 +66,7 @@ import AdminHierarchy from "@/pages/admin/hierarchy";
 import AdminFactorySettings from "@/pages/admin/factory-settings";
 import AdminApiIntegration from "@/pages/admin/api-integration";
 import AdminSystemHealth from "@/pages/admin/system-health";
+import AdminDbOptimization from "@/pages/admin/db-optimization";
 import AdminObservabilityDashboard from "@/pages/admin/observability-dashboard";
 import AdminIngestionControl from "@/pages/admin/ingestion-control";
 import AdminRemedialKanban from "@/pages/admin/remedial-kanban";
@@ -139,6 +140,7 @@ function Router() {
       <Route path="/admin/factory-settings">{() => <ProtectedRoute component={AdminFactorySettings} />}</Route>
       <Route path="/admin/api-integration">{() => <ProtectedRoute component={AdminApiIntegration} />}</Route>
       <Route path="/admin/system-health">{() => <ProtectedRoute component={AdminSystemHealth} />}</Route>
+      <Route path="/admin/db-optimization">{() => <ProtectedRoute component={AdminDbOptimization} />}</Route>
       <Route path="/admin/observability">{() => <ProtectedRoute component={AdminObservabilityDashboard} />}</Route>
       <Route path="/admin/ingestion-control">{() => <ProtectedRoute component={AdminIngestionControl} />}</Route>
       <Route path="/admin/remedial-kanban">{() => <ProtectedRoute component={AdminRemedialKanban} />}</Route>
