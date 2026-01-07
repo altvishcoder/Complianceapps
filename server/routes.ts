@@ -3628,7 +3628,7 @@ export async function registerRoutes(
   app.post("/api/admin/db-optimization/schedule", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
       const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
-      const { scheduleTime, timezone, isEnabled, postIngestionEnabled, staleThresholdHours } = req.body;
+      const { scheduleTime, timezone = 'Europe/London', isEnabled = true, postIngestionEnabled, staleThresholdHours } = req.body;
       
       if (!scheduleTime) {
         return res.status(400).json({ error: "scheduleTime is required" });
@@ -3643,6 +3643,14 @@ export async function registerRoutes(
         staleThresholdHours,
         updatedBy: session?.user?.id
       });
+      
+      // Update pg-boss schedule to match new settings
+      try {
+        const { updateMvRefreshSchedule } = await import("./job-queue");
+        await updateMvRefreshSchedule(scheduleTime, timezone, isEnabled);
+      } catch (jobError) {
+        console.error("Failed to update job queue schedule:", jobError);
+      }
       
       res.json({ schedule });
     } catch (error) {

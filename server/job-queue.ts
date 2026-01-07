@@ -48,6 +48,7 @@ export const QUEUE_NAMES = {
   REPORTING_REFRESH: "reporting-refresh",
   SCHEDULED_REPORT: "scheduled-report",
   PATTERN_ANALYSIS: "pattern-analysis",
+  MV_REFRESH: "mv-refresh",
 } as const;
 
 interface IngestionJobData {
@@ -268,6 +269,57 @@ async function registerWorkers(): Promise<void> {
   );
   
   jobLogger.info("Pattern analysis worker registered and scheduled every 4 hours");
+
+  await boss.createQueue(QUEUE_NAMES.MV_REFRESH);
+  
+  await boss.work(
+    QUEUE_NAMES.MV_REFRESH,
+    async () => {
+      try {
+        const { refreshAllMaterializedViews, getRefreshSchedule } = await import("./db-optimization");
+        
+        const schedule = await getRefreshSchedule();
+        if (schedule && !schedule.isEnabled) {
+          jobLogger.info("Materialized view refresh is disabled, skipping");
+          return;
+        }
+        
+        jobLogger.info("Starting scheduled materialized view refresh");
+        const result = await refreshAllMaterializedViews('SCHEDULED');
+        
+        const successCount = result.results.filter(r => r.success).length;
+        jobLogger.info({ 
+          successCount,
+          totalViews: result.results.length,
+          totalDurationMs: result.totalDurationMs 
+        }, "Scheduled materialized view refresh completed");
+      } catch (error) {
+        jobLogger.error({ error }, "Scheduled materialized view refresh failed");
+        throw error;
+      }
+    }
+  );
+  
+  // Load schedule from database or use default
+  const { getRefreshSchedule } = await import("./db-optimization");
+  const schedule = await getRefreshSchedule();
+  const mvScheduleTime = schedule?.scheduleTime || '05:30';
+  const mvTimezone = schedule?.timezone || 'Europe/London';
+  const [mvHours, mvMinutes] = mvScheduleTime.split(':').map(Number);
+  const mvCronExpression = `${mvMinutes} ${mvHours} * * *`;
+  
+  if (!schedule || schedule.isEnabled) {
+    await boss.schedule(
+      QUEUE_NAMES.MV_REFRESH,
+      mvCronExpression,
+      {},
+      { tz: mvTimezone }
+    );
+    jobLogger.info({ scheduleTime: mvScheduleTime, timezone: mvTimezone, cronExpression: mvCronExpression }, "Materialized view refresh worker scheduled");
+  } else {
+    await boss.unschedule(QUEUE_NAMES.MV_REFRESH);
+    jobLogger.info("Materialized view refresh worker disabled (not scheduled)");
+  }
 
   jobLogger.info("Workers registered for all queues");
 }
@@ -658,6 +710,31 @@ export async function setWatchdogEnabled(enabled: boolean): Promise<void> {
     // Disable: unschedule the job
     await boss.unschedule(QUEUE_NAMES.CERTIFICATE_WATCHDOG);
     jobLogger.info("Certificate watchdog disabled");
+  }
+}
+
+// Update the materialized view refresh schedule
+export async function updateMvRefreshSchedule(scheduleTime: string, timezone: string, isEnabled: boolean): Promise<void> {
+  if (!boss) {
+    throw new Error("Job queue not initialized");
+  }
+  
+  await boss.createQueue(QUEUE_NAMES.MV_REFRESH);
+  
+  if (isEnabled) {
+    const [hours, minutes] = scheduleTime.split(':').map(Number);
+    const cronExpression = `${minutes} ${hours} * * *`;
+    
+    await boss.schedule(
+      QUEUE_NAMES.MV_REFRESH,
+      cronExpression,
+      {},
+      { tz: timezone }
+    );
+    jobLogger.info({ scheduleTime, timezone, cronExpression }, "Materialized view refresh schedule updated");
+  } else {
+    await boss.unschedule(QUEUE_NAMES.MV_REFRESH);
+    jobLogger.info("Materialized view refresh disabled");
   }
 }
 

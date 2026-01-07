@@ -161,28 +161,56 @@ export default function Ingestion() {
   
   const { toast } = useToast();
   
+  const batchStartCountsRef = useRef({ completed: 0, error: 0 });
+  const prevProcessingRef = useRef(false);
+  
   // Show toast when batch processing completes
   useEffect(() => {
-    if (wasProcessingRef.current && !isBatchProcessing && batchFiles.length > 0) {
-      const completedCount = batchFiles.filter(f => f.status === 'complete').length;
-      const errorCount = batchFiles.filter(f => f.status === 'error').length;
+    const wasProcessing = prevProcessingRef.current;
+    const isProcessing = isBatchProcessing;
+    
+    // Capture counts when processing starts
+    if (isProcessing && !wasProcessing) {
+      batchStartCountsRef.current = {
+        completed: batchFiles.filter(f => f.status === 'complete').length,
+        error: batchFiles.filter(f => f.status === 'error').length,
+      };
+    }
+    
+    // Show toast when processing ends
+    if (!isProcessing && wasProcessing && batchFiles.length > 0) {
+      const totalCompleted = batchFiles.filter(f => f.status === 'complete').length;
+      const totalErrors = batchFiles.filter(f => f.status === 'error').length;
+      const newCompleted = totalCompleted - batchStartCountsRef.current.completed;
+      const newErrors = totalErrors - batchStartCountsRef.current.error;
       
-      if (completedCount + errorCount > 0) {
-        if (errorCount > 0) {
+      if (newCompleted + newErrors > 0) {
+        if (newErrors > 0) {
           toast({
             title: "Batch Processing Complete",
-            description: `Processed: ${completedCount} successful, ${errorCount} failed.`,
-            variant: errorCount === completedCount + errorCount ? "destructive" : "default",
+            description: `Processed: ${newCompleted} successful, ${newErrors} failed.`,
+            variant: newErrors === newCompleted + newErrors ? "destructive" : "default",
           });
         } else {
           toast({
             title: "Batch Processing Complete",
-            description: `Successfully processed ${completedCount} documents.`,
+            description: `Successfully processed ${newCompleted} documents.`,
           });
+        }
+        if (newCompleted >= 5) {
+          setTimeout(() => {
+            toast({
+              title: "Dashboard Data",
+              description: "Refresh materialized views in Settings > DB Optimization to update dashboard metrics.",
+            });
+          }, 2000);
         }
       }
     }
-    wasProcessingRef.current = isBatchProcessing;
+    
+    // Update ref at end of effect
+    prevProcessingRef.current = isProcessing;
+    wasProcessingRef.current = isProcessing;
   }, [isBatchProcessing, batchFiles, toast]);
   const queryClient = useQueryClient();
   const { uploadFile } = useUpload();
