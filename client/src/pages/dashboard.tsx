@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
+import { HeroStatsGrid, HeroStatsGridSkeleton } from "@/components/dashboard/HeroStats";
 import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw, FileWarning, Zap, Database } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -241,8 +241,21 @@ export default function Dashboard() {
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header title="Overview Hub" />
-          <main id="main-content" className="flex-1 flex items-center justify-center" role="main" aria-label="Dashboard content">
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
+          <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" role="main" aria-label="Dashboard content">
+            <HeroStatsGridSkeleton count={4} />
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map(i => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader>
+                    <div className="h-5 w-32 bg-muted rounded" />
+                    <div className="h-4 w-48 bg-muted rounded mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[200px] bg-muted rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
             <span className="sr-only">Loading dashboard data</span>
           </main>
         </div>
