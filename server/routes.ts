@@ -50,6 +50,7 @@ import {
   getPasswordPolicyDescription 
 } from "./services/password-policy";
 import * as cacheAdminService from "./services/cache-admin";
+import { queryCache, withCache } from "./services/query-cache";
 import { cacheRegions, cacheClearAudit, userFavorites } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
@@ -9587,56 +9588,59 @@ export async function registerRoutes(
     }
   });
 
-  // Efficient sidebar counts using SQL COUNT queries (no full data load)
+  // Efficient sidebar counts using SQL COUNT queries (no full data load) - with query caching
   app.get("/api/sidebar/counts", async (req, res) => {
     try {
-      const now = new Date().toISOString();
+      const counts = await withCache('sidebar_counts', {}, async () => {
+        const now = new Date().toISOString();
+        
+        // Use optimized COUNT queries instead of loading all data
+        const [emergencyResult, overdueResult, pendingReviewResult, totalPropertiesResult, totalCertsResult, openActionsResult] = await Promise.all([
+          db.select({ count: count() })
+            .from(remedialActions)
+            .where(and(
+              eq(remedialActions.severity, 'IMMEDIATE'),
+              eq(remedialActions.status, 'OPEN')
+            )),
+          db.select({ count: count() })
+            .from(certificates)
+            .where(lt(certificates.expiryDate, now)),
+          db.select({ count: count() })
+            .from(certificates)
+            .where(eq(certificates.status, 'NEEDS_REVIEW')),
+          db.select({ count: count() })
+            .from(properties),
+          db.select({ count: count() })
+            .from(certificates),
+          db.select({ count: count() })
+            .from(remedialActions)
+            .where(eq(remedialActions.status, 'OPEN'))
+        ]);
+        
+        return {
+          emergencyHazards: emergencyResult[0]?.count || 0,
+          overdueCertificates: overdueResult[0]?.count || 0,
+          pendingReview: pendingReviewResult[0]?.count || 0,
+          totalProperties: totalPropertiesResult[0]?.count || 0,
+          totalCertificates: totalCertsResult[0]?.count || 0,
+          openActions: openActionsResult[0]?.count || 0
+        };
+      }, 60); // Cache for 60 seconds
       
-      // Use optimized COUNT queries instead of loading all data
-      const [emergencyResult] = await db.select({ count: count() })
-        .from(remedialActions)
-        .where(and(
-          eq(remedialActions.severity, 'IMMEDIATE'),
-          eq(remedialActions.status, 'OPEN')
-        ));
-      
-      const [overdueResult] = await db.select({ count: count() })
-        .from(certificates)
-        .where(lt(certificates.expiryDate, now));
-      
-      const [pendingReviewResult] = await db.select({ count: count() })
-        .from(certificates)
-        .where(eq(certificates.status, 'NEEDS_REVIEW'));
-      
-      const [totalPropertiesResult] = await db.select({ count: count() })
-        .from(properties);
-      
-      const [totalCertsResult] = await db.select({ count: count() })
-        .from(certificates);
-      
-      const [openActionsResult] = await db.select({ count: count() })
-        .from(remedialActions)
-        .where(eq(remedialActions.status, 'OPEN'));
-      
-      res.json({
-        emergencyHazards: emergencyResult?.count || 0,
-        overdueCertificates: overdueResult?.count || 0,
-        pendingReview: pendingReviewResult?.count || 0,
-        totalProperties: totalPropertiesResult?.count || 0,
-        totalCertificates: totalCertsResult?.count || 0,
-        openActions: openActionsResult?.count || 0
-      });
+      res.json(counts);
     } catch (error) {
       console.error("Error fetching sidebar counts:", error);
       res.status(500).json({ error: "Failed to fetch sidebar counts" });
     }
   });
 
-  // Navigation Configuration API - Database-driven navigation
+  // Navigation Configuration API - Database-driven navigation - with query caching
   // Public endpoint - returns navigation with role information
   app.get("/api/navigation", async (req, res) => {
     try {
-      const navigation = await storage.getNavigationWithItemsAndRoles();
+      const navigation = await withCache('navigation', {}, async () => {
+        return await storage.getNavigationWithItemsAndRoles();
+      }, 600); // Cache navigation for 10 minutes
       res.json(navigation);
     } catch (error) {
       console.error("Error fetching navigation:", error);
@@ -10957,6 +10961,104 @@ export async function registerRoutes(
       res.status(201).json(records);
     } catch (error) {
       res.status(500).json({ error: "Failed to create water temperature records" });
+    }
+  });
+
+  // ===== QUERY CACHE MANAGEMENT API =====
+  // Get current cache statistics
+  app.get("/api/admin/cache/stats", requireRole('LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'), async (req, res) => {
+    try {
+      const stats = queryCache.getStats();
+      const historical = await queryCache.getHistoricalStats(24);
+      res.json({ 
+        current: stats,
+        historical
+      });
+    } catch (error) {
+      console.error("Error fetching cache stats:", error);
+      res.status(500).json({ error: "Failed to fetch cache statistics" });
+    }
+  });
+
+  // Clear cache with audit logging
+  app.post("/api/admin/cache/clear", requireRole('LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'), async (req, res) => {
+    try {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      const { scope, identifier, reason, isDryRun } = req.body;
+      
+      if (!['REGION', 'CATEGORY', 'ALL'].includes(scope)) {
+        return res.status(400).json({ error: "Invalid scope. Must be REGION, CATEGORY, or ALL" });
+      }
+      
+      if (!reason) {
+        return res.status(400).json({ error: "Reason is required for cache clearing" });
+      }
+
+      const result = await queryCache.clearWithAudit(
+        scope,
+        identifier || null,
+        session?.user?.id || 'unknown',
+        session?.user?.role || 'unknown',
+        reason,
+        isDryRun || false
+      );
+      
+      if (!isDryRun) {
+        await recordAudit({
+          userId: session?.user?.id || 'system',
+          action: 'CACHE_CLEARED',
+          entityType: 'CACHE',
+          entityId: identifier || 'all',
+          details: {
+            scope,
+            identifier,
+            reason,
+            entriesCleared: result.entriesCleared
+          }
+        });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error clearing cache:", error);
+      res.status(500).json({ error: "Failed to clear cache" });
+    }
+  });
+
+  // Invalidate specific cache region (quick action)
+  app.delete("/api/admin/cache/region/:name", requireRole('LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'), async (req, res) => {
+    try {
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+      const { name } = req.params;
+      const cleared = queryCache.invalidate(name);
+      
+      await recordAudit({
+        userId: session?.user?.id || 'system',
+        action: 'CACHE_INVALIDATED',
+        entityType: 'CACHE_REGION',
+        entityId: name,
+        details: { entriesCleared: cleared }
+      });
+      
+      res.json({ success: true, region: name, entriesCleared: cleared });
+    } catch (error) {
+      console.error("Error invalidating cache region:", error);
+      res.status(500).json({ error: "Failed to invalidate cache region" });
+    }
+  });
+
+  // Get cache audit history
+  app.get("/api/admin/cache/audit", requireRole('LASHAN_SUPER_USER', 'SUPER_ADMIN', 'SYSTEM_ADMIN'), async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const audits = await db.select()
+        .from(cacheClearAudit)
+        .orderBy(desc(cacheClearAudit.createdAt))
+        .limit(limit);
+      res.json(audits);
+    } catch (error) {
+      console.error("Error fetching cache audit:", error);
+      res.status(500).json({ error: "Failed to fetch cache audit history" });
     }
   });
 

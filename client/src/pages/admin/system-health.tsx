@@ -94,6 +94,41 @@ interface MemoryCacheStats {
   evictions: number;
 }
 
+interface QueryCacheStats {
+  current: {
+    global: {
+      hits: number;
+      misses: number;
+      evictions: number;
+      hitRate: number;
+      uptimeMs: number;
+    };
+    regions: Array<{
+      name: string;
+      displayName: string;
+      category: string;
+      ttlSeconds: number;
+      stats: {
+        hits: number;
+        misses: number;
+        evictions: number;
+        entries: number;
+        memoryEstimateBytes: number;
+      };
+      hitRate: number;
+    }>;
+    totalEntries: number;
+    totalMemoryBytes: number;
+  };
+  historical: Array<{
+    windowStart: string;
+    windowEnd: string;
+    totalHits: number;
+    totalMisses: number;
+    avgHitRate: number;
+  }>;
+}
+
 interface CacheRegion {
   id: string;
   name: string;
@@ -312,6 +347,19 @@ export default function SystemHealthPage() {
     enabled: activeTab === "cache" && !!user?.id,
   });
 
+  const { data: queryCacheStats, isLoading: queryCacheLoading, refetch: refetchQueryCache } = useQuery<QueryCacheStats>({
+    queryKey: ["query-cache-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cache/stats", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch query cache stats");
+      return res.json();
+    },
+    refetchInterval: 10000,
+    enabled: activeTab === "cache" && !!user?.id,
+  });
+
   const { data: cacheRegions, isLoading: regionsLoading, refetch: refetchRegions } = useQuery<CacheRegion[]>({
     queryKey: ["cache-regions"],
     queryFn: async () => {
@@ -345,6 +393,7 @@ export default function SystemHealthPage() {
     if (activeTab === "cache") {
       refetchCacheStats();
       refetchRegions();
+      refetchQueryCache();
     }
   };
   
@@ -854,32 +903,32 @@ export default function SystemHealthPage() {
               <TabsContent value="cache" className="space-y-6">
                 <HeroStatsGrid stats={[
                   {
-                    title: "Cache Size",
-                    value: memoryCacheStats?.size ?? 0,
-                    subtitle: "entries",
+                    title: "Total Entries",
+                    value: queryCacheStats?.current?.totalEntries ?? memoryCacheStats?.size ?? 0,
+                    subtitle: "cached items",
                     icon: HardDrive,
                     riskLevel: "low",
                     testId: "stat-cache-size"
                   },
                   {
                     title: "Cache Hits",
-                    value: memoryCacheStats?.hits ?? 0,
+                    value: queryCacheStats?.current?.global?.hits ?? memoryCacheStats?.hits ?? 0,
                     icon: CheckCircle2,
                     riskLevel: "good",
                     testId: "stat-cache-hits"
                   },
                   {
                     title: "Cache Misses",
-                    value: memoryCacheStats?.misses ?? 0,
+                    value: queryCacheStats?.current?.global?.misses ?? memoryCacheStats?.misses ?? 0,
                     icon: XCircle,
-                    riskLevel: (memoryCacheStats?.misses ?? 0) > (memoryCacheStats?.hits ?? 0) ? "high" : "medium",
+                    riskLevel: (queryCacheStats?.current?.global?.misses ?? 0) > (queryCacheStats?.current?.global?.hits ?? 0) ? "high" : "medium",
                     testId: "stat-cache-misses"
                   },
                   {
                     title: "Evictions",
-                    value: memoryCacheStats?.evictions ?? 0,
+                    value: queryCacheStats?.current?.global?.evictions ?? memoryCacheStats?.evictions ?? 0,
                     icon: AlertTriangle,
-                    riskLevel: (memoryCacheStats?.evictions ?? 0) > 100 ? "high" : (memoryCacheStats?.evictions ?? 0) > 0 ? "medium" : "good",
+                    riskLevel: (queryCacheStats?.current?.global?.evictions ?? 0) > 100 ? "high" : (queryCacheStats?.current?.global?.evictions ?? 0) > 0 ? "medium" : "good",
                     testId: "stat-cache-evictions"
                   }
                 ]} />
@@ -888,11 +937,16 @@ export default function SystemHealthPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <BarChart3 className="h-5 w-5" />
-                      Cache Hit Ratio
+                      Query Cache Hit Ratio
                     </CardTitle>
+                    <CardDescription>
+                      {queryCacheStats?.current?.global?.uptimeMs 
+                        ? `Uptime: ${Math.floor(queryCacheStats.current.global.uptimeMs / 60000)} minutes`
+                        : 'Cache performance metrics'}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {cacheStatsLoading ? (
+                    {queryCacheLoading ? (
                       <div className="text-muted-foreground">Loading stats...</div>
                     ) : (
                       <div className="space-y-4">
@@ -901,21 +955,95 @@ export default function SystemHealthPage() {
                             <div 
                               className="h-full bg-green-500 transition-all"
                               style={{
-                                width: `${memoryCacheStats && (memoryCacheStats.hits + memoryCacheStats.misses) > 0 
-                                  ? ((memoryCacheStats.hits / (memoryCacheStats.hits + memoryCacheStats.misses)) * 100).toFixed(1) 
-                                  : 0}%`
+                                width: `${queryCacheStats?.current?.global?.hitRate?.toFixed(1) ?? 0}%`
                               }}
                             />
                           </div>
                           <span className="text-lg font-bold" data-testid="text-hit-ratio">
-                            {memoryCacheStats && (memoryCacheStats.hits + memoryCacheStats.misses) > 0 
-                              ? ((memoryCacheStats.hits / (memoryCacheStats.hits + memoryCacheStats.misses)) * 100).toFixed(1)
-                              : 0}%
+                            {queryCacheStats?.current?.global?.hitRate?.toFixed(1) ?? 0}%
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           Higher hit ratio indicates better cache efficiency. Target is above 80%.
                         </p>
+                        {queryCacheStats?.current?.totalMemoryBytes && queryCacheStats.current.totalMemoryBytes > 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            Memory usage: {(queryCacheStats.current.totalMemoryBytes / 1024).toFixed(1)} KB
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="card-query-cache-regions">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-5 w-5" />
+                      Query Cache Regions
+                    </CardTitle>
+                    <CardDescription>
+                      In-memory query cache regions with per-region statistics
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {queryCacheLoading ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Loading query cache regions...
+                      </div>
+                    ) : queryCacheStats?.current?.regions && queryCacheStats.current.regions.length > 0 ? (
+                      <div className="space-y-3">
+                        {queryCacheStats.current.regions.map((region) => (
+                          <div 
+                            key={region.name}
+                            className="p-3 rounded-lg border bg-muted/30"
+                            data-testid={`query-cache-region-${region.name}`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <span className="font-medium">{region.displayName}</span>
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {region.category}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  TTL: {region.ttlSeconds}s
+                                </Badge>
+                                <Badge 
+                                  variant={region.hitRate >= 80 ? "default" : region.hitRate >= 50 ? "secondary" : "destructive"}
+                                  className={region.hitRate >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : ""}
+                                >
+                                  {region.hitRate.toFixed(1)}% hit rate
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-4 text-sm text-muted-foreground">
+                              <div>
+                                <span className="block text-xs uppercase">Entries</span>
+                                <span className="font-medium text-foreground">{region.stats.entries}</span>
+                              </div>
+                              <div>
+                                <span className="block text-xs uppercase">Hits</span>
+                                <span className="font-medium text-green-600">{region.stats.hits}</span>
+                              </div>
+                              <div>
+                                <span className="block text-xs uppercase">Misses</span>
+                                <span className="font-medium text-amber-600">{region.stats.misses}</span>
+                              </div>
+                              <div>
+                                <span className="block text-xs uppercase">Evictions</span>
+                                <span className="font-medium text-red-600">{region.stats.evictions}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground" data-testid="text-no-query-regions">
+                        <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No query cache regions active yet</p>
+                        <p className="text-xs mt-1">Regions will appear as queries are cached</p>
                       </div>
                     )}
                   </CardContent>
@@ -925,7 +1053,7 @@ export default function SystemHealthPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Layers className="h-5 w-5" />
-                      Cache Regions by Layer
+                      Database Cache Regions
                     </CardTitle>
                     <CardDescription>
                       Configured cache regions across all layers
@@ -979,7 +1107,7 @@ export default function SystemHealthPage() {
                     ) : (
                       <div className="text-center py-8 text-muted-foreground" data-testid="text-no-regions">
                         <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No cache regions configured</p>
+                        <p>No database cache regions configured</p>
                       </div>
                     )}
                   </CardContent>
