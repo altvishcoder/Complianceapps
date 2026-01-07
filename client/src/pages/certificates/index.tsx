@@ -448,6 +448,41 @@ export default function CertificatesPage() {
                 </div>
               ) : (
                 <>
+                  {/* Top Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pb-4 border-b mb-4">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems} certificates
+                        {isFetching && <Loader2 className="h-4 w-4 animate-spin inline ml-2" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          disabled={page === 1}
+                          data-testid="pagination-prev-top"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Page {page} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                          disabled={page >= totalPages}
+                          data-testid="pagination-next-top"
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Mobile Card View */}
                   <div className="md:hidden divide-y divide-border border rounded-md">
                     {filteredCertificates.map((cert) => {
