@@ -65,7 +65,9 @@ interface HierarchyNode {
   // For lazy loading components
   propertyId?: string;
   spaceId?: string;
+  blockId?: string; // For lazy loading properties under blocks
   hasComponents?: boolean; // Flag to indicate this node can have components loaded on-demand
+  hasProperties?: boolean; // Flag to indicate this block can have properties loaded on-demand
 }
 
 function HactBadge({ label }: { label: string }) {
@@ -84,6 +86,109 @@ function HactBadge({ label }: { label: string }) {
 }
 
 const INITIAL_COMPONENT_DISPLAY = 5; // Show first 5 components, then paginate
+const INITIAL_PROPERTY_DISPLAY = 10; // Show first 10 properties, then paginate
+
+// Lazy loader for properties - fetches on-demand when block is expanded
+function LazyPropertiesLoader({ 
+  blockId, 
+  level, 
+  onNodeClick,
+}: { 
+  blockId: string; 
+  level: number; 
+  onNodeClick?: (node: HierarchyNode) => void;
+}) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_PROPERTY_DISPLAY);
+  
+  // Fetch properties for this block on-demand
+  const { data: propertiesResponse, isLoading, isError } = useQuery({
+    queryKey: ["properties", "hierarchy-block", blockId],
+    queryFn: () => propertiesApi.list({ blockId, limit: 100 }),
+    enabled: !!blockId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+  
+  const properties = propertiesResponse?.data ?? [];
+  const visibleProperties = properties.slice(0, visibleCount);
+  const hasMore = properties.length > visibleCount;
+  
+  if (isLoading) {
+    return (
+      <div 
+        className="py-2 px-3 text-sm text-slate-500 flex items-center gap-2"
+        style={{ marginLeft: `${level * 24}px` }}
+      >
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading dwellings...</span>
+      </div>
+    );
+  }
+  
+  if (isError || properties.length === 0) {
+    return (
+      <div 
+        className="py-2 px-3 text-sm text-slate-400"
+        style={{ marginLeft: `${level * 24}px` }}
+      >
+        No dwellings found
+      </div>
+    );
+  }
+  
+  return (
+    <>
+      {visibleProperties.map((property) => (
+        <div key={property.id}>
+          <div
+            className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+            style={{ marginLeft: `${level * 24}px` }}
+            onClick={() => onNodeClick?.({
+              id: property.id,
+              name: property.addressLine1 || `Dwelling ${property.id.slice(0, 8)}`,
+              type: 'property',
+              reference: property.uprn || undefined,
+              status: property.complianceStatus || 'UNKNOWN',
+              data: property,
+              children: [],
+              propertyId: property.id,
+              hasComponents: true,
+            })}
+            data-testid={`tree-node-property-${property.id}`}
+          >
+            <div className="w-6" />
+            <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
+              <Home className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-slate-900 dark:text-slate-100 truncate hover:underline">
+                  {property.addressLine1 || `Dwelling ${property.id.slice(0, 8)}`}
+                </span>
+                {property.uprn && (
+                  <span className="text-xs text-slate-500">UPRN: {property.uprn}</span>
+                )}
+              </div>
+            </div>
+            <Badge variant="secondary" className="text-xs">Dwelling (Property)</Badge>
+          </div>
+        </div>
+      ))}
+      
+      {hasMore && (
+        <div 
+          className="py-2 px-3 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors flex items-center gap-2"
+          style={{ marginLeft: `${level * 24}px` }}
+          onClick={() => setVisibleCount(prev => prev + 10)}
+          data-testid={`load-more-properties-${blockId}`}
+        >
+          <Home className="h-4 w-4" />
+          <span>Show {Math.min(10, properties.length - visibleCount)} more dwellings</span>
+          <span className="text-slate-400 dark:text-slate-500">({properties.length - visibleCount} remaining)</span>
+        </div>
+      )}
+    </>
+  );
+}
 
 // Lazy loader for components - fetches on-demand when parent is expanded
 function LazyComponentsLoader({ 
@@ -367,6 +472,15 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
                   <span>Show {Math.min(10, componentChildren.length - visibleComponentCount)} more components</span>
                   <span className="text-slate-400 dark:text-slate-500">({componentChildren.length - visibleComponentCount} remaining)</span>
                 </div>
+              )}
+              
+              {/* Lazy load properties for blocks */}
+              {node.type === 'block' && node.hasProperties && (
+                <LazyPropertiesLoader
+                  blockId={node.blockId || node.id}
+                  level={level + 1}
+                  onNodeClick={onNodeClick}
+                />
               )}
               
               {/* Lazy load components for properties and spaces */}
@@ -711,32 +825,12 @@ export default function PropertyHierarchy() {
             .filter((s: Space) => (s as any).blockId === block.id && !(s as any).propertyId)
             .map((space: Space) => buildSpaceNode(space, { blockId: block.id }));
           
-          // Build dwelling (property) nodes - in UKHDS, Property and Dwelling are the SAME entity
-          // Components are loaded on-demand via LazyComponentsLoader for performance
-          const dwellingNodes: HierarchyNode[] = blockProperties.map((property: Property) => {
-            // Get property-level spaces (rooms within this dwelling)
-            const propertySpaces = allSpaces.filter((s: Space) => (s as any).propertyId === property.id);
-            const propertySpaceNodes: HierarchyNode[] = propertySpaces.map((space: Space) => 
-              buildSpaceNode(space, { propertyId: property.id })
-            );
-            
-            return {
-              id: property.id,
-              name: `${property.addressLine1}, ${property.postcode}`,
-              type: 'property' as const,
-              reference: property.uprn,
-              status: property.complianceStatus,
-              linkStatus: (property as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
-              data: property,
-              children: propertySpaceNodes, // Components loaded on-demand
-              hasComponents: true, // Enable lazy component loading
-            };
-          });
+          // Dwellings (properties) are now loaded on-demand via LazyPropertiesLoader for performance
+          // Count properties for display purposes (count from properties array, not by loading all)
+          const propertyCount = blockProperties.length;
           
-          // Calculate block's aggregated compliance from dwellings
-          const blockChildren = [...blockLevelSpaces, ...dwellingNodes];
-          const blockAggregatedStatus = block.complianceStatus || 
-            aggregateStatus(dwellingNodes.map(d => d.status));
+          // Calculate block's aggregated compliance from block's own status
+          const blockAggregatedStatus = block.complianceStatus || 'UNKNOWN';
           
           return {
             id: block.id,
@@ -745,9 +839,11 @@ export default function PropertyHierarchy() {
             reference: block.reference,
             status: blockAggregatedStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
-            data: block,
-            // Block children: communal spaces, then dwellings (properties)
-            children: blockChildren,
+            data: { ...block, propertyCount },
+            // Block children: only communal spaces; properties are loaded on-demand
+            children: blockLevelSpaces,
+            blockId: block.id,
+            hasProperties: propertyCount > 0, // Enable lazy property loading if there are properties
           };
         });
       
