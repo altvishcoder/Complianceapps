@@ -10,6 +10,11 @@ import { recordAudit, extractAuditContext, getChanges } from "../services/audit"
 import { validatePassword } from "../services/password-policy";
 import { clearApiLimitsCache } from "../services/api-limits";
 import { clearTierThresholdsCache } from "../services/risk-scoring";
+import { 
+  runBulkSeed, getProgress, cancelBulkSeed, 
+  VOLUME_CONFIGS, calculateTotals, refreshMaterializedViewsAfterSeed,
+  type VolumeTier 
+} from "../demo-data/bulk-seeder";
 
 export const adminRouter = Router();
 
@@ -47,6 +52,70 @@ adminRouter.post("/reset-demo", requireRole(...SUPER_ADMIN_ROLES), async (req: A
   } catch (error) {
     console.error("Error resetting demo:", error);
     res.status(500).json({ error: "Failed to reset demo" });
+  }
+});
+
+// ===== BULK SEEDING (High Volume) =====
+adminRouter.get("/bulk-seed/tiers", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tiers = Object.entries(VOLUME_CONFIGS).map(([key, config]) => ({
+      tier: key,
+      label: config.label,
+      description: config.description,
+      estimatedMinutes: config.estimatedMinutes,
+      totals: calculateTotals(config),
+    }));
+    res.json(tiers);
+  } catch (error) {
+    console.error("Error fetching tiers:", error);
+    res.status(500).json({ error: "Failed to fetch volume tiers" });
+  }
+});
+
+adminRouter.post("/bulk-seed", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { tier } = req.body;
+    if (!tier || !VOLUME_CONFIGS[tier as VolumeTier]) {
+      return res.status(400).json({ error: "Invalid tier. Must be 'small', 'medium', or 'large'" });
+    }
+    
+    const progress = getProgress();
+    if (progress.status === "running") {
+      return res.status(409).json({ error: "Bulk seeding is already in progress" });
+    }
+    
+    runBulkSeed(tier as VolumeTier, ORG_ID)
+      .then(() => refreshMaterializedViewsAfterSeed())
+      .catch(err => console.error("Bulk seed error:", err));
+    
+    res.json({ 
+      success: true, 
+      message: `Started ${tier} bulk seeding`,
+      tier,
+      totals: calculateTotals(VOLUME_CONFIGS[tier as VolumeTier]),
+    });
+  } catch (error) {
+    console.error("Error starting bulk seed:", error);
+    res.status(500).json({ error: "Failed to start bulk seeding" });
+  }
+});
+
+adminRouter.get("/bulk-seed/progress", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    res.json(getProgress());
+  } catch (error) {
+    console.error("Error fetching progress:", error);
+    res.status(500).json({ error: "Failed to fetch progress" });
+  }
+});
+
+adminRouter.post("/bulk-seed/cancel", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    cancelBulkSeed();
+    res.json({ success: true, message: "Cancel requested" });
+  } catch (error) {
+    console.error("Error cancelling bulk seed:", error);
+    res.status(500).json({ error: "Failed to cancel bulk seeding" });
   }
 });
 

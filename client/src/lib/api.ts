@@ -254,6 +254,49 @@ export const sidebarApi = {
   getCounts: () => fetchJSON<SidebarCounts>(`${API_BASE}/sidebar/counts`),
 };
 
+// Bulk seed types
+export interface VolumeTierInfo {
+  tier: "small" | "medium" | "large";
+  label: string;
+  description: string;
+  estimatedMinutes: number;
+  totals: {
+    schemes: number;
+    blocks: number;
+    properties: number;
+    spaces: number;
+    components: number;
+    certificates: number;
+    remedials: number;
+    contractors: number;
+    staffMembers: number;
+    total: number;
+  };
+}
+
+export interface BulkSeedProgress {
+  status: "idle" | "running" | "completed" | "failed" | "cancelled";
+  tier: "small" | "medium" | "large" | null;
+  currentEntity: string;
+  currentCount: number;
+  totalCount: number;
+  percentage: number;
+  startTime: number | null;
+  estimatedTimeRemaining: number | null;
+  error: string | null;
+  entities: {
+    schemes: { done: number; total: number };
+    blocks: { done: number; total: number };
+    properties: { done: number; total: number };
+    spaces: { done: number; total: number };
+    components: { done: number; total: number };
+    certificates: { done: number; total: number };
+    remedials: { done: number; total: number };
+    contractors: { done: number; total: number };
+    staff: { done: number; total: number };
+  };
+}
+
 // Admin / Demo Data Management
 export const adminApi = {
   wipeData: (includeProperties: boolean = false) => 
@@ -264,6 +307,23 @@ export const adminApi = {
   
   resetDemo: () => 
     fetchJSON<{ success: boolean; message: string; stats?: { schemes: number; blocks: number; properties: number; components: number; certificates: number; remedialActions: number } }>(`${API_BASE}/admin/reset-demo`, {
+      method: "POST",
+    }),
+  
+  getBulkSeedTiers: () => 
+    fetchJSON<VolumeTierInfo[]>(`${API_BASE}/admin/bulk-seed/tiers`),
+  
+  startBulkSeed: (tier: "small" | "medium" | "large") => 
+    fetchJSON<{ success: boolean; message: string; tier: string; totals: VolumeTierInfo["totals"] }>(`${API_BASE}/admin/bulk-seed`, {
+      method: "POST",
+      body: JSON.stringify({ tier }),
+    }),
+  
+  getBulkSeedProgress: () => 
+    fetchJSON<BulkSeedProgress>(`${API_BASE}/admin/bulk-seed/progress`),
+  
+  cancelBulkSeed: () => 
+    fetchJSON<{ success: boolean; message: string }>(`${API_BASE}/admin/bulk-seed/cancel`, {
       method: "POST",
     }),
 };

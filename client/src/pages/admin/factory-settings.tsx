@@ -9,7 +9,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, ChevronDown, Globe, Search, FileText, Scale, Plus, Edit, X, Check, Menu } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, ChevronDown, Globe, Search, FileText, Scale, Plus, Edit, X, Check, Menu, Rocket, XCircle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -198,6 +199,43 @@ export default function FactorySettings() {
   });
 
   const isDemoLoading = wipeDataMutation.isPending || resetDemoMutation.isPending;
+  
+  const [selectedTier, setSelectedTier] = useState<"small" | "medium" | "large">("medium");
+  
+  const { data: bulkSeedTiers } = useQuery({
+    queryKey: ["bulkSeedTiers"],
+    queryFn: () => adminApi.getBulkSeedTiers(),
+    enabled: isAuthorized && !!user?.id && activeCategory === "DEMO_DATA",
+  });
+  
+  const { data: bulkSeedProgress, refetch: refetchProgress } = useQuery({
+    queryKey: ["bulkSeedProgress"],
+    queryFn: () => adminApi.getBulkSeedProgress(),
+    enabled: isAuthorized && !!user?.id && activeCategory === "DEMO_DATA",
+    refetchInterval: (query) => query.state.data?.status === "running" ? 1000 : false,
+  });
+  
+  const startBulkSeedMutation = useMutation({
+    mutationFn: (tier: "small" | "medium" | "large") => adminApi.startBulkSeed(tier),
+    onSuccess: (data) => {
+      toast({ title: "Bulk Seeding Started", description: data.message });
+      refetchProgress();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const cancelBulkSeedMutation = useMutation({
+    mutationFn: () => adminApi.cancelBulkSeed(),
+    onSuccess: () => {
+      toast({ title: "Cancelled", description: "Bulk seeding cancelled" });
+      refetchProgress();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
   
   const [patternFilter, setPatternFilter] = useState("");
   const [ruleFilter, setRuleFilter] = useState("");
@@ -652,6 +690,9 @@ export default function FactorySettings() {
     }
 
     if (activeCategory === "DEMO_DATA") {
+      const selectedTierInfo = bulkSeedTiers?.find(t => t.tier === selectedTier);
+      const isSeeding = bulkSeedProgress?.status === "running";
+      
       return (
         <Card>
           <CardHeader>
@@ -664,12 +705,12 @@ export default function FactorySettings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
               <div className="flex gap-2 items-start">
                 <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-medium text-amber-800">Important</p>
-                  <p className="text-sm text-amber-700">
+                  <p className="font-medium text-amber-800 dark:text-amber-200">Important</p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
                     These actions modify your database. Wipe operations cannot be undone.
                     Make sure you have a backup before proceeding.
                   </p>
@@ -677,23 +718,144 @@ export default function FactorySettings() {
               </div>
             </div>
 
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Rocket className="h-4 w-4 text-blue-600" />
+                  High Volume Data Seeding
+                </CardTitle>
+                <CardDescription>
+                  Generate large datasets to test system scalability and performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isSeeding ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Seeding in progress: {bulkSeedProgress?.tier?.toUpperCase()}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {bulkSeedProgress?.currentEntity} - {bulkSeedProgress?.currentCount.toLocaleString()} / {bulkSeedProgress?.totalCount.toLocaleString()}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => cancelBulkSeedMutation.mutate()}
+                        disabled={cancelBulkSeedMutation.isPending}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                    </div>
+                    <Progress value={bulkSeedProgress?.percentage || 0} className="h-3" />
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      {Object.entries(bulkSeedProgress?.entities || {}).map(([key, val]) => (
+                        <div key={key} className="flex justify-between bg-muted/50 rounded px-2 py-1">
+                          <span className="capitalize">{key}</span>
+                          <span className="font-mono">{val.done}/{val.total}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {bulkSeedProgress?.estimatedTimeRemaining && (
+                      <p className="text-sm text-muted-foreground">
+                        Est. time remaining: {Math.floor(bulkSeedProgress.estimatedTimeRemaining / 60)}m {bulkSeedProgress.estimatedTimeRemaining % 60}s
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {bulkSeedTiers?.map((tier) => (
+                        <button
+                          key={tier.tier}
+                          onClick={() => setSelectedTier(tier.tier)}
+                          className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                            selectedTier === tier.tier
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
+                              : "border-muted hover:border-blue-300"
+                          }`}
+                          data-testid={`tier-${tier.tier}`}
+                        >
+                          <div className="font-medium">{tier.label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{tier.description}</div>
+                          <div className="text-xs text-muted-foreground mt-2">
+                            ~{tier.estimatedMinutes} min | {tier.totals.total.toLocaleString()} records
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {selectedTierInfo && (
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-sm font-medium mb-2">Selected: {selectedTierInfo.label}</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div><span className="text-muted-foreground">Properties:</span> {selectedTierInfo.totals.properties.toLocaleString()}</div>
+                          <div><span className="text-muted-foreground">Components:</span> {selectedTierInfo.totals.components.toLocaleString()}</div>
+                          <div><span className="text-muted-foreground">Certificates:</span> {selectedTierInfo.totals.certificates.toLocaleString()}</div>
+                          <div><span className="text-muted-foreground">Remedials:</span> {selectedTierInfo.totals.remedials.toLocaleString()}</div>
+                          <div><span className="text-muted-foreground">Schemes:</span> {selectedTierInfo.totals.schemes.toLocaleString()}</div>
+                          <div><span className="text-muted-foreground">Blocks:</span> {selectedTierInfo.totals.blocks.toLocaleString()}</div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      className="w-full"
+                      onClick={() => startBulkSeedMutation.mutate(selectedTier)}
+                      disabled={startBulkSeedMutation.isPending || isDemoLoading}
+                      data-testid="button-start-bulk-seed"
+                    >
+                      {startBulkSeedMutation.isPending ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="mr-2 h-4 w-4" />
+                          Start {selectedTierInfo?.label || "Bulk"} Seeding
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+                
+                {bulkSeedProgress?.status === "completed" && (
+                  <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-3 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                      ✅ Bulk seeding completed successfully!
+                    </p>
+                  </div>
+                )}
+                
+                {bulkSeedProgress?.status === "failed" && (
+                  <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-lg">
+                    <p className="text-sm text-red-800 dark:text-red-200 font-medium">
+                      ❌ Error: {bulkSeedProgress.error}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="border-2 border-orange-200">
+              <Card className="border-2 border-orange-200 dark:border-orange-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Trash2 className="h-4 w-4 text-orange-600" />
-                    Wipe Demo Data
+                    Wipe All Data
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Remove all demo data including properties, components, schemes, blocks, certificates, and remedial actions.
+                    Remove all data including properties, components, schemes, blocks, certificates, and remedial actions.
                   </p>
                   <Button 
                     className="w-full"
                     variant="outline"
                     onClick={() => wipeDataMutation.mutate(true)}
-                    disabled={isDemoLoading}
+                    disabled={isDemoLoading || isSeeding}
                     data-testid="button-wipe-data"
                   >
                     {wipeDataMutation.isPending ? (
@@ -704,29 +866,29 @@ export default function FactorySettings() {
                     ) : (
                       <>
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Wipe Demo Data
+                        Wipe All Data
                       </>
                     )}
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="border-2 border-emerald-200">
+              <Card className="border-2 border-emerald-200 dark:border-emerald-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 text-emerald-600" />
-                    Regenerate Demo Data
+                    Reset to Small Demo
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Wipe existing data and regenerate full demo dataset (2000 properties, 8000 components, 6000+ certificates).
+                    Wipe and regenerate small demo dataset (~2,000 properties, ~6,000 certificates).
                   </p>
                   <Button 
                     className="w-full"
                     variant="default"
                     onClick={() => resetDemoMutation.mutate()}
-                    disabled={isDemoLoading}
+                    disabled={isDemoLoading || isSeeding}
                     data-testid="button-reset-demo"
                   >
                     {resetDemoMutation.isPending ? (
@@ -737,7 +899,7 @@ export default function FactorySettings() {
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Regenerate Demo Data
+                        Reset to Small Demo
                       </>
                     )}
                   </Button>
