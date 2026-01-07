@@ -312,8 +312,8 @@ function TreeNode({ node, level = 0, defaultOpen = true, onNodeClick }: { node: 
   const hasMoreComponents = componentChildren.length > visibleComponentCount;
   const visibleComponents = componentChildren.slice(0, visibleComponentCount);
   
-  // A node is expandable if it has children OR if it has components that will load on-demand
-  const hasChildren = node.children.length > 0 || node.hasComponents;
+  // A node is expandable if it has children, components, or properties that will load on-demand
+  const hasChildren = node.children.length > 0 || node.hasComponents || node.hasProperties;
   
   // Lazy render children - only mount when first opened
   const handleOpenChange = (open: boolean) => {
@@ -826,8 +826,7 @@ export default function PropertyHierarchy() {
             .map((space: Space) => buildSpaceNode(space, { blockId: block.id }));
           
           // Dwellings (properties) are now loaded on-demand via LazyPropertiesLoader for performance
-          // Count properties for display purposes (count from properties array, not by loading all)
-          const propertyCount = blockProperties.length;
+          // Always enable lazy loading for blocks - properties are fetched when block is expanded
           
           // Calculate block's aggregated compliance from block's own status
           const blockAggregatedStatus = block.complianceStatus || 'UNKNOWN';
@@ -839,11 +838,11 @@ export default function PropertyHierarchy() {
             reference: block.reference,
             status: blockAggregatedStatus,
             linkStatus: (block as any).linkStatus as 'VERIFIED' | 'UNVERIFIED' | undefined,
-            data: { ...block, propertyCount },
+            data: block,
             // Block children: only communal spaces; properties are loaded on-demand
             children: blockLevelSpaces,
             blockId: block.id,
-            hasProperties: propertyCount > 0, // Enable lazy property loading if there are properties
+            hasProperties: true, // Always enable lazy property loading for blocks
           };
         });
       
