@@ -473,7 +473,7 @@ export default function ComponentsPage() {
           title: "Critical Condition",
           value: conditionSummary.CRITICAL,
           icon: AlertTriangle,
-          riskLevel: "critical",
+          riskLevel: conditionSummary.CRITICAL > 0 ? "critical" : "low",
           subtitle: "require attention",
           testId: "stat-critical-components"
         },
@@ -481,7 +481,7 @@ export default function ComponentsPage() {
           title: "Poor Condition",
           value: conditionSummary.POOR,
           icon: Clock,
-          riskLevel: "high",
+          riskLevel: conditionSummary.POOR > 0 ? "high" : "low",
           subtitle: "needs maintenance",
           testId: "stat-poor-components"
         },
@@ -492,6 +492,14 @@ export default function ComponentsPage() {
           riskLevel: "good",
           subtitle: "healthy assets",
           testId: "stat-good-components"
+        },
+        {
+          title: "Unassessed",
+          value: conditionSummary.UNKNOWN,
+          icon: Info,
+          riskLevel: conditionSummary.UNKNOWN > 0 ? "medium" : "low",
+          subtitle: "need condition rating",
+          testId: "stat-unassessed-components"
         }
       ]} />
       
