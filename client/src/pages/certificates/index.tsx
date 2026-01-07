@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HeroStatsGrid, HeroStatsGridSkeleton } from "@/components/dashboard/HeroStats";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -445,11 +446,8 @@ export default function CertificatesPage() {
               <CardDescription>Manage and view compliance documents across all properties.</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingCerts ? (
-                <div className="p-8 text-center">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">Loading certificates...</p>
-                </div>
+              {isLoadingCerts && !paginatedData ? (
+                <TableSkeleton rows={8} columns={6} />
               ) : filteredCertificates.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   No certificates found matching your criteria.
