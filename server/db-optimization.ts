@@ -2,11 +2,12 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { 
   performanceIndexDefinitions, 
-  materializedViewDefinitions,
-  materializedViewIndexDefinitions,
+  allMaterializedViewDefinitions,
+  allMaterializedViewIndexDefinitions,
   expiryTrackerTableDefinition,
   riskSnapshotTableDefinition,
-  assetHealthSummaryTableDefinition
+  assetHealthSummaryTableDefinition,
+  materializedViewCategories
 } from "@shared/schema/tables/performance-indexes";
 
 const optimizationLogger = {
@@ -52,7 +53,7 @@ export async function createMaterializedViews(): Promise<{ success: boolean; cre
   try {
     optimizationLogger.info("Creating materialized views...");
     
-    const viewStatements = materializedViewDefinitions
+    const viewStatements = allMaterializedViewDefinitions
       .split(';')
       .map(s => s.trim())
       .filter(s => s.length > 0 && !s.startsWith('--'));
@@ -68,7 +69,7 @@ export async function createMaterializedViews(): Promise<{ success: boolean; cre
       }
     }
     
-    const indexStatements = materializedViewIndexDefinitions
+    const indexStatements = allMaterializedViewIndexDefinitions
       .split(';')
       .map(s => s.trim())
       .filter(s => s.length > 0 && !s.startsWith('--'));
@@ -225,4 +226,83 @@ export async function applyAllOptimizations(): Promise<{
     views: { created: viewResult.created, errors: viewResult.errors },
     tables: { created: tableResult.created, errors: tableResult.errors }
   };
+}
+
+// Get all materialized view categories with their views
+export function getViewCategories(): typeof materializedViewCategories {
+  return materializedViewCategories;
+}
+
+// Get all materialized view names
+export function getAllViewNames(): string[] {
+  return Object.values(materializedViewCategories).flatMap(cat => cat.views);
+}
+
+// Refresh all materialized views
+export async function refreshAllMaterializedViews(): Promise<{
+  success: boolean;
+  results: { viewName: string; success: boolean; durationMs: number }[];
+  totalDurationMs: number;
+}> {
+  const startTime = Date.now();
+  const allViews = getAllViewNames();
+  const results: { viewName: string; success: boolean; durationMs: number }[] = [];
+  
+  optimizationLogger.info(`Refreshing all ${allViews.length} materialized views...`);
+  
+  for (const viewName of allViews) {
+    const result = await refreshMaterializedView(viewName);
+    results.push({ viewName, ...result });
+  }
+  
+  const totalDurationMs = Date.now() - startTime;
+  const allSuccess = results.every(r => r.success);
+  
+  optimizationLogger.info(`Refreshed all views in ${totalDurationMs}ms. Success: ${allSuccess}`);
+  
+  return { success: allSuccess, results, totalDurationMs };
+}
+
+// Refresh views by category
+export async function refreshViewsByCategory(category: string): Promise<{
+  success: boolean;
+  category: string;
+  results: { viewName: string; success: boolean; durationMs: number }[];
+  totalDurationMs: number;
+}> {
+  const startTime = Date.now();
+  const categoryData = materializedViewCategories[category as keyof typeof materializedViewCategories];
+  
+  if (!categoryData) {
+    return {
+      success: false,
+      category,
+      results: [],
+      totalDurationMs: 0
+    };
+  }
+  
+  const results: { viewName: string; success: boolean; durationMs: number }[] = [];
+  
+  optimizationLogger.info(`Refreshing ${categoryData.views.length} views in category: ${category}...`);
+  
+  for (const viewName of categoryData.views) {
+    const result = await refreshMaterializedView(viewName);
+    results.push({ viewName, ...result });
+  }
+  
+  const totalDurationMs = Date.now() - startTime;
+  const allSuccess = results.every(r => r.success);
+  
+  return { success: allSuccess, category, results, totalDurationMs };
+}
+
+// Get category for a view name
+export function getViewCategory(viewName: string): string | null {
+  for (const [key, cat] of Object.entries(materializedViewCategories)) {
+    if (cat.views.includes(viewName)) {
+      return key;
+    }
+  }
+  return null;
 }

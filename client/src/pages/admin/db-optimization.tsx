@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Database, 
   RefreshCcw, 
@@ -15,7 +16,15 @@ import {
   Eye, 
   AlertCircle,
   Loader2,
-  HardDrive
+  HardDrive,
+  ChevronDown,
+  ChevronRight,
+  Building2,
+  BarChart3,
+  Calendar,
+  FileText,
+  Users,
+  Info
 } from "lucide-react";
 
 interface OptimizationIndex {
@@ -41,9 +50,25 @@ interface OptimizationStatus {
   optimizationTables: OptimizationTable[];
 }
 
+interface ViewCategory {
+  name: string;
+  description: string;
+  views: string[];
+}
+
+interface ViewCategories {
+  [key: string]: ViewCategory;
+}
+
 interface RefreshResult {
   success: boolean;
   durationMs: number;
+}
+
+interface RefreshAllResult {
+  success: boolean;
+  results: { viewName: string; success: boolean; durationMs: number }[];
+  totalDurationMs: number;
 }
 
 interface ApplyResult {
@@ -53,10 +78,22 @@ interface ApplyResult {
   tables: { created: number; errors: string[] };
 }
 
+const categoryIcons: Record<string, React.ReactNode> = {
+  core: <BarChart3 className="h-4 w-4 text-blue-500" />,
+  hierarchy: <Building2 className="h-4 w-4 text-green-500" />,
+  risk: <AlertCircle className="h-4 w-4 text-red-500" />,
+  operational: <Calendar className="h-4 w-4 text-orange-500" />,
+  regulatory: <FileText className="h-4 w-4 text-purple-500" />,
+  contractor: <Users className="h-4 w-4 text-cyan-500" />
+};
+
 export default function DbOptimizationPage() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [refreshingView, setRefreshingView] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['core', 'hierarchy']));
+  const [refreshingCategory, setRefreshingCategory] = useState<string | null>(null);
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
 
   const { data: status, isLoading, refetch } = useQuery<OptimizationStatus>({
     queryKey: ["db-optimization-status"],
@@ -65,6 +102,18 @@ export default function DbOptimizationPage() {
         credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to fetch optimization status");
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: categories } = useQuery<ViewCategories>({
+    queryKey: ["db-optimization-categories"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/db-optimization/categories", {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error("Failed to fetch categories");
       return res.json();
     },
     enabled: !!user?.id,
@@ -101,6 +150,68 @@ export default function DbOptimizationPage() {
     }
   });
 
+  const refreshAllMutation = useMutation({
+    mutationFn: async () => {
+      setIsRefreshingAll(true);
+      const res = await fetch("/api/admin/db-optimization/refresh-all", {
+        method: "POST",
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error("Failed to refresh all views");
+      return res.json() as Promise<RefreshAllResult>;
+    },
+    onSuccess: (data) => {
+      const successCount = data.results.filter(r => r.success).length;
+      toast({
+        title: "All Views Refreshed",
+        description: `Refreshed ${successCount}/${data.results.length} views in ${data.totalDurationMs}ms`,
+      });
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Refresh All Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsRefreshingAll(false);
+    }
+  });
+
+  const refreshCategoryMutation = useMutation({
+    mutationFn: async (category: string) => {
+      setRefreshingCategory(category);
+      const res = await fetch("/api/admin/db-optimization/refresh-category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+        body: JSON.stringify({ category })
+      });
+      if (!res.ok) throw new Error("Failed to refresh category");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const successCount = data.results.filter((r: any) => r.success).length;
+      toast({
+        title: "Category Refreshed",
+        description: `Refreshed ${successCount}/${data.results.length} views in ${data.totalDurationMs}ms`,
+      });
+      refetch();
+    },
+    onError: (error: Error, category) => {
+      toast({
+        title: "Refresh Failed",
+        description: `Failed to refresh ${category}: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setRefreshingCategory(null);
+    }
+  });
+
   const applyAllMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/admin/db-optimization/apply-all", {
@@ -127,10 +238,25 @@ export default function DbOptimizationPage() {
     }
   });
 
-  const viewDescriptions: Record<string, string> = {
-    mv_dashboard_stats: "Dashboard compliance statistics aggregated by scheme",
-    mv_certificate_compliance: "Certificate counts by type and status with expiry tracking",
-    mv_asset_health: "Component health metrics aggregated by property"
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
+
+  const getViewRowCount = (viewName: string): number => {
+    const view = status?.materializedViews.find(v => v.name === viewName);
+    return view?.rowCount ?? 0;
+  };
+
+  const isViewCreated = (viewName: string): boolean => {
+    return status?.materializedViews.some(v => v.name === viewName) ?? false;
   };
 
   if (authLoading) {
@@ -155,7 +281,7 @@ export default function DbOptimizationPage() {
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">Database Optimization</h1>
                 <p className="text-muted-foreground">
-                  Manage performance indexes, materialized views, and caching tables for scale
+                  Manage performance indexes, materialized views, and caching tables for 50k+ scale
                 </p>
               </div>
               <div className="flex gap-2">
@@ -167,6 +293,19 @@ export default function DbOptimizationPage() {
                 >
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Refresh Status
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => refreshAllMutation.mutate()}
+                  disabled={isRefreshingAll || refreshAllMutation.isPending}
+                  data-testid="button-refresh-all-views"
+                >
+                  {isRefreshingAll ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4 mr-2" />
+                  )}
+                  Refresh All Views
                 </Button>
                 <Button
                   onClick={() => applyAllMutation.mutate()}
@@ -182,6 +321,22 @@ export default function DbOptimizationPage() {
                 </Button>
               </div>
             </div>
+
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardContent className="pt-4">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100">Deployment Workflow</p>
+                    <p className="text-blue-700 dark:text-blue-300 mt-1">
+                      Database optimizations are managed via migrations, not at server startup. 
+                      Use "Apply All Optimizations" after deployment to create indexes and views. 
+                      Use "Refresh All Views" to update materialized view data after bulk imports.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
@@ -211,6 +366,9 @@ export default function DbOptimizationPage() {
                 <CardContent>
                   <div className="text-3xl font-bold" data-testid="text-view-count">
                     {status?.materializedViews.length ?? 0}
+                    <span className="text-lg text-muted-foreground ml-1">
+                      / {categories ? Object.values(categories).reduce((acc, cat) => acc + cat.views.length, 0) : 0}
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Pre-computed aggregations for dashboards
@@ -240,10 +398,10 @@ export default function DbOptimizationPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Eye className="h-5 w-5" />
-                  Materialized Views
+                  Materialized Views by Category
                 </CardTitle>
                 <CardDescription>
-                  Pre-computed views for fast dashboard queries. Refresh manually after bulk data changes.
+                  Pre-computed views for fast queries. Organized by functional area for targeted refresh.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -251,45 +409,103 @@ export default function DbOptimizationPage() {
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : status?.materializedViews.length === 0 ? (
+                ) : !categories ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                    <p>No materialized views found. Click "Apply All Optimizations" to create them.</p>
+                    <p>Failed to load view categories.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {status?.materializedViews.map((view) => (
-                      <div
-                        key={view.name}
-                        className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
-                        data-testid={`view-${view.name}`}
+                    {Object.entries(categories).map(([key, category]) => (
+                      <Collapsible
+                        key={key}
+                        open={expandedCategories.has(key)}
+                        onOpenChange={() => toggleCategory(key)}
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{view.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {view.rowCount.toLocaleString()} rows
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {viewDescriptions[view.name] || "Materialized view for performance"}
-                          </p>
+                        <div className="border rounded-lg overflow-hidden">
+                          <CollapsibleTrigger asChild>
+                            <div className="flex items-center justify-between p-4 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                {expandedCategories.has(key) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                {categoryIcons[key] || <Eye className="h-4 w-4" />}
+                                <div>
+                                  <span className="font-medium">{category.name}</span>
+                                  <span className="text-muted-foreground ml-2 text-sm">
+                                    ({category.views.filter(v => isViewCreated(v)).length}/{category.views.length} created)
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  refreshCategoryMutation.mutate(key);
+                                }}
+                                disabled={refreshingCategory === key}
+                                data-testid={`button-refresh-category-${key}`}
+                              >
+                                {refreshingCategory === key ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCcw className="h-4 w-4" />
+                                )}
+                                <span className="ml-2 hidden sm:inline">Refresh Category</span>
+                              </Button>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="p-4 pt-0 space-y-2">
+                              <p className="text-sm text-muted-foreground mb-3 mt-2">
+                                {category.description}
+                              </p>
+                              {category.views.map((viewName) => {
+                                const isCreated = isViewCreated(viewName);
+                                const rowCount = getViewRowCount(viewName);
+                                return (
+                                  <div
+                                    key={viewName}
+                                    className={`flex items-center justify-between p-3 rounded-lg ${
+                                      isCreated ? 'bg-muted/50' : 'bg-yellow-50/50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800'
+                                    }`}
+                                    data-testid={`view-${viewName}`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-sm">{viewName}</span>
+                                      {isCreated ? (
+                                        <Badge variant="outline" className="text-xs">
+                                          {rowCount.toLocaleString()} rows
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
+                                          Not Created
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => refreshViewMutation.mutate(viewName)}
+                                      disabled={refreshingView === viewName || !isCreated}
+                                      data-testid={`button-refresh-${viewName}`}
+                                    >
+                                      {refreshingView === viewName ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <RefreshCcw className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </CollapsibleContent>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => refreshViewMutation.mutate(view.name)}
-                          disabled={refreshingView === view.name}
-                          data-testid={`button-refresh-${view.name}`}
-                        >
-                          {refreshingView === view.name ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <RefreshCcw className="h-4 w-4" />
-                          )}
-                          <span className="ml-2">Refresh</span>
-                        </Button>
-                      </div>
+                      </Collapsible>
                     ))}
                   </div>
                 )}

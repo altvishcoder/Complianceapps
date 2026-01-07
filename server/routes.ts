@@ -3505,6 +3505,18 @@ export async function registerRoutes(
     }
   });
   
+  // Get materialized view categories
+  app.get("/api/admin/db-optimization/categories", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { getViewCategories } = await import("./db-optimization");
+      const categories = getViewCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error getting view categories:", error);
+      res.status(500).json({ error: "Failed to get view categories" });
+    }
+  });
+  
   // Refresh a specific materialized view
   app.post("/api/admin/db-optimization/refresh-view", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {
@@ -3513,17 +3525,51 @@ export async function registerRoutes(
         return res.status(400).json({ error: "View name is required" });
       }
       
-      const validViews = ['mv_dashboard_stats', 'mv_certificate_compliance', 'mv_asset_health'];
+      const { refreshMaterializedView, getAllViewNames } = await import("./db-optimization");
+      const validViews = getAllViewNames();
       if (!validViews.includes(viewName)) {
         return res.status(400).json({ error: "Invalid view name" });
       }
       
-      const { refreshMaterializedView } = await import("./db-optimization");
       const result = await refreshMaterializedView(viewName);
       res.json(result);
     } catch (error) {
       console.error("Error refreshing view:", error);
       res.status(500).json({ error: "Failed to refresh view" });
+    }
+  });
+  
+  // Refresh all materialized views
+  app.post("/api/admin/db-optimization/refresh-all", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { refreshAllMaterializedViews } = await import("./db-optimization");
+      const result = await refreshAllMaterializedViews();
+      res.json(result);
+    } catch (error) {
+      console.error("Error refreshing all views:", error);
+      res.status(500).json({ error: "Failed to refresh all views" });
+    }
+  });
+  
+  // Refresh views by category
+  app.post("/api/admin/db-optimization/refresh-category", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const { category } = req.body;
+      if (!category) {
+        return res.status(400).json({ error: "Category is required" });
+      }
+      
+      const { refreshViewsByCategory, getViewCategories } = await import("./db-optimization");
+      const validCategories = Object.keys(getViewCategories());
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+      
+      const result = await refreshViewsByCategory(category);
+      res.json(result);
+    } catch (error) {
+      console.error("Error refreshing category:", error);
+      res.status(500).json({ error: "Failed to refresh category" });
     }
   });
   
