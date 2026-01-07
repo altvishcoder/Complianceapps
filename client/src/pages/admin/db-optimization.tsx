@@ -183,7 +183,7 @@ export default function DbOptimizationPage() {
     enabled: !!user?.id,
   });
 
-  const { data: freshnessData } = useQuery<FreshnessStatus>({
+  const { data: freshnessData, refetch: refetchFreshness } = useQuery<FreshnessStatus>({
     queryKey: ["db-optimization-freshness"],
     queryFn: async () => {
       const res = await fetch("/api/admin/db-optimization/freshness", {
@@ -255,6 +255,7 @@ export default function DbOptimizationPage() {
       });
       refetch();
       refetchHistory();
+      refetchFreshness();
     },
     onError: (error: Error, viewName) => {
       toast({
@@ -286,6 +287,7 @@ export default function DbOptimizationPage() {
       });
       refetch();
       refetchHistory();
+      refetchFreshness();
     },
     onError: (error: Error) => {
       toast({
@@ -322,6 +324,7 @@ export default function DbOptimizationPage() {
       });
       refetch();
       refetchHistory();
+      refetchFreshness();
     },
     onError: (error: Error, category) => {
       const categoryInfo = categories?.[category];
@@ -353,6 +356,7 @@ export default function DbOptimizationPage() {
         description: `Applied ${totalApplied} optimization objects`,
       });
       refetch();
+      refetchFreshness();
     },
     onError: (error: Error) => {
       toast({
