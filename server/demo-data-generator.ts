@@ -43,6 +43,32 @@ const COMPONENT_MANUFACTURERS = [
   "MK Electric", "Hager", "Schneider", "ABB", "Wylex", "Consumer Unit Direct"
 ];
 
+// HACT-aligned room types for dwellings
+const DWELLING_ROOM_TYPES = [
+  { name: "Kitchen", spaceType: "ROOM" as const, floor: "Ground" },
+  { name: "Living Room", spaceType: "ROOM" as const, floor: "Ground" },
+  { name: "Bathroom", spaceType: "ROOM" as const, floor: "Ground" },
+  { name: "Hallway", spaceType: "CIRCULATION" as const, floor: "Ground" },
+];
+
+// HACT-aligned communal areas for blocks
+const BLOCK_COMMUNAL_AREAS = [
+  { name: "Main Stairwell", spaceType: "CIRCULATION" as const },
+  { name: "Plant Room", spaceType: "UTILITY" as const },
+  { name: "Bin Store", spaceType: "STORAGE" as const },
+  { name: "Entrance Lobby", spaceType: "COMMUNAL_AREA" as const },
+];
+
+// Component to space mapping - which room types typically contain which components
+const COMPONENT_ROOM_MAPPING: Record<string, string> = {
+  "GAS_BOILER": "Kitchen",
+  "CONSUMER_UNIT": "Hallway",
+  "SMOKE_DETECTOR": "Hallway",
+  "CO_DETECTOR": "Kitchen",
+  "ELECTRIC_HEATER": "Living Room",
+  "EXTRACTOR_FAN": "Bathroom",
+};
+
 function randomChoice<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -202,6 +228,7 @@ export interface SeedResult {
   schemes: number;
   blocks: number;
   properties: number;
+  spaces: number;
   components: number;
   certificates: number;
   remedialActions: number;
@@ -260,6 +287,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     schemes: 0,
     blocks: 0,
     properties: 0,
+    spaces: 0,
     components: 0,
     certificates: 0,
     remedialActions: 0,
@@ -299,6 +327,38 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     stats.blocks += createdBlocks.length;
     onProgress?.("blocks", stats.blocks, schemeCount * blocksPerScheme);
 
+    // Create communal spaces for ALL blocks in this scheme (batched, with dedup guard)
+    const blockSpaceBatch: any[] = [];
+    for (const block of createdBlocks) {
+      for (const area of BLOCK_COMMUNAL_AREAS) {
+        blockSpaceBatch.push({
+          blockId: block.id,
+          name: area.name,
+          reference: `SPC-${block.id.slice(0, 8)}-${area.name.replace(/\s+/g, '-').toUpperCase()}`,
+          spaceType: area.spaceType,
+          description: `${area.name} in ${block.name}`,
+          isAccessible: area.spaceType !== 'UTILITY',
+          requiresKeyAccess: area.spaceType === 'UTILITY',
+        });
+      }
+    }
+    
+    // Use ON CONFLICT to handle resume scenarios without duplicate errors
+    const createdBlockSpaces = await db.insert(spaces).values(blockSpaceBatch)
+      .onConflictDoNothing({ target: spaces.reference })
+      .returning();
+    stats.spaces = (stats.spaces || 0) + createdBlockSpaces.length;
+
+    // Build a map of block ID -> space name -> space ID for component linking
+    const blockSpacesByBlock = new Map<string, Map<string, string>>();
+    for (const space of createdBlockSpaces) {
+      if (!space.blockId) continue;
+      if (!blockSpacesByBlock.has(space.blockId)) {
+        blockSpacesByBlock.set(space.blockId, new Map());
+      }
+      blockSpacesByBlock.get(space.blockId)!.set(space.name, space.id);
+    }
+
     for (const block of createdBlocks) {
       // Check for cancellation before each block
       if (shouldCancel?.()) {
@@ -334,10 +394,44 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       stats.properties += createdProperties.length;
       onProgress?.("properties", stats.properties, targetProperties);
 
+      // Create dwelling spaces for ALL properties in this block (batched insert)
+      const allPropertySpacesBatch: any[] = [];
+      for (const property of createdProperties) {
+        for (const room of DWELLING_ROOM_TYPES) {
+          allPropertySpacesBatch.push({
+            propertyId: property.id,
+            name: room.name,
+            reference: `SPC-${property.id.slice(0, 8)}-${room.name.replace(/\s+/g, '-').toUpperCase()}`,
+            spaceType: room.spaceType,
+            floor: room.floor,
+            description: `${room.name} in ${property.addressLine1}`,
+            isAccessible: true,
+          });
+        }
+      }
+      
+      // Batch insert all property spaces for this block (with conflict guard for resume)
+      const createdPropertySpaces = await db.insert(spaces).values(allPropertySpacesBatch)
+        .onConflictDoNothing({ target: spaces.reference })
+        .returning();
+      stats.spaces = (stats.spaces || 0) + createdPropertySpaces.length;
+
+      // Build a map of property ID -> room name -> space ID for component linking
+      const propertySpacesByProperty = new Map<string, Map<string, string>>();
+      for (const space of createdPropertySpaces) {
+        if (!space.propertyId) continue;
+        if (!propertySpacesByProperty.has(space.propertyId)) {
+          propertySpacesByProperty.set(space.propertyId, new Map());
+        }
+        propertySpacesByProperty.get(space.propertyId)!.set(space.name, space.id);
+      }
+
       const componentBatch: any[] = [];
       const certBatch: { cert: any; actions: any[] }[] = [];
       
       for (const property of createdProperties) {
+        const propertySpaceMap = propertySpacesByProperty.get(property.id) || new Map();
+
         const hasGas = Math.random() > 0.15;
         const componentTypeCodes = hasGas 
           ? ["GAS_BOILER", "CONSUMER_UNIT", "SMOKE_DETECTOR", "CO_DETECTOR"]
@@ -348,14 +442,19 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
           const typeId = componentTypeMap.get(typeCode);
           if (!typeId) continue;
           
+          // Find the appropriate space for this component type
+          const roomName = COMPONENT_ROOM_MAPPING[typeCode] || "Hallway";
+          const spaceId = propertySpaceMap.get(roomName);
+          
           componentBatch.push({
             propertyId: property.id,
+            spaceId: spaceId,
             componentTypeId: typeId,
             assetTag: `AST-${propertyIndex}-${c + 1}`,
             serialNumber: `SN${Date.now().toString(36).toUpperCase()}${randomInt(1000, 9999)}`,
             manufacturer: randomChoice(COMPONENT_MANUFACTURERS),
             model: `Model ${randomChoice(["X", "Y", "Z", "Pro", "Elite", "Plus"])}${randomInt(100, 999)}`,
-            location: randomChoice(["Kitchen", "Hallway", "Living Room", "Bedroom", "Bathroom"]),
+            location: roomName,
             installDate: generateDateInPast(365 * 5),
             condition: randomChoice(["GOOD", "GOOD", "FAIR", "POOR"]),
             complianceStatus: randomChoice(["COMPLIANT", "COMPLIANT", "EXPIRING_SOON", "UNKNOWN"]),
@@ -686,19 +785,12 @@ async function seedPropertyRiskSnapshots(
   return { count: snapshotBatch.length };
 }
 
-async function getDemoDataCounts(organisationId: string): Promise<{
-  schemes: number;
-  blocks: number;
-  properties: number;
-  components: number;
-  certificates: number;
-  remedialActions: number;
-}> {
+async function getDemoDataCounts(organisationId: string): Promise<SeedResult> {
   const demoSchemes = await db.select({ id: schemes.id }).from(schemes)
     .where(sql`${schemes.organisationId} = ${organisationId} AND ${schemes.reference} LIKE 'SCH-DEMO-%'`);
   
   if (demoSchemes.length === 0) {
-    return { schemes: 0, blocks: 0, properties: 0, components: 0, certificates: 0, remedialActions: 0 };
+    return { schemes: 0, blocks: 0, properties: 0, spaces: 0, components: 0, certificates: 0, remedialActions: 0 };
   }
   
   const schemeIds = demoSchemes.map(s => s.id);
@@ -711,8 +803,12 @@ async function getDemoDataCounts(organisationId: string): Promise<{
   const blockIds = demoBlocks.map(b => b.id);
   
   if (blockIds.length === 0) {
-    return { schemes: demoSchemes.length, blocks: 0, properties: 0, components: 0, certificates: 0, remedialActions: 0 };
+    return { schemes: demoSchemes.length, blocks: 0, properties: 0, spaces: 0, components: 0, certificates: 0, remedialActions: 0 };
   }
+  
+  // Count block-level communal spaces
+  const [blockSpaceCount] = await db.select({ count: sql<number>`count(*)` }).from(spaces)
+    .where(sql`${spaces.blockId} IN (${sql.join(blockIds.map(id => sql`${id}`), sql`, `)})`);
   
   const [propertyCount] = await db.select({ count: sql<number>`count(*)` }).from(properties)
     .where(sql`${properties.blockId} IN (${sql.join(blockIds.map(id => sql`${id}`), sql`, `)})`);
@@ -722,8 +818,14 @@ async function getDemoDataCounts(organisationId: string): Promise<{
   const propertyIds = demoProperties.map(p => p.id);
   
   if (propertyIds.length === 0) {
-    return { schemes: demoSchemes.length, blocks: Number(blockCount.count), properties: 0, components: 0, certificates: 0, remedialActions: 0 };
+    return { schemes: demoSchemes.length, blocks: Number(blockCount.count), properties: 0, spaces: Number(blockSpaceCount.count), components: 0, certificates: 0, remedialActions: 0 };
   }
+  
+  // Count property-level spaces (rooms)
+  const [propertySpaceCount] = await db.select({ count: sql<number>`count(*)` }).from(spaces)
+    .where(sql`${spaces.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
+  
+  const totalSpaces = Number(blockSpaceCount.count) + Number(propertySpaceCount.count);
   
   const [componentCount] = await db.select({ count: sql<number>`count(*)` }).from(components)
     .where(sql`${components.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
@@ -736,6 +838,7 @@ async function getDemoDataCounts(organisationId: string): Promise<{
     schemes: demoSchemes.length,
     blocks: Number(blockCount.count),
     properties: Number(propertyCount.count),
+    spaces: totalSpaces,
     components: Number(componentCount.count),
     certificates: Number(certificateCount.count),
     remedialActions: Number(actionCount.count),
