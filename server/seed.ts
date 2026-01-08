@@ -2301,7 +2301,7 @@ async function seedNavigation() {
     
     // System Monitoring - Health & analytics
     { sectionId: "sec-monitor", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, isSystem: true },
-    { sectionId: "sec-monitor", slug: "db-optimization", name: "DB Optimization", href: "/admin/db-optimization", iconKey: "Database", displayOrder: 2, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-monitor", slug: "performance-settings", name: "Performance", href: "/admin/performance", iconKey: "Gauge", displayOrder: 2, requiresAdmin: true, isSystem: true },
     { sectionId: "sec-monitor", slug: "ingestion-control", name: "Ingestion Control", href: "/admin/ingestion-control", iconKey: "Sparkles", displayOrder: 3, isSystem: true },
     { sectionId: "sec-monitor", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 4, isSystem: true },
     { sectionId: "sec-monitor", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, isSystem: true },
