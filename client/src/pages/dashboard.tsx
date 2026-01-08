@@ -477,53 +477,53 @@ export default function Dashboard() {
       case 'summary':
         return (
           <DraggableWidget key={widgetId} widgetId={widgetId} isConfiguring={isConfiguring}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Summary</CardTitle>
-                  <CardDescription>Click any item to explore</CardDescription>
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between px-3 sm:px-6">
+                <div className="min-w-0">
+                  <CardTitle className="text-base sm:text-lg">Summary</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Click any item to explore</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="py-3">
+              <CardContent className="py-3 px-3 sm:px-6">
                 <div className="space-y-2">
-                  <Link href="/properties" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-properties">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      Total Homes
+                  <Link href="/properties" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer gap-2" data-testid="summary-properties">
+                    <span className="text-muted-foreground flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
+                      <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="truncate">Total Homes</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{stats?.totalHomes || 0}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <span className="font-semibold text-sm sm:text-base">{stats?.totalHomes?.toLocaleString() || 0}</span>
+                      <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/certificates?from=/dashboard" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-certificates">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Total Certificates
+                  <Link href="/certificates?from=/dashboard" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer gap-2" data-testid="summary-certificates">
+                    <span className="text-muted-foreground flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
+                      <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="truncate">Total Certificates</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{stats?.totalCertificates || 0}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <span className="font-semibold text-sm sm:text-base">{stats?.totalCertificates?.toLocaleString() || 0}</span>
+                      <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/actions?status=OPEN&from=/dashboard" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-hazards">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Active Hazards
+                  <Link href="/actions?status=OPEN&from=/dashboard" className="flex justify-between items-center pb-1.5 border-b hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer gap-2" data-testid="summary-hazards">
+                    <span className="text-muted-foreground flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
+                      <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="truncate">Active Hazards</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-orange-600">{stats?.activeHazards || 0}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <span className="font-semibold text-orange-600 text-sm sm:text-base">{stats?.activeHazards?.toLocaleString() || 0}</span>
+                      <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     </div>
                   </Link>
-                  <Link href="/certificates?status=PENDING&from=/dashboard" className="flex justify-between items-center hover:bg-muted/50 rounded px-2 py-0.5 -mx-2 transition-colors cursor-pointer" data-testid="summary-pending">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Pending Reviews
+                  <Link href="/certificates?status=PENDING&from=/dashboard" className="flex justify-between items-center hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer gap-2" data-testid="summary-pending">
+                    <span className="text-muted-foreground flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
+                      <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="truncate">Pending Reviews</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{stats?.pendingCertificates || 0}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <span className="font-semibold text-sm sm:text-base">{stats?.pendingCertificates?.toLocaleString() || 0}</span>
+                      <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     </div>
                   </Link>
                 </div>
@@ -537,70 +537,70 @@ export default function Dashboard() {
         const hasAnyBreaches = (awaabsData?.total || 0) > 0;
         return (
           <DraggableWidget key={widgetId} widgetId={widgetId} isConfiguring={isConfiguring}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    Awaab's Law Compliance
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-start sm:items-center justify-between pb-2 gap-2">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <span className="truncate">Awaab's Law Compliance</span>
                   </CardTitle>
-                  <CardDescription>Timescale breaches by regulatory phase</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm truncate">Timescale breaches by regulatory phase</CardDescription>
                 </div>
                 {hasAnyBreaches && (
-                  <Link href="/actions?awaabs=true&from=/dashboard">
-                    <Button variant="ghost" size="sm">
-                      View All <ChevronRight className="h-4 w-4 ml-1" />
+                  <Link href="/actions?awaabs=true&from=/dashboard" className="flex-shrink-0">
+                    <Button variant="ghost" size="sm" className="text-xs sm:text-sm px-2 sm:px-3">
+                      View All <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
                     </Button>
                   </Link>
                 )}
               </CardHeader>
-              <CardContent className="space-y-2 py-3">
+              <CardContent className="space-y-2 py-3 px-3 sm:px-6">
                 <div className="space-y-1.5">
                   <Link href="/actions?awaabs=true&phase=1&from=/dashboard" className="block">
-                    <div className={`flex items-center justify-between p-2 rounded-lg border-2 transition-colors cursor-pointer ${
+                    <div className={`flex items-start sm:items-center justify-between p-2 rounded-lg border-2 transition-colors cursor-pointer gap-2 ${
                       (awaabsData?.phase1?.count || 0) > 0 
                         ? 'border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950/50' 
                         : 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 hover:bg-green-100 dark:hover:bg-green-950/30'
                     }`}>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-red-600 hover:bg-red-700 text-xs">NOW IN FORCE</Badge>
-                          <span className="text-sm font-bold">Phase 1: Damp & Mould</span>
+                      <div className="flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <Badge className="bg-red-600 hover:bg-red-700 text-[10px] sm:text-xs whitespace-nowrap">NOW IN FORCE</Badge>
+                          <span className="text-xs sm:text-sm font-bold">Phase 1: Damp & Mould</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">Strict timescales - respond within 14 days</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">Strict timescales - respond within 14 days</span>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className={`text-2xl font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span className={`text-xl sm:text-2xl font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {awaabsData?.phase1?.count || 0}
                         </span>
-                        <span className="text-xs text-muted-foreground">breaches</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">breaches</span>
                       </div>
                     </div>
                   </Link>
                   <Link href="/actions?awaabs=true&phase=2&from=/dashboard" className="block">
-                    <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">2026</Badge>
-                        <span className="text-sm font-medium">Phase 2: Fire, Electrical, Falls</span>
+                    <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer gap-2">
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                        <Badge variant="secondary" className="text-[10px] sm:text-xs">2026</Badge>
+                        <span className="text-xs sm:text-sm font-medium truncate">Phase 2: Fire, Electrical, Falls</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className={`text-lg font-bold ${(awaabsData?.phase2?.count || 0) > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className={`text-base sm:text-lg font-bold ${(awaabsData?.phase2?.count || 0) > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
                           {awaabsData?.phase2?.count || 0}
                         </span>
-                        <span className="text-xs text-muted-foreground">breaches</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">breaches</span>
                       </div>
                     </div>
                   </Link>
                   <Link href="/actions?awaabs=true&phase=3&from=/dashboard" className="block">
-                    <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer opacity-60">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">2027</Badge>
-                        <span className="text-sm font-medium">Phase 3: All HHSRS</span>
+                    <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer opacity-60 gap-2">
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs">2027</Badge>
+                        <span className="text-xs sm:text-sm font-medium">Phase 3: All HHSRS</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-lg font-bold text-muted-foreground">
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-base sm:text-lg font-bold text-muted-foreground">
                           {awaabsData?.phase3?.count || 0}
                         </span>
-                        <span className="text-xs text-muted-foreground">breaches</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">breaches</span>
                       </div>
                     </div>
                   </Link>
@@ -613,46 +613,46 @@ export default function Dashboard() {
       case 'expiring':
         return (
           <DraggableWidget key={widgetId} widgetId={widgetId} isConfiguring={isConfiguring}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Expiring Soon</CardTitle>
-                  <CardDescription>Certificates expiring in the next 30 days</CardDescription>
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-start sm:items-center justify-between px-3 sm:px-6 gap-2">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-base sm:text-lg">Expiring Soon</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm truncate">Certificates expiring in the next 30 days</CardDescription>
                 </div>
-                <Link href="/certificates?from=/dashboard">
-                  <Button variant="ghost" size="sm" data-testid="link-expiring-certs">
-                    View All <ChevronRight className="h-4 w-4 ml-1" />
+                <Link href="/certificates?from=/dashboard" className="flex-shrink-0">
+                  <Button variant="ghost" size="sm" data-testid="link-expiring-certs" className="text-xs sm:text-sm px-2 sm:px-3">
+                    View All <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
                   </Button>
                 </Link>
               </CardHeader>
-              <CardContent className="max-h-[280px] overflow-y-auto">
+              <CardContent className="max-h-[280px] overflow-y-auto px-3 sm:px-6">
                 {(stats?.expiringCertificates?.length || 0) > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {stats?.expiringCertificates?.slice(0, 8).map((cert) => (
                       <Link 
                         key={cert.id} 
                         href={`/certificates/${cert.id}`}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        className="flex items-start sm:items-center justify-between p-2 sm:p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer gap-2"
                         data-testid={`expiring-cert-${cert.id}`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{cert.propertyAddress}</p>
-                          <p className="text-xs text-muted-foreground">{cert.type}</p>
+                          <p className="font-medium text-xs sm:text-sm truncate">{cert.propertyAddress}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{cert.type}</p>
                         </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <Badge variant="outline" className="text-orange-600 border-orange-300">
-                            <Calendar className="h-3 w-3 mr-1" />
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                          <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px] sm:text-xs whitespace-nowrap">
+                            <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                             {formatDate(cert.expiryDate)}
                           </Badge>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground hidden sm:block" />
                         </div>
                       </Link>
                     ))}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <CheckCircle2 className="w-10 h-10 text-green-500 mb-2" />
-                    <p className="text-muted-foreground text-sm">No certificates expiring soon</p>
+                    <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10 text-green-500 mb-2" />
+                    <p className="text-muted-foreground text-xs sm:text-sm">No certificates expiring soon</p>
                   </div>
                 )}
               </CardContent>

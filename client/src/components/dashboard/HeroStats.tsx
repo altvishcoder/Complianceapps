@@ -55,32 +55,36 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick
   const isClickable = href || onClick;
   
   const valueStr = String(value);
-  const valueFontSize = valueStr.length > 6 ? "text-xl" : valueStr.length > 3 ? "text-2xl" : "text-3xl";
+  const valueFontSize = valueStr.length > 6 
+    ? "text-lg sm:text-xl" 
+    : valueStr.length > 3 
+      ? "text-xl sm:text-2xl" 
+      : "text-2xl sm:text-3xl";
   
   const content = (
     <div className={cn(
-      "rounded-lg p-4 border transition-all h-full min-h-[120px]",
+      "rounded-lg p-3 sm:p-4 border transition-all h-full min-h-[100px] sm:min-h-[120px] overflow-hidden",
       styles.bg,
       styles.border,
       isClickable && "hover:shadow-md cursor-pointer"
     )}>
-      <div className="flex items-start justify-between h-full">
-        <div className="flex-1 min-w-0 flex flex-col">
-          <div className="flex items-center gap-2 mb-1">
-            <div className={cn("p-1.5 rounded-md", styles.icon)}>
-              <Icon className="h-4 w-4 text-white" />
+      <div className="flex items-start justify-between h-full gap-1">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1 min-w-0">
+            <div className={cn("p-1 sm:p-1.5 rounded-md flex-shrink-0", styles.icon)}>
+              <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
             </div>
-            <span className="text-sm font-medium text-muted-foreground truncate">{title}</span>
+            <span className="text-xs sm:text-sm font-medium text-muted-foreground truncate min-w-0">{title}</span>
           </div>
-          <div className="flex-1">
-            <span className={cn(valueFontSize, "font-bold", styles.text)}>{value}</span>
-            {subtitle && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{subtitle}</p>}
+          <div className="flex-1 min-w-0">
+            <span className={cn(valueFontSize, "font-bold block", styles.text)}>{value}</span>
+            {subtitle && <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
           </div>
           {slaInfo && (
-            <p className="text-xs text-muted-foreground mt-1">{slaInfo}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 truncate">{slaInfo}</p>
           )}
         </div>
-        {isClickable && <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
+        {isClickable && <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />}
       </div>
     </div>
   );
