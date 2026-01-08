@@ -226,6 +226,7 @@ export default function ComplianceCalendar() {
       if (!res.ok) throw new Error("Failed to fetch certificates");
       return res.json();
     },
+    staleTime: 60000,
   });
   const certificates = certificatesResponse?.data || [];
 
@@ -236,6 +237,7 @@ export default function ComplianceCalendar() {
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 60000,
   });
 
   const { data: propertiesResponse } = useQuery<{ data: any[], total: number }>({
@@ -245,6 +247,7 @@ export default function ComplianceCalendar() {
       if (!res.ok) throw new Error("Failed to fetch properties");
       return res.json();
     },
+    staleTime: 60000,
   });
   const properties = propertiesResponse?.data || [];
 
@@ -255,6 +258,7 @@ export default function ComplianceCalendar() {
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 120000,
   });
 
   const createEventMutation = useMutation({

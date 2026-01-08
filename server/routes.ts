@@ -2841,6 +2841,10 @@ export async function registerRoutes(
   });
   
   // ===== COMPLIANCE CALENDAR EVENTS - requires authentication =====
+  // Cache for calendar events (60 second TTL)
+  let calendarEventsCache: { data: any; timestamp: number; orgId: string; filterKey: string } | null = null;
+  const CALENDAR_CACHE_TTL = 60000;
+
   app.get("/api/calendar/events", async (req, res) => {
     try {
       const userId = req.session?.userId;
@@ -2858,7 +2862,28 @@ export async function registerRoutes(
       if (req.query.eventType) filters.eventType = req.query.eventType as string;
       if (req.query.complianceStreamId) filters.complianceStreamId = req.query.complianceStreamId as string;
       
+      // Build filter key for cache matching
+      const filterKey = JSON.stringify(filters);
+      const now = Date.now();
+      
+      // Check cache (only for same org and filters)
+      if (calendarEventsCache && 
+          calendarEventsCache.orgId === user.organisationId &&
+          calendarEventsCache.filterKey === filterKey &&
+          (now - calendarEventsCache.timestamp) < CALENDAR_CACHE_TTL) {
+        return res.json(calendarEventsCache.data);
+      }
+      
       const events = await storage.listCalendarEvents(user.organisationId, filters);
+      
+      // Update cache
+      calendarEventsCache = {
+        data: events,
+        timestamp: now,
+        orgId: user.organisationId,
+        filterKey
+      };
+      
       res.json(events);
     } catch (error) {
       console.error("Error fetching calendar events:", error);
