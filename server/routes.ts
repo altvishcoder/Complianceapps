@@ -127,13 +127,14 @@ function calculatePropertyRiskScore(
   const immediateOpen = openActions.filter(a => a.severity === 'IMMEDIATE').length;
   const urgentOpen = openActions.filter(a => a.severity === 'URGENT').length;
   
-  // Calculate penalty: diminishing returns to spread scores across risk bands
-  // Use logarithmic scaling to avoid extreme penalties from high counts
-  const immediatePenalty = immediateOpen > 0 ? Math.min(Math.log2(immediateOpen + 1) * 8, 25) : 0;
-  const urgentPenalty = urgentOpen > 0 ? Math.min(Math.log2(urgentOpen + 1) * 4, 15) : 0;
+  // Calculate penalty using very gentle diminishing returns
+  // With demo data having 20+ actions per property, we need low penalties to spread across risk bands
+  // Penalty only kicks in with many actions: 1-10 actions = minimal, 10-100 = moderate, 100+ = higher
+  const immediatePenalty = immediateOpen > 0 ? Math.min(Math.log10(immediateOpen + 1) * 5, 15) : 0;
+  const urgentPenalty = urgentOpen > 0 ? Math.min(Math.log10(urgentOpen + 1) * 3, 10) : 0;
   
-  // Final score: certs are valid (100) minus action penalties (max ~40)
-  // This gives scores ranging from ~60-100 for valid certs
+  // Final score: certs are valid (100) minus action penalties (max ~25)
+  // This gives scores ranging from ~75-100 for valid certs, allowing green markers to appear
   return Math.max(0, Math.min(100, Math.round(certScore - immediatePenalty - urgentPenalty)));
 }
 
