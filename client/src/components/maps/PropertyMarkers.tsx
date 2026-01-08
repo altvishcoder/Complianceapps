@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import L from 'leaflet';
 import { useEffect, useMemo } from 'react';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 export type AssetType = 'scheme' | 'block' | 'property';
 
