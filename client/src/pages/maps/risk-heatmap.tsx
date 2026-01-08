@@ -84,10 +84,38 @@ export default function RiskHeatmapPage() {
   
   const sampleAreas = useMemo(() => generateSampleAreas(), []);
   
+  // For property level, use the geo endpoint with full data; for aggregated views use risk/areas
   const { data: areas = sampleAreas, isLoading, refetch } = useQuery({
     queryKey: ['risk-areas', filters],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
+      
+      // For property level, fetch from the main geo endpoint (full 21k+ properties)
+      if (filters.level === 'property') {
+        const res = await fetch('/api/properties/geo', {
+          headers: { 'X-User-Id': userId || '' }
+        });
+        if (!res.ok) return sampleAreas;
+        const properties = await res.json();
+        // Transform to AreaRisk format
+        return properties.map((p: any) => ({
+          id: p.id,
+          name: p.name || p.address,
+          level: 'property' as const,
+          lat: p.lat,
+          lng: p.lng,
+          riskScore: {
+            compositeScore: p.riskScore || 0,
+            trend: 'stable' as const,
+            propertyCount: 1,
+            unitCount: 1,
+            streams: [],
+            defects: { critical: 0, major: 0, minor: 0 }
+          }
+        }));
+      }
+      
+      // For ward/estate aggregation, use the risk areas endpoint
       const params = new URLSearchParams({
         level: filters.level,
       });
