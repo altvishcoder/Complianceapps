@@ -1606,7 +1606,7 @@ export async function registerRoutes(
       }
       
       // Try mv_risk_aggregates materialized view first (fast path)
-      // Join to properties to filter by organisation
+      // Join through blocks → schemes to filter by organisation
       try {
         const mvResult = await db.execute(sql`
           SELECT 
@@ -1617,26 +1617,30 @@ export async function registerRoutes(
             COUNT(*) FILTER (WHERE mv.risk_score >= 20 AND mv.risk_score < 35) as medium,
             COUNT(*) FILTER (WHERE mv.risk_score < 20) as low
           FROM mv_risk_aggregates mv
-          JOIN properties p ON p.id = mv.property_id
-          WHERE p.organisation_id = ${ORG_ID} AND p.deleted_at IS NULL
+          JOIN blocks b ON b.id = mv.block_id
+          JOIN schemes s ON s.id = b.scheme_id
+          WHERE s.organisation_id = ${ORG_ID} AND s.deleted_at IS NULL
         `);
         
         if (mvResult.rows && mvResult.rows.length > 0) {
           const row = mvResult.rows[0] as any;
           const total = Number(row.total) || 0;
-          const totalScore = Number(row.total_score) || 0;
-          const stats = {
-            total,
-            critical: Number(row.critical) || 0,
-            high: Number(row.high) || 0,
-            medium: Number(row.medium) || 0,
-            low: Number(row.low) || 0,
-            avgScore: total > 0 ? Math.round(totalScore / total) : 0,
-            _source: 'materialized_view'
-          };
-          
-          mapStatsCache = { data: stats, timestamp: Date.now() };
-          return res.json(stats);
+          // If MV returns 0 results (stale data), fall through to snapshots
+          if (total > 0) {
+            const totalScore = Number(row.total_score) || 0;
+            const stats = {
+              total,
+              critical: Number(row.critical) || 0,
+              high: Number(row.high) || 0,
+              medium: Number(row.medium) || 0,
+              low: Number(row.low) || 0,
+              avgScore: Math.round(totalScore / total),
+              _source: 'materialized_view'
+            };
+            
+            mapStatsCache = { data: stats, timestamp: Date.now() };
+            return res.json(stats);
+          }
         }
       } catch (mvError) {
         // View doesn't exist or query failed, fall back to property_risk_snapshots
