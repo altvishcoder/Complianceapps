@@ -1177,6 +1177,17 @@ export async function registerRoutes(
     }
   });
 
+  // ===== HIERARCHY STATS =====
+  app.get("/api/hierarchy/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const stats = await storage.getHierarchyStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching hierarchy stats:", error);
+      res.status(500).json({ error: "Failed to fetch hierarchy stats" });
+    }
+  });
+
   // ===== ORGANISATIONS =====
   app.get("/api/organisations", async (req, res) => {
     try {

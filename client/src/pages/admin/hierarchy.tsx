@@ -748,6 +748,24 @@ export default function PropertyHierarchy() {
     queryFn: () => spacesApi.list(),
   });
 
+  // Stable stats query - global counts independent of pagination/filters
+  const { data: hierarchyStats, isLoading: statsLoading, isError: statsError } = useQuery<{
+    organisations: number;
+    schemes: number;
+    blocks: number;
+    properties: number;
+    spaces: number;
+    components: number;
+  }>({
+    queryKey: ["hierarchy-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/hierarchy/stats", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch hierarchy stats");
+      return res.json();
+    },
+    staleTime: 60000, // Keep stats stable for 60 seconds
+    retry: 2,
+  });
 
   const hierarchyData = useMemo((): HierarchyNode[] => {
     // Helper to get component display name
@@ -1029,15 +1047,18 @@ export default function PropertyHierarchy() {
     return schemes.find(s => s.id === schemeId);
   };
 
+  // Stats query is non-blocking - we use fallback counts if it fails
   const isLoading = orgsLoading || schemesLoading || blocksLoading || propertiesLoading || assetsLoading || spacesLoading;
 
+  // Use dedicated stats endpoint for stable, accurate global counts
+  // Falls back to paginated data counts if stats endpoint fails
   const totalCounts = {
-    organisations: organisations.length,
-    schemes: schemes.length,
-    blocks: blocks.length,
-    properties: propertiesResponse?.total ?? properties.length, // Use API total for accurate count
-    spaces: allSpaces.length,
-    components: assetsTotalCount, // Use pagination total for accurate count
+    organisations: hierarchyStats?.organisations ?? organisations.length,
+    schemes: hierarchyStats?.schemes ?? schemes.length,
+    blocks: hierarchyStats?.blocks ?? blocks.length,
+    properties: hierarchyStats?.properties ?? (propertiesResponse?.total ?? properties.length),
+    spaces: hierarchyStats?.spaces ?? allSpaces.length,
+    components: hierarchyStats?.components ?? assetsTotalCount,
   };
 
   const handleNodeClick = (node: HierarchyNode) => {

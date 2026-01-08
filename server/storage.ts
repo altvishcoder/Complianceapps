@@ -107,6 +107,16 @@ export interface IStorage {
   updateOrganisation(id: string, updates: Partial<InsertOrganisation>): Promise<Organisation | undefined>;
   deleteOrganisation(id: string): Promise<boolean>;
   
+  // Hierarchy Stats (global counts for all asset levels)
+  getHierarchyStats(): Promise<{
+    organisations: number;
+    schemes: number;
+    blocks: number;
+    properties: number;
+    spaces: number;
+    components: number;
+  }>;
+  
   // Schemes
   listSchemes(organisationId: string): Promise<Scheme[]>;
   getScheme(id: string): Promise<Scheme | undefined>;
@@ -644,6 +654,31 @@ export class DatabaseStorage implements IStorage {
   async deleteOrganisation(id: string): Promise<boolean> {
     const result = await db.delete(organisations).where(eq(organisations.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+  
+  async getHierarchyStats(): Promise<{
+    organisations: number;
+    schemes: number;
+    blocks: number;
+    properties: number;
+    spaces: number;
+    components: number;
+  }> {
+    const [orgCount] = await db.select({ count: count() }).from(organisations);
+    const [schemeCount] = await db.select({ count: count() }).from(schemes);
+    const [blockCount] = await db.select({ count: count() }).from(blocks);
+    const [propertyCount] = await db.select({ count: count() }).from(properties);
+    const [spaceCount] = await db.select({ count: count() }).from(spaces);
+    const [componentCount] = await db.select({ count: count() }).from(components);
+    
+    return {
+      organisations: orgCount?.count ?? 0,
+      schemes: schemeCount?.count ?? 0,
+      blocks: blockCount?.count ?? 0,
+      properties: propertyCount?.count ?? 0,
+      spaces: spaceCount?.count ?? 0,
+      components: componentCount?.count ?? 0,
+    };
   }
   
   // Schemes
