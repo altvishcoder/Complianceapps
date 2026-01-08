@@ -123,8 +123,12 @@ function calculatePropertyRiskScore(
   const certScore = ((validCerts - failedCerts * 0.5) / Math.max(certificates.length, 1)) * 100;
   
   const openActions = actions.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
-  const criticalPenalty = openActions.filter(a => a.severity === 'IMMEDIATE').length * 15;
-  const majorPenalty = openActions.filter(a => a.severity === 'URGENT').length * 5;
+  const immediateCount = openActions.filter(a => a.severity === 'IMMEDIATE').length;
+  const urgentCount = openActions.filter(a => a.severity === 'URGENT').length;
+  
+  // Cap penalties to avoid all scores becoming 0 with demo data
+  const criticalPenalty = Math.min(immediateCount * 5, 30); // Max 30 points penalty
+  const majorPenalty = Math.min(urgentCount * 2, 15); // Max 15 points penalty
   
   return Math.max(0, Math.min(100, Math.round(Math.max(certScore, 30) - criticalPenalty - majorPenalty)));
 }
