@@ -5,10 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { useExtractionEvents } from "@/hooks/useExtractionEvents";
-import { useEffect, useState, ComponentType } from "react";
+import { useEffect, useState, ComponentType, Suspense, lazy } from "react";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 function ProtectedRoute({ component: Component }: { component: ComponentType }) {
   const [, setLocation] = useLocation();
@@ -37,66 +43,66 @@ function ProtectedRoute({ component: Component }: { component: ComponentType }) 
   return <Component />;
 }
 import Dashboard from "@/pages/dashboard";
-import Ingestion from "@/pages/ingestion";
-import Properties from "@/pages/properties";
-import PropertyDetail from "@/pages/properties/detail";
-import Reports from "@/pages/reports";
-import CertificatesPage from "@/pages/certificates";
-import CertificateUpload from "@/pages/certificates/upload";
-import CertificateDetailPage from "@/pages/certificates/detail";
-import CompliancePage from "@/pages/compliance";
-import ActionsPage from "@/pages/actions";
-import ContractorsPage from "@/pages/contractors";
-import ContractorDashboardPage from "@/pages/contractors/dashboard";
-import ContractorSLAPage from "@/pages/contractors/sla";
-import ContractorReportsPage from "@/pages/contractors/reports";
-import StaffDirectoryPage from "@/pages/staff";
-import StaffDashboardPage from "@/pages/staff/dashboard";
-import StaffSLAPage from "@/pages/staff/sla";
-import StaffReportsPage from "@/pages/staff/reports";
 import LoginPage from "@/pages/auth/login";
-import RegisterPage from "@/pages/auth/register";
-import MFAPage from "@/pages/mfa";
-import AdminSetup from "@/pages/admin/setup";
-import AdminUsersPage from "@/pages/admin/users";
-import AdminConfiguration from "@/pages/admin/configuration";
-import AdminImportsPage from "@/pages/admin/imports";
-import AdminTestSuite from "@/pages/admin/tests";
-import AdminIntegrationsPage from "@/pages/admin/integrations";
-import AdminHierarchy from "@/pages/admin/hierarchy";
-import AdminFactorySettings from "@/pages/admin/factory-settings";
-import AdminApiIntegration from "@/pages/admin/api-integration";
-import AdminSystemHealth from "@/pages/admin/system-health";
-import AdminDbOptimization from "@/pages/admin/db-optimization";
-import AdminObservabilityDashboard from "@/pages/admin/observability-dashboard";
-import AdminIngestionControl from "@/pages/admin/ingestion-control";
-import AdminRemedialKanban from "@/pages/admin/remedial-kanban";
-import AdminAssetHealth from "@/pages/admin/asset-health";
-import AdminAuditLog from "@/pages/admin/AuditLogPage";
-import AdminApiDocs from "@/pages/admin/api-docs";
-import AdminChatbotAnalytics from "@/pages/admin/chatbot-analytics";
-import AdminKnowledgeTraining from "@/pages/admin/knowledge-training";
-import AdminNavigationManagement from "@/pages/admin/navigation-management";
-import AdminMLInsights from "@/pages/admin/ml-insights";
-import AdminCacheControl from "@/pages/admin/cache-control";
-import AdminJobsManagement from "@/pages/admin/jobs-management";
-import AdminLoginPage from "@/pages/admin/login";
-import ModelInsightsPage from "@/pages/model-insights";
-import HumanReviewPage from "@/pages/human-review";
-import ComponentsPage from "@/pages/components";
-import VideoLibrary from "@/pages/video-library";
-import MapsIndex from "@/pages/maps";
-import RiskHeatmap from "@/pages/maps/risk-heatmap";
-import ScenariosPage from "@/pages/maps/scenarios";
-import EvidencePage from "@/pages/maps/evidence";
-import ComplianceCalendar from "@/pages/compliance-calendar";
-import RiskRadarPage from "@/pages/risk-radar";
-import BoardReportingPage from "@/pages/reports/board";
-import RegulatoryEvidencePage from "@/pages/reports/regulatory";
-import ReportBuilderPage from "@/pages/reports/builder";
-
 import LandingPage from "@/pages/landing";
-import HelpPage from "@/pages/help";
+
+const Ingestion = lazy(() => import("@/pages/ingestion"));
+const Properties = lazy(() => import("@/pages/properties"));
+const PropertyDetail = lazy(() => import("@/pages/properties/detail"));
+const Reports = lazy(() => import("@/pages/reports"));
+const CertificatesPage = lazy(() => import("@/pages/certificates"));
+const CertificateUpload = lazy(() => import("@/pages/certificates/upload"));
+const CertificateDetailPage = lazy(() => import("@/pages/certificates/detail"));
+const CompliancePage = lazy(() => import("@/pages/compliance"));
+const ActionsPage = lazy(() => import("@/pages/actions"));
+const ContractorsPage = lazy(() => import("@/pages/contractors"));
+const ContractorDashboardPage = lazy(() => import("@/pages/contractors/dashboard"));
+const ContractorSLAPage = lazy(() => import("@/pages/contractors/sla"));
+const ContractorReportsPage = lazy(() => import("@/pages/contractors/reports"));
+const StaffDirectoryPage = lazy(() => import("@/pages/staff"));
+const StaffDashboardPage = lazy(() => import("@/pages/staff/dashboard"));
+const StaffSLAPage = lazy(() => import("@/pages/staff/sla"));
+const StaffReportsPage = lazy(() => import("@/pages/staff/reports"));
+const RegisterPage = lazy(() => import("@/pages/auth/register"));
+const MFAPage = lazy(() => import("@/pages/mfa"));
+const AdminSetup = lazy(() => import("@/pages/admin/setup"));
+const AdminUsersPage = lazy(() => import("@/pages/admin/users"));
+const AdminConfiguration = lazy(() => import("@/pages/admin/configuration"));
+const AdminImportsPage = lazy(() => import("@/pages/admin/imports"));
+const AdminTestSuite = lazy(() => import("@/pages/admin/tests"));
+const AdminIntegrationsPage = lazy(() => import("@/pages/admin/integrations"));
+const AdminHierarchy = lazy(() => import("@/pages/admin/hierarchy"));
+const AdminFactorySettings = lazy(() => import("@/pages/admin/factory-settings"));
+const AdminApiIntegration = lazy(() => import("@/pages/admin/api-integration"));
+const AdminSystemHealth = lazy(() => import("@/pages/admin/system-health"));
+const AdminDbOptimization = lazy(() => import("@/pages/admin/db-optimization"));
+const AdminObservabilityDashboard = lazy(() => import("@/pages/admin/observability-dashboard"));
+const AdminIngestionControl = lazy(() => import("@/pages/admin/ingestion-control"));
+const AdminRemedialKanban = lazy(() => import("@/pages/admin/remedial-kanban"));
+const AdminAssetHealth = lazy(() => import("@/pages/admin/asset-health"));
+const AdminAuditLog = lazy(() => import("@/pages/admin/AuditLogPage"));
+const AdminApiDocs = lazy(() => import("@/pages/admin/api-docs"));
+const AdminChatbotAnalytics = lazy(() => import("@/pages/admin/chatbot-analytics"));
+const AdminKnowledgeTraining = lazy(() => import("@/pages/admin/knowledge-training"));
+const AdminNavigationManagement = lazy(() => import("@/pages/admin/navigation-management"));
+const AdminMLInsights = lazy(() => import("@/pages/admin/ml-insights"));
+const AdminCacheControl = lazy(() => import("@/pages/admin/cache-control"));
+const AdminJobsManagement = lazy(() => import("@/pages/admin/jobs-management"));
+const AdminLoginPage = lazy(() => import("@/pages/admin/login"));
+const ModelInsightsPage = lazy(() => import("@/pages/model-insights"));
+const HumanReviewPage = lazy(() => import("@/pages/human-review"));
+const ComponentsPage = lazy(() => import("@/pages/components"));
+const VideoLibrary = lazy(() => import("@/pages/video-library"));
+const MapsIndex = lazy(() => import("@/pages/maps"));
+const RiskHeatmap = lazy(() => import("@/pages/maps/risk-heatmap"));
+const ScenariosPage = lazy(() => import("@/pages/maps/scenarios"));
+const EvidencePage = lazy(() => import("@/pages/maps/evidence"));
+const ComplianceCalendar = lazy(() => import("@/pages/compliance-calendar"));
+const RiskRadarPage = lazy(() => import("@/pages/risk-radar"));
+const BoardReportingPage = lazy(() => import("@/pages/reports/board"));
+const RegulatoryEvidencePage = lazy(() => import("@/pages/reports/regulatory"));
+const ReportBuilderPage = lazy(() => import("@/pages/reports/builder"));
+const HelpPage = lazy(() => import("@/pages/help"));
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { AIAssistant } from "@/components/AIAssistant";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
@@ -182,7 +188,9 @@ function AppContent() {
     <>
       <Toaster />
       <KeyboardShortcutsDialog />
-      <Router />
+      <Suspense fallback={<PageLoader />}>
+        <Router />
+      </Suspense>
       <AIAssistant />
       {isAuthenticated && isProtectedRoute && (
         <>

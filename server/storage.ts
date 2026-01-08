@@ -89,7 +89,7 @@ import {
   type WaterTemperatureRecord, type InsertWaterTemperatureRecord
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, inArray, count, gte, lte, ilike, isNotNull } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, count, gte, lte, lt, ilike, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -150,6 +150,7 @@ export interface IStorage {
   
   // Certificates
   listCertificates(organisationId: string, filters?: { propertyId?: string; status?: string }): Promise<Certificate[]>;
+  listCertificatesCursor(organisationId: string, options: { propertyId?: string; status?: string | string[]; search?: string; limit: number; cursor?: string }): Promise<{ data: (Certificate & { property?: Property; extraction?: Extraction })[]; nextCursor: string | null; hasMore: boolean }>;
   getCertificate(id: string): Promise<Certificate | undefined>;
   createCertificate(certificate: InsertCertificate): Promise<Certificate>;
   updateCertificate(id: string, updates: Partial<InsertCertificate>): Promise<Certificate | undefined>;
@@ -1087,6 +1088,99 @@ export class DatabaseStorage implements IStorage {
     }));
     
     return { data, total };
+  }
+  
+  // Cursor-based pagination for efficient large dataset navigation (no COUNT query needed)
+  async listCertificatesCursor(
+    organisationId: string, 
+    options: { 
+      propertyId?: string; 
+      status?: string | string[];
+      search?: string;
+      limit: number; 
+      cursor?: string; // Format: "createdAt:id" (ISO date:uuid)
+    }
+  ): Promise<{ data: (Certificate & { property?: Property; extraction?: Extraction })[]; nextCursor: string | null; hasMore: boolean }> {
+    const conditions: any[] = [
+      eq(certificates.organisationId, organisationId),
+      sql`${certificates.deletedAt} IS NULL`
+    ];
+    
+    if (options.propertyId) {
+      conditions.push(eq(certificates.propertyId, options.propertyId));
+    }
+    
+    if (options.status) {
+      if (Array.isArray(options.status)) {
+        conditions.push(inArray(certificates.status, options.status as any));
+      } else {
+        conditions.push(eq(certificates.status, options.status as any));
+      }
+    }
+    
+    if (options.search) {
+      const searchPattern = `%${options.search}%`;
+      conditions.push(or(
+        ilike(certificates.certificateNumber, searchPattern),
+        ilike(certificates.fileName, searchPattern),
+        ilike(certificates.certificateType, searchPattern)
+      ));
+    }
+    
+    // Parse cursor for keyset pagination (createdAt DESC, id DESC)
+    // Cursor format: base64(JSON.stringify({ date: ISO string, id: uuid }))
+    if (options.cursor) {
+      try {
+        const decoded = JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'));
+        if (decoded.date && decoded.id) {
+          // Keyset condition: (createdAt < cursorDate) OR (createdAt = cursorDate AND id < cursorId)
+          conditions.push(
+            or(
+              lt(certificates.createdAt, new Date(decoded.date)),
+              and(
+                eq(certificates.createdAt, new Date(decoded.date)),
+                lt(certificates.id, decoded.id)
+              )
+            )
+          );
+        }
+      } catch (e) {
+        // Invalid cursor, ignore
+      }
+    }
+    
+    // Fetch limit + 1 to check if there are more results
+    const rows = await db
+      .select({
+        certificate: certificates,
+        property: properties,
+        extraction: extractions,
+      })
+      .from(certificates)
+      .leftJoin(properties, eq(certificates.propertyId, properties.id))
+      .leftJoin(extractions, eq(certificates.id, extractions.certificateId))
+      .where(and(...conditions))
+      .orderBy(desc(certificates.createdAt), desc(certificates.id))
+      .limit(options.limit + 1);
+    
+    const hasMore = rows.length > options.limit;
+    const resultRows = hasMore ? rows.slice(0, options.limit) : rows;
+    
+    const data = resultRows.map(row => ({
+      ...row.certificate,
+      property: row.property || undefined,
+      extraction: row.extraction || undefined,
+    }));
+    
+    // Generate next cursor from last item (base64 encoded JSON to avoid delimiter issues)
+    let nextCursor: string | null = null;
+    if (hasMore && data.length > 0) {
+      const lastItem = data[data.length - 1];
+      const cursorData = { date: lastItem.createdAt.toISOString(), id: lastItem.id };
+      nextCursor = Buffer.from(JSON.stringify(cursorData)).toString('base64');
+    }
+    
+    return { data, nextCursor, hasMore };
   }
   
   async getCertificate(id: string): Promise<Certificate | undefined> {

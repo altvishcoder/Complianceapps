@@ -3149,6 +3149,43 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch certificates" });
     }
   });
+
+  // Cursor-based pagination endpoint - more efficient for large datasets (no COUNT query)
+  app.get("/api/certificates/cursor", async (req, res) => {
+    try {
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const search = req.query.search as string | undefined;
+      const propertyId = req.query.propertyId as string | undefined;
+      const status = req.query.status as string | undefined;
+      
+      const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
+      const isPendingFilter = status === 'PENDING';
+      
+      const result = await storage.listCertificatesCursor(ORG_ID, {
+        propertyId,
+        status: isPendingFilter ? PENDING_STATUSES : status,
+        search,
+        limit,
+        cursor,
+      });
+      
+      const enrichedCertificates = result.data.map(cert => ({
+        ...cert,
+        extractedData: cert.extraction?.extractedData,
+      }));
+      
+      res.json({
+        data: enrichedCertificates,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+        limit,
+      });
+    } catch (error) {
+      console.error("Error fetching certificates (cursor):", error);
+      res.status(500).json({ error: "Failed to fetch certificates" });
+    }
+  });
   
   app.get("/api/certificates/:id", async (req, res) => {
     try {
