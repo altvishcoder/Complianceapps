@@ -5576,8 +5576,18 @@ export async function registerRoutes(
   });
   
   // ===== BOARD REPORT STATS =====
+  // Cache for board report stats (120 second TTL - longer as this is an expensive query)
+  let boardReportCache: { data: any; timestamp: number } | null = null;
+  const BOARD_REPORT_CACHE_TTL = 120000;
+
   app.get("/api/board-report/stats", async (req, res) => {
     try {
+      // Check cache first
+      const now = Date.now();
+      if (boardReportCache && (now - boardReportCache.timestamp) < BOARD_REPORT_CACHE_TTL) {
+        return res.json(boardReportCache.data);
+      }
+
       const allCertificates = await storage.listCertificates(ORG_ID);
       const allActions = await storage.listRemedialActions(ORG_ID);
       const allProperties = await storage.listProperties(ORG_ID);
@@ -5651,7 +5661,7 @@ export async function registerRoutes(
       ];
       
       // Critical alerts (overdue + expiring soon)
-      const now = new Date();
+      const currentDate = new Date();
       const sevenDaysFromNow = new Date();
       sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
       
@@ -5660,12 +5670,12 @@ export async function registerRoutes(
       // Overdue certificates
       const overdueCerts = allCertificates.filter(c => {
         if (!c.expiryDate) return false;
-        return new Date(c.expiryDate) < now;
+        return new Date(c.expiryDate) < currentDate;
       });
       
       for (const cert of overdueCerts.slice(0, 3)) {
         const property = allProperties.find(p => p.id === cert.propertyId);
-        const daysOverdue = Math.floor((now.getTime() - new Date(cert.expiryDate!).getTime()) / (1000 * 60 * 60 * 24));
+        const daysOverdue = Math.floor((currentDate.getTime() - new Date(cert.expiryDate!).getTime()) / (1000 * 60 * 60 * 24));
         criticalAlerts.push({
           title: `${cert.certificateType?.replace(/_/g, ' ')} Overdue`,
           location: property ? `${property.addressLine1}` : 'Unknown',
@@ -5679,7 +5689,7 @@ export async function registerRoutes(
       const expiringSoon = allCertificates.filter(c => {
         if (!c.expiryDate) return false;
         const expiry = new Date(c.expiryDate);
-        return expiry > now && expiry <= sevenDaysFromNow;
+        return expiry > currentDate && expiry <= sevenDaysFromNow;
       });
       
       for (const cert of expiringSoon.slice(0, 2)) {
@@ -5710,7 +5720,7 @@ export async function registerRoutes(
       }));
       riskTrend[riskTrend.length - 1].score = overallRiskScore; // Current month is actual
       
-      res.json({
+      const result = {
         overallRiskScore,
         previousRiskScore,
         complianceStreams,
@@ -5719,7 +5729,12 @@ export async function registerRoutes(
         criticalAlerts,
         quarterlyHighlights,
         riskTrend,
-      });
+      };
+      
+      // Update cache
+      boardReportCache = { data: result, timestamp: Date.now() };
+      
+      res.json(result);
     } catch (error) {
       console.error("Error fetching board report stats:", error);
       res.status(500).json({ error: "Failed to fetch board report stats" });

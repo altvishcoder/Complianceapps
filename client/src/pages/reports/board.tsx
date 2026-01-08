@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -149,10 +150,12 @@ export default function BoardReporting() {
   const [isExporting, setIsExporting] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleFrequency, setScheduleFrequency] = useState("weekly");
+  const reportContentRef = useRef<HTMLDivElement>(null);
   
   const { data: stats, isLoading, error } = useQuery<BoardReportStats>({
     queryKey: ['/api/board-report/stats'],
     refetchInterval: 60000,
+    staleTime: 120000,
   });
   
   const overallRiskScore = stats?.overallRiskScore ?? 0;
@@ -168,142 +171,91 @@ export default function BoardReporting() {
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
-      const doc = new jsPDF();
+      if (!reportContentRef.current) {
+        throw new Error("Report content not found");
+      }
+
+      // Capture the report content with charts using html2canvas
+      const canvas = await html2canvas(reportContentRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 1200,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const bottomMargin = 25;
-      let yPos = 20;
+      const margin = 10;
       
-      const checkPageBreak = (requiredSpace: number) => {
-        if (yPos + requiredSpace > pageHeight - bottomMargin) {
-          doc.addPage();
-          yPos = 20;
-        }
-      };
+      // Calculate image dimensions to fit page
+      const imgWidth = pageWidth - (margin * 2);
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      const addFooter = () => {
-        const totalPages = doc.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.text(`ComplianceAI - Confidential Board Report | Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
-        }
-      };
-      
-      doc.setFontSize(20);
+      // Add title
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("Board Compliance Report", pageWidth / 2, yPos, { align: "center" });
-      yPos += 10;
+      doc.text("Board Compliance Report", pageWidth / 2, 15, { align: "center" });
       
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth / 2, yPos, { align: "center" });
-      yPos += 15;
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth / 2, 22, { align: "center" });
+
+      // Add content image - handle multiple pages if needed
+      let yPosition = 28;
+      let remainingHeight = imgHeight;
+      let sourceY = 0;
       
-      checkPageBreak(30);
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Executive Summary", margin, yPos);
-      yPos += 10;
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Overall Risk Score: ${overallRiskScore}/100`, margin, yPos);
-      yPos += 7;
-      doc.text(`Score Change: +${overallRiskScore - previousRiskScore} points from previous period`, margin, yPos);
-      yPos += 15;
-      
-      checkPageBreak(10 + keyMetrics.length * 6);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Key Metrics", margin, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      keyMetrics.forEach(metric => {
-        checkPageBreak(6);
-        doc.text(`${metric.label}: ${metric.value} (${metric.change})`, margin + 5, yPos);
-        yPos += 6;
-      });
-      yPos += 10;
-      
-      checkPageBreak(10 + complianceStreams.length * 6);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Compliance Streams", margin, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      complianceStreams.forEach(stream => {
-        checkPageBreak(6);
-        const trendSymbol = stream.trend === "up" ? "+" : stream.trend === "down" ? "-" : "=";
-        doc.text(`${stream.name}: ${stream.score}% [${trendSymbol}]`, margin + 5, yPos);
-        yPos += 6;
-      });
-      yPos += 10;
-      
-      checkPageBreak(10 + portfolioHealth.length * 6);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Portfolio Health", margin, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      portfolioHealth.forEach(item => {
-        checkPageBreak(6);
-        const percentage = Math.round((item.value / totalProperties) * 100);
-        doc.text(`${item.name}: ${item.value} properties (${percentage}%)`, margin + 5, yPos);
-        yPos += 6;
-      });
-      yPos += 10;
-      
-      if (criticalAlerts.length > 0) {
-        checkPageBreak(20);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("Critical Alerts", margin, yPos);
-        yPos += 8;
+      while (remainingHeight > 0) {
+        const availableHeight = pageHeight - yPosition - 15;
+        const sliceHeight = Math.min(remainingHeight, availableHeight);
+        const sliceRatio = sliceHeight / imgHeight;
         
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        criticalAlerts.forEach(alert => {
-          checkPageBreak(14);
-          doc.text(`- ${alert.title} (${alert.location})`, margin + 5, yPos);
-          yPos += 5;
-          doc.text(`  Urgency: ${alert.urgency}, Impact: ${alert.impact}`, margin + 5, yPos);
-          yPos += 7;
-        });
+        // Create a slice of the canvas for this page
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = Math.round(canvas.height * sliceRatio);
+        const ctx = sliceCanvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(
+            canvas,
+            0, Math.round(sourceY * (canvas.height / imgHeight)),
+            canvas.width, sliceCanvas.height,
+            0, 0,
+            canvas.width, sliceCanvas.height
+          );
+          const sliceData = sliceCanvas.toDataURL('image/png');
+          doc.addImage(sliceData, 'PNG', margin, yPosition, imgWidth, sliceHeight);
+        }
+        
+        remainingHeight -= sliceHeight;
+        sourceY += sliceHeight;
+        
+        if (remainingHeight > 0) {
+          doc.addPage();
+          yPosition = 15;
+        }
       }
       
-      checkPageBreak(20);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Quarterly Highlights", margin, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      quarterlyHighlights.forEach(item => {
-        checkPageBreak(6);
-        const statusIcon = item.status === "achieved" ? "[OK]" : item.status === "approaching" ? "[~]" : "[!]";
-        doc.text(`${item.metric}: ${item.current} / Target: ${item.target} ${statusIcon}`, margin + 5, yPos);
-        yPos += 6;
-      });
-      
-      addFooter();
+      // Add footer to all pages
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(`ComplianceAI - Confidential Board Report | Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: "center" });
+      }
       
       doc.save(`board-report-${new Date().toISOString().split('T')[0]}.pdf`);
       
       toast({
         title: "PDF Exported",
-        description: "Board report PDF has been downloaded successfully.",
+        description: "Board report with charts has been downloaded successfully.",
       });
     } catch (error) {
+      console.error("PDF export error:", error);
       toast({
         title: "Export Failed",
         description: "Failed to generate PDF report. Please try again.",
@@ -407,7 +359,7 @@ export default function BoardReporting() {
             )}
 
             {!isLoading && !error && (
-              <>
+              <div ref={reportContentRef} className="space-y-6 bg-white dark:bg-gray-900 p-2 -m-2">
             {/* Executive Summary - Top of page for quick overview */}
             <Card data-testid="card-executive-summary">
               <CardHeader>
@@ -758,7 +710,7 @@ export default function BoardReporting() {
                 </CardContent>
               </Card>
             </div>
-              </>
+              </div>
             )}
           </div>
         </main>
