@@ -76,7 +76,11 @@ export function calculateTotals(config: VolumeConfig) {
   const totalSchemes = config.schemes;
   const totalBlocks = config.schemes * config.blocksPerScheme;
   const totalProperties = totalBlocks * config.propertiesPerBlock;
-  const totalSpaces = totalProperties * config.spacesPerProperty;
+  // Spaces at three levels: scheme (2 per scheme), block (3 per block), property (spacesPerProperty)
+  const schemeSpaces = totalSchemes * 2;
+  const blockSpaces = totalBlocks * 3;
+  const propertySpaces = totalProperties * config.spacesPerProperty;
+  const totalSpaces = schemeSpaces + blockSpaces + propertySpaces;
   const totalComponents = totalProperties * config.componentsPerProperty;
   const totalCertificates = totalProperties * config.certificatesPerProperty;
   const totalRemedials = Math.floor(totalCertificates * config.remedialsPerCertificate);
@@ -226,6 +230,22 @@ const TENURES = ["SOCIAL_RENT", "AFFORDABLE_RENT", "SHARED_OWNERSHIP", "LEASEHOL
 const PROPERTY_TYPES = ["FLAT", "HOUSE", "MAISONETTE", "BUNGALOW", "STUDIO"] as const;
 const SPACE_TYPES = ["ROOM", "COMMUNAL_AREA", "UTILITY", "CIRCULATION", "STORAGE", "OTHER"] as const;
 const SPACE_NAMES = ["Living Room", "Kitchen", "Bathroom", "Bedroom", "Hallway", "Utility"];
+// Block-level communal spaces (attached to blocks)
+const BLOCK_COMMUNAL_SPACES = [
+  { name: "Main Stairwell", type: "CIRCULATION" as const },
+  { name: "Plant Room", type: "UTILITY" as const },
+  { name: "Bin Store", type: "STORAGE" as const },
+  { name: "Entrance Lobby", type: "CIRCULATION" as const },
+  { name: "Corridor - Ground Floor", type: "CIRCULATION" as const },
+  { name: "Meter Cupboard", type: "UTILITY" as const },
+];
+// Scheme-level spaces (attached to schemes/estates)
+const SCHEME_COMMUNAL_SPACES = [
+  { name: "Community Hall", type: "COMMUNAL_AREA" as const },
+  { name: "Estate Grounds", type: "EXTERNAL" as const },
+  { name: "Car Park", type: "EXTERNAL" as const },
+  { name: "Play Area", type: "EXTERNAL" as const },
+];
 const REMEDIAL_STATUSES = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
 const REMEDIAL_STATUS_WEIGHTS = [0.4, 0.25, 0.3, 0.05];
 const SEVERITIES = ["IMMEDIATE", "URGENT", "PRIORITY", "ROUTINE", "ADVISORY"] as const;
@@ -304,7 +324,7 @@ export async function runBulkSeed(tier: VolumeTier, orgId: string): Promise<void
     const propertyIds = await seedPropertiesBulk(blockIds, config);
     if (cancelRequested) throw new Error("Cancelled by user");
     
-    const spaceIds = await seedSpacesBulk(propertyIds, config);
+    const spaceIds = await seedSpacesBulk(schemeIds, blockIds, propertyIds, config);
     if (cancelRequested) throw new Error("Cancelled by user");
     
     const componentIds = await seedComponentsBulk(propertyIds, spaceIds, allComponentTypes, config);
@@ -439,14 +459,56 @@ async function seedPropertiesBulk(blockIds: string[], config: VolumeConfig): Pro
   return propertyIds;
 }
 
-async function seedSpacesBulk(propertyIds: string[], config: VolumeConfig): Promise<string[]> {
+async function seedSpacesBulk(
+  schemeIds: string[], 
+  blockIds: string[], 
+  propertyIds: string[], 
+  config: VolumeConfig
+): Promise<string[]> {
   const spaceIds: string[] = [];
-  const values = [];
+  const values: any[] = [];
   
+  // 1. Scheme-level spaces (estate-wide communal areas) - 2 per scheme
+  for (const schemeId of schemeIds) {
+    const spacesToCreate = SCHEME_COMMUNAL_SPACES.slice(0, 2);
+    for (const spaceTemplate of spacesToCreate) {
+      values.push({
+        schemeId,
+        propertyId: null,
+        blockId: null,
+        name: spaceTemplate.name,
+        spaceType: spaceTemplate.type,
+        description: `Estate-wide ${spaceTemplate.name.toLowerCase()}`,
+        areaSqMeters: Math.floor(Math.random() * 200) + 50,
+      });
+    }
+  }
+  
+  // 2. Block-level spaces (building communal areas) - 3 per block
+  for (const blockId of blockIds) {
+    const spacesToCreate = BLOCK_COMMUNAL_SPACES.slice(0, 3);
+    for (let i = 0; i < spacesToCreate.length; i++) {
+      const spaceTemplate = spacesToCreate[i];
+      values.push({
+        blockId,
+        propertyId: null,
+        schemeId: null,
+        name: spaceTemplate.name,
+        spaceType: spaceTemplate.type,
+        floor: i === 0 ? "All Floors" : "Ground",
+        description: `Building communal ${spaceTemplate.name.toLowerCase()}`,
+        areaSqMeters: Math.floor(Math.random() * 30) + 10,
+      });
+    }
+  }
+  
+  // 3. Property-level spaces (rooms within dwellings)
   for (const propertyId of propertyIds) {
     for (let s = 0; s < config.spacesPerProperty; s++) {
       values.push({
         propertyId,
+        blockId: null,
+        schemeId: null,
         name: SPACE_NAMES[s % SPACE_NAMES.length],
         spaceType: SPACE_TYPES[s % SPACE_TYPES.length],
         floor: String(Math.floor(s / 3)),
@@ -463,7 +525,10 @@ async function seedSpacesBulk(propertyIds: string[], config: VolumeConfig): Prom
     updateProgress("spaces", spaceIds.length, total);
   }
   
-  console.log(`  ✓ ${spaceIds.length} spaces`);
+  const schemeSpaces = schemeIds.length * 2;
+  const blockSpaces = blockIds.length * 3;
+  const propertySpaces = propertyIds.length * config.spacesPerProperty;
+  console.log(`  ✓ ${spaceIds.length} spaces (${schemeSpaces} scheme-level, ${blockSpaces} block-level, ${propertySpaces} property-level)`);
   return spaceIds;
 }
 
