@@ -6931,10 +6931,20 @@ export async function registerRoutes(
   });
   
   // ===== TSM BUILDING SAFETY REPORTS =====
+  // In-memory cache for TSM report (5-minute TTL) to avoid expensive repeated queries
+  let tsmReportCache: { data: any; timestamp: number } | null = null;
+  const TSM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  
   app.get("/api/reports/tsm-building-safety", async (req, res) => {
     try {
       const period = req.query.period as string || 'current';
+      const forceRefresh = req.query.refresh === 'true';
       const today = new Date();
+      
+      // Return cached data if valid and not forcing refresh
+      if (!forceRefresh && tsmReportCache && (Date.now() - tsmReportCache.timestamp < TSM_CACHE_TTL_MS)) {
+        return res.json({ ...tsmReportCache.data, cached: true, cacheAge: Math.round((Date.now() - tsmReportCache.timestamp) / 1000) });
+      }
       
       // Use efficient SQL COUNT queries instead of loading all records
       // Note: expiry_date is stored as text, so we cast to date for comparisons
@@ -7013,7 +7023,7 @@ export async function registerRoutes(
       const validCerts = Number(summaryRow.valid_certificates) || 0;
       const complianceScore = totalCerts > 0 ? Math.round((validCerts / totalCerts) * 100) : 0;
 
-      res.json({
+      const reportData = {
         period,
         reportDate: today.toISOString(),
         metrics: {
@@ -7078,7 +7088,12 @@ export async function registerRoutes(
           totalRemedialActions: Number(summaryRow.total_remedial) || 0,
           complianceScore
         }
-      });
+      };
+      
+      // Cache the result for subsequent requests
+      tsmReportCache = { data: reportData, timestamp: Date.now() };
+      
+      res.json({ ...reportData, cached: false });
     } catch (error) {
       console.error("Error generating TSM report:", error);
       res.status(500).json({ error: "Failed to generate TSM Building Safety report" });
