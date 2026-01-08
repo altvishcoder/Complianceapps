@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend } from '@/components/maps';
+import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend, MapSkeleton } from '@/components/maps';
 import { RiskFilters } from '@/components/maps/RiskFilters';
 import { AreaDetailPanel } from '@/components/maps/AreaDetailPanel';
 import type { PropertyMarker } from '@/components/maps';
@@ -89,7 +89,7 @@ export default function RiskHeatmapPage() {
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
       const params = new URLSearchParams({
-        level: filters.level === 'ward' ? 'property' : filters.level,
+        level: filters.level,
       });
       if (filters.showOnlyAtRisk) {
         params.set('maxScore', '85');
@@ -145,27 +145,31 @@ export default function RiskHeatmapPage() {
           
           <div className="flex-1 flex min-h-[500px]">
             <div className="flex-1 relative min-h-[500px]">
-              <MapWrapper>
-                <BaseMap 
-                  center={(() => {
-                    const validMarkers = mapMarkers.filter(m => 
-                      typeof m.lat === 'number' && !isNaN(m.lat) &&
-                      typeof m.lng === 'number' && !isNaN(m.lng)
-                    );
-                    if (validMarkers.length === 0) return [52.5, -1.5] as [number, number];
-                    return [
-                      validMarkers.reduce((sum, m) => sum + m.lat, 0) / validMarkers.length,
-                      validMarkers.reduce((sum, m) => sum + m.lng, 0) / validMarkers.length
-                    ] as [number, number];
-                  })()} 
-                  zoom={mapMarkers.length > 0 ? 10 : 6}
-                >
-                  <PropertyMarkers 
-                    properties={mapMarkers}
-                    onPropertyClick={handleAreaClick}
-                  />
-                </BaseMap>
-              </MapWrapper>
+              {isLoading ? (
+                <MapSkeleton />
+              ) : (
+                <MapWrapper>
+                  <BaseMap 
+                    center={(() => {
+                      const validMarkers = mapMarkers.filter(m => 
+                        typeof m.lat === 'number' && !isNaN(m.lat) &&
+                        typeof m.lng === 'number' && !isNaN(m.lng)
+                      );
+                      if (validMarkers.length === 0) return [52.5, -1.5] as [number, number];
+                      return [
+                        validMarkers.reduce((sum, m) => sum + m.lat, 0) / validMarkers.length,
+                        validMarkers.reduce((sum, m) => sum + m.lng, 0) / validMarkers.length
+                      ] as [number, number];
+                    })()} 
+                    zoom={mapMarkers.length > 0 ? 10 : 6}
+                  >
+                    <PropertyMarkers 
+                      properties={mapMarkers}
+                      onPropertyClick={handleAreaClick}
+                    />
+                  </BaseMap>
+                </MapWrapper>
+              )}
               
               <div className="absolute top-4 right-4 z-[1000] flex gap-2">
                 <Button variant="secondary" size="sm" onClick={() => refetch()} data-testid="button-refresh-map">

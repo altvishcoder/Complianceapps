@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { HeroStatsGrid, HeroStatsGridSkeleton } from '@/components/dashboard/HeroStats';
-import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend } from '@/components/maps';
+import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend, MapSkeleton } from '@/components/maps';
 import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -278,19 +278,18 @@ export default function MapsIndexPage() {
             )}
 
             <div className="flex-1 relative rounded-lg overflow-hidden border shadow-sm min-h-[300px] sm:min-h-[400px]">
-              {propertiesLoading && (
-                <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+              {propertiesLoading ? (
+                <MapSkeleton />
+              ) : (
+                <MapWrapper>
+                  <BaseMap center={[52.5, -1.5]} zoom={6}>
+                    <PropertyMarkers 
+                      properties={displayMarkers}
+                      onPropertyClick={setSelectedProperty}
+                    />
+                  </BaseMap>
+                </MapWrapper>
               )}
-              <MapWrapper>
-                <BaseMap center={[52.5, -1.5]} zoom={6}>
-                  <PropertyMarkers 
-                    properties={displayMarkers}
-                    onPropertyClick={setSelectedProperty}
-                  />
-                </BaseMap>
-              </MapWrapper>
               
               <div className="absolute bottom-4 left-4 z-[1000]">
                 <RiskLegend />
