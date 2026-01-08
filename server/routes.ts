@@ -9684,6 +9684,10 @@ export async function registerRoutes(
   });
 
   // Board Summary Report - Executive dashboard data
+  // Uses boardSummaryCache to avoid conflicts with boardReportCache (for /api/board-report/stats)
+  const boardSummaryCache = new Map<string, { data: any; timestamp: number }>();
+  const BOARD_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  
   app.get("/api/reports/board-summary", async (req, res) => {
     try {
       const userId = req.session?.userId;
@@ -9694,6 +9698,15 @@ export async function registerRoutes(
       const user = await storage.getUser(userId);
       if (!user?.organisationId) {
         return res.status(403).json({ error: "No organisation access" });
+      }
+      
+      const orgId = user.organisationId;
+      const forceRefresh = req.query.refresh === 'true';
+      
+      // Return cached data if valid
+      const cached = boardSummaryCache.get(orgId);
+      if (!forceRefresh && cached && (Date.now() - cached.timestamp < BOARD_SUMMARY_CACHE_TTL_MS)) {
+        return res.json({ ...cached.data, cached: true, cacheAge: Math.round((Date.now() - cached.timestamp) / 1000) });
       }
 
       // Get overall compliance metrics - certificates have organisationId directly
@@ -9728,7 +9741,7 @@ export async function registerRoutes(
       const compliant = Number(certStats?.compliant || 0);
       const overallCompliance = total > 0 ? Math.round((compliant / total) * 100) : 0;
 
-      res.json({
+      const reportData = {
         overview: {
           overallCompliance,
           totalProperties: Number(propStats?.total || 0),
@@ -9748,7 +9761,12 @@ export async function registerRoutes(
         },
         riskLevel: overallCompliance >= 95 ? 'LOW' : overallCompliance >= 85 ? 'MEDIUM' : overallCompliance >= 70 ? 'HIGH' : 'CRITICAL',
         lastUpdated: new Date().toISOString()
-      });
+      };
+      
+      // Cache the result
+      boardSummaryCache.set(orgId, { data: reportData, timestamp: Date.now() });
+      
+      res.json({ ...reportData, cached: false });
     } catch (error) {
       console.error("Error fetching board summary:", error);
       res.status(500).json({ error: "Failed to fetch board summary" });
