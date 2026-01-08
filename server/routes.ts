@@ -3313,44 +3313,61 @@ export async function registerRoutes(
   });
   
   // ===== REMEDIAL ACTIONS =====
+  
+  // Lightweight stats-only endpoint for hero stats (no data fetching)
+  app.get("/api/actions/stats", async (req, res) => {
+    try {
+      // Get remedial action stats from materialized view (fast) with fallback to direct query
+      const { getRemedialStats } = await import('./reporting/materialized-views');
+      let stats = await getRemedialStats(ORG_ID);
+      
+      // Fallback to direct query if materialized view not available
+      if (!stats) {
+        const [actionStats] = await db.select({
+          totalOpen: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED'))`,
+          overdue: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND due_date::date < CURRENT_DATE)`,
+          immediate: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND severity = 'IMMEDIATE')`,
+          inProgress: sql<number>`COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')`,
+          completed: sql<number>`COUNT(*) FILTER (WHERE status = 'COMPLETED')`,
+        })
+        .from(remedialActions);
+        
+        stats = {
+          totalOpen: Number(actionStats?.totalOpen || 0),
+          overdue: Number(actionStats?.overdue || 0),
+          immediate: Number(actionStats?.immediate || 0),
+          inProgress: Number(actionStats?.inProgress || 0),
+          completed: Number(actionStats?.completed || 0),
+        };
+      }
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching action stats:", error);
+      res.status(500).json({ error: "Failed to fetch action stats" });
+    }
+  });
+  
   app.get("/api/actions", paginationMiddleware(), async (req, res) => {
     try {
       const pagination = (req as any).pagination as PaginationParams;
-      const { page, limit, offset, hasFilters } = pagination;
+      const { page, limit, offset } = pagination;
       const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
       const severity = req.query.severity as string | undefined;
-      const overdue = req.query.overdue as string | undefined;
-      const actions = await storage.listRemedialActions(ORG_ID, { propertyId, status });
+      const overdue = req.query.overdue === 'true';
       
-      // Filter by severity if provided
-      let filteredActions = actions;
-      if (severity) {
-        filteredActions = actions.filter(a => a.severity === severity);
-      }
-      
-      // Filter for overdue actions (Awaab's Law breaches)
-      if (overdue === 'true') {
-        const now = new Date();
-        filteredActions = filteredActions.filter(a => {
-          if (a.status !== 'OPEN') return false;
-          if (!a.dueDate) return false;
-          return new Date(a.dueDate) < now;
-        });
-      }
-      
-      // Apply search filter
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filteredActions = filteredActions.filter(a => 
-          a.code?.toLowerCase().includes(searchLower) ||
-          a.description?.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      const total = filteredActions.length;
-      const paginatedActions = filteredActions.slice(offset, offset + limit);
+      // Use database-level pagination for efficiency
+      const { items: paginatedActions, total } = await storage.listRemedialActionsPaginated(ORG_ID, {
+        limit,
+        offset,
+        status,
+        severity,
+        search,
+        overdue,
+        propertyId,
+      });
       
       // Pre-fetch all schemes and blocks for efficiency
       const schemes = await storage.listSchemes(ORG_ID);

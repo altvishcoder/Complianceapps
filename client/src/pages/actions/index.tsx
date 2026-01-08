@@ -138,13 +138,13 @@ export default function ActionsPage() {
     ? 'URGENT' 
     : undefined;
   
-  // Separate stats query - doesn't depend on pagination, stays stable during page changes
+  // Separate stats query - uses dedicated lightweight endpoint
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ["actions-stats"],
     queryFn: async () => {
-      // Fetch first page to get stats (stats are global, not affected by pagination)
-      const result = await actionsApi.list({ page: 1, limit: 1 });
-      return (result as any)?.stats || null;
+      const response = await fetch('/api/actions/stats');
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
     },
     staleTime: 60000, // Keep stats stable for 1 minute
     refetchOnWindowFocus: false,
@@ -290,7 +290,7 @@ export default function ActionsPage() {
                   subtitle: "past due date",
                   icon: Clock,
                   riskLevel: overdueCount > 0 ? "critical" : "good",
-                  href: "/actions?overdue=true",
+                  onClick: () => setActiveFilter('overdue'),
                   slaInfo: "Requires immediate attention",
                   testId: "hero-overdue-actions",
                 },
@@ -300,7 +300,7 @@ export default function ActionsPage() {
                   subtitle: "24hr SLA",
                   icon: AlertOctagon,
                   riskLevel: emergencyCount > 0 ? "critical" : "good",
-                  href: "/actions?severity=IMMEDIATE",
+                  onClick: () => setActiveFilter('immediate'),
                   slaInfo: "Must respond within 24 hours",
                   testId: "hero-emergency",
                 },
@@ -310,7 +310,7 @@ export default function ActionsPage() {
                   subtitle: "being worked on",
                   icon: Wrench,
                   riskLevel: inProgressCount > 10 ? "medium" : "low",
-                  href: "/actions?status=IN_PROGRESS",
+                  onClick: () => setActiveFilter('in_progress'),
                   testId: "hero-in-progress",
                 },
                 {
@@ -319,7 +319,7 @@ export default function ActionsPage() {
                   subtitle: "awaiting resolution",
                   icon: AlertTriangle,
                   riskLevel: totalOpen > 20 ? "medium" : "low",
-                  href: "/actions?status=OPEN",
+                  onClick: () => setActiveFilter('open'),
                   testId: "hero-total-open",
                 },
               ]}

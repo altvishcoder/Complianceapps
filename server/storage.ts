@@ -162,6 +162,15 @@ export interface IStorage {
   
   // Remedial Actions
   listRemedialActions(organisationId: string, filters?: { propertyId?: string; status?: string; certificateId?: string }): Promise<RemedialAction[]>;
+  listRemedialActionsPaginated(organisationId: string, options: {
+    limit: number;
+    offset: number;
+    status?: string;
+    severity?: string;
+    search?: string;
+    overdue?: boolean;
+    propertyId?: string;
+  }): Promise<{ items: RemedialAction[]; total: number }>;
   getRemedialAction(id: string): Promise<RemedialAction | undefined>;
   createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction>;
   updateRemedialAction(id: string, updates: Partial<InsertRemedialAction>): Promise<RemedialAction | undefined>;
@@ -1193,6 +1202,62 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(remedialActions.createdAt))
       .then(results => results.map(r => r.actions));
+  }
+  
+  async listRemedialActionsPaginated(organisationId: string, options: {
+    limit: number;
+    offset: number;
+    status?: string;
+    severity?: string;
+    search?: string;
+    overdue?: boolean;
+    propertyId?: string;
+  }): Promise<{ items: RemedialAction[]; total: number }> {
+    const { limit, offset, status, severity, search, overdue, propertyId } = options;
+    
+    // Build conditions with SQL template for complex filters
+    const conditions: any[] = [eq(certificates.organisationId, organisationId)];
+    
+    if (propertyId) {
+      conditions.push(eq(remedialActions.propertyId, propertyId));
+    }
+    
+    if (status) {
+      conditions.push(eq(remedialActions.status, status as any));
+    }
+    
+    if (severity) {
+      conditions.push(eq(remedialActions.severity, severity as any));
+    }
+    
+    if (overdue) {
+      conditions.push(sql`${remedialActions.status} = 'OPEN' AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
+    }
+    
+    if (search) {
+      const searchPattern = `%${search.toLowerCase()}%`;
+      conditions.push(sql`(LOWER(${remedialActions.code}) LIKE ${searchPattern} OR LOWER(${remedialActions.description}) LIKE ${searchPattern})`);
+    }
+    
+    // Get count first (single efficient query)
+    const [countResult] = await db.select({ count: sql<number>`COUNT(*)` })
+      .from(remedialActions)
+      .innerJoin(certificates, eq(remedialActions.certificateId, certificates.id))
+      .where(and(...conditions));
+    
+    const total = Number(countResult?.count || 0);
+    
+    // Get paginated items
+    const items = await db.select({ actions: remedialActions })
+      .from(remedialActions)
+      .innerJoin(certificates, eq(remedialActions.certificateId, certificates.id))
+      .where(and(...conditions))
+      .orderBy(desc(remedialActions.createdAt))
+      .limit(limit)
+      .offset(offset)
+      .then(results => results.map(r => r.actions));
+    
+    return { items, total };
   }
   
   async getRemedialAction(id: string): Promise<RemedialAction | undefined> {
