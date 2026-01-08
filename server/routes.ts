@@ -3504,30 +3504,32 @@ export async function registerRoutes(
   });
   
   // Bulk seed tier definitions with realistic data distribution
+  // Bulk seed tier configurations
+  // Data ratios: 3 components/property, 10 certificates/property, 10 remedials/certificate
   const BULK_SEED_TIERS = {
     small: {
       tier: "small" as const,
       label: "Small (5K)",
-      description: "Quick test dataset - 5,000 properties across 10 schemes",
-      estimatedMinutes: 2,
-      config: { schemeCount: 10, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 2 },
-      totals: { schemes: 10, blocks: 100, properties: 5000, spaces: 5000, components: 15000, certificates: 10000, remedials: 3000, contractors: 20, staffMembers: 50, total: 38170 }
+      description: "Quick test dataset - 5,000 properties, 50K certs, 500K remedials",
+      estimatedMinutes: 15,
+      config: { schemeCount: 10, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 10, remedialsPerCertificate: 10 },
+      totals: { schemes: 10, blocks: 100, properties: 5000, spaces: 5000, components: 15000, certificates: 50000, remedials: 500000, contractors: 20, staffMembers: 50, total: 575170 }
     },
     medium: {
       tier: "medium" as const,
       label: "Medium (25K)",
-      description: "Standard load test - 25,000 properties across 50 schemes",
-      estimatedMinutes: 5,
-      config: { schemeCount: 50, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 2 },
-      totals: { schemes: 50, blocks: 500, properties: 25000, spaces: 25000, components: 75000, certificates: 50000, remedials: 15000, contractors: 50, staffMembers: 150, total: 190750 }
+      description: "Standard load test - 25,000 properties, 250K certs, 2.5M remedials",
+      estimatedMinutes: 45,
+      config: { schemeCount: 50, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 10, remedialsPerCertificate: 10 },
+      totals: { schemes: 50, blocks: 500, properties: 25000, spaces: 25000, components: 75000, certificates: 250000, remedials: 2500000, contractors: 50, staffMembers: 150, total: 2875750 }
     },
     large: {
       tier: "large" as const,
       label: "Large (50K)",
-      description: "Enterprise scale test - 50,000 properties across 100 schemes",
-      estimatedMinutes: 12,
-      config: { schemeCount: 100, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 2 },
-      totals: { schemes: 100, blocks: 1000, properties: 50000, spaces: 50000, components: 150000, certificates: 100000, remedials: 30000, contractors: 80, staffMembers: 300, total: 381380 }
+      description: "Enterprise scale test - 50,000 properties, 500K certs, 5M remedials",
+      estimatedMinutes: 90,
+      config: { schemeCount: 100, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 10, remedialsPerCertificate: 10 },
+      totals: { schemes: 100, blocks: 1000, properties: 50000, spaces: 50000, components: 150000, certificates: 500000, remedials: 5000000, contractors: 80, staffMembers: 300, total: 5751380 }
     }
   };
 

@@ -193,6 +193,7 @@ export interface SeedConfig {
   propertiesPerBlock?: number;
   componentsPerProperty?: number;
   certificatesPerProperty?: number;
+  remedialsPerCertificate?: number;
   onProgress?: SeedProgressCallback;
   shouldCancel?: () => boolean;
 }
@@ -215,6 +216,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     propertiesPerBlock = 20,
     componentsPerProperty = 4,
     certificatesPerProperty = 3,
+    remedialsPerCertificate = 0, // 0 means use outcome-based logic
     onProgress,
     shouldCancel,
   } = config;
@@ -222,6 +224,9 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
   const targetProperties = schemeCount * blocksPerScheme * propertiesPerBlock;
   const targetComponents = targetProperties * componentsPerProperty;
   const targetCertificates = targetProperties * certificatesPerProperty;
+  const targetRemedials = remedialsPerCertificate > 0 
+    ? targetCertificates * remedialsPerCertificate 
+    : Math.ceil(targetCertificates * 0.3);
 
   console.log("Starting comprehensive demo data generation...");
   console.log(`Target: ${schemeCount} schemes, ${schemeCount * blocksPerScheme} blocks, ${targetProperties} properties`);
@@ -353,10 +358,15 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
           });
         }
 
-        const certTypes = ["GAS_SAFETY", "EICR", "EPC", "FIRE_RISK_ASSESSMENT"] as const;
-        for (let ct = 0; ct < Math.min(certificatesPerProperty, certTypes.length); ct++) {
+        // Extended certificate types to support 10+ per property
+        const certTypes = [
+          "GAS_SAFETY", "EICR", "EPC", "FIRE_RISK_ASSESSMENT", 
+          "LEGIONELLA_ASSESSMENT", "ASBESTOS_SURVEY", "LIFT_LOLER",
+          "GAS_SAFETY", "EICR", "FIRE_RISK_ASSESSMENT" // Allow duplicates for cycling
+        ] as const;
+        for (let ct = 0; ct < certificatesPerProperty; ct++) {
           certIndex++;
-          const certType = certTypes[ct];
+          const certType = certTypes[ct % certTypes.length];
           
           let issueDate: string;
           let expiryDate: string;
@@ -396,8 +406,14 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
           };
 
           const actions: any[] = [];
-          if (outcome === "UNSATISFACTORY" || outcome === "FAIL" || outcome === "AT_RISK") {
-            const actionCount = randomInt(1, 3);
+          // Generate remedials either based on outcome or fixed count
+          const shouldGenerateRemedials = remedialsPerCertificate > 0 || 
+            outcome === "UNSATISFACTORY" || outcome === "FAIL" || outcome === "AT_RISK";
+          
+          if (shouldGenerateRemedials) {
+            const actionCount = remedialsPerCertificate > 0 
+              ? remedialsPerCertificate 
+              : randomInt(1, 3);
             
             for (let a = 0; a < actionCount; a++) {
               const severityRoll = Math.random();
@@ -478,7 +494,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
         if (allActions.length > 0) {
           await db.insert(remedialActions).values(allActions);
           stats.remedialActions += allActions.length;
-          onProgress?.("remedials", stats.remedialActions, Math.ceil(targetCertificates * 0.3));
+          onProgress?.("remedials", stats.remedialActions, targetRemedials);
         }
       }
     }
@@ -817,8 +833,20 @@ export async function generateBulkDemoData(
   const blocksPerScheme = 10;
   const schemeCount = Math.ceil(targetProperties / (propertiesPerBlock * blocksPerScheme));
   
+  // Data ratios:
+  // - 3 components per property
+  // - 10 certificates per property (10x properties)
+  // - 10 remedials per certificate (10x certificates)
+  const certificatesPerProperty = 10;
+  const remedialsPerCertificate = 10;
+  
+  const totalCertificates = targetProperties * certificatesPerProperty;
+  const totalRemedials = totalCertificates * remedialsPerCertificate;
+  
   console.log(`🚀 Starting BULK seed for ${targetProperties.toLocaleString()} properties...`);
   console.log(`   Configuration: ${schemeCount} schemes × ${blocksPerScheme} blocks × ${propertiesPerBlock} properties`);
+  console.log(`   Certificates: ${totalCertificates.toLocaleString()} (${certificatesPerProperty} per property)`);
+  console.log(`   Remedials: ${totalRemedials.toLocaleString()} (${remedialsPerCertificate} per certificate)`);
   console.log(`   Distribution: ${UK_CITIES.length} UK regions, ~${Math.ceil(schemeCount / UK_CITIES.length)} schemes per region`);
   
   return generateComprehensiveDemoData({
@@ -826,8 +854,9 @@ export async function generateBulkDemoData(
     schemeCount,
     blocksPerScheme,
     propertiesPerBlock,
-    componentsPerProperty: 3, // Reduced for bulk to speed up seeding
-    certificatesPerProperty: 2, // Reduced for bulk to speed up seeding
+    componentsPerProperty: 3,
+    certificatesPerProperty,
+    remedialsPerCertificate,
     onProgress,
     shouldCancel,
   });
