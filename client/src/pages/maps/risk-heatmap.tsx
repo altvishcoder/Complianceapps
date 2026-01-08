@@ -90,29 +90,23 @@ export default function RiskHeatmapPage() {
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
       
-      // For property level, fetch from the main geo endpoint (full 21k+ properties)
+      // For property level, use the risk areas endpoint with property level
+      // This ensures streams filter works for property level too
       if (filters.level === 'property') {
-        const res = await fetch('/api/properties/geo', {
+        const params = new URLSearchParams({ level: 'property' });
+        if (filters.streams !== 'all' && Array.isArray(filters.streams) && filters.streams.length > 0) {
+          params.set('streams', filters.streams.join(','));
+        }
+        if (filters.showOnlyAtRisk) {
+          params.set('maxScore', '85');
+        }
+        
+        const res = await fetch(`/api/risk/areas?${params}`, {
           headers: { 'X-User-Id': userId || '' }
         });
         if (!res.ok) return sampleAreas;
-        const properties = await res.json();
-        // Transform to AreaRisk format
-        return properties.map((p: any) => ({
-          id: p.id,
-          name: p.name || p.address,
-          level: 'property' as const,
-          lat: p.lat,
-          lng: p.lng,
-          riskScore: {
-            compositeScore: p.riskScore || 0,
-            trend: 'stable' as const,
-            propertyCount: 1,
-            unitCount: 1,
-            streams: [],
-            defects: { critical: 0, major: 0, minor: 0 }
-          }
-        }));
+        const data = await res.json();
+        return data.length > 0 ? data : sampleAreas;
       }
       
       // For ward/estate aggregation, use the risk areas endpoint
