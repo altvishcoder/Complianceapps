@@ -130,8 +130,15 @@ export default function RiskHeatmapPage() {
                 </Button>
               </div>
               
-              <div className="absolute bottom-4 left-4 z-[1000]">
+              <div className="absolute bottom-4 left-4 z-[1000] space-y-2">
                 <RiskLegend />
+                {hasStreamFilter && (
+                  <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs border">
+                    <span className="text-muted-foreground">Filtered by: </span>
+                    <span className="font-medium text-primary">{streamLabel}</span>
+                    <span className="text-muted-foreground ml-2">({filteredAreas.length} areas)</span>
+                  </div>
+                )}
               </div>
               
               {!selectedArea && !isLoading && (
