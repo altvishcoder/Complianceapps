@@ -138,6 +138,18 @@ export default function ActionsPage() {
     ? 'URGENT' 
     : undefined;
   
+  // Separate stats query - doesn't depend on pagination, stays stable during page changes
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["actions-stats"],
+    queryFn: async () => {
+      // Fetch first page to get stats (stats are global, not affected by pagination)
+      const result = await actionsApi.list({ page: 1, limit: 1 });
+      return (result as any)?.stats || null;
+    },
+    staleTime: 60000, // Keep stats stable for 1 minute
+    refetchOnWindowFocus: false,
+  });
+  
   const { data: paginatedData, isLoading: isLoadingActions, isFetching } = useQuery({
     queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter],
     queryFn: () => actionsApi.list({ 
@@ -148,14 +160,15 @@ export default function ActionsPage() {
       search: debouncedSearch || undefined,
       overdue: isOverdueFilter || undefined
     }),
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
   
   const remedialActions = paginatedData?.data || [];
   const totalPages = paginatedData?.totalPages || 1;
   const totalItems = paginatedData?.total || 0;
   
-  // Stats from API (counts across entire dataset, not just current page)
-  const apiStats = (paginatedData as any)?.stats || null;
+  // Use separate stats query for stable hero stats (won't change on pagination)
+  const apiStats = statsData || null;
   
   // Use API stats for accurate counts, fallback to current-page calculation
   const totalOpen = apiStats?.totalOpen ?? totalItems;
@@ -266,7 +279,7 @@ export default function ActionsPage() {
             </div>
           </div>
 
-          {isLoadingActions && !apiStats ? (
+          {isLoadingStats ? (
             <HeroStatsGridSkeleton count={4} />
           ) : (
             <HeroStatsGrid
