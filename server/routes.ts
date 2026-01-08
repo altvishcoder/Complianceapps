@@ -822,8 +822,8 @@ export async function registerRoutes(
   app.get("/api/asset-health/summary", async (req, res) => {
     try {
       const organisationId = req.session?.organisationId || ORG_ID;
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const nowStr = new Date().toISOString().split('T')[0];
+      const thirtyDaysStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const result = await db.execute(sql`
         WITH property_compliance AS (
@@ -835,22 +835,22 @@ export async function registerRoutes(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
                AND c.status = 'APPROVED' 
-               AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
+               AND (c.expiry_date IS NULL OR c.expiry_date > ${nowStr})), 0
             ) as compliant_certs,
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
                AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
-               AND c.expiry_date <= ${now}), 0
+               AND c.expiry_date <= ${nowStr}), 0
             ) as expired_certs,
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
                AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
-               AND c.expiry_date > ${now} 
-               AND c.expiry_date <= ${thirtyDaysFromNow}), 0
+               AND c.expiry_date > ${nowStr} 
+               AND c.expiry_date <= ${thirtyDaysStr}), 0
             ) as expiring_certs
           FROM properties p
           INNER JOIN blocks b ON p.block_id = b.id
@@ -938,8 +938,8 @@ export async function registerRoutes(
     try {
       const { schemeId } = req.params;
       const organisationId = req.session?.organisationId || ORG_ID;
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const nowStr = new Date().toISOString().split('T')[0];
+      const thirtyDaysStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const result = await db.execute(sql`
         WITH property_compliance AS (
@@ -950,22 +950,22 @@ export async function registerRoutes(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
                AND c.status = 'APPROVED' 
-               AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
+               AND (c.expiry_date IS NULL OR c.expiry_date > ${nowStr})), 0
             ) as compliant_certs,
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
                AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
-               AND c.expiry_date <= ${now}), 0
+               AND c.expiry_date <= ${nowStr}), 0
             ) as expired_certs,
             COALESCE(
               (SELECT COUNT(*) FROM certificates c 
                WHERE c.property_id = p.id 
                AND c.status = 'APPROVED'
                AND c.expiry_date IS NOT NULL 
-               AND c.expiry_date > ${now} 
-               AND c.expiry_date <= ${thirtyDaysFromNow}), 0
+               AND c.expiry_date > ${nowStr} 
+               AND c.expiry_date <= ${thirtyDaysStr}), 0
             ) as expiring_certs
           FROM properties p
           INNER JOIN blocks b ON p.block_id = b.id
@@ -1029,8 +1029,8 @@ export async function registerRoutes(
     try {
       const { blockId } = req.params;
       const organisationId = req.session?.organisationId || ORG_ID;
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const nowStr = new Date().toISOString().split('T')[0];
+      const thirtyDaysStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const result = await db.execute(sql`
         SELECT 
@@ -1041,27 +1041,27 @@ export async function registerRoutes(
             (SELECT COUNT(*) FROM certificates c 
              WHERE c.property_id = p.id 
              AND c.status = 'APPROVED' 
-             AND (c.expiry_date IS NULL OR c.expiry_date > ${now})), 0
+             AND (c.expiry_date IS NULL OR c.expiry_date > ${nowStr})), 0
           )::int as compliant_certs,
           COALESCE(
             (SELECT COUNT(*) FROM certificates c 
              WHERE c.property_id = p.id 
              AND c.status = 'APPROVED'
              AND c.expiry_date IS NOT NULL 
-             AND c.expiry_date <= ${now}), 0
+             AND c.expiry_date <= ${nowStr}), 0
           )::int as expired_certs,
           COALESCE(
             (SELECT COUNT(*) FROM certificates c 
              WHERE c.property_id = p.id 
              AND c.status = 'APPROVED'
              AND c.expiry_date IS NOT NULL 
-             AND c.expiry_date > ${now} 
-             AND c.expiry_date <= ${thirtyDaysFromNow}), 0
+             AND c.expiry_date > ${nowStr} 
+             AND c.expiry_date <= ${thirtyDaysStr}), 0
           )::int as expiring_certs,
           CASE 
-            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND c.expiry_date IS NOT NULL AND c.expiry_date <= ${now}) > 0 THEN 'expired'
-            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND c.expiry_date IS NOT NULL AND c.expiry_date > ${now} AND c.expiry_date <= ${thirtyDaysFromNow}) > 0 THEN 'at_risk'
-            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND (c.expiry_date IS NULL OR c.expiry_date > ${now})) > 0 THEN 'compliant'
+            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND c.expiry_date IS NOT NULL AND c.expiry_date <= ${nowStr}) > 0 THEN 'expired'
+            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND c.expiry_date IS NOT NULL AND c.expiry_date > ${nowStr} AND c.expiry_date <= ${thirtyDaysStr}) > 0 THEN 'at_risk'
+            WHEN (SELECT COUNT(*) FROM certificates c WHERE c.property_id = p.id AND c.status = 'APPROVED' AND (c.expiry_date IS NULL OR c.expiry_date > ${nowStr})) > 0 THEN 'compliant'
             ELSE 'no_data'
           END as compliance_status
         FROM properties p
