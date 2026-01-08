@@ -1606,20 +1606,17 @@ export async function registerRoutes(
       }
       
       // Try mv_risk_aggregates materialized view first (fast path)
-      // Join through blocks → schemes to filter by organisation
+      // Query directly from pre-computed view - no joins needed for aggregate stats
       try {
         const mvResult = await db.execute(sql`
           SELECT 
             COUNT(*) as total,
-            COALESCE(SUM(mv.risk_score), 0) as total_score,
-            COUNT(*) FILTER (WHERE mv.risk_score >= 45) as critical,
-            COUNT(*) FILTER (WHERE mv.risk_score >= 35 AND mv.risk_score < 45) as high,
-            COUNT(*) FILTER (WHERE mv.risk_score >= 20 AND mv.risk_score < 35) as medium,
-            COUNT(*) FILTER (WHERE mv.risk_score < 20) as low
-          FROM mv_risk_aggregates mv
-          JOIN blocks b ON b.id = mv.block_id
-          JOIN schemes s ON s.id = b.scheme_id
-          WHERE s.organisation_id = ${ORG_ID} AND s.deleted_at IS NULL
+            COALESCE(SUM(risk_score), 0) as total_score,
+            COUNT(*) FILTER (WHERE risk_score >= 45) as critical,
+            COUNT(*) FILTER (WHERE risk_score >= 35 AND risk_score < 45) as high,
+            COUNT(*) FILTER (WHERE risk_score >= 20 AND risk_score < 35) as medium,
+            COUNT(*) FILTER (WHERE risk_score < 20) as low
+          FROM mv_risk_aggregates
         `);
         
         if (mvResult.rows && mvResult.rows.length > 0) {
