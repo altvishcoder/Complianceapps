@@ -673,7 +673,41 @@ export class DatabaseStorage implements IStorage {
     properties: number;
     spaces: number;
     components: number;
+    fromCache?: boolean;
   }> {
+    // Try materialized view first for faster response
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          (SELECT COUNT(*) FROM organisations) as org_count,
+          COALESCE(SUM(scheme_count), 0) as scheme_count,
+          COALESCE(SUM(block_count), 0) as block_count,
+          COALESCE(SUM(property_count), 0) as property_count,
+          COALESCE(SUM(space_count), 0) as space_count,
+          COALESCE(SUM(component_count), 0) as component_count
+        FROM mv_property_hierarchy_rollup
+      `);
+      if (result.rows && result.rows.length > 0) {
+        const row = result.rows[0] as any;
+        const schemeCount = Number(row.scheme_count) || 0;
+        // Only use cached data if view has data (scheme_count > 0 indicates populated view)
+        if (schemeCount > 0 || Number(row.property_count) > 0) {
+          return {
+            organisations: Number(row.org_count) || 0,
+            schemes: schemeCount,
+            blocks: Number(row.block_count) || 0,
+            properties: Number(row.property_count) || 0,
+            spaces: Number(row.space_count) || 0,
+            components: Number(row.component_count) || 0,
+            fromCache: true,
+          };
+        }
+      }
+    } catch (e) {
+      // View doesn't exist, fall back to live queries
+    }
+    
+    // Fallback to live table queries
     const [orgCount] = await db.select({ count: count() }).from(organisations);
     const [schemeCount] = await db.select({ count: count() }).from(schemes);
     const [blockCount] = await db.select({ count: count() }).from(blocks);
@@ -688,6 +722,7 @@ export class DatabaseStorage implements IStorage {
       properties: propertyCount?.count ?? 0,
       spaces: spaceCount?.count ?? 0,
       components: componentCount?.count ?? 0,
+      fromCache: false,
     };
   }
   

@@ -709,6 +709,107 @@ CREATE INDEX IF NOT EXISTS mv_contractor_sla_status_idx ON mv_contractor_sla(sta
 `;
 
 // ============================================================================
+// Board Reporting Views (for /api/board-report/stats and reports pages)
+// ============================================================================
+
+export const boardReportViewDefinitions = `
+-- Board report summary - pre-aggregated portfolio KPIs
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_board_report_summary AS
+SELECT
+    org.id AS organisation_id,
+    COUNT(DISTINCT prop.id) AS total_properties,
+    COUNT(DISTINCT prop.id) FILTER (WHERE prop.compliance_status = 'COMPLIANT') AS compliant_properties,
+    COUNT(DISTINCT prop.id) FILTER (WHERE prop.compliance_status = 'NON_COMPLIANT') AS non_compliant_properties,
+    COUNT(c.id) AS total_certificates,
+    COUNT(c.id) FILTER (WHERE c.status IN ('APPROVED','EXTRACTED')) AS valid_certificates,
+    COUNT(c.id) FILTER (WHERE c.status IN ('FAILED','EXPIRED')) AS failed_certificates,
+    COUNT(c.id) FILTER (WHERE c.status IN ('PENDING','NEEDS_REVIEW')) AS pending_certificates,
+    COUNT(ra.id) AS total_remedials,
+    COUNT(ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED','CANCELLED')) AS open_remedials,
+    COUNT(ra.id) FILTER (WHERE ra.status = 'COMPLETED') AS completed_remedials,
+    COUNT(ra.id) FILTER (WHERE ra.severity = 'URGENT' AND ra.status NOT IN ('COMPLETED','CANCELLED')) AS urgent_remedials,
+    COUNT(c.id) FILTER (WHERE c.expiry_date < NOW() AND c.status IN ('APPROVED','EXTRACTED')) AS overdue_certificates,
+    COUNT(c.id) FILTER (WHERE c.expiry_date BETWEEN NOW() AND NOW() + INTERVAL '30 days' AND c.status IN ('APPROVED','EXTRACTED')) AS expiring_soon,
+    CASE 
+        WHEN COUNT(c.id) > 0 
+        THEN ROUND((COUNT(c.id) FILTER (WHERE c.status IN ('APPROVED','EXTRACTED'))::numeric / NULLIF(COUNT(c.id), 0)) * 100)
+        ELSE 0 
+    END AS compliance_rate,
+    NOW() AS refreshed_at
+FROM organisations org
+LEFT JOIN properties prop ON prop.organisation_id = org.id AND prop.deleted_at IS NULL
+LEFT JOIN certificates c ON c.property_id = prop.id AND c.deleted_at IS NULL
+LEFT JOIN remedial_actions ra ON ra.property_id = prop.id AND ra.deleted_at IS NULL
+GROUP BY org.id;
+
+-- Property hierarchy rollup - pre-computed counts for hierarchy navigation
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_property_hierarchy_rollup AS
+SELECT
+    org.id AS organisation_id,
+    COUNT(DISTINCT sch.id) AS scheme_count,
+    COUNT(DISTINCT blk.id) AS block_count,
+    COUNT(DISTINCT prop.id) AS property_count,
+    COUNT(DISTINCT sp.id) AS space_count,
+    COUNT(DISTINCT comp.id) AS component_count,
+    NOW() AS refreshed_at
+FROM organisations org
+LEFT JOIN schemes sch ON sch.organisation_id = org.id AND sch.deleted_at IS NULL
+LEFT JOIN blocks blk ON blk.scheme_id = sch.id AND blk.deleted_at IS NULL
+LEFT JOIN properties prop ON prop.block_id = blk.id AND prop.deleted_at IS NULL
+LEFT JOIN spaces sp ON (sp.property_id = prop.id OR sp.block_id = blk.id OR sp.scheme_id = sch.id)
+LEFT JOIN components comp ON comp.property_id = prop.id AND comp.is_active = TRUE
+GROUP BY org.id;
+
+-- Scheme-level hierarchy counts for lazy loading
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_scheme_hierarchy_counts AS
+SELECT
+    sch.id AS scheme_id,
+    sch.name AS scheme_name,
+    sch.organisation_id,
+    COUNT(DISTINCT blk.id) AS block_count,
+    COUNT(DISTINCT prop.id) AS property_count,
+    COUNT(DISTINCT sp.id) AS space_count,
+    COUNT(DISTINCT comp.id) AS component_count,
+    NOW() AS refreshed_at
+FROM schemes sch
+LEFT JOIN blocks blk ON blk.scheme_id = sch.id AND blk.deleted_at IS NULL
+LEFT JOIN properties prop ON prop.block_id = blk.id AND prop.deleted_at IS NULL
+LEFT JOIN spaces sp ON (sp.property_id = prop.id OR sp.block_id = blk.id OR sp.scheme_id = sch.id)
+LEFT JOIN components comp ON comp.property_id = prop.id AND comp.is_active = TRUE
+WHERE sch.deleted_at IS NULL
+GROUP BY sch.id, sch.name, sch.organisation_id;
+
+-- Block-level hierarchy counts for lazy loading
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_block_hierarchy_counts AS
+SELECT
+    blk.id AS block_id,
+    blk.name AS block_name,
+    blk.scheme_id,
+    COUNT(DISTINCT prop.id) AS property_count,
+    COUNT(DISTINCT sp.id) AS space_count,
+    COUNT(DISTINCT comp.id) AS component_count,
+    NOW() AS refreshed_at
+FROM blocks blk
+LEFT JOIN properties prop ON prop.block_id = blk.id AND prop.deleted_at IS NULL
+LEFT JOIN spaces sp ON (sp.property_id = prop.id OR sp.block_id = blk.id)
+LEFT JOIN components comp ON comp.property_id = prop.id AND comp.is_active = TRUE
+WHERE blk.deleted_at IS NULL
+GROUP BY blk.id, blk.name, blk.scheme_id;
+`;
+
+export const boardReportViewIndexDefinitions = `
+-- Board report view indexes
+CREATE UNIQUE INDEX IF NOT EXISTS mv_board_report_summary_org_idx ON mv_board_report_summary(organisation_id);
+
+-- Hierarchy rollup indexes
+CREATE UNIQUE INDEX IF NOT EXISTS mv_property_hierarchy_rollup_org_idx ON mv_property_hierarchy_rollup(organisation_id);
+CREATE UNIQUE INDEX IF NOT EXISTS mv_scheme_hierarchy_counts_scheme_idx ON mv_scheme_hierarchy_counts(scheme_id);
+CREATE INDEX IF NOT EXISTS mv_scheme_hierarchy_counts_org_idx ON mv_scheme_hierarchy_counts(organisation_id);
+CREATE UNIQUE INDEX IF NOT EXISTS mv_block_hierarchy_counts_block_idx ON mv_block_hierarchy_counts(block_id);
+CREATE INDEX IF NOT EXISTS mv_block_hierarchy_counts_scheme_idx ON mv_block_hierarchy_counts(scheme_id);
+`;
+
+// ============================================================================
 // View Category Metadata for Admin UI
 // ============================================================================
 
@@ -721,7 +822,7 @@ export const materializedViewCategories = {
   hierarchy: {
     name: 'UKHDS 5-Level Hierarchy',
     description: 'Scheme → Block → Property → Space → Component rollups',
-    views: ['mv_scheme_rollup', 'mv_block_rollup', 'mv_property_summary']
+    views: ['mv_scheme_rollup', 'mv_block_rollup', 'mv_property_summary', 'mv_property_hierarchy_rollup', 'mv_scheme_hierarchy_counts', 'mv_block_hierarchy_counts']
   },
   risk: {
     name: 'Risk & ML',
@@ -742,6 +843,11 @@ export const materializedViewCategories = {
     name: 'Contractor Performance',
     description: 'SLA tracking and contractor metrics',
     views: ['mv_contractor_sla']
+  },
+  boardReport: {
+    name: 'Board Reporting',
+    description: 'Pre-aggregated portfolio KPIs for board reports',
+    views: ['mv_board_report_summary']
   }
 };
 
@@ -753,6 +859,7 @@ ${riskViewDefinitions}
 ${operationalViewDefinitions}
 ${regulatoryViewDefinitions}
 ${contractorViewDefinitions}
+${boardReportViewDefinitions}
 `;
 
 export const allMaterializedViewIndexDefinitions = `
@@ -762,6 +869,7 @@ ${riskViewIndexDefinitions}
 ${operationalViewIndexDefinitions}
 ${regulatoryViewIndexDefinitions}
 ${contractorViewIndexDefinitions}
+${boardReportViewIndexDefinitions}
 `;
 
 // ============================================================================
