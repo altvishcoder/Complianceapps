@@ -11,43 +11,43 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 
 const PageLoader = () => (
-  <div className="flex h-screen bg-muted/30">
-    <aside className="hidden md:flex w-72 flex-col bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/5">
-      <div className="h-20 px-6 flex items-center border-b border-slate-200 dark:border-white/5">
+  <div className="flex h-screen bg-background">
+    <aside className="hidden md:flex w-72 flex-col bg-card border-r border-border">
+      <div className="h-20 px-6 flex items-center border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 animate-pulse" />
+          <div className="w-11 h-11 rounded-xl bg-primary/20 animate-pulse" />
           <div className="space-y-1.5">
-            <div className="h-5 w-28 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-            <div className="h-3 w-20 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+            <div className="h-5 w-28 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-20 bg-muted rounded animate-pulse" />
           </div>
         </div>
       </div>
       <div className="flex-1 p-3 space-y-2">
-        <div className="h-9 w-full bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse" />
+        <div className="h-9 w-full bg-muted rounded-lg animate-pulse" />
         {[1, 2, 3, 4, 5].map(i => (
-          <div key={i} className="h-8 w-full bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
+          <div key={i} className="h-8 w-full bg-muted rounded-lg animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
         ))}
       </div>
     </aside>
     <div className="flex-1 flex flex-col overflow-hidden">
-      <header className="h-16 px-4 flex items-center justify-between border-b border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950">
-        <div className="h-7 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+      <header className="h-16 px-4 flex items-center justify-between border-b border-border bg-card">
+        <div className="h-7 w-40 bg-muted rounded animate-pulse" />
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
-          <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+          <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+          <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
         </div>
       </header>
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-4">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="p-6 rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900">
-                <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse mb-3" />
-                <div className="h-8 w-16 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+              <div key={i} className="p-6 rounded-xl border border-border bg-card">
+                <div className="h-4 w-24 bg-muted rounded animate-pulse mb-3" />
+                <div className="h-8 w-16 bg-muted rounded animate-pulse" />
               </div>
             ))}
           </div>
-          <div className="h-64 rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 animate-pulse" />
+          <div className="h-64 rounded-xl border border-border bg-card animate-pulse" />
         </div>
       </main>
     </div>
