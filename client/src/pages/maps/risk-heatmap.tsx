@@ -86,8 +86,9 @@ export default function RiskHeatmapPage() {
   
   // For property level, use the geo endpoint with full data; for aggregated views use risk/areas
   const { data: areas = sampleAreas, isLoading, refetch } = useQuery({
-    queryKey: ['risk-areas', filters],
+    queryKey: ['risk-areas', filters.level, filters.streams, filters.period, filters.showOnlyAtRisk],
     queryFn: async () => {
+      console.log('Fetching risk areas with filters:', filters);
       const userId = localStorage.getItem('user_id');
       
       // For property level, use the risk areas endpoint with property level
@@ -126,9 +127,10 @@ export default function RiskHeatmapPage() {
       });
       if (!res.ok) return sampleAreas;
       const data = await res.json();
+      console.log('API returned', data.length, 'areas for filters:', filters);
       return data.length > 0 ? data : sampleAreas;
     },
-    staleTime: 30000,
+    staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
