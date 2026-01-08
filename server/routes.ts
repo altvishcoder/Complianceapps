@@ -2606,9 +2606,9 @@ export async function registerRoutes(
       
       const [stats] = await db.select({
         totalJobs: count(),
-        slaMetCount: sql<number>`COUNT(*) FILTER (WHERE ${contractorJobPerformance.slaMet} = true)`,
-        averageResponseTime: sql<number>`AVG(${contractorJobPerformance.responseTimeDays})`,
-        averageCompletionTime: sql<number>`AVG(${contractorJobPerformance.completionTimeDays})`,
+        slaMetCount: sql<number>`COUNT(*) FILTER (WHERE ${contractorJobPerformance.slaStatus} IN ('COMPLETED', 'ON_TRACK'))`,
+        averageResponseTime: sql<number>`AVG(${contractorJobPerformance.responseTimeMinutes})`,
+        averageCompletionTime: sql<number>`AVG(${contractorJobPerformance.completionTimeMinutes})`,
       })
       .from(contractorJobPerformance)
       .where(eq(contractorJobPerformance.contractorId, req.params.contractorId));
@@ -2622,8 +2622,8 @@ export async function registerRoutes(
         summary: {
           totalJobs: stats.totalJobs,
           slaComplianceRate,
-          averageResponseDays: Math.round((stats.averageResponseTime || 0) * 10) / 10,
-          averageCompletionDays: Math.round((stats.averageCompletionTime || 0) * 10) / 10,
+          averageResponseMinutes: Math.round(stats.averageResponseTime || 0),
+          averageCompletionMinutes: Math.round(stats.averageCompletionTime || 0),
         }
       });
     } catch (error) {
@@ -2684,10 +2684,10 @@ export async function registerRoutes(
       const [stats] = await db.select({
         totalRatings: count(),
         averageOverall: sql<number>`AVG(${contractorRatings.overallRating})`,
-        averageQuality: sql<number>`AVG(${contractorRatings.qualityOfWork})`,
-        averageTimeliness: sql<number>`AVG(${contractorRatings.timeliness})`,
-        averageCommunication: sql<number>`AVG(${contractorRatings.communication})`,
-        averageProfessionalism: sql<number>`AVG(${contractorRatings.professionalism})`,
+        averageQuality: sql<number>`AVG(${contractorRatings.qualityRating})`,
+        averageTimeliness: sql<number>`AVG(${contractorRatings.timelinessRating})`,
+        averageCommunication: sql<number>`AVG(${contractorRatings.communicationRating})`,
+        averageSafety: sql<number>`AVG(${contractorRatings.safetyRating})`,
       })
       .from(contractorRatings)
       .where(eq(contractorRatings.contractorId, req.params.contractorId));
@@ -2700,7 +2700,7 @@ export async function registerRoutes(
           averageQuality: Math.round((stats.averageQuality || 0) * 10) / 10,
           averageTimeliness: Math.round((stats.averageTimeliness || 0) * 10) / 10,
           averageCommunication: Math.round((stats.averageCommunication || 0) * 10) / 10,
-          averageProfessionalism: Math.round((stats.averageProfessionalism || 0) * 10) / 10,
+          averageSafety: Math.round((stats.averageSafety || 0) * 10) / 10,
         }
       });
     } catch (error) {
