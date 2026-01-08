@@ -8890,6 +8890,10 @@ export async function registerRoutes(
   
   const riskScoringModule = await import('./services/risk-scoring');
 
+  // Cache for portfolio summary (60 second TTL)
+  let portfolioSummaryCache: { data: any; timestamp: number; orgId: string } | null = null;
+  const PORTFOLIO_CACHE_TTL = 60000;
+
   app.get("/api/risk/portfolio-summary", async (req, res) => {
     try {
       const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
@@ -8902,7 +8906,23 @@ export async function registerRoutes(
         return res.status(403).json({ error: "No organisation access" });
       }
 
+      // Check cache
+      const now = Date.now();
+      if (portfolioSummaryCache && 
+          portfolioSummaryCache.orgId === user.organisationId &&
+          (now - portfolioSummaryCache.timestamp) < PORTFOLIO_CACHE_TTL) {
+        return res.json(portfolioSummaryCache.data);
+      }
+
       const summary = await riskScoringModule.getPortfolioRiskSummary(user.organisationId);
+      
+      // Update cache
+      portfolioSummaryCache = {
+        data: summary,
+        timestamp: now,
+        orgId: user.organisationId
+      };
+
       res.json(summary);
     } catch (error) {
       console.error("Error fetching portfolio risk summary:", error);
