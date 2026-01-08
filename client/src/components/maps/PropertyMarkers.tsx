@@ -277,7 +277,7 @@ export function PropertyMarkers({ properties, onPropertyClick }: PropertyMarkers
                   )}
                 </div>
               </Popup>
-            </Marker>
+            </RiskMarker>
           );
         })}
       </MarkerClusterGroup>
