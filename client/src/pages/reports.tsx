@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FileText, BarChart3, Download, Building2, Flame, AlertTriangle, CheckCircle, Clock, ShieldAlert, Loader2, Info, TrendingUp } from "lucide-react";
+import { FileText, BarChart3, Download, Building2, Flame, AlertTriangle, CheckCircle, Clock, ShieldAlert, Info, TrendingUp } from "lucide-react";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { reportsApi } from "@/lib/api";
 
 const METRIC_ICONS: Record<string, any> = {
@@ -89,8 +90,16 @@ export default function Reports() {
             
             <TabsContent value="tsm" className="space-y-6">
               {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-9 w-28" />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[...Array(6)].map((_, i) => (
+                      <CardSkeleton key={i} contentHeight={120} />
+                    ))}
+                  </div>
                   <span className="sr-only">Loading report data</span>
                 </div>
               ) : error ? (
