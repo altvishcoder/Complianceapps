@@ -27,7 +27,7 @@ import { z } from "zod";
 import { processExtractionAndSave } from "./extraction";
 import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { eq, desc, and, count, sql, isNotNull, lt, gte, inArray } from "drizzle-orm";
+import { eq, desc, and, count, sql, isNotNull, lt, gte, inArray, or, type SQL } from "drizzle-orm";
 import { addSSEClient, removeSSEClient, getSSEClientCount } from "./events";
 import { 
   parseCSV, 
@@ -6431,7 +6431,7 @@ export async function registerRoutes(
   app.get("/api/components", paginationMiddleware(), async (req, res) => {
     try {
       const pagination = (req as any).pagination as PaginationParams;
-      const { page, limit, offset, hasFilters } = pagination;
+      const { page, limit, offset } = pagination;
       const search = req.query.search as string | undefined;
       const filters = {
         propertyId: req.query.propertyId as string | undefined,
@@ -6439,51 +6439,69 @@ export async function registerRoutes(
         blockId: req.query.blockId as string | undefined,
         componentTypeId: req.query.componentTypeId as string | undefined,
       };
-      const allComponents = await storage.listComponents(filters);
       
-      // Get all component types upfront for search and enrichment
+      // Build conditions array for WHERE clause
+      const conditions: SQL[] = [];
+      if (filters.propertyId) conditions.push(eq(components.propertyId, filters.propertyId));
+      if (filters.spaceId) conditions.push(eq(components.spaceId, filters.spaceId));
+      if (filters.componentTypeId) conditions.push(eq(components.componentTypeId, filters.componentTypeId));
+      if (search) {
+        const searchPattern = `%${search.toLowerCase()}%`;
+        conditions.push(
+          or(
+            sql`LOWER(${components.serialNumber}) LIKE ${searchPattern}`,
+            sql`LOWER(${components.manufacturer}) LIKE ${searchPattern}`,
+            sql`LOWER(${components.model}) LIKE ${searchPattern}`,
+            sql`LOWER(${components.location}) LIKE ${searchPattern}`
+          )!
+        );
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get total count and condition summary with single query
+      const [countResult, summaryResult] = await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` })
+          .from(components)
+          .where(whereClause),
+        db.select({
+          condition: components.condition,
+          count: sql<number>`count(*)::int`
+        })
+          .from(components)
+          .where(whereClause)
+          .groupBy(components.condition)
+      ]);
+      
+      const total = countResult[0]?.count ?? 0;
+      const conditionSummary = {
+        CRITICAL: 0, POOR: 0, FAIR: 0, GOOD: 0, UNKNOWN: 0
+      };
+      for (const row of summaryResult) {
+        const cond = row.condition || 'UNKNOWN';
+        if (cond in conditionSummary) {
+          conditionSummary[cond as keyof typeof conditionSummary] = row.count;
+        }
+      }
+      
+      // Get paginated components with joins
+      const paginatedComponents = await db.select()
+        .from(components)
+        .where(whereClause)
+        .orderBy(desc(components.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Get component types and properties for enrichment
       const allComponentTypes = await storage.listComponentTypes();
       const typeMap = new Map(allComponentTypes.map(t => [t.id, t]));
       
-      // Apply search filter (includes type name search)
-      let filtered = allComponents;
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filtered = allComponents.filter(c => {
-          const typeName = typeMap.get(c.componentTypeId)?.name?.toLowerCase() || '';
-          return (
-            c.serialNumber?.toLowerCase().includes(searchLower) ||
-            c.make?.toLowerCase().includes(searchLower) ||
-            c.model?.toLowerCase().includes(searchLower) ||
-            c.location?.toLowerCase().includes(searchLower) ||
-            typeName.includes(searchLower)
-          );
-        });
-      }
-      
-      const total = filtered.length;
-      
-      // Compute condition summary from all filtered components (not just paginated slice)
-      const conditionSummary = {
-        CRITICAL: filtered.filter(c => c.condition === 'CRITICAL').length,
-        POOR: filtered.filter(c => c.condition === 'POOR').length,
-        FAIR: filtered.filter(c => c.condition === 'FAIR').length,
-        GOOD: filtered.filter(c => c.condition === 'GOOD').length,
-        UNKNOWN: filtered.filter(c => !c.condition || c.condition === 'UNKNOWN').length,
-      };
-      
-      const paginatedComponents = filtered.slice(offset, offset + limit);
-      
-      // Batch fetch properties for the paginated results
       const uniquePropertyIds = Array.from(new Set(paginatedComponents.map(c => c.propertyId).filter((id): id is string => id !== null)));
-      
-      // Fetch all properties in parallel
-      const allProperties = await Promise.all(uniquePropertyIds.map(id => storage.getProperty(id)));
-      
-      // Create property lookup map
+      const allProperties = uniquePropertyIds.length > 0 
+        ? await Promise.all(uniquePropertyIds.map(id => storage.getProperty(id)))
+        : [];
       const propertyMap = new Map(allProperties.filter(Boolean).map(p => [p!.id, { id: p!.id, addressLine1: p!.addressLine1, postcode: p!.postcode }]));
       
-      // Enrich components using lookup maps (no additional DB calls)
       const enriched = paginatedComponents.map(comp => ({
         ...comp,
         componentType: typeMap.get(comp.componentTypeId),
