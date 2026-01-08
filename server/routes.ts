@@ -129,18 +129,31 @@ function calculatePropertyRiskScore(
   return Math.max(0, Math.min(100, Math.round(Math.max(certScore, 30) - criticalPenalty - majorPenalty)));
 }
 
+const CERT_TYPE_TO_STREAM: Record<string, string> = {
+  'GAS_SAFETY': 'gas',
+  'EICR': 'electrical', 
+  'FIRE_RISK_ASSESSMENT': 'fire',
+  'ASBESTOS_SURVEY': 'asbestos',
+  'LIFT_LOLER': 'lift',
+  'LEGIONELLA_ASSESSMENT': 'water',
+  'EPC': 'electrical',
+  'OTHER': 'fire'
+};
+
+function filterCertsByStream(
+  certificates: Array<{ type: string; status: string; expiryDate: string | null }>,
+  streamFilter: string[] | null
+): Array<{ type: string; status: string; expiryDate: string | null }> {
+  if (!streamFilter || streamFilter.length === 0) return certificates;
+  return certificates.filter(c => {
+    const certStream = CERT_TYPE_TO_STREAM[c.type];
+    return certStream && streamFilter.includes(certStream);
+  });
+}
+
 function calculateStreamScores(certificates: Array<{ type: string; status: string; expiryDate: string | null }>) {
   const streams = ['gas', 'electrical', 'fire', 'asbestos', 'lift', 'water'];
-  const typeToStream: Record<string, string> = {
-    'GAS_SAFETY': 'gas',
-    'EICR': 'electrical', 
-    'FIRE_RISK_ASSESSMENT': 'fire',
-    'ASBESTOS_SURVEY': 'asbestos',
-    'LIFT_LOLER': 'lift',
-    'LEGIONELLA_ASSESSMENT': 'water',
-    'EPC': 'electrical',
-    'OTHER': 'fire'
-  };
+  const typeToStream = CERT_TYPE_TO_STREAM;
   
   return streams.map(stream => {
     const streamCerts = certificates.filter(c => typeToStream[c.type] === stream);
@@ -1599,16 +1612,28 @@ export async function registerRoutes(
   
   app.get("/api/risk/areas", async (req, res) => {
     try {
-      const level = (req.query.level as string) || 'property';
+      let level = (req.query.level as string) || 'property';
+      const streamFilter = req.query.streams ? (req.query.streams as string).split(',') : null;
+      
+      // Map 'estate' to 'scheme' for API compatibility
+      if (level === 'estate') level = 'scheme';
+      
       const riskData = await storage.getPropertyRiskData(ORG_ID);
       
       if (level === 'property') {
         const areas = riskData
           .filter(r => r.property.latitude && r.property.longitude)
+          .filter(r => {
+            // If stream filter is set, only include properties with matching certificates
+            if (!streamFilter || streamFilter.length === 0) return true;
+            const filteredCerts = filterCertsByStream(r.certificates, streamFilter);
+            return filteredCerts.length > 0;
+          })
           .map(r => {
             const prop = r.property;
-            const riskScore = calculatePropertyRiskScore(r.certificates, r.actions);
-            const streams = calculateStreamScores(r.certificates);
+            const filteredCerts = filterCertsByStream(r.certificates, streamFilter);
+            const riskScore = calculatePropertyRiskScore(filteredCerts, r.actions);
+            const streamScores = calculateStreamScores(filteredCerts);
             
             return {
               id: prop.id,
@@ -1621,7 +1646,7 @@ export async function registerRoutes(
                 trend: 'stable' as const,
                 propertyCount: 1,
                 unitCount: 1,
-                streams,
+                streams: streamScores,
                 defects: calculateDefects(r.actions)
               }
             };
@@ -1636,6 +1661,11 @@ export async function registerRoutes(
         const schemeMap = new Map<string, typeof riskData>();
         for (const r of riskData) {
           if (!r.property.latitude || !r.property.longitude) continue;
+          // If stream filter is set, only include properties with matching certificates
+          if (streamFilter && streamFilter.length > 0) {
+            const filteredCerts = filterCertsByStream(r.certificates, streamFilter);
+            if (filteredCerts.length === 0) continue;
+          }
           const schemeId = blockToScheme.get(r.property.blockId);
           if (!schemeId) continue;
           if (!schemeMap.has(schemeId)) schemeMap.set(schemeId, []);
@@ -1649,10 +1679,10 @@ export async function registerRoutes(
           const avgLat = schemeProperties.reduce((sum, r) => sum + (r.property.latitude || 0), 0) / schemeProperties.length;
           const avgLng = schemeProperties.reduce((sum, r) => sum + (r.property.longitude || 0), 0) / schemeProperties.length;
           
-          const allCerts = schemeProperties.flatMap(r => r.certificates);
+          const allCerts = filterCertsByStream(schemeProperties.flatMap(r => r.certificates), streamFilter);
           const allActions = schemeProperties.flatMap(r => r.actions);
           const avgScore = Math.round(schemeProperties.reduce((sum, r) => 
-            sum + calculatePropertyRiskScore(r.certificates, r.actions), 0) / schemeProperties.length);
+            sum + calculatePropertyRiskScore(filterCertsByStream(r.certificates, streamFilter), r.actions), 0) / schemeProperties.length);
           
           return {
             id: scheme.id,
@@ -1677,6 +1707,11 @@ export async function registerRoutes(
         
         for (const r of riskData) {
           if (!r.property.latitude || !r.property.longitude) continue;
+          // If stream filter is set, only include properties with matching certificates
+          if (streamFilter && streamFilter.length > 0) {
+            const filteredCerts = filterCertsByStream(r.certificates, streamFilter);
+            if (filteredCerts.length === 0) continue;
+          }
           const wardKey = r.property.wardCode || (r.property.ward ? r.property.ward.toLowerCase().trim() : null);
           if (!wardKey) continue;
           if (!wardMap.has(wardKey)) wardMap.set(wardKey, []);
@@ -1688,10 +1723,10 @@ export async function registerRoutes(
           const avgLat = properties.reduce((sum, r) => sum + (r.property.latitude || 0), 0) / properties.length;
           const avgLng = properties.reduce((sum, r) => sum + (r.property.longitude || 0), 0) / properties.length;
           
-          const allCerts = properties.flatMap(r => r.certificates);
+          const allCerts = filterCertsByStream(properties.flatMap(r => r.certificates), streamFilter);
           const allActions = properties.flatMap(r => r.actions);
           const avgScore = Math.round(properties.reduce((sum, r) => 
-            sum + calculatePropertyRiskScore(r.certificates, r.actions), 0) / properties.length);
+            sum + calculatePropertyRiskScore(filterCertsByStream(r.certificates, streamFilter), r.actions), 0) / properties.length);
           
           return {
             id: `ward-${wardKey}`,

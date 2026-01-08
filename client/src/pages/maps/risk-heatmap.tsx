@@ -122,6 +122,10 @@ export default function RiskHeatmapPage() {
       if (filters.showOnlyAtRisk) {
         params.set('maxScore', '85');
       }
+      // Pass streams filter to API
+      if (filters.streams !== 'all' && Array.isArray(filters.streams) && filters.streams.length > 0) {
+        params.set('streams', filters.streams.join(','));
+      }
       
       const res = await fetch(`/api/risk/areas?${params}`, {
         headers: { 'X-User-Id': userId || '' }
