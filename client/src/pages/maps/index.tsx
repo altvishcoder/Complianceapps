@@ -130,13 +130,13 @@ export default function MapsIndexPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Risk Maps" />
-        <main id="main-content" className="flex-1 overflow-hidden p-4 md:p-6" role="main" aria-label="Risk maps content">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="Risk maps content">
           {showBackButton && (
             <div className="mb-4">
               <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
             </div>
           )}
-          <div className="h-full flex flex-col space-y-4">
+          <div className="flex flex-col space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display">Geographic Risk View</h2>
