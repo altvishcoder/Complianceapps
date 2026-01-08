@@ -122,15 +122,19 @@ function calculatePropertyRiskScore(
   const failedCerts = certificates.filter(c => c.status === 'FAILED' || c.status === 'EXPIRED').length;
   const certScore = ((validCerts - failedCerts * 0.5) / Math.max(certificates.length, 1)) * 100;
   
-  const openActions = actions.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
-  const immediateCount = openActions.filter(a => a.severity === 'IMMEDIATE').length;
-  const urgentCount = openActions.filter(a => a.severity === 'URGENT').length;
+  // Only count truly OPEN actions as problems - IN_PROGRESS and SCHEDULED are being addressed
+  const openActions = actions.filter(a => a.status === 'OPEN');
+  const immediateOpen = openActions.filter(a => a.severity === 'IMMEDIATE').length;
+  const urgentOpen = openActions.filter(a => a.severity === 'URGENT').length;
   
-  // Cap penalties to avoid all scores becoming 0 with demo data
-  const criticalPenalty = Math.min(immediateCount * 5, 30); // Max 30 points penalty
-  const majorPenalty = Math.min(urgentCount * 2, 15); // Max 15 points penalty
+  // Calculate penalty: diminishing returns to spread scores across risk bands
+  // Use logarithmic scaling to avoid extreme penalties from high counts
+  const immediatePenalty = immediateOpen > 0 ? Math.min(Math.log2(immediateOpen + 1) * 8, 25) : 0;
+  const urgentPenalty = urgentOpen > 0 ? Math.min(Math.log2(urgentOpen + 1) * 4, 15) : 0;
   
-  return Math.max(0, Math.min(100, Math.round(Math.max(certScore, 30) - criticalPenalty - majorPenalty)));
+  // Final score: certs are valid (100) minus action penalties (max ~40)
+  // This gives scores ranging from ~60-100 for valid certs
+  return Math.max(0, Math.min(100, Math.round(certScore - immediatePenalty - urgentPenalty)));
 }
 
 const CERT_TYPE_TO_STREAM: Record<string, string> = {
