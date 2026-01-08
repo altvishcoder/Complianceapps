@@ -6444,17 +6444,35 @@ export async function registerRoutes(
       const conditions: SQL[] = [];
       if (filters.propertyId) conditions.push(eq(components.propertyId, filters.propertyId));
       if (filters.spaceId) conditions.push(eq(components.spaceId, filters.spaceId));
+      if (filters.blockId) conditions.push(eq(components.blockId, filters.blockId));
       if (filters.componentTypeId) conditions.push(eq(components.componentTypeId, filters.componentTypeId));
+      
+      // For search, we need to also match component type names
+      // Get component types upfront for type name search
+      const allComponentTypes = await storage.listComponentTypes();
+      const typeMap = new Map(allComponentTypes.map(t => [t.id, t]));
+      
+      // If searching by type name, get matching type IDs
+      let matchingTypeIds: string[] = [];
       if (search) {
-        const searchPattern = `%${search.toLowerCase()}%`;
-        conditions.push(
-          or(
-            sql`LOWER(${components.serialNumber}) LIKE ${searchPattern}`,
-            sql`LOWER(${components.manufacturer}) LIKE ${searchPattern}`,
-            sql`LOWER(${components.model}) LIKE ${searchPattern}`,
-            sql`LOWER(${components.location}) LIKE ${searchPattern}`
-          )!
-        );
+        const searchLower = search.toLowerCase();
+        matchingTypeIds = allComponentTypes
+          .filter(t => t.name.toLowerCase().includes(searchLower))
+          .map(t => t.id);
+        
+        const searchPattern = `%${searchLower}%`;
+        const searchConditions: SQL[] = [
+          sql`LOWER(${components.serialNumber}) LIKE ${searchPattern}`,
+          sql`LOWER(${components.manufacturer}) LIKE ${searchPattern}`,
+          sql`LOWER(${components.model}) LIKE ${searchPattern}`,
+          sql`LOWER(${components.location}) LIKE ${searchPattern}`
+        ];
+        
+        if (matchingTypeIds.length > 0) {
+          searchConditions.push(inArray(components.componentTypeId, matchingTypeIds));
+        }
+        
+        conditions.push(or(...searchConditions)!);
       }
       
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -6492,10 +6510,7 @@ export async function registerRoutes(
         .limit(limit)
         .offset(offset);
       
-      // Get component types and properties for enrichment
-      const allComponentTypes = await storage.listComponentTypes();
-      const typeMap = new Map(allComponentTypes.map(t => [t.id, t]));
-      
+      // Fetch properties for enrichment (typeMap already built above)
       const uniquePropertyIds = Array.from(new Set(paginatedComponents.map(c => c.propertyId).filter((id): id is string => id !== null)));
       const allProperties = uniquePropertyIds.length > 0 
         ? await Promise.all(uniquePropertyIds.map(id => storage.getProperty(id)))
