@@ -3959,6 +3959,100 @@ export async function registerRoutes(
     }
   });
   
+  // Seed missing spaces to existing schemes, blocks, and properties (does not require full re-seed)
+  app.post("/api/admin/seed-spaces", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      const BLOCK_COMMUNAL_SPACES = [
+        { name: "Main Stairwell", type: "CIRCULATION" as const },
+        { name: "Plant Room", type: "UTILITY" as const },
+        { name: "Bin Store", type: "STORAGE" as const },
+      ];
+      const SCHEME_COMMUNAL_SPACES = [
+        { name: "Community Hall", type: "COMMUNAL_AREA" as const },
+        { name: "Estate Grounds", type: "EXTERNAL" as const },
+      ];
+      const PROPERTY_ROOMS = ["Living Room", "Kitchen", "Bathroom", "Bedroom"];
+      const ROOM_TYPES = ["ROOM", "ROOM", "UTILITY", "ROOM"] as const;
+      
+      // Get counts of existing spaces
+      const existingSpaces = await storage.listSpaces({});
+      const schemeSpaceSchemeIds = new Set(existingSpaces.filter(s => s.schemeId && !s.blockId && !s.propertyId).map(s => s.schemeId!));
+      const blockSpaceBlockIds = new Set(existingSpaces.filter(s => s.blockId && !s.propertyId).map(s => s.blockId!));
+      const propertySpacePropertyIds = new Set(existingSpaces.filter(s => s.propertyId).map(s => s.propertyId!));
+      
+      // Get all schemes, blocks, properties
+      const allSchemes = await storage.listSchemes(ORG_ID);
+      const allBlocks = await storage.listBlocks(ORG_ID);
+      const allProperties = await storage.listProperties(ORG_ID);
+      
+      let created = { scheme: 0, block: 0, property: 0 };
+      
+      // Add scheme-level spaces (2 per scheme that doesn't have them)
+      for (const scheme of allSchemes) {
+        if (!schemeSpaceSchemeIds.has(scheme.id)) {
+          for (const spaceTemplate of SCHEME_COMMUNAL_SPACES) {
+            await storage.createSpace({
+              schemeId: scheme.id,
+              name: spaceTemplate.name,
+              spaceType: spaceTemplate.type,
+              description: `Estate-wide ${spaceTemplate.name.toLowerCase()}`,
+              areaSqMeters: Math.floor(Math.random() * 200) + 50,
+            });
+            created.scheme++;
+          }
+        }
+      }
+      
+      // Add block-level spaces (3 per block that doesn't have them)
+      for (const block of allBlocks) {
+        if (!blockSpaceBlockIds.has(block.id)) {
+          for (let i = 0; i < BLOCK_COMMUNAL_SPACES.length; i++) {
+            const spaceTemplate = BLOCK_COMMUNAL_SPACES[i];
+            await storage.createSpace({
+              blockId: block.id,
+              name: spaceTemplate.name,
+              spaceType: spaceTemplate.type,
+              floor: i === 0 ? "All Floors" : "Ground",
+              description: `Building communal ${spaceTemplate.name.toLowerCase()}`,
+              areaSqMeters: Math.floor(Math.random() * 30) + 10,
+            });
+            created.block++;
+          }
+        }
+      }
+      
+      // Add property-level spaces (4 rooms per property that doesn't have them)
+      for (const property of allProperties) {
+        if (!propertySpacePropertyIds.has(property.id)) {
+          for (let i = 0; i < PROPERTY_ROOMS.length; i++) {
+            await storage.createSpace({
+              propertyId: property.id,
+              name: PROPERTY_ROOMS[i],
+              spaceType: ROOM_TYPES[i],
+              floor: String(Math.floor(i / 3)),
+              areaSqMeters: Math.floor(Math.random() * 20) + 8,
+            });
+            created.property++;
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        created,
+        total: created.scheme + created.block + created.property,
+        existing: {
+          schemes: schemeSpaceSchemeIds.size,
+          blocks: blockSpaceBlockIds.size,
+          properties: propertySpacePropertyIds.size,
+        }
+      });
+    } catch (error: any) {
+      logErrorWithContext(error, "Failed to seed spaces", req, { action: 'seed-spaces' });
+      res.status(500).json({ error: "Failed to seed spaces", details: error?.message });
+    }
+  });
+  
   // Reclassify existing certificates based on extracted document type
   app.post("/api/admin/reclassify-certificates", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
     try {

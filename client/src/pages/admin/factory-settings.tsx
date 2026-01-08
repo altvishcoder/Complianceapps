@@ -241,6 +241,29 @@ export default function FactorySettings() {
     },
   });
   
+  const seedSpacesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/seed-spaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error("Failed to seed spaces");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Spaces Added", 
+        description: `Created ${data.total?.toLocaleString() || 0} spaces (${data.created?.scheme || 0} scheme, ${data.created?.block || 0} block, ${data.created?.property || 0} property level)`,
+        duration: 10000,
+      });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
   const [patternFilter, setPatternFilter] = useState("");
   const [ruleFilter, setRuleFilter] = useState("");
   
@@ -914,6 +937,39 @@ export default function FactorySettings() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card className="border-2 border-blue-200 dark:border-blue-800 mt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Plus className="h-4 w-4 text-blue-600" />
+                  Seed Missing Spaces
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Add communal spaces to existing schemes, blocks, and properties. Creates estate-wide spaces (Community Hall, Estate Grounds), block-level communal areas (Stairwell, Plant Room, Bin Store), and dwelling rooms (Living Room, Kitchen, Bathroom, Bedroom) where missing.
+                </p>
+                <Button 
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => seedSpacesMutation.mutate()}
+                  disabled={isDemoLoading || isSeeding || seedSpacesMutation.isPending}
+                  data-testid="button-seed-spaces"
+                >
+                  {seedSpacesMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Adding Spaces...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Seed Missing Spaces
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
           </CardContent>
         </Card>
       );
