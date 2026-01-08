@@ -278,7 +278,7 @@ export default function MapsIndexPage() {
             )}
 
             <div className="flex-1 relative rounded-lg overflow-hidden border shadow-sm min-h-[300px] sm:min-h-[400px]">
-              {propertiesLoading ? (
+              {propertiesLoading && properties.length === 0 ? (
                 <MapSkeleton />
               ) : (
                 <MapWrapper>

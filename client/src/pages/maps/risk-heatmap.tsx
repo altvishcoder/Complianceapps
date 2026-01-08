@@ -145,7 +145,7 @@ export default function RiskHeatmapPage() {
           
           <div className="flex-1 flex min-h-[500px]">
             <div className="flex-1 relative min-h-[500px]">
-              {isLoading ? (
+              {isLoading && areas.length === 0 ? (
                 <MapSkeleton />
               ) : (
                 <MapWrapper>
