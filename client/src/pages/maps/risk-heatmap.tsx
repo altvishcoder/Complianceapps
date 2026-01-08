@@ -16,61 +16,6 @@ function hasUrlFilters(): boolean {
   return params.has('from') || params.has('stream') || params.has('level');
 }
 
-function generateSampleAreas(): AreaRisk[] {
-  const areas: AreaRisk[] = [];
-  const londonWards = [
-    { name: 'Highgate', lat: 51.574, lng: -0.144 },
-    { name: 'Hampstead', lat: 51.557, lng: -0.178 },
-    { name: 'Islington Central', lat: 51.536, lng: -0.103 },
-    { name: 'Hackney Central', lat: 51.545, lng: -0.055 },
-    { name: 'Bethnal Green', lat: 51.527, lng: -0.055 },
-    { name: 'Bow East', lat: 51.529, lng: -0.016 },
-    { name: 'Mile End', lat: 51.525, lng: -0.034 },
-    { name: 'Whitechapel', lat: 51.519, lng: -0.061 },
-    { name: 'Shadwell', lat: 51.511, lng: -0.056 },
-    { name: 'Wapping', lat: 51.504, lng: -0.056 },
-    { name: 'Bermondsey', lat: 51.499, lng: -0.063 },
-    { name: 'Rotherhithe', lat: 51.500, lng: -0.049 },
-    { name: 'Peckham', lat: 51.473, lng: -0.069 },
-    { name: 'Camberwell', lat: 51.474, lng: -0.093 },
-    { name: 'Brixton', lat: 51.462, lng: -0.115 },
-  ];
-
-  for (let i = 0; i < londonWards.length; i++) {
-    const ward = londonWards[i];
-    const riskScore = Math.floor(Math.random() * 50) + 50;
-    
-    areas.push({
-      id: `ward-${i + 1}`,
-      name: ward.name,
-      level: 'ward',
-      lat: ward.lat,
-      lng: ward.lng,
-      riskScore: {
-        compositeScore: riskScore,
-        streams: [
-          { stream: 'gas', compliance: 0.95 + Math.random() * 0.05, total: 100, compliant: 95, overdueCount: Math.floor(Math.random() * 5), dueSoonCount: Math.floor(Math.random() * 10) },
-          { stream: 'electrical', compliance: 0.85 + Math.random() * 0.15, total: 100, compliant: 85, overdueCount: Math.floor(Math.random() * 10), dueSoonCount: Math.floor(Math.random() * 15) },
-          { stream: 'fire', compliance: 0.90 + Math.random() * 0.10, total: 50, compliant: 45, overdueCount: Math.floor(Math.random() * 3), dueSoonCount: Math.floor(Math.random() * 5) },
-          { stream: 'asbestos', compliance: 0.92 + Math.random() * 0.08, total: 80, compliant: 74, overdueCount: Math.floor(Math.random() * 5), dueSoonCount: Math.floor(Math.random() * 8) },
-          { stream: 'lift', compliance: 0.88 + Math.random() * 0.12, total: 20, compliant: 18, overdueCount: Math.floor(Math.random() * 2), dueSoonCount: Math.floor(Math.random() * 3) },
-          { stream: 'water', compliance: 0.94 + Math.random() * 0.06, total: 60, compliant: 57, overdueCount: Math.floor(Math.random() * 2), dueSoonCount: Math.floor(Math.random() * 4) },
-        ],
-        defects: {
-          critical: Math.floor(Math.random() * 3),
-          major: Math.floor(Math.random() * 8),
-          minor: Math.floor(Math.random() * 15),
-        },
-        trend: ['improving', 'stable', 'deteriorating'][Math.floor(Math.random() * 3)] as 'improving' | 'stable' | 'deteriorating',
-        propertyCount: Math.floor(Math.random() * 50) + 20,
-        unitCount: Math.floor(Math.random() * 300) + 100,
-      },
-    });
-  }
-
-  return areas;
-}
-
 export default function RiskHeatmapPage() {
   const [filters, setFilters] = useState<RiskFiltersType>({
     level: 'ward',
@@ -82,57 +27,36 @@ export default function RiskHeatmapPage() {
   const [selectedArea, setSelectedArea] = useState<AreaRisk | null>(null);
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   
-  const sampleAreas = useMemo(() => generateSampleAreas(), []);
-  
   // For property level, use the geo endpoint with full data; for aggregated views use risk/areas
-  const { data: areas = sampleAreas, isLoading, refetch } = useQuery({
+  const { data: areas = [], isLoading, refetch } = useQuery({
     queryKey: ['risk-areas', filters.level, filters.streams, filters.period, filters.showOnlyAtRisk],
     queryFn: async () => {
-      console.log('Fetching risk areas with filters:', filters);
       const userId = localStorage.getItem('user_id');
       
-      // For property level, use the risk areas endpoint with property level
-      // This ensures streams filter works for property level too
-      if (filters.level === 'property') {
-        const params = new URLSearchParams({ level: 'property' });
-        if (filters.streams !== 'all' && Array.isArray(filters.streams) && filters.streams.length > 0) {
-          params.set('streams', filters.streams.join(','));
-        }
-        if (filters.showOnlyAtRisk) {
-          params.set('maxScore', '85');
-        }
-        
-        const res = await fetch(`/api/risk/areas?${params}`, {
-          headers: { 'X-User-Id': userId || '' }
-        });
-        if (!res.ok) return sampleAreas;
-        const data = await res.json();
-        return data.length > 0 ? data : sampleAreas;
-      }
-      
-      // For ward/estate aggregation, use the risk areas endpoint
-      const params = new URLSearchParams({
-        level: filters.level,
-      });
-      if (filters.showOnlyAtRisk) {
-        params.set('maxScore', '85');
-      }
-      // Pass streams filter to API
+      // Build params for all levels
+      const params = new URLSearchParams({ level: filters.level === 'estate' ? 'scheme' : filters.level });
       if (filters.streams !== 'all' && Array.isArray(filters.streams) && filters.streams.length > 0) {
         params.set('streams', filters.streams.join(','));
+      }
+      if (filters.showOnlyAtRisk) {
+        params.set('maxScore', '85');
       }
       
       const res = await fetch(`/api/risk/areas?${params}`, {
         headers: { 'X-User-Id': userId || '' }
       });
-      if (!res.ok) return sampleAreas;
+      if (!res.ok) return [];
       const data = await res.json();
-      console.log('API returned', data.length, 'areas for filters:', filters);
-      return data.length > 0 ? data : sampleAreas;
+      return data;
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+  
+  const hasStreamFilter = filters.streams !== 'all';
+  const streamLabel = hasStreamFilter && Array.isArray(filters.streams) && filters.streams.length > 0 
+    ? filters.streams[0].charAt(0).toUpperCase() + filters.streams[0].slice(1) 
+    : '';
 
   const filteredAreas = useMemo(() => {
     if (!filters.showOnlyAtRisk) return areas;
@@ -210,10 +134,21 @@ export default function RiskHeatmapPage() {
                 <RiskLegend />
               </div>
               
-              {!selectedArea && (
+              {!selectedArea && !isLoading && (
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none">
-                  <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-2 text-sm text-muted-foreground">
-                    Click an area to see details
+                  <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 text-sm text-center max-w-xs">
+                    {mapMarkers.length === 0 ? (
+                      <div className="space-y-1">
+                        <p className="font-medium text-foreground">No data found</p>
+                        <p className="text-muted-foreground">
+                          {hasStreamFilter 
+                            ? `No properties with ${streamLabel} certificates match your filters. Try selecting "All Streams".`
+                            : 'No properties with geo-coordinates found. Try a different aggregation level.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">Click an area to see details</p>
+                    )}
                   </div>
                 </div>
               )}
