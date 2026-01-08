@@ -41,7 +41,7 @@ import { enqueueWebhookEvent } from "./webhook-worker";
 import { enqueueIngestionJob, getQueueStats } from "./job-queue";
 import { recordAudit, extractAuditContext, getChanges } from "./services/audit";
 import { clearApiLimitsCache, paginationMiddleware, type PaginationParams, getApiLimitsConfig } from "./services/api-limits";
-import { clearTierThresholdsCache } from "./services/risk-scoring";
+import { clearTierThresholdsCache, getPropertyRiskSnapshots, mapTrendToLabel, RiskTier } from "./services/risk-scoring";
 import { 
   validatePassword, 
   checkLoginLockout, 
@@ -1604,9 +1604,16 @@ export async function registerRoutes(
         return res.json(mapStatsCache.data);
       }
       
-      const riskData = await storage.getPropertyRiskData(ORG_ID);
+      // Use authoritative risk snapshots for consistent scoring
+      const [riskData, riskSnapshots] = await Promise.all([
+        storage.getPropertyRiskData(ORG_ID),
+        getPropertyRiskSnapshots(ORG_ID)
+      ]);
+      
+      const snapshotMap = new Map(riskSnapshots.map(s => [s.propertyId, s]));
       
       let total = 0;
+      let critical = 0;
       let high = 0;
       let medium = 0;
       let low = 0;
@@ -1615,16 +1622,24 @@ export async function registerRoutes(
       for (const r of riskData) {
         if (!r.property.latitude || !r.property.longitude) continue;
         total++;
-        const riskScore = calculatePropertyRiskScore(r.certificates, r.actions, r.property.id);
+        
+        // Use snapshot score (authoritative) or fallback
+        const snapshot = snapshotMap.get(r.property.id);
+        const riskScore = snapshot?.overallScore ?? calculatePropertyRiskScore(r.certificates, r.actions, r.property.id);
+        const riskTier = snapshot?.riskTier ?? (riskScore >= 45 ? 'CRITICAL' : riskScore >= 35 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW');
         scoreSum += riskScore;
         
-        if (riskScore < 60) high++;
-        else if (riskScore < 85) medium++;
-        else low++;
+        // Categorize by tier (consistent with risk radar)
+        switch (riskTier) {
+          case 'CRITICAL': critical++; break;
+          case 'HIGH': high++; break;
+          case 'MEDIUM': medium++; break;
+          case 'LOW': low++; break;
+        }
       }
       
       const avgScore = total > 0 ? Math.round(scoreSum / total) : 0;
-      const stats = { total, high, medium, low, avgScore };
+      const stats = { total, critical, high, medium, low, avgScore };
       
       // Cache the result
       mapStatsCache = { data: stats, timestamp: Date.now() };
@@ -1644,7 +1659,39 @@ export async function registerRoutes(
       // Map 'estate' to 'scheme' for API compatibility
       if (level === 'estate') level = 'scheme';
       
-      const riskData = await storage.getPropertyRiskData(ORG_ID);
+      // Use authoritative risk snapshots from the risk scoring service
+      const [riskData, riskSnapshots] = await Promise.all([
+        storage.getPropertyRiskData(ORG_ID),
+        getPropertyRiskSnapshots(ORG_ID)
+      ]);
+      
+      // Create a map for quick snapshot lookup
+      const snapshotMap = new Map(riskSnapshots.map(s => [s.propertyId, s]));
+      
+      // Helper to get risk score from snapshot (authoritative) or calculate fallback
+      const getPropertyScore = (propertyId: string, certificates: Array<{ type: string; status: string; expiryDate: string | null }>, actions: Array<{ severity: string; status: string }>) => {
+        const snapshot = snapshotMap.get(propertyId);
+        if (snapshot) {
+          return {
+            compositeScore: snapshot.overallScore,
+            riskTier: snapshot.riskTier,
+            trend: mapTrendToLabel(snapshot.trendDirection),
+            defects: snapshot.factorBreakdown ? {
+              critical: snapshot.factorBreakdown.criticalDefects || 0,
+              major: snapshot.factorBreakdown.openDefects ? Math.max(0, snapshot.factorBreakdown.openDefects - snapshot.factorBreakdown.criticalDefects) : 0,
+              minor: 0
+            } : calculateDefects(actions)
+          };
+        }
+        // Fallback for properties without snapshots - use inline calculator (legacy)
+        const score = calculatePropertyRiskScore(certificates, actions, propertyId);
+        return {
+          compositeScore: score,
+          riskTier: (score >= 45 ? 'CRITICAL' : score >= 35 ? 'HIGH' : score >= 20 ? 'MEDIUM' : 'LOW') as RiskTier,
+          trend: 'stable' as const,
+          defects: calculateDefects(actions)
+        };
+      };
       
       if (level === 'property') {
         const areas = riskData
@@ -1658,7 +1705,7 @@ export async function registerRoutes(
           .map(r => {
             const prop = r.property;
             const filteredCerts = filterCertsByStream(r.certificates, streamFilter);
-            const riskScore = calculatePropertyRiskScore(filteredCerts, r.actions, prop.id);
+            const riskInfo = getPropertyScore(prop.id, filteredCerts, r.actions);
             const streamScores = calculateStreamScores(filteredCerts);
             
             return {
@@ -1668,12 +1715,13 @@ export async function registerRoutes(
               lat: prop.latitude!,
               lng: prop.longitude!,
               riskScore: {
-                compositeScore: riskScore,
-                trend: 'stable' as const,
+                compositeScore: riskInfo.compositeScore,
+                riskTier: riskInfo.riskTier,
+                trend: riskInfo.trend,
                 propertyCount: 1,
                 unitCount: 1,
                 streams: streamScores,
-                defects: calculateDefects(r.actions)
+                defects: riskInfo.defects
               }
             };
           });
@@ -1707,8 +1755,18 @@ export async function registerRoutes(
           
           const allCerts = filterCertsByStream(schemeProperties.flatMap(r => r.certificates), streamFilter);
           const allActions = schemeProperties.flatMap(r => r.actions);
-          const avgScore = Math.round(schemeProperties.reduce((sum, r) => 
-            sum + calculatePropertyRiskScore(filterCertsByStream(r.certificates, streamFilter), r.actions, r.property.id), 0) / schemeProperties.length);
+          
+          // Aggregate risk scores from snapshots
+          let totalScore = 0;
+          let totalDefects = { critical: 0, major: 0, minor: 0 };
+          for (const r of schemeProperties) {
+            const riskInfo = getPropertyScore(r.property.id, filterCertsByStream(r.certificates, streamFilter), r.actions);
+            totalScore += riskInfo.compositeScore;
+            totalDefects.critical += riskInfo.defects.critical;
+            totalDefects.major += riskInfo.defects.major;
+            totalDefects.minor += riskInfo.defects.minor;
+          }
+          const avgScore = Math.round(totalScore / schemeProperties.length);
           
           return {
             id: scheme.id,
@@ -1718,11 +1776,12 @@ export async function registerRoutes(
             lng: avgLng,
             riskScore: {
               compositeScore: avgScore,
+              riskTier: (avgScore >= 45 ? 'CRITICAL' : avgScore >= 35 ? 'HIGH' : avgScore >= 20 ? 'MEDIUM' : 'LOW') as RiskTier,
               trend: 'stable' as const,
               propertyCount: schemeProperties.length,
               unitCount: schemeProperties.length,
               streams: calculateStreamScores(allCerts),
-              defects: calculateDefects(allActions)
+              defects: totalDefects
             }
           };
         }).filter(Boolean);
@@ -1750,9 +1809,18 @@ export async function registerRoutes(
           const avgLng = properties.reduce((sum, r) => sum + (r.property.longitude || 0), 0) / properties.length;
           
           const allCerts = filterCertsByStream(properties.flatMap(r => r.certificates), streamFilter);
-          const allActions = properties.flatMap(r => r.actions);
-          const avgScore = Math.round(properties.reduce((sum, r) => 
-            sum + calculatePropertyRiskScore(filterCertsByStream(r.certificates, streamFilter), r.actions, r.property.id), 0) / properties.length);
+          
+          // Aggregate risk scores from snapshots
+          let totalScore = 0;
+          let totalDefects = { critical: 0, major: 0, minor: 0 };
+          for (const r of properties) {
+            const riskInfo = getPropertyScore(r.property.id, filterCertsByStream(r.certificates, streamFilter), r.actions);
+            totalScore += riskInfo.compositeScore;
+            totalDefects.critical += riskInfo.defects.critical;
+            totalDefects.major += riskInfo.defects.major;
+            totalDefects.minor += riskInfo.defects.minor;
+          }
+          const avgScore = Math.round(totalScore / properties.length);
           
           return {
             id: `ward-${wardKey}`,
@@ -1762,11 +1830,12 @@ export async function registerRoutes(
             lng: avgLng,
             riskScore: {
               compositeScore: avgScore,
+              riskTier: (avgScore >= 45 ? 'CRITICAL' : avgScore >= 35 ? 'HIGH' : avgScore >= 20 ? 'MEDIUM' : 'LOW') as RiskTier,
               trend: 'stable' as const,
               propertyCount: properties.length,
               unitCount: properties.length,
               streams: calculateStreamScores(allCerts),
-              defects: calculateDefects(allActions)
+              defects: totalDefects
             }
           };
         });
@@ -1790,18 +1859,27 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Property not found" });
       }
       
-      const certificates = await storage.listCertificates(ORG_ID, { propertyId: areaId });
-      const actions = await storage.listRemedialActions(ORG_ID, { propertyId: areaId });
+      const [certificates, actions, snapshots] = await Promise.all([
+        storage.listCertificates(ORG_ID, { propertyId: areaId }),
+        storage.listRemedialActions(ORG_ID, { propertyId: areaId }),
+        getPropertyRiskSnapshots(ORG_ID)
+      ]);
+      
+      // Use snapshot score if available (authoritative), otherwise fallback
+      const snapshot = snapshots.find(s => s.propertyId === areaId);
+      const riskScore = snapshot?.overallScore ?? calculatePropertyRiskScore(
+        certificates.map(c => ({ type: c.certificateType, status: c.status, expiryDate: c.expiryDate })),
+        actions.map(a => ({ severity: a.severity, status: a.status })),
+        areaId
+      );
       
       res.json({
         property,
         certificates,
         actions,
-        riskScore: calculatePropertyRiskScore(
-          certificates.map(c => ({ type: c.certificateType, status: c.status, expiryDate: c.expiryDate })),
-          actions.map(a => ({ severity: a.severity, status: a.status })),
-          areaId
-        )
+        riskScore,
+        riskTier: snapshot?.riskTier,
+        trendDirection: snapshot ? mapTrendToLabel(snapshot.trendDirection) : 'stable'
       });
     } catch (error) {
       console.error("Error fetching evidence:", error);

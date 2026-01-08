@@ -254,8 +254,55 @@ const CERT_TYPES = ["GAS_SAFETY", "EICR", "EPC", "FIRE_RISK_ASSESSMENT", "LEGION
 const CERT_STATUSES = ["UPLOADED", "PROCESSING", "EXTRACTED", "NEEDS_REVIEW", "APPROVED"] as const;
 const CERT_STATUS_WEIGHTS = [0.05, 0.05, 0.1, 0.1, 0.7];
 
+// Seeded random number generator for deterministic data generation
+// Uses mulberry32 algorithm - fast and good distribution
+class SeededRandom {
+  private state: number;
+  
+  constructor(seed: string | number = Date.now()) {
+    // Convert string seed to numeric hash
+    if (typeof seed === 'string') {
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      this.state = Math.abs(hash) || 1;
+    } else {
+      this.state = seed || 1;
+    }
+  }
+  
+  // Returns a random number between 0 and 1 (like rng.random())
+  random(): number {
+    let t = this.state += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+  
+  // Returns a random integer between min (inclusive) and max (exclusive)
+  randomInt(min: number, max: number): number {
+    return Math.floor(this.random() * (max - min)) + min;
+  }
+  
+  // Pick a random element from an array
+  pick<T>(arr: readonly T[]): T {
+    return arr[Math.floor(this.random() * arr.length)];
+  }
+}
+
+// Global seeded random instance - initialized per run
+let rng: SeededRandom = new SeededRandom();
+
+// Initialize the RNG with a specific seed for reproducible data
+export function initializeSeededRandom(seed?: string | number): void {
+  rng = new SeededRandom(seed ?? Date.now());
+  console.log(`Seeded RNG initialized with seed: ${seed ?? 'random'}`);
+}
+
 function weightedRandom<T>(items: readonly T[], weights: number[]): T {
-  const r = Math.random();
+  const r = rng.random();
   let cumulative = 0;
   for (let i = 0; i < items.length; i++) {
     cumulative += weights[i];
@@ -268,12 +315,12 @@ function randomDate(daysAgo: number, daysAhead: number = 0): Date {
   const now = Date.now();
   const start = now - daysAgo * 24 * 60 * 60 * 1000;
   const end = now + daysAhead * 24 * 60 * 60 * 1000;
-  return new Date(start + Math.random() * (end - start));
+  return new Date(start + rng.random() * (end - start));
 }
 
 function generatePostcode(prefix: string): string {
-  const num = Math.floor(Math.random() * 20) + 1;
-  const suffix = `${Math.floor(Math.random() * 9) + 1}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+  const num = rng.randomInt(1, 21);
+  const suffix = `${rng.randomInt(1, 10)}${String.fromCharCode(65 + rng.randomInt(0, 26))}${String.fromCharCode(65 + rng.randomInt(0, 26))}`;
   return `${prefix}${num} ${suffix}`;
 }
 
@@ -397,8 +444,8 @@ async function seedBlocksBulk(schemeIds: string[], config: VolumeConfig): Promis
         schemeId,
         name: `${prefix} ${letter}`,
         reference: `BLK${String(blockNum++).padStart(5, '0')}`,
-        hasLift: Math.random() > 0.6,
-        hasCommunalBoiler: Math.random() > 0.7,
+        hasLift: rng.random() > 0.6,
+        hasCommunalBoiler: rng.random() > 0.7,
         complianceStatus: weightedRandom(STATUSES, STATUS_WEIGHTS),
       });
     }
@@ -441,8 +488,8 @@ async function seedPropertiesBulk(blockIds: string[], config: VolumeConfig): Pro
         bedrooms: (p % 4) + 1,
         hasGas: p % 5 !== 4,
         complianceStatus: weightedRandom(STATUSES, STATUS_WEIGHTS),
-        isHighRiseBuilding: Math.random() > 0.85,
-        buildingHeight: Math.random() > 0.9 ? Math.floor(Math.random() * 30) + 18 : null,
+        isHighRiseBuilding: rng.random() > 0.85,
+        buildingHeight: rng.random() > 0.9 ? Math.floor(rng.random() * 30) + 18 : null,
       });
     }
   }
@@ -479,7 +526,7 @@ async function seedSpacesBulk(
         name: spaceTemplate.name,
         spaceType: spaceTemplate.type,
         description: `Estate-wide ${spaceTemplate.name.toLowerCase()}`,
-        areaSqMeters: Math.floor(Math.random() * 200) + 50,
+        areaSqMeters: Math.floor(rng.random() * 200) + 50,
       });
     }
   }
@@ -497,7 +544,7 @@ async function seedSpacesBulk(
         spaceType: spaceTemplate.type,
         floor: i === 0 ? "All Floors" : "Ground",
         description: `Building communal ${spaceTemplate.name.toLowerCase()}`,
-        areaSqMeters: Math.floor(Math.random() * 30) + 10,
+        areaSqMeters: Math.floor(rng.random() * 30) + 10,
       });
     }
   }
@@ -512,7 +559,7 @@ async function seedSpacesBulk(
         name: SPACE_NAMES[s % SPACE_NAMES.length],
         spaceType: SPACE_TYPES[s % SPACE_TYPES.length],
         floor: String(Math.floor(s / 3)),
-        areaSqMeters: Math.floor(Math.random() * 20) + 8,
+        areaSqMeters: Math.floor(rng.random() * 20) + 8,
       });
     }
   }
@@ -553,10 +600,10 @@ async function seedComponentsBulk(
       
       values.push({
         propertyId,
-        spaceId: Math.random() > 0.3 ? spaceId : null,
+        spaceId: rng.random() > 0.3 ? spaceId : null,
         componentTypeId: compType?.id || crypto.randomUUID(),
         manufacturer: ["Vaillant", "Worcester", "Baxi", "Ideal", "Potterton", "Glow-worm"][c % 6],
-        model: `Model-${Math.floor(Math.random() * 1000)}`,
+        model: `Model-${Math.floor(rng.random() * 1000)}`,
         serialNumber: `SN${Date.now()}-${propIndex}-${c}`,
         installDate: randomDate(3650, 0).toISOString().split('T')[0],
         lastServiceDate: randomDate(365, 0).toISOString().split('T')[0],
@@ -596,7 +643,7 @@ async function seedContractorsBulk(
       organisationId: orgId,
       companyName: `${prefix} ${suffix} Ltd ${i > 40 ? i : ''}`.trim(),
       contactEmail: `contact${i + 1}@contractor.co.uk`,
-      contactPhone: `0${Math.floor(Math.random() * 900000000) + 100000000}`,
+      contactPhone: `0${Math.floor(rng.random() * 900000000) + 100000000}`,
       tradeType: trades[i % trades.length],
       gasRegistration: i % 5 === 0 ? `GSR${100000 + i}` : null,
       electricalRegistration: i % 5 === 1 ? `NICEIC${100000 + i}` : null,
@@ -674,7 +721,7 @@ async function seedCertificatesBulk(
         propertyId,
         fileName: `cert-${propIndex}-${c}.pdf`,
         fileType: "application/pdf",
-        fileSize: Math.floor(Math.random() * 500000) + 50000,
+        fileSize: Math.floor(rng.random() * 500000) + 50000,
         certificateType: certType,
         certificateNumber: `CERT-${propIndex}-${c}-${Date.now().toString(36)}`,
         complianceStreamId: streamCodeToId[streamCode] || null,
@@ -728,7 +775,7 @@ async function seedRemedialsBulk(
       severity,
       status,
       dueDate: dueDate.toISOString().split('T')[0],
-      costEstimate: String(Math.floor(Math.random() * 500) + 50),
+      costEstimate: String(Math.floor(rng.random() * 500) + 50),
     });
   }
   

@@ -810,6 +810,68 @@ export async function calculateAllPropertyRisks(organisationId: string): Promise
   return { ...stats, totalProperties, durationMs };
 }
 
+export interface RiskAreaDigest {
+  id: string;
+  name: string;
+  level: 'property' | 'scheme' | 'ward';
+  lat: number;
+  lng: number;
+  riskScore: {
+    compositeScore: number;
+    riskTier: RiskTier;
+    trend: 'improving' | 'stable' | 'deteriorating';
+    propertyCount: number;
+    unitCount: number;
+    defects: {
+      critical: number;
+      major: number;
+      minor: number;
+    };
+  };
+}
+
+export async function getPropertyRiskSnapshots(organisationId: string): Promise<Array<{
+  propertyId: string;
+  overallScore: number;
+  riskTier: RiskTier;
+  trendDirection: string | null;
+  factorBreakdown: {
+    expiringCertificates: number;
+    overdueCertificates: number;
+    openDefects: number;
+    criticalDefects: number;
+    missingStreams: string[];
+    assetAge: number | null;
+    isHRB: boolean;
+    hasVulnerableOccupants: boolean;
+    epcRating: string | null;
+  } | null;
+}>> {
+  const snapshots = await db.select({
+    propertyId: propertyRiskSnapshots.propertyId,
+    overallScore: propertyRiskSnapshots.overallScore,
+    riskTier: propertyRiskSnapshots.riskTier,
+    trendDirection: propertyRiskSnapshots.trendDirection,
+    factorBreakdown: propertyRiskSnapshots.factorBreakdown,
+  })
+  .from(propertyRiskSnapshots)
+  .where(and(
+    eq(propertyRiskSnapshots.organisationId, organisationId),
+    eq(propertyRiskSnapshots.isLatest, true)
+  ));
+
+  return snapshots.map(s => ({
+    ...s,
+    riskTier: s.riskTier as RiskTier,
+  }));
+}
+
+export function mapTrendToLabel(trendDirection: string | null): 'improving' | 'stable' | 'deteriorating' {
+  if (trendDirection === 'DECREASING') return 'improving';
+  if (trendDirection === 'INCREASING') return 'deteriorating';
+  return 'stable';
+}
+
 export async function getPortfolioRiskSummary(organisationId: string): Promise<{
   totalProperties: number;
   distribution: { tier: RiskTier; count: number; percentage: number }[];
