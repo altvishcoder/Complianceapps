@@ -183,6 +183,18 @@ export default function CertificatesPage() {
   
   const ITEMS_PER_PAGE = 50;
   
+  // Separate stats query - doesn't depend on pagination, only refetches on filter changes
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["certificates-stats"],
+    queryFn: async () => {
+      // Fetch first page to get stats (stats are global, not affected by pagination)
+      const result = await certificatesApi.list({ page: 1, limit: 1 });
+      return (result as any)?.stats || null;
+    },
+    staleTime: 60000, // Keep stats stable for 1 minute
+    refetchOnWindowFocus: false,
+  });
+  
   const { data: paginatedData, isLoading: isLoadingCerts, isFetching } = useQuery({
     queryKey: ["certificates", page, statusFilter, debouncedSearch],
     queryFn: () => certificatesApi.list({ 
@@ -191,14 +203,15 @@ export default function CertificatesPage() {
       status: statusFilter || undefined,
       search: debouncedSearch || undefined
     }),
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
   
   const certificates = paginatedData?.data || [];
   const totalPages = paginatedData?.totalPages || 1;
   const totalItems = paginatedData?.total || 0;
   
-  // Stats from API (counts across entire dataset, not just current page)
-  const apiStats = (paginatedData as any)?.stats || null;
+  // Use separate stats query for stable hero stats (won't change on pagination)
+  const apiStats = statsData || null;
   
   const isOverdue = (cert: EnrichedCertificate) => {
     if (!cert.expiryDate) return false;
@@ -282,7 +295,7 @@ export default function CertificatesPage() {
             <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
           )}
           
-          {isLoadingCerts && !apiStats ? (
+          {isLoadingStats ? (
             <HeroStatsGridSkeleton count={4} />
           ) : (
             <HeroStatsGrid
