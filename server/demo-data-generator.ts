@@ -231,8 +231,11 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
   console.log("Starting comprehensive demo data generation...");
   console.log(`Target: ${schemeCount} schemes, ${schemeCount * blocksPerScheme} blocks, ${targetProperties} properties`);
 
-  const existingDemoSchemes = await db.select({ id: schemes.id }).from(schemes)
+  // Check for existing demo schemes to enable resume functionality
+  const existingDemoSchemes = await db.select({ id: schemes.id, reference: schemes.reference }).from(schemes)
     .where(sql`${schemes.organisationId} = ${organisationId} AND ${schemes.reference} LIKE 'SCH-DEMO-%'`);
+  
+  let startSchemeIndex = 0;
   
   if (existingDemoSchemes.length > 0) {
     const demoCounts = await getDemoDataCounts(organisationId);
@@ -244,8 +247,9 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       console.log("Comprehensive demo data already exists and is complete, skipping generation");
       return demoCounts;
     } else {
-      console.log(`Partial demo data detected (${demoCounts.properties}/${targetProperties} properties), cleaning up before regeneration...`);
-      await cleanupDemoData(organisationId);
+      // Resume from where we left off instead of wiping
+      startSchemeIndex = existingDemoSchemes.length;
+      console.log(`Resuming from scheme ${startSchemeIndex + 1}/${schemeCount} (${demoCounts.properties.toLocaleString()} properties already exist)`);
     }
   }
 
@@ -261,10 +265,11 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     remedialActions: 0,
   };
 
-  let propertyIndex = 0;
-  let certIndex = 0;
+  // Calculate starting indices for resume
+  let propertyIndex = startSchemeIndex * blocksPerScheme * propertiesPerBlock;
+  let certIndex = propertyIndex * certificatesPerProperty;
 
-  for (let s = 0; s < schemeCount; s++) {
+  for (let s = startSchemeIndex; s < schemeCount; s++) {
     // Check for cancellation before each scheme
     if (shouldCancel?.()) {
       console.log("Seeding cancelled by user");

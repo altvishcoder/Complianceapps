@@ -1,40 +1,14 @@
-// Bulk seed script for 25K properties
+// Bulk seed script for 25K properties - RESUMABLE
 import { generateBulkDemoData } from "./demo-data-generator";
 import { db } from "./db";
-import { organisations, properties, certificates, remedialActions, components, spaces, blocks, schemes } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { organisations } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const ORG_ID = "default-org";
 
-async function wipeExistingData() {
-  console.log("Wiping existing demo data...");
-  
-  // Delete in order of dependencies - all tables that reference properties
-  console.log("  Deleting dependent records...");
-  await db.execute(sql`DELETE FROM ml_predictions`);
-  await db.execute(sql`DELETE FROM risk_alerts`);  // Before property_risk_snapshots
-  await db.execute(sql`DELETE FROM property_risk_snapshots`);
-  await db.execute(sql`DELETE FROM compliance_calendar_events`);
-  await db.execute(sql`DELETE FROM contractor_assignments`);
-  await db.execute(sql`DELETE FROM ingestion_jobs`);
-  await db.execute(sql`DELETE FROM units`);
-  await db.execute(sql`DELETE FROM audit_events WHERE property_id IS NOT NULL`);
-  
-  console.log("  Deleting core records...");
-  await db.delete(remedialActions);
-  await db.delete(certificates);
-  await db.delete(components);
-  await db.delete(spaces);
-  await db.delete(properties);
-  await db.delete(blocks);
-  await db.delete(schemes).where(sql`${schemes.reference} LIKE 'SCH-DEMO-%'`);
-  
-  console.log("Wipe complete");
-}
-
 async function runBulkSeed() {
   console.log("=".repeat(60));
-  console.log("BULK SEED: 25,000 Properties");
+  console.log("BULK SEED: 25,000 Properties (RESUMABLE)");
   console.log("=".repeat(60));
   
   const startTime = Date.now();
@@ -47,10 +21,7 @@ async function runBulkSeed() {
       process.exit(1);
     }
     
-    // Wipe existing demo data
-    await wipeExistingData();
-    
-    // Generate bulk data
+    // Generate bulk data (will resume if partial data exists)
     const stats = await generateBulkDemoData(ORG_ID, 25000);
     
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
