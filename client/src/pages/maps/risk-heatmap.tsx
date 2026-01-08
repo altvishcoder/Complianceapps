@@ -135,7 +135,7 @@ export default function RiskHeatmapPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Risk Heatmap" />
-        <main id="main-content" className="flex-1 overflow-hidden flex flex-col" role="main" aria-label="Risk heatmap content">
+        <main id="main-content" className="flex-1 overflow-auto flex flex-col" role="main" aria-label="Risk heatmap content">
           {showBackButton && (
             <div className="p-4 pb-0">
               <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
@@ -143,8 +143,8 @@ export default function RiskHeatmapPage() {
           )}
           <RiskFilters filters={filters} onChange={setFilters} />
           
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1 relative">
+          <div className="flex-1 flex min-h-[500px]">
+            <div className="flex-1 relative min-h-[500px]">
               <MapWrapper>
                 <BaseMap 
                   center={(() => {
