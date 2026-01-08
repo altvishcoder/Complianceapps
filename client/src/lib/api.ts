@@ -294,6 +294,7 @@ export interface BulkSeedProgress {
     remedials: { done: number; total: number };
     contractors: { done: number; total: number };
     staff: { done: number; total: number };
+    riskSnapshots?: { done: number; total: number };
   };
 }
 

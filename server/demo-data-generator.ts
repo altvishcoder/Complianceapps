@@ -182,6 +182,10 @@ async function getOrCreateComplianceStreams(): Promise<Map<string, string>> {
   return streamMap;
 }
 
+export interface SeedProgressCallback {
+  (entity: string, done: number, total: number): void;
+}
+
 export interface SeedConfig {
   organisationId: string;
   schemeCount?: number;
@@ -189,16 +193,21 @@ export interface SeedConfig {
   propertiesPerBlock?: number;
   componentsPerProperty?: number;
   certificatesPerProperty?: number;
+  onProgress?: SeedProgressCallback;
+  shouldCancel?: () => boolean;
 }
 
-export async function generateComprehensiveDemoData(config: SeedConfig): Promise<{
+export interface SeedResult {
   schemes: number;
   blocks: number;
   properties: number;
   components: number;
   certificates: number;
   remedialActions: number;
-}> {
+  cancelled?: boolean;
+}
+
+export async function generateComprehensiveDemoData(config: SeedConfig): Promise<SeedResult> {
   const {
     organisationId,
     schemeCount = 20,
@@ -206,6 +215,8 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     propertiesPerBlock = 20,
     componentsPerProperty = 4,
     certificatesPerProperty = 3,
+    onProgress,
+    shouldCancel,
   } = config;
 
   const targetProperties = schemeCount * blocksPerScheme * propertiesPerBlock;
@@ -249,6 +260,12 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
   let certIndex = 0;
 
   for (let s = 0; s < schemeCount; s++) {
+    // Check for cancellation before each scheme
+    if (shouldCancel?.()) {
+      console.log("Seeding cancelled by user");
+      return { ...stats, cancelled: true };
+    }
+    
     const cityData = UK_CITIES[s % UK_CITIES.length];
     
     const [scheme] = await db.insert(schemes).values({
@@ -257,6 +274,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       reference: `SCH-DEMO-${(s + 1).toString().padStart(3, "0")}`,
     }).returning();
     stats.schemes++;
+    onProgress?.("schemes", stats.schemes, schemeCount);
 
     const blockBatch: any[] = [];
     for (let b = 0; b < blocksPerScheme; b++) {
@@ -269,8 +287,15 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     
     const createdBlocks = await db.insert(blocks).values(blockBatch).returning();
     stats.blocks += createdBlocks.length;
+    onProgress?.("blocks", stats.blocks, schemeCount * blocksPerScheme);
 
     for (const block of createdBlocks) {
+      // Check for cancellation before each block
+      if (shouldCancel?.()) {
+        console.log("Seeding cancelled by user (during block processing)");
+        return { ...stats, cancelled: true };
+      }
+      
       const propertyBatch: any[] = [];
       
       for (let p = 0; p < propertiesPerBlock; p++) {
@@ -297,6 +322,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       
       const createdProperties = await db.insert(properties).values(propertyBatch).returning();
       stats.properties += createdProperties.length;
+      onProgress?.("properties", stats.properties, targetProperties);
 
       const componentBatch: any[] = [];
       const certBatch: { cert: any; actions: any[] }[] = [];
@@ -414,11 +440,23 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
       }
 
       if (componentBatch.length > 0) {
+        // Check for cancellation before component insertion
+        if (shouldCancel?.()) {
+          console.log("Seeding cancelled by user (before components)");
+          return { ...stats, cancelled: true };
+        }
         for (let i = 0; i < componentBatch.length; i += BATCH_SIZE) {
           const batch = componentBatch.slice(i, i + BATCH_SIZE);
           await db.insert(components).values(batch);
           stats.components += batch.length;
         }
+        onProgress?.("components", stats.components, targetComponents);
+      }
+
+      // Check for cancellation before certificate insertion
+      if (shouldCancel?.()) {
+        console.log("Seeding cancelled by user (before certificates)");
+        return { ...stats, cancelled: true };
       }
 
       for (let i = 0; i < certBatch.length; i += BATCH_SIZE) {
@@ -426,6 +464,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
         const certValues = batch.map(b => b.cert);
         const createdCerts = await db.insert(certificates).values(certValues).returning();
         stats.certificates += createdCerts.length;
+        onProgress?.("certificates", stats.certificates, targetCertificates);
 
         const allActions: any[] = [];
         for (let j = 0; j < createdCerts.length; j++) {
@@ -439,6 +478,7 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
         if (allActions.length > 0) {
           await db.insert(remedialActions).values(allActions);
           stats.remedialActions += allActions.length;
+          onProgress?.("remedials", stats.remedialActions, Math.ceil(targetCertificates * 0.3));
         }
       }
     }
@@ -448,9 +488,20 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
 
   console.log("Demo data generation complete:", stats);
   
+  // Check for cancellation before risk snapshots
+  if (shouldCancel?.()) {
+    console.log("Seeding cancelled by user (before risk snapshots)");
+    return { ...stats, cancelled: true };
+  }
+  
   console.log("Generating risk snapshots for all properties...");
-  const riskSnapshotCount = await seedPropertyRiskSnapshots(organisationId);
-  console.log(`Created ${riskSnapshotCount} property risk snapshots`);
+  onProgress?.("riskSnapshots", 0, stats.properties);
+  const riskSnapshotResult = await seedPropertyRiskSnapshots(organisationId, onProgress, shouldCancel);
+  console.log(`Created ${riskSnapshotResult.count} property risk snapshots`);
+  
+  if (riskSnapshotResult.cancelled) {
+    return { ...stats, cancelled: true };
+  }
   
   const finalCounts = await getDemoDataCounts(organisationId);
   console.log("Final verification counts:", finalCounts);
@@ -458,7 +509,11 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
   return finalCounts;
 }
 
-async function seedPropertyRiskSnapshots(organisationId: string): Promise<number> {
+async function seedPropertyRiskSnapshots(
+  organisationId: string,
+  onProgress?: SeedProgressCallback,
+  shouldCancel?: () => boolean
+): Promise<{ count: number; cancelled?: boolean }> {
   const allProperties = await db.select({
     id: properties.id,
     blockId: properties.blockId,
@@ -468,7 +523,7 @@ async function seedPropertyRiskSnapshots(organisationId: string): Promise<number
   .where(eq(schemes.organisationId, organisationId));
 
   if (allProperties.length === 0) {
-    return 0;
+    return { count: 0 };
   }
 
   const riskTiers: ('CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW')[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
@@ -583,15 +638,27 @@ async function seedPropertyRiskSnapshots(organisationId: string): Promise<number
     });
   }
 
+  let insertedCount = 0;
   for (let i = 0; i < snapshotBatch.length; i += BATCH_SIZE) {
+    // Check for cancellation during risk snapshot insertion
+    if (shouldCancel?.()) {
+      console.log("Seeding cancelled by user (during risk snapshots)");
+      return { count: insertedCount, cancelled: true };
+    }
+    
     const batch = snapshotBatch.slice(i, i + BATCH_SIZE);
     await db.insert(propertyRiskSnapshots).values(batch);
+    insertedCount += batch.length;
+    
+    // Report progress every batch
+    onProgress?.("riskSnapshots", insertedCount, snapshotBatch.length);
+    
     if ((i / BATCH_SIZE) % 5 === 0) {
       console.log(`  Risk snapshots: ${Math.min(i + BATCH_SIZE, snapshotBatch.length)}/${snapshotBatch.length} inserted`);
     }
   }
 
-  return snapshotBatch.length;
+  return { count: snapshotBatch.length };
 }
 
 async function getDemoDataCounts(organisationId: string): Promise<{
@@ -717,5 +784,51 @@ export async function generateFullDemoData(organisationId: string): Promise<{
     propertiesPerBlock: 20,
     componentsPerProperty: 4,
     certificatesPerProperty: 3,
+  });
+}
+
+/**
+ * Bulk seed function for 25K+ properties for load testing.
+ * 
+ * Data Distribution:
+ * - Regional: Schemes are distributed across 10 UK cities (London, Manchester, Birmingham, Leeds, Liverpool, Newcastle, Sheffield, Bristol, Nottingham, Glasgow)
+ * - Property Types: 60% Flats, 20% Maisonettes, 20% Houses
+ * - Tenure Mix: 40% Social Rent, 20% Affordable Rent, 20% Leasehold, 20% Shared Ownership
+ * - Gas Properties: 85% have gas, 15% electric-only
+ * - Compliance Status: 50% Compliant, 17% Expiring Soon, 17% Overdue, 16% Non-Compliant
+ * - Certificate Outcomes: ~12.5% Expiring Soon, ~25% with defects (triggers remedial actions)
+ * - Remedial Actions: 25% of non-compliant properties have 1-3 remedial actions with varying severities
+ *   - Severity distribution: 25% Immediate, 25% Urgent, 20% Priority, 15% Routine, 15% Advisory
+ *   - 25% of actions are overdue
+ * 
+ * Tier configurations (from Admin UI):
+ * - Small: 5,000 properties (10 schemes × 10 blocks × 50 properties)
+ * - Medium: 25,000 properties (50 schemes × 10 blocks × 50 properties)  
+ * - Large: 50,000 properties (100 schemes × 10 blocks × 50 properties)
+ */
+export async function generateBulkDemoData(
+  organisationId: string, 
+  targetProperties: number = 25000,
+  onProgress?: SeedProgressCallback,
+  shouldCancel?: () => boolean
+): Promise<SeedResult> {
+  // Calculate optimal distribution for target properties
+  const propertiesPerBlock = 50;
+  const blocksPerScheme = 10;
+  const schemeCount = Math.ceil(targetProperties / (propertiesPerBlock * blocksPerScheme));
+  
+  console.log(`🚀 Starting BULK seed for ${targetProperties.toLocaleString()} properties...`);
+  console.log(`   Configuration: ${schemeCount} schemes × ${blocksPerScheme} blocks × ${propertiesPerBlock} properties`);
+  console.log(`   Distribution: ${UK_CITIES.length} UK regions, ~${Math.ceil(schemeCount / UK_CITIES.length)} schemes per region`);
+  
+  return generateComprehensiveDemoData({
+    organisationId,
+    schemeCount,
+    blocksPerScheme,
+    propertiesPerBlock,
+    componentsPerProperty: 3, // Reduced for bulk to speed up seeding
+    certificatesPerProperty: 2, // Reduced for bulk to speed up seeding
+    onProgress,
+    shouldCancel,
   });
 }

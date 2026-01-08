@@ -55,7 +55,7 @@ import { cacheRegions, cacheClearAudit, userFavorites } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
 import { apiLogger } from "./logger";
-import { generateFullDemoData } from "./demo-data-generator";
+import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
 
 const objectStorageService = new ObjectStorageService();
@@ -3499,6 +3499,257 @@ export async function registerRoutes(
       res.status(500).json({ 
         error: "Failed to regenerate demo data", 
         details: `${errorMessage}${errorDetail ? ` (${errorDetail})` : ""}` 
+      });
+    }
+  });
+  
+  // Bulk seed tier definitions with realistic data distribution
+  const BULK_SEED_TIERS = {
+    small: {
+      tier: "small" as const,
+      label: "Small (5K)",
+      description: "Quick test dataset - 5,000 properties across 10 schemes",
+      estimatedMinutes: 2,
+      config: { schemeCount: 10, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 2 },
+      totals: { schemes: 10, blocks: 100, properties: 5000, spaces: 5000, components: 15000, certificates: 10000, remedials: 3000, contractors: 20, staffMembers: 50, total: 38170 }
+    },
+    medium: {
+      tier: "medium" as const,
+      label: "Medium (25K)",
+      description: "Standard load test - 25,000 properties across 50 schemes",
+      estimatedMinutes: 5,
+      config: { schemeCount: 50, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 2 },
+      totals: { schemes: 50, blocks: 500, properties: 25000, spaces: 25000, components: 75000, certificates: 50000, remedials: 15000, contractors: 50, staffMembers: 150, total: 190750 }
+    },
+    large: {
+      tier: "large" as const,
+      label: "Large (50K)",
+      description: "Enterprise scale test - 50,000 properties across 100 schemes",
+      estimatedMinutes: 12,
+      config: { schemeCount: 100, blocksPerScheme: 10, propertiesPerBlock: 50, componentsPerProperty: 3, certificatesPerProperty: 2 },
+      totals: { schemes: 100, blocks: 1000, properties: 50000, spaces: 50000, components: 150000, certificates: 100000, remedials: 30000, contractors: 80, staffMembers: 300, total: 381380 }
+    }
+  };
+
+  // In-memory progress tracking for bulk seed
+  let bulkSeedProgress: {
+    status: "idle" | "running" | "completed" | "failed" | "cancelled";
+    tier: "small" | "medium" | "large" | null;
+    currentEntity: string;
+    currentCount: number;
+    totalCount: number;
+    percentage: number;
+    startTime: number | null;
+    estimatedTimeRemaining: number | null;
+    error: string | null;
+    entities: Record<string, { done: number; total: number }>;
+  } = {
+    status: "idle",
+    tier: null,
+    currentEntity: "",
+    currentCount: 0,
+    totalCount: 0,
+    percentage: 0,
+    startTime: null,
+    estimatedTimeRemaining: null,
+    error: null,
+    entities: {
+      schemes: { done: 0, total: 0 },
+      blocks: { done: 0, total: 0 },
+      properties: { done: 0, total: 0 },
+      spaces: { done: 0, total: 0 },
+      components: { done: 0, total: 0 },
+      certificates: { done: 0, total: 0 },
+      remedials: { done: 0, total: 0 },
+      contractors: { done: 0, total: 0 },
+      staff: { done: 0, total: 0 },
+      riskSnapshots: { done: 0, total: 0 }
+    }
+  };
+
+  // GET bulk seed tiers
+  app.get("/api/admin/bulk-seed/tiers", requireRole(...SUPER_ADMIN_ROLES), (req, res) => {
+    res.json(Object.values(BULK_SEED_TIERS).map(t => ({
+      tier: t.tier,
+      label: t.label,
+      description: t.description,
+      estimatedMinutes: t.estimatedMinutes,
+      totals: t.totals
+    })));
+  });
+
+  // GET bulk seed progress
+  app.get("/api/admin/bulk-seed/progress", requireRole(...SUPER_ADMIN_ROLES), (req, res) => {
+    res.json(bulkSeedProgress);
+  });
+
+  // POST cancel bulk seed
+  app.post("/api/admin/bulk-seed/cancel", requireRole(...SUPER_ADMIN_ROLES), (req, res) => {
+    if (bulkSeedProgress.status === "running") {
+      bulkSeedProgress.status = "cancelled";
+      res.json({ success: true, message: "Bulk seeding cancelled" });
+    } else {
+      res.json({ success: false, message: "No active bulk seed to cancel" });
+    }
+  });
+
+  // Bulk seed for load testing (tier-based)
+  app.post("/api/admin/bulk-seed", requireRole(...SUPER_ADMIN_ROLES), async (req, res) => {
+    try {
+      // Block concurrent requests
+      if (bulkSeedProgress.status === "running") {
+        return res.status(409).json({ 
+          error: "Bulk seeding already in progress", 
+          tier: bulkSeedProgress.tier 
+        });
+      }
+      
+      const { tier = "medium", targetProperties, wipeFirst = true } = req.body || {};
+      
+      // Use tier config if no targetProperties specified
+      const tierConfig = BULK_SEED_TIERS[tier as keyof typeof BULK_SEED_TIERS] || BULK_SEED_TIERS.medium;
+      const target = targetProperties || tierConfig.totals.properties;
+      
+      console.log(`Starting ${tier} bulk seed for ${target.toLocaleString()} properties...`);
+      
+      // Initialize progress
+      bulkSeedProgress = {
+        status: "running",
+        tier: tier as "small" | "medium" | "large",
+        currentEntity: "Initializing",
+        currentCount: 0,
+        totalCount: tierConfig.totals.total,
+        percentage: 0,
+        startTime: Date.now(),
+        estimatedTimeRemaining: tierConfig.estimatedMinutes * 60,
+        error: null,
+        entities: {
+          schemes: { done: 0, total: tierConfig.totals.schemes },
+          blocks: { done: 0, total: tierConfig.totals.blocks },
+          properties: { done: 0, total: tierConfig.totals.properties },
+          spaces: { done: 0, total: tierConfig.totals.spaces },
+          components: { done: 0, total: tierConfig.totals.components },
+          certificates: { done: 0, total: tierConfig.totals.certificates },
+          remedials: { done: 0, total: tierConfig.totals.remedials },
+          contractors: { done: 0, total: tierConfig.totals.contractors },
+          staff: { done: 0, total: tierConfig.totals.staffMembers },
+          riskSnapshots: { done: 0, total: tierConfig.totals.properties }
+        }
+      };
+      
+      // Start in background
+      res.json({ 
+        success: true, 
+        message: `Started ${tierConfig.label} seeding`,
+        tier: tier,
+        totals: tierConfig.totals
+      });
+      
+      // Progress callback to update in-memory state
+      const onProgress = (entity: string, done: number, total: number) => {
+        bulkSeedProgress.currentEntity = entity;
+        bulkSeedProgress.currentCount = done;
+        
+        // Update entity-specific progress
+        if (entity === "schemes") bulkSeedProgress.entities.schemes.done = done;
+        else if (entity === "blocks") bulkSeedProgress.entities.blocks.done = done;
+        else if (entity === "properties") bulkSeedProgress.entities.properties.done = done;
+        else if (entity === "components") bulkSeedProgress.entities.components.done = done;
+        else if (entity === "certificates") bulkSeedProgress.entities.certificates.done = done;
+        else if (entity === "remedials") bulkSeedProgress.entities.remedials.done = done;
+        else if (entity === "riskSnapshots") bulkSeedProgress.entities.riskSnapshots.done = done;
+        
+        // Calculate overall percentage based on properties (90%) + risk snapshots (10%)
+        const propertiesDone = bulkSeedProgress.entities.properties.done;
+        const riskSnapshotsDone = bulkSeedProgress.entities.riskSnapshots.done;
+        const propertiesWeight = 0.9;
+        const riskSnapshotsWeight = 0.1;
+        
+        const propertiesProgress = tierConfig.totals.properties > 0 
+          ? (propertiesDone / tierConfig.totals.properties) * propertiesWeight 
+          : 0;
+        const riskSnapshotsProgress = tierConfig.totals.properties > 0 
+          ? (riskSnapshotsDone / tierConfig.totals.properties) * riskSnapshotsWeight 
+          : 0;
+        
+        bulkSeedProgress.percentage = Math.round((propertiesProgress + riskSnapshotsProgress) * 100);
+        
+        // Estimate time remaining based on elapsed time
+        const elapsedMs = Date.now() - (bulkSeedProgress.startTime || Date.now());
+        if (bulkSeedProgress.percentage > 0) {
+          const estimatedTotalMs = (elapsedMs / bulkSeedProgress.percentage) * 100;
+          const remainingMs = estimatedTotalMs - elapsedMs;
+          bulkSeedProgress.estimatedTimeRemaining = Math.max(0, Math.round(remainingMs / 1000));
+        }
+      };
+      
+      // Cancellation check function
+      const shouldCancel = () => bulkSeedProgress.status === "cancelled";
+      
+      // Continue seeding in background
+      (async () => {
+        try {
+          if (wipeFirst) {
+            bulkSeedProgress.currentEntity = "Wiping existing data";
+            await storage.wipeData(true);
+          }
+          
+          // Check if cancelled during wipe
+          if (shouldCancel()) {
+            console.log("Bulk seed cancelled during wipe");
+            bulkSeedProgress.currentEntity = "Cancelled";
+            bulkSeedProgress.estimatedTimeRemaining = 0;
+            return;
+          }
+          
+          bulkSeedProgress.currentEntity = "Generating data";
+          const startTime = Date.now();
+          const stats = await generateBulkDemoData(ORG_ID, target, onProgress, shouldCancel);
+          
+          // Check if cancelled - update status with partial stats
+          if (stats.cancelled || shouldCancel()) {
+            console.log("Bulk seed was cancelled");
+            bulkSeedProgress.status = "cancelled";
+            bulkSeedProgress.currentEntity = "Cancelled";
+            bulkSeedProgress.estimatedTimeRemaining = 0;
+            // Keep partial stats for visibility
+            bulkSeedProgress.entities.schemes.done = stats.schemes;
+            bulkSeedProgress.entities.blocks.done = stats.blocks;
+            bulkSeedProgress.entities.properties.done = stats.properties;
+            bulkSeedProgress.entities.components.done = stats.components;
+            bulkSeedProgress.entities.certificates.done = stats.certificates;
+            bulkSeedProgress.entities.remedials.done = stats.remedialActions;
+            return;
+          }
+          
+          // Update final progress
+          bulkSeedProgress.status = "completed";
+          bulkSeedProgress.currentEntity = "Complete";
+          bulkSeedProgress.percentage = 100;
+          bulkSeedProgress.entities.schemes.done = stats.schemes;
+          bulkSeedProgress.entities.blocks.done = stats.blocks;
+          bulkSeedProgress.entities.properties.done = stats.properties;
+          bulkSeedProgress.entities.components.done = stats.components;
+          bulkSeedProgress.entities.certificates.done = stats.certificates;
+          bulkSeedProgress.entities.remedials.done = stats.remedialActions;
+          bulkSeedProgress.estimatedTimeRemaining = 0;
+          
+          const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+          console.log(`Bulk seed ${tier} completed in ${duration}s`);
+        } catch (error: any) {
+          bulkSeedProgress.status = "failed";
+          bulkSeedProgress.error = error?.message || "Unknown error";
+          console.error("Bulk seed failed:", error);
+        }
+      })();
+      
+    } catch (error: any) {
+      logErrorWithContext(error, "Failed to start bulk seed", req, { action: 'bulk-seed', organisationId: ORG_ID });
+      bulkSeedProgress.status = "failed";
+      bulkSeedProgress.error = error?.message || "Unknown error";
+      res.status(500).json({ 
+        error: "Failed to start bulk seed", 
+        details: error?.message 
       });
     }
   });
