@@ -1005,28 +1005,24 @@ export default function RiskRadarPage() {
                 </CardContent>
               </Card>
 
-              <Card className="col-span-2" data-testid="card-factor-weights">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Risk Factor Weights</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-4 text-center">
-                    {[
-                      { name: 'Expiry', weight: 30, icon: Clock, color: 'text-blue-500' },
-                      { name: 'Defects', weight: 25, icon: FileWarning, color: 'text-orange-500' },
-                      { name: 'Asset', weight: 20, icon: Building2, color: 'text-purple-500' },
-                      { name: 'Coverage', weight: 15, icon: Shield, color: 'text-green-500' },
-                      { name: 'External', weight: 10, icon: Zap, color: 'text-yellow-500' },
-                    ].map(factor => (
-                      <div key={factor.name} className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
-                        <factor.icon className={cn("h-6 w-6 mb-2", factor.color)} />
-                        <span className="text-2xl font-bold">{factor.weight}%</span>
-                        <span className="text-xs text-muted-foreground">{factor.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg border" data-testid="card-factor-weights">
+                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Risk Weights:</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  {[
+                    { name: 'Expiry', weight: 30, icon: Clock, color: 'text-blue-500' },
+                    { name: 'Defects', weight: 25, icon: FileWarning, color: 'text-orange-500' },
+                    { name: 'Asset', weight: 20, icon: Building2, color: 'text-purple-500' },
+                    { name: 'Coverage', weight: 15, icon: Shield, color: 'text-green-500' },
+                    { name: 'External', weight: 10, icon: Zap, color: 'text-yellow-500' },
+                  ].map(factor => (
+                    <div key={factor.name} className="flex items-center gap-1">
+                      <factor.icon className={cn("h-3.5 w-3.5", factor.color)} />
+                      <span className="text-xs">{factor.name}</span>
+                      <span className="text-xs font-semibold">{factor.weight}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <Tabs defaultValue="properties" className="space-y-4">
