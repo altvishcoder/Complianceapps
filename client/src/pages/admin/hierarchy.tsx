@@ -672,6 +672,16 @@ export default function PropertyHierarchy() {
   const [viewMode, setViewMode] = useState<ViewMode>(savedState?.viewMode || 'tree');
   const [showVisualView, setShowVisualView] = useState(true);
   
+  // Search with debounce for performance
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  
+  // Debounce search input for performance
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
   // Assets tab pagination
   const [assetsPage, setAssetsPage] = useState(1);
   const [assetsPageSize, setAssetsPageSize] = useState(25);
@@ -868,6 +878,35 @@ export default function PropertyHierarchy() {
       };
     });
   }, [schemes, blocks, properties, allSpaces]);
+
+  // Filter hierarchy data based on debounced search
+  const filteredHierarchyData = useMemo(() => {
+    if (!debouncedSearch) return hierarchyData;
+    
+    const searchLower = debouncedSearch.toLowerCase();
+    
+    // Recursive filter function that preserves matching nodes and their ancestors
+    const filterNodes = (nodes: HierarchyNode[]): HierarchyNode[] => {
+      return nodes.reduce((acc: HierarchyNode[], node) => {
+        const nodeMatches = 
+          node.name.toLowerCase().includes(searchLower) ||
+          (node.reference?.toLowerCase().includes(searchLower));
+        
+        const filteredChildren = filterNodes(node.children);
+        
+        if (nodeMatches || filteredChildren.length > 0) {
+          acc.push({
+            ...node,
+            children: filteredChildren.length > 0 ? filteredChildren : node.children.slice(0, nodeMatches ? undefined : 0),
+          });
+        }
+        
+        return acc;
+      }, []);
+    };
+    
+    return filterNodes(hierarchyData);
+  }, [hierarchyData, debouncedSearch]);
 
   const createOrgMutation = useMutation({
     mutationFn: organisationsApi.create,
@@ -1288,13 +1327,29 @@ export default function PropertyHierarchy() {
                 {showVisualView ? (
                   <Card className="flex flex-col h-[calc(100vh-320px)] min-h-[400px]">
                     <CardHeader className="flex-shrink-0">
-                      <CardTitle className="flex items-center gap-2">
-                        <TreePine className="h-5 w-5 text-emerald-600" />
-                        Visual Hierarchy
-                      </CardTitle>
-                      <CardDescription>
-                        Interactive view of your entire property portfolio structure
-                      </CardDescription>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <TreePine className="h-5 w-5 text-emerald-600" />
+                            Visual Hierarchy
+                          </CardTitle>
+                          <CardDescription>
+                            Interactive view of your entire property portfolio structure
+                          </CardDescription>
+                        </div>
+                        <div className="relative w-64">
+                          <Input
+                            placeholder="Search hierarchy..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-8"
+                            data-testid="input-hierarchy-search"
+                          />
+                          <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent className="flex-1 overflow-y-auto">
                       {isLoading ? (
@@ -1305,7 +1360,7 @@ export default function PropertyHierarchy() {
                           <p>No hierarchy data yet. Start by adding an organisation below.</p>
                         </div>
                       ) : (
-                        <VisualHierarchy hierarchyData={hierarchyData} viewMode={viewMode} onNodeClick={handleNodeClick} />
+                        <VisualHierarchy hierarchyData={filteredHierarchyData} viewMode={viewMode} onNodeClick={handleNodeClick} />
                       )}
                     </CardContent>
                   </Card>

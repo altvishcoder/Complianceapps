@@ -161,6 +161,8 @@ export default function ActionsPage() {
       overdue: isOverdueFilter || undefined
     }),
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
+    staleTime: 30000, // Keep data fresh for 30 seconds
+    gcTime: 300000, // Keep in cache for 5 minutes
   });
   
   const remedialActions = paginatedData?.data || [];

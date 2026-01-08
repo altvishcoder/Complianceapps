@@ -156,6 +156,8 @@ export default function BoardReporting() {
     queryKey: ['/api/board-report/stats'],
     refetchInterval: 60000,
     staleTime: 120000,
+    gcTime: 300000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false, // Avoid unnecessary refetches
   });
   
   const overallRiskScore = stats?.overallRiskScore ?? 0;

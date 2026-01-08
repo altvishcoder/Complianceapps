@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload, ArrowLeft, Flame, Clock, FileWarning } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -73,7 +73,20 @@ export default function Properties() {
       search: debouncedSearch || undefined,
     }),
     placeholderData: keepPreviousData,
+    staleTime: 30000, // Keep data fresh for 30 seconds
   });
+
+  // Prefetch certificate data on row hover for faster navigation
+  const prefetchPropertyData = useCallback((propertyId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: [`/api/certificates?propertyId=${propertyId}`],
+      staleTime: 30 * 1000,
+    });
+    queryClient.prefetchQuery({
+      queryKey: [`/api/remedial-actions?propertyId=${propertyId}`],
+      staleTime: 30 * 1000,
+    });
+  }, [queryClient]);
   const properties = propertiesResponse?.data ?? [];
   const totalProperties = propertiesResponse?.total ?? 0;
   const totalPages = propertiesResponse?.totalPages ?? 1;

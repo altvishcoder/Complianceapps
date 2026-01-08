@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { HeroStatsGrid } from "@/components/dashboard/HeroStats";
@@ -205,18 +206,41 @@ function getResultBadge(result: string) {
 
 export default function RegulatoryEvidence() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [streamFilter, setStreamFilter] = useState("all");
+  
+  // Debounce search for performance
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  
+  // Fetch real regulatory data with caching (uses global queryFn from queryClient)
+  const { data: regulatoryStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['/api/reports/regulatory-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/reports/regulatory-stats', { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60000, // Keep data fresh for 1 minute
+    gcTime: 300000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false,
+  });
   
   const totalCompliant = complianceEvidence.reduce((sum, e) => sum + e.compliant, 0);
   const totalProperties = complianceEvidence.reduce((sum, e) => sum + e.total, 0);
   const overallCompliance = ((totalCompliant / totalProperties) * 100).toFixed(1);
   
-  const filteredExceptions = exceptions.filter(exc => {
-    const matchesSearch = exc.property.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          exc.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStream = streamFilter === "all" || exc.stream.toLowerCase().includes(streamFilter.toLowerCase());
-    return matchesSearch && matchesStream;
-  });
+  // Memoize filtered results for performance
+  const filteredExceptions = useMemo(() => {
+    return exceptions.filter(exc => {
+      const matchesSearch = exc.property.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                            exc.id.toLowerCase().includes(debouncedSearch.toLowerCase());
+      const matchesStream = streamFilter === "all" || exc.stream.toLowerCase().includes(streamFilter.toLowerCase());
+      return matchesSearch && matchesStream;
+    });
+  }, [debouncedSearch, streamFilter]);
   
   return (
     <div className="flex h-screen bg-background">

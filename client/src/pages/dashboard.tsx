@@ -1,11 +1,11 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { HeroStatsGrid, HeroStatsGridSkeleton } from "@/components/dashboard/HeroStats";
 import { AlertTriangle, CheckCircle2, Clock, FileText, RefreshCw, Building2, Calendar, Upload, Eye, ChevronRight, MapPin, Wrench, Settings2, GripVertical, EyeOff, RotateCcw, FileWarning, Zap, Database } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,10 +150,19 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [widgets, setWidgets] = useState<WidgetConfig[]>(loadWidgetConfig);
   const [isConfiguring, setIsConfiguring] = useState(false);
+  const queryClient = useQueryClient();
   
   useEffect(() => {
     document.title = "Overview Hub - ComplianceAI";
   }, []);
+
+  // Prefetch commonly accessed pages for instant navigation
+  const prefetchOnHover = useCallback((queryKey: string[]) => {
+    queryClient.prefetchQuery({
+      queryKey,
+      staleTime: 30 * 1000,
+    });
+  }, [queryClient]);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
