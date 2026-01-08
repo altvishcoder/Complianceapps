@@ -324,6 +324,43 @@ export async function recordRemedialActionUpdate(
   );
 }
 
+export async function auditLog(
+  context: AuditContext,
+  eventType: 'CERTIFICATE_UPLOADED' | 'CERTIFICATE_PROCESSED' | 'CERTIFICATE_APPROVED' | 'CERTIFICATE_REJECTED' | 'CERTIFICATE_DELETED' | 
+            'EXTRACTION_COMPLETED' | 'REMEDIAL_ACTION_CREATED' | 'REMEDIAL_ACTION_COMPLETED' | 
+            'PROPERTY_CREATED' | 'PROPERTY_DELETED' | 'COMPONENT_CREATED' | 
+            'USER_LOGIN' | 'USER_LOGOUT' | 'USER_CREATED' | 'USER_UPDATED' | 'USER_ROLE_CHANGED' | 
+            'SETTINGS_CHANGED' | 'API_KEY_CREATED' | 'API_KEY_REVOKED' | 'BULK_IMPORT_COMPLETED',
+  entityType: 'CERTIFICATE' | 'PROPERTY' | 'COMPONENT' | 'REMEDIAL_ACTION' | 'USER' | 'ORGANISATION' | 'API_KEY' | 'SETTINGS',
+  entityId: string,
+  entityName: string,
+  message: string,
+  metadata?: Record<string, any>
+): Promise<string | null> {
+  try {
+    const auditEvent: InsertAuditEvent = {
+      organisationId: context.organisationId,
+      actorId: context.actorId,
+      actorName: context.actorName,
+      actorType: context.actorType || 'USER',
+      eventType: eventType as any,
+      entityType: entityType as any,
+      entityId,
+      entityName,
+      message,
+      metadata: metadata || null,
+      ipAddress: context.ipAddress || null,
+      userAgent: context.userAgent || null,
+    };
+    
+    const [result] = await db.insert(auditEvents).values(auditEvent).returning();
+    return result.id;
+  } catch (error) {
+    console.error('Error recording audit event:', error);
+    return null;
+  }
+}
+
 export async function getAuditTrailForEntity(
   organisationId: string,
   entityType: string,
