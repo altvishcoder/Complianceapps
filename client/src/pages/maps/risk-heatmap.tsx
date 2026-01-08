@@ -95,8 +95,8 @@ export default function RiskHeatmapPage() {
           )}
           <RiskFilters filters={filters} onChange={setFilters} />
           
-          <div className="flex-1 flex min-h-[60vh] md:min-h-[500px]">
-            <div className="flex-1 relative min-h-[60vh] md:min-h-[500px]">
+          <div className="flex-1 flex min-h-[75vh] md:min-h-[600px]">
+            <div className="flex-1 relative min-h-[75vh] md:min-h-[600px]">
               {isLoading && areas.length === 0 ? (
                 <MapSkeleton />
               ) : (
