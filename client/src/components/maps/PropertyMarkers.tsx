@@ -1,3 +1,4 @@
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Link } from 'wouter';
@@ -5,9 +6,27 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import L from 'leaflet';
-import { useEffect, useMemo, useRef } from 'react';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+export type AssetType = 'scheme' | 'block' | 'property';
+
+export interface PropertyMarker {
+  id: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lng: number;
+  riskScore: number;
+  propertyCount?: number;
+  unitCount?: number;
+  assetType?: AssetType;
+}
+
+interface PropertyMarkersProps {
+  properties: PropertyMarker[];
+  onPropertyClick?: (property: PropertyMarker) => void;
+}
 
 function RiskMarker({ 
   property, 
@@ -40,25 +59,6 @@ function RiskMarker({
       {children}
     </Marker>
   );
-}
-
-export type AssetType = 'scheme' | 'block' | 'property';
-
-export interface PropertyMarker {
-  id: string;
-  name: string;
-  address?: string;
-  lat: number;
-  lng: number;
-  riskScore: number;
-  propertyCount?: number;
-  unitCount?: number;
-  assetType?: AssetType;
-}
-
-interface PropertyMarkersProps {
-  properties: PropertyMarker[];
-  onPropertyClick?: (property: PropertyMarker) => void;
 }
 
 export function getRiskColor(score: number): string {
