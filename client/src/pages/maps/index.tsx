@@ -228,7 +228,7 @@ export default function MapsIndexPage() {
               />
             )}
 
-            {geocodingStatus && geocodingStatus.notGeocoded > 0 && (
+            {!statsLoading && geocodingStatus && geocodingStatus.notGeocoded > 0 && (
               <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
                 <CardContent className="py-3">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
