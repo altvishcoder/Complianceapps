@@ -334,30 +334,30 @@ export default function CompliancePage() {
                         className="block p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
                         data-testid={`stream-analysis-${stream.code}`}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
+                        <div className="flex items-start sm:items-center justify-between mb-2 gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <Badge 
                               variant={stream.riskLevel === 'low' ? 'outline' : stream.riskLevel === 'medium' ? 'secondary' : 'destructive'}
-                              className={stream.riskLevel === 'low' ? 'border-emerald-300 text-emerald-700' : ''}
+                              className={`shrink-0 ${stream.riskLevel === 'low' ? 'border-emerald-300 text-emerald-700' : ''}`}
                             >
                               {stream.riskLevel === 'low' ? 'On Target' : stream.riskLevel === 'medium' ? 'Needs Attention' : 'Critical'}
                             </Badge>
-                            <span className="font-semibold">{stream.name}</span>
+                            <span className="font-semibold truncate">{stream.name}</span>
                           </div>
-                          <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2 sm:gap-4 text-sm shrink-0">
                             {stream.hasData ? (
                               <>
                                 <span className={`font-bold ${stream.rate >= 95 ? 'text-emerald-600' : stream.rate >= 80 ? 'text-amber-600' : 'text-red-600'}`}>
                                   {stream.rate.toFixed(1)}%
                                 </span>
-                                <span className="text-muted-foreground">
+                                <span className="text-muted-foreground hidden sm:inline">
                                   {stream.compliant}/{stream.total} compliant
                                 </span>
                               </>
                             ) : (
-                              <span className="text-muted-foreground italic">Not assessed</span>
+                              <span className="text-muted-foreground italic text-xs sm:text-sm">Not assessed</span>
                             )}
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                           </div>
                         </div>
                         
@@ -367,29 +367,29 @@ export default function CompliancePage() {
                               value={stream.rate} 
                               className="h-2 mb-2"
                             />
-                            <div className="flex gap-4 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap gap-2 sm:gap-4 text-xs text-muted-foreground">
                               {stream.unsatisfactory > 0 && (
                                 <span className="flex items-center gap-1 text-red-600">
-                                  <XCircle className="h-3 w-3" />
-                                  {stream.unsatisfactory} unsatisfactory
+                                  <XCircle className="h-3 w-3 shrink-0" />
+                                  <span className="whitespace-nowrap">{stream.unsatisfactory} unsatisfactory</span>
                                 </span>
                               )}
                               {stream.expired > 0 && (
                                 <span className="flex items-center gap-1 text-red-600">
-                                  <FileWarning className="h-3 w-3" />
-                                  {stream.expired} expired
+                                  <FileWarning className="h-3 w-3 shrink-0" />
+                                  <span className="whitespace-nowrap">{stream.expired} expired</span>
                                 </span>
                               )}
                               {stream.expiringWithin30 > 0 && (
                                 <span className="flex items-center gap-1 text-amber-600">
-                                  <Clock className="h-3 w-3" />
-                                  {stream.expiringWithin30} expiring in 30 days
+                                  <Clock className="h-3 w-3 shrink-0" />
+                                  <span className="whitespace-nowrap">{stream.expiringWithin30} expiring in 30 days</span>
                                 </span>
                               )}
                               {stream.unsatisfactory === 0 && stream.expired === 0 && stream.expiringWithin30 === 0 && (
                                 <span className="flex items-center gap-1 text-emerald-600">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  All certificates valid
+                                  <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                  <span className="whitespace-nowrap">All certificates valid</span>
                                 </span>
                               )}
                             </div>
