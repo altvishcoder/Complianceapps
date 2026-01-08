@@ -5,9 +5,42 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import L from 'leaflet';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+function RiskMarker({ 
+  property, 
+  icon, 
+  onPropertyClick, 
+  children 
+}: { 
+  property: PropertyMarker; 
+  icon: L.DivIcon; 
+  onPropertyClick?: (property: PropertyMarker) => void;
+  children: React.ReactNode;
+}) {
+  const markerRef = useRef<L.Marker>(null);
+  
+  useEffect(() => {
+    if (markerRef.current) {
+      (markerRef.current as any).options.riskScore = property.riskScore;
+    }
+  }, [property.riskScore]);
+  
+  return (
+    <Marker
+      ref={markerRef}
+      position={[property.lat, property.lng]}
+      icon={icon}
+      eventHandlers={{
+        click: () => onPropertyClick?.(property),
+      }}
+    >
+      {children}
+    </Marker>
+  );
+}
 
 export type AssetType = 'scheme' | 'block' | 'property';
 
@@ -83,8 +116,21 @@ function createCustomIcon(color: string, assetType?: AssetType): L.DivIcon {
 
 function createClusterCustomIcon(cluster: any): L.DivIcon {
   const count = cluster.getChildCount();
+  const childMarkers = cluster.getAllChildMarkers();
   
-  const color = '#3B82F6';
+  let totalRisk = 0;
+  let validCount = 0;
+  
+  childMarkers.forEach((marker: any) => {
+    const riskScore = marker.options?.riskScore;
+    if (typeof riskScore === 'number' && !isNaN(riskScore)) {
+      totalRisk += riskScore;
+      validCount++;
+    }
+  });
+  
+  const avgRisk = validCount > 0 ? totalRisk / validCount : 75;
+  const color = getRiskColor(avgRisk);
   
   let sizeClass = 'small';
   let size = 40;
@@ -171,13 +217,11 @@ export function PropertyMarkers({ properties, onPropertyClick }: PropertyMarkers
           const icon = createCustomIcon(color, property.assetType);
           
           return (
-            <Marker
+            <RiskMarker
               key={property.id}
-              position={[property.lat, property.lng]}
+              property={property}
               icon={icon}
-              eventHandlers={{
-                click: () => onPropertyClick?.(property),
-              }}
+              onPropertyClick={onPropertyClick}
             >
               <Popup>
                 <div className="min-w-[200px] p-2 space-y-3">
