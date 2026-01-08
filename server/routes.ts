@@ -1606,16 +1606,19 @@ export async function registerRoutes(
       }
       
       // Try mv_risk_aggregates materialized view first (fast path)
+      // Join to properties to filter by organisation
       try {
         const mvResult = await db.execute(sql`
           SELECT 
             COUNT(*) as total,
-            COALESCE(SUM(risk_score), 0) as total_score,
-            COUNT(*) FILTER (WHERE risk_score >= 45) as critical,
-            COUNT(*) FILTER (WHERE risk_score >= 35 AND risk_score < 45) as high,
-            COUNT(*) FILTER (WHERE risk_score >= 20 AND risk_score < 35) as medium,
-            COUNT(*) FILTER (WHERE risk_score < 20) as low
-          FROM mv_risk_aggregates
+            COALESCE(SUM(mv.risk_score), 0) as total_score,
+            COUNT(*) FILTER (WHERE mv.risk_score >= 45) as critical,
+            COUNT(*) FILTER (WHERE mv.risk_score >= 35 AND mv.risk_score < 45) as high,
+            COUNT(*) FILTER (WHERE mv.risk_score >= 20 AND mv.risk_score < 35) as medium,
+            COUNT(*) FILTER (WHERE mv.risk_score < 20) as low
+          FROM mv_risk_aggregates mv
+          JOIN properties p ON p.id = mv.property_id
+          WHERE p.organisation_id = ${ORG_ID} AND p.deleted_at IS NULL
         `);
         
         if (mvResult.rows && mvResult.rows.length > 0) {
