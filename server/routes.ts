@@ -6937,6 +6937,7 @@ export async function registerRoutes(
       const today = new Date();
       
       // Use efficient SQL COUNT queries instead of loading all records
+      // Note: expiry_date is stored as text, so we cast to date for comparisons
       const [
         bs01Result,
         bs02Result,
@@ -6949,13 +6950,13 @@ export async function registerRoutes(
         db.execute(sql`
           SELECT COUNT(DISTINCT property_id) as buildings_with_compliance 
           FROM certificates 
-          WHERE expiry_date > NOW() AND property_id IS NOT NULL
+          WHERE expiry_date::date > CURRENT_DATE AND property_id IS NOT NULL
         `),
         // BS02: FRA compliance
         db.execute(sql`
           SELECT 
             COUNT(*) as total_fra,
-            COUNT(CASE WHEN expiry_date > NOW() THEN 1 END) as up_to_date_fra
+            COUNT(CASE WHEN expiry_date::date > CURRENT_DATE THEN 1 END) as up_to_date_fra
           FROM certificates 
           WHERE certificate_type = 'FIRE_RISK_ASSESSMENT'
         `),
@@ -6974,7 +6975,7 @@ export async function registerRoutes(
         db.execute(sql`
           SELECT certificate_type, COUNT(*) as count
           FROM certificates 
-          WHERE expiry_date < NOW()
+          WHERE expiry_date::date < CURRENT_DATE
           GROUP BY certificate_type
         `),
         // BS06: Critical alerts (top 10)
@@ -6992,7 +6993,7 @@ export async function registerRoutes(
             (SELECT COUNT(*) FROM components) as total_components,
             (SELECT COUNT(*) FROM certificates) as total_certificates,
             (SELECT COUNT(*) FROM remedial_actions) as total_remedial,
-            (SELECT COUNT(*) FROM certificates WHERE expiry_date > NOW()) as valid_certificates
+            (SELECT COUNT(*) FROM certificates WHERE expiry_date::date > CURRENT_DATE) as valid_certificates
         `)
       ]);
 
