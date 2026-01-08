@@ -354,6 +354,39 @@ export default function ActionsPage() {
                 </div>
               ) : (
               <div className="space-y-4">
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-4 border-b">
+                    <div className="text-sm text-muted-foreground text-center sm:text-left">
+                      Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems}
+                      {isFetching && <Loader2 className="h-4 w-4 animate-spin inline ml-2" />}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        data-testid="pagination-top-prev"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span className="hidden sm:inline">Previous</span>
+                      </Button>
+                      <span className="text-sm text-muted-foreground min-w-[80px] text-center">
+                        {page} / {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages}
+                        data-testid="pagination-top-next"
+                      >
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {filteredActions.map((action) => (
                   <div 
                     key={action.id} 
