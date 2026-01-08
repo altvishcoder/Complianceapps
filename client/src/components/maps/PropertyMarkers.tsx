@@ -1,9 +1,11 @@
-import { CircleMarker, Marker, Popup } from 'react-leaflet';
+import { Marker, Popup, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Link } from 'wouter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import L from 'leaflet';
+import { useEffect, useMemo } from 'react';
 
 export type AssetType = 'scheme' | 'block' | 'property';
 
@@ -77,80 +79,162 @@ function createCustomIcon(color: string, assetType?: AssetType): L.DivIcon {
   });
 }
 
+function createClusterCustomIcon(cluster: any): L.DivIcon {
+  const count = cluster.getChildCount();
+  
+  const color = '#3B82F6';
+  
+  let sizeClass = 'small';
+  let size = 40;
+  if (count >= 100) {
+    sizeClass = 'large';
+    size = 50;
+  } else if (count >= 10) {
+    sizeClass = 'medium';
+    size = 45;
+  }
+  
+  return L.divIcon({
+    html: `<div style="
+      background-color: ${color}; 
+      width: ${size}px; 
+      height: ${size}px; 
+      border-radius: 50%; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      color: white; 
+      font-weight: bold;
+      font-size: ${count >= 1000 ? '11px' : count >= 100 ? '12px' : '14px'};
+      border: 3px solid white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    ">${count >= 1000 ? (count/1000).toFixed(1) + 'k' : count}</div>`,
+    className: `marker-cluster marker-cluster-${sizeClass}`,
+    iconSize: L.point(size, size),
+  });
+}
+
+function MapBoundsUpdater({ properties }: { properties: PropertyMarker[] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (properties.length > 0) {
+      const validProps = properties.filter(p => 
+        p.lat && p.lng && 
+        !isNaN(p.lat) && !isNaN(p.lng) &&
+        p.lat >= -90 && p.lat <= 90 &&
+        p.lng >= -180 && p.lng <= 180
+      );
+      
+      if (validProps.length > 0) {
+        const bounds = L.latLngBounds(
+          validProps.map(p => [p.lat, p.lng] as [number, number])
+        );
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+      }
+    }
+  }, [properties.length > 0]);
+  
+  return null;
+}
+
 export function PropertyMarkers({ properties, onPropertyClick }: PropertyMarkersProps) {
+  const validProperties = useMemo(() => 
+    properties.filter(p => 
+      p.lat && p.lng && 
+      !isNaN(p.lat) && !isNaN(p.lng) &&
+      p.lat >= -90 && p.lat <= 90 &&
+      p.lng >= -180 && p.lng <= 180
+    ), [properties]);
+
+  if (validProperties.length === 0) {
+    return null;
+  }
+
   return (
     <>
-      {properties.map((property) => {
-        const color = getRiskColor(property.riskScore);
-        const { label, variant } = getRiskLabel(property.riskScore);
-        const icon = createCustomIcon(color, property.assetType);
-        
-        return (
-          <Marker
-            key={property.id}
-            position={[property.lat, property.lng]}
-            icon={icon}
-            eventHandlers={{
-              click: () => onPropertyClick?.(property),
-            }}
-          >
-            <Popup>
-              <div className="min-w-[200px] p-2 space-y-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className="text-xs">
-                      {getAssetTypeLabel(property.assetType)}
-                    </Badge>
+      <MapBoundsUpdater properties={validProperties} />
+      <MarkerClusterGroup
+        chunkedLoading
+        maxClusterRadius={80}
+        spiderfyOnMaxZoom={true}
+        showCoverageOnHover={false}
+        zoomToBoundsOnClick={true}
+        disableClusteringAtZoom={16}
+        iconCreateFunction={createClusterCustomIcon}
+      >
+        {validProperties.map((property) => {
+          const color = getRiskColor(property.riskScore);
+          const { label, variant } = getRiskLabel(property.riskScore);
+          const icon = createCustomIcon(color, property.assetType);
+          
+          return (
+            <Marker
+              key={property.id}
+              position={[property.lat, property.lng]}
+              icon={icon}
+              eventHandlers={{
+                click: () => onPropertyClick?.(property),
+              }}
+            >
+              <Popup>
+                <div className="min-w-[200px] p-2 space-y-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-xs">
+                        {getAssetTypeLabel(property.assetType)}
+                      </Badge>
+                    </div>
+                    <h3 className="font-semibold text-sm">{property.name}</h3>
+                    {property.address && (
+                      <p className="text-xs text-muted-foreground mt-1">{property.address}</p>
+                    )}
                   </div>
-                  <h3 className="font-semibold text-sm">{property.name}</h3>
-                  {property.address && (
-                    <p className="text-xs text-muted-foreground mt-1">{property.address}</p>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Risk Score</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold" style={{ color }}>
+                        {property.riskScore}%
+                      </span>
+                      <Badge 
+                        variant={variant === 'warning' ? 'secondary' : variant === 'success' ? 'default' : 'destructive'}
+                        className={`text-xs ${variant === 'success' ? 'bg-green-100 text-green-800' : variant === 'warning' ? 'bg-amber-100 text-amber-800' : ''}`}
+                      >
+                        {label}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {(property.propertyCount || property.unitCount) && (
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      {property.propertyCount && (
+                        <span>{property.propertyCount} properties</span>
+                      )}
+                      {property.unitCount && (
+                        <span>{property.unitCount} units</span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {property.id.startsWith('prop-') ? (
+                    <div className="text-xs text-muted-foreground text-center py-1 bg-muted rounded">
+                      Sample data - connect real properties to enable details
+                    </div>
+                  ) : (
+                    <Link href={`/properties/${property.id}`}>
+                      <Button variant="outline" size="sm" className="w-full" data-testid={`button-view-property-${property.id}`}>
+                        <ExternalLink className="h-3 w-3 mr-2" />
+                        View Details
+                      </Button>
+                    </Link>
                   )}
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Risk Score</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold" style={{ color }}>
-                      {property.riskScore}%
-                    </span>
-                    <Badge 
-                      variant={variant === 'warning' ? 'secondary' : variant === 'success' ? 'default' : 'destructive'}
-                      className={`text-xs ${variant === 'success' ? 'bg-green-100 text-green-800' : variant === 'warning' ? 'bg-amber-100 text-amber-800' : ''}`}
-                    >
-                      {label}
-                    </Badge>
-                  </div>
-                </div>
-                
-                {(property.propertyCount || property.unitCount) && (
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    {property.propertyCount && (
-                      <span>{property.propertyCount} properties</span>
-                    )}
-                    {property.unitCount && (
-                      <span>{property.unitCount} units</span>
-                    )}
-                  </div>
-                )}
-                
-                {property.id.startsWith('prop-') ? (
-                  <div className="text-xs text-muted-foreground text-center py-1 bg-muted rounded">
-                    Sample data - connect real properties to enable details
-                  </div>
-                ) : (
-                  <Link href={`/properties/${property.id}`}>
-                    <Button variant="outline" size="sm" className="w-full" data-testid={`button-view-property-${property.id}`}>
-                      <ExternalLink className="h-3 w-3 mr-2" />
-                      View Details
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MarkerClusterGroup>
     </>
   );
 }
