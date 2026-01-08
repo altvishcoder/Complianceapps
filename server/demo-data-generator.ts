@@ -22,6 +22,19 @@ const UK_CITIES = [
   { city: "Glasgow", postcodePrefix: "G", region: "Scotland" },
 ];
 
+const REAL_UK_POSTCODES: Record<string, string[]> = {
+  "SW": ["SW1A 1AA", "SW1A 2AA", "SW1P 3AE", "SW1V 1DX", "SW1W 9SR", "SW3 4LY", "SW6 1BA", "SW7 2AZ", "SW8 2JB", "SW10 0DQ", "SW11 1PQ", "SW12 8NP", "SW15 2LW", "SW16 1BJ", "SW17 0TW", "SW18 2PX", "SW19 4TZ", "SW20 0AQ"],
+  "M": ["M1 1AD", "M2 4JW", "M3 4LE", "M4 2AF", "M11 4EQ", "M12 5NG", "M13 9PL", "M14 5RL", "M15 4PR", "M16 0BP", "M19 2SY", "M20 3BN", "M21 9JE", "M22 4RW", "M23 2PA", "M32 0EZ", "M33 2SZ", "M34 3AB", "M40 2NR", "M45 8QQ"],
+  "B": ["B1 1BB", "B2 4QA", "B3 3PL", "B4 7ET", "B5 4TD", "B6 4SB", "B7 4BB", "B8 1RS", "B9 4AA", "B10 0DR", "B11 1LT", "B12 9BH", "B13 8RD", "B15 2TH", "B16 8LP", "B17 8AY", "B18 4RG", "B19 2YP", "B20 2AE", "B21 8EZ", "B23 5PA", "B24 9HB", "B25 8EX"],
+  "LS": ["LS1 1UR", "LS2 7JT", "LS3 1AD", "LS5 3BT", "LS6 1AP", "LS7 1AU", "LS8 1HD", "LS9 6JT", "LS10 1NN", "LS12 3HE", "LS13 2AF", "LS14 6GJ", "LS15 0EL", "LS16 5NL", "LS17 6QY", "LS18 4LN", "LS19 7AE", "LS20 8BH", "LS21 1AE", "LS22 7AD"],
+  "L": ["L1 0AA", "L2 0NJ", "L3 4AA", "L4 3TG", "L5 5AF", "L6 1HY", "L7 2PZ", "L8 0RD", "L9 7AL", "L10 4YQ", "L11 2SH", "L12 2AY", "L13 0AN", "L14 0JF", "L15 0HD", "L16 9JN", "L17 0AU", "L18 1JU", "L19 0LF", "L22 0NH", "L23 2RL"],
+  "NE": ["NE1 4LP", "NE2 1AN", "NE4 6PR", "NE5 3PB", "NE8 2ET", "NE9 5DQ", "NE10 0ES", "NE11 9DH", "NE12 6AQ", "NE13 6PD", "NE15 6NJ", "NE16 3PA", "NE20 0AB", "NE21 4JL", "NE22 5AB", "NE23 6JR", "NE24 4RU", "NE25 8AL", "NE26 2TN", "NE28 6EN"],
+  "S": ["S1 1WB", "S2 4UP", "S3 7EW", "S5 6LT", "S6 3GL", "S7 1LA", "S8 0QJ", "S9 1WG", "S10 2PN", "S11 9PN", "S12 4LE", "S13 9LF", "S17 3GU", "S18 2BT", "S20 6PH", "S21 4AE", "S25 2QZ", "S26 4UT", "S35 2PA", "S40 1SZ", "S41 0EW"],
+  "BS": ["BS1 3LG", "BS2 0LQ", "BS3 1JL", "BS4 3JR", "BS5 0BB", "BS6 5RQ", "BS7 8PA", "BS8 2LR", "BS9 3HT", "BS10 5EH", "BS11 0DE", "BS13 0EZ", "BS14 0LH", "BS15 1SW", "BS16 1QY", "BS20 7AE", "BS21 6PH", "BS22 8AB", "BS23 1PR", "BS24 0PB", "BS30 5JA"],
+  "NG": ["NG1 1GF", "NG2 2JQ", "NG3 5AW", "NG4 1JY", "NG5 1HQ", "NG6 0DH", "NG7 2ND", "NG8 1PA", "NG9 2JQ", "NG10 1LT", "NG11 6PN", "NG12 3AD", "NG13 8AN", "NG14 6BQ", "NG15 0BL", "NG16 2NJ", "NG17 2EU", "NG19 6AA", "NG21 9AF", "NG22 0ND", "NG24 1PP"],
+  "G": ["G1 1XQ", "G2 4JR", "G3 7RW", "G4 9PA", "G5 8AB", "G11 5QH", "G12 8QQ", "G13 1NN", "G14 0AP", "G20 9ED", "G21 2AB", "G22 6BP", "G31 1JP", "G32 6JL", "G33 4JU", "G34 9LQ", "G40 2AA", "G41 3AB", "G42 9DL", "G43 1EP", "G44 3EE", "G45 9NS"],
+};
+
 const STREET_NAMES = [
   "High Street", "Church Lane", "Station Road", "Park Avenue", "Victoria Road",
   "Queen Street", "King Street", "Market Square", "The Crescent", "Oak Drive",
@@ -82,6 +95,10 @@ function generateUPRN(index: number): string {
 }
 
 function generatePostcode(prefix: string): string {
+  const realPostcodes = REAL_UK_POSTCODES[prefix];
+  if (realPostcodes && realPostcodes.length > 0) {
+    return randomChoice(realPostcodes);
+  }
   return `${prefix}${randomInt(1, 20)} ${randomInt(1, 9)}${String.fromCharCode(65 + randomInt(0, 25))}${String.fromCharCode(65 + randomInt(0, 25))}`;
 }
 
