@@ -28,7 +28,19 @@ export default function MapsIndexPage() {
   const queryClient = useQueryClient();
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   
-  const { data: properties = [], isLoading } = useQuery({
+  // Lightweight stats endpoint - loads instantly
+  const { data: mapStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['map-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/maps/stats', { cache: 'no-store' });
+      if (!res.ok) return { total: 0, high: 0, medium: 0, low: 0, avgScore: 0 };
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  // Full property data for map markers - loads in background
+  const { data: properties = [], isLoading: propertiesLoading } = useQuery({
     queryKey: ['map-properties'],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
@@ -96,7 +108,12 @@ export default function MapsIndexPage() {
     }));
   }, [aggregationLevel, properties, aggregatedAreas]);
   
+  // Use server-side stats for property level (instant load), calculate from data for aggregated views
   const riskSummary = useMemo(() => {
+    if (aggregationLevel === 'property' && mapStats) {
+      return mapStats;
+    }
+    // Fallback for scheme/ward aggregation levels
     const dataSource = displayMarkers;
     const high = dataSource.filter((p: any) => p.riskScore < 60).length;
     const medium = dataSource.filter((p: any) => p.riskScore >= 60 && p.riskScore < 85).length;
@@ -105,7 +122,7 @@ export default function MapsIndexPage() {
       ? dataSource.reduce((sum: number, p: any) => sum + p.riskScore, 0) / dataSource.length 
       : 0;
     return { high, medium, low, avgScore: Math.round(avgScore), total: dataSource.length };
-  }, [displayMarkers]);
+  }, [aggregationLevel, mapStats, displayMarkers]);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -171,7 +188,7 @@ export default function MapsIndexPage() {
               </div>
             </div>
 
-            {isLoading && properties.length === 0 ? (
+            {statsLoading && !mapStats ? (
               <HeroStatsGridSkeleton count={4} />
             ) : (
               <HeroStatsGrid
@@ -261,7 +278,7 @@ export default function MapsIndexPage() {
             )}
 
             <div className="flex-1 relative rounded-lg overflow-hidden border shadow-sm min-h-[300px] sm:min-h-[400px]">
-              {isLoading && (
+              {propertiesLoading && (
                 <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>

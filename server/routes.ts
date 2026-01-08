@@ -1554,9 +1554,17 @@ export async function registerRoutes(
     }
   });
   
-  // Lightweight stats endpoint for Risk Maps - loads instantly
+  // Lightweight stats endpoint for Risk Maps with server-side caching
+  let mapStatsCache: { data: any; timestamp: number } | null = null;
+  const MAP_STATS_TTL = 60000; // 60 seconds cache TTL
+  
   app.get("/api/maps/stats", async (req, res) => {
     try {
+      // Return cached data if still valid
+      if (mapStatsCache && (Date.now() - mapStatsCache.timestamp) < MAP_STATS_TTL) {
+        return res.json(mapStatsCache.data);
+      }
+      
       const riskData = await storage.getPropertyRiskData(ORG_ID);
       
       let total = 0;
@@ -1577,8 +1585,12 @@ export async function registerRoutes(
       }
       
       const avgScore = total > 0 ? Math.round(scoreSum / total) : 0;
+      const stats = { total, high, medium, low, avgScore };
       
-      res.json({ total, high, medium, low, avgScore });
+      // Cache the result
+      mapStatsCache = { data: stats, timestamp: Date.now() };
+      
+      res.json(stats);
     } catch (error) {
       console.error("Error fetching map stats:", error);
       res.status(500).json({ error: "Failed to fetch map stats" });
