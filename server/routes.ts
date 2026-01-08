@@ -1554,6 +1554,37 @@ export async function registerRoutes(
     }
   });
   
+  // Lightweight stats endpoint for Risk Maps - loads instantly
+  app.get("/api/maps/stats", async (req, res) => {
+    try {
+      const riskData = await storage.getPropertyRiskData(ORG_ID);
+      
+      let total = 0;
+      let high = 0;
+      let medium = 0;
+      let low = 0;
+      let scoreSum = 0;
+      
+      for (const r of riskData) {
+        if (!r.property.latitude || !r.property.longitude) continue;
+        total++;
+        const riskScore = calculatePropertyRiskScore(r.certificates, r.actions);
+        scoreSum += riskScore;
+        
+        if (riskScore < 60) high++;
+        else if (riskScore < 85) medium++;
+        else low++;
+      }
+      
+      const avgScore = total > 0 ? Math.round(scoreSum / total) : 0;
+      
+      res.json({ total, high, medium, low, avgScore });
+    } catch (error) {
+      console.error("Error fetching map stats:", error);
+      res.status(500).json({ error: "Failed to fetch map stats" });
+    }
+  });
+  
   app.get("/api/risk/areas", async (req, res) => {
     try {
       const level = (req.query.level as string) || 'property';
