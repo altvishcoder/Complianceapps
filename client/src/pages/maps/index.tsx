@@ -33,7 +33,8 @@ export default function MapsIndexPage() {
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
       const res = await fetch('/api/properties/geo', {
-        headers: { 'X-User-Id': userId || '' }
+        headers: { 'X-User-Id': userId || '' },
+        cache: 'no-store'
       });
       if (!res.ok) return [];
       return res.json();
