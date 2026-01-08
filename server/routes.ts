@@ -1594,6 +1594,7 @@ export async function registerRoutes(
   });
   
   // Lightweight stats endpoint for Risk Maps with server-side caching
+  // Now uses mv_risk_aggregates materialized view for fast performance
   let mapStatsCache: { data: any; timestamp: number } | null = null;
   const MAP_STATS_TTL = 60000; // 60 seconds cache TTL
   
@@ -1604,13 +1605,43 @@ export async function registerRoutes(
         return res.json(mapStatsCache.data);
       }
       
-      // Use authoritative risk snapshots for consistent scoring
-      const [riskData, riskSnapshots] = await Promise.all([
-        storage.getPropertyRiskData(ORG_ID),
-        getPropertyRiskSnapshots(ORG_ID)
-      ]);
+      // Try mv_risk_aggregates materialized view first (fast path)
+      try {
+        const mvResult = await db.execute(sql`
+          SELECT 
+            COUNT(*) as total,
+            COALESCE(SUM(risk_score), 0) as total_score,
+            COUNT(*) FILTER (WHERE risk_score >= 45) as critical,
+            COUNT(*) FILTER (WHERE risk_score >= 35 AND risk_score < 45) as high,
+            COUNT(*) FILTER (WHERE risk_score >= 20 AND risk_score < 35) as medium,
+            COUNT(*) FILTER (WHERE risk_score < 20) as low
+          FROM mv_risk_aggregates
+        `);
+        
+        if (mvResult.rows && mvResult.rows.length > 0) {
+          const row = mvResult.rows[0] as any;
+          const total = Number(row.total) || 0;
+          const totalScore = Number(row.total_score) || 0;
+          const stats = {
+            total,
+            critical: Number(row.critical) || 0,
+            high: Number(row.high) || 0,
+            medium: Number(row.medium) || 0,
+            low: Number(row.low) || 0,
+            avgScore: total > 0 ? Math.round(totalScore / total) : 0,
+            _source: 'materialized_view'
+          };
+          
+          mapStatsCache = { data: stats, timestamp: Date.now() };
+          return res.json(stats);
+        }
+      } catch (mvError) {
+        // View doesn't exist or query failed, fall back to property_risk_snapshots
+        console.log('[maps/stats] mv_risk_aggregates not available, using snapshots');
+      }
       
-      const snapshotMap = new Map(riskSnapshots.map(s => [s.propertyId, s]));
+      // Fall back to risk snapshots (still fast, pre-computed)
+      const riskSnapshots = await getPropertyRiskSnapshots(ORG_ID);
       
       let total = 0;
       let critical = 0;
@@ -1619,18 +1650,11 @@ export async function registerRoutes(
       let low = 0;
       let scoreSum = 0;
       
-      for (const r of riskData) {
-        if (!r.property.latitude || !r.property.longitude) continue;
+      for (const snapshot of riskSnapshots) {
         total++;
+        scoreSum += snapshot.overallScore;
         
-        // Use snapshot score (authoritative) or fallback
-        const snapshot = snapshotMap.get(r.property.id);
-        const riskScore = snapshot?.overallScore ?? calculatePropertyRiskScore(r.certificates, r.actions, r.property.id);
-        const riskTier = snapshot?.riskTier ?? (riskScore >= 45 ? 'CRITICAL' : riskScore >= 35 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW');
-        scoreSum += riskScore;
-        
-        // Categorize by tier (consistent with risk radar)
-        switch (riskTier) {
+        switch (snapshot.riskTier) {
           case 'CRITICAL': critical++; break;
           case 'HIGH': high++; break;
           case 'MEDIUM': medium++; break;
@@ -1639,11 +1663,9 @@ export async function registerRoutes(
       }
       
       const avgScore = total > 0 ? Math.round(scoreSum / total) : 0;
-      const stats = { total, critical, high, medium, low, avgScore };
+      const stats = { total, critical, high, medium, low, avgScore, _source: 'risk_snapshots' };
       
-      // Cache the result
       mapStatsCache = { data: stats, timestamp: Date.now() };
-      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching map stats:", error);
