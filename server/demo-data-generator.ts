@@ -496,9 +496,13 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
           }
         }
         
+        // Batch remedial action inserts to avoid timeouts with large volumes
         if (allActions.length > 0) {
-          await db.insert(remedialActions).values(allActions);
-          stats.remedialActions += allActions.length;
+          for (let ra = 0; ra < allActions.length; ra += BATCH_SIZE) {
+            const actionBatch = allActions.slice(ra, ra + BATCH_SIZE);
+            await db.insert(remedialActions).values(actionBatch);
+            stats.remedialActions += actionBatch.length;
+          }
           onProgress?.("remedials", stats.remedialActions, targetRemedials);
         }
       }
