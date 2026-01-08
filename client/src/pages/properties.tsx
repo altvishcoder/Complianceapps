@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { Filter, Download, MoreHorizontal, CheckCircle2, AlertTriangle, XCircle, Home, Plus, Building2, Layers, Trash2, ShieldCheck, AlertCircle, MapPin, Pencil, Upload, ArrowLeft, Flame, Clock, FileWarning } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useMemo } from "react";
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
@@ -670,7 +671,28 @@ export default function Properties() {
               
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border">
-                {filteredProperties.length === 0 ? (
+                {isLoading && !propertiesResponse ? (
+                  [...Array(5)].map((_, i) => (
+                    <div key={i} className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Skeleton className="h-4 w-4 mt-1" />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-1 flex-1">
+                              <Skeleton className="h-5 w-3/4" />
+                              <Skeleton className="h-4 w-1/2" />
+                            </div>
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="h-4 w-12" />
+                            <Skeleton className="h-3 w-32" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : filteredProperties.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     No properties found. Add a property or load demo data.
                   </div>
@@ -736,7 +758,28 @@ export default function Properties() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredProperties.length === 0 ? (
+                    {isLoading && !propertiesResponse ? (
+                      [...Array(10)].map((_, i) => (
+                        <tr key={i} className="animate-pulse">
+                          <td className="p-4 pl-4"><Skeleton className="h-4 w-4" /></td>
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              <Skeleton className="h-5 w-48" />
+                              <Skeleton className="h-3 w-32" />
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-3 w-32" />
+                            </div>
+                          </td>
+                          <td className="p-4"><Skeleton className="h-4 w-16" /></td>
+                          <td className="p-4"><Skeleton className="h-6 w-28 rounded-full" /></td>
+                          <td className="p-4 text-right pr-6"><Skeleton className="h-8 w-8 ml-auto" /></td>
+                        </tr>
+                      ))
+                    ) : filteredProperties.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-muted-foreground">
                           No properties found. Add a property or load demo data.
