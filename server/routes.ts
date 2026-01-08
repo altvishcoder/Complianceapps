@@ -1476,13 +1476,19 @@ export async function registerRoutes(
         p.postcode.length >= 5
       );
       
+      console.log(`[geocoding] Properties needing geocoding: ${needsGeocoding.length}`);
+      
       if (needsGeocoding.length === 0) {
         return res.json({ message: "No properties need geocoding", updated: 0 });
       }
       
       const postcodeSet = new Set(needsGeocoding.map(p => p.postcode!));
       const postcodes = Array.from(postcodeSet);
+      console.log(`[geocoding] Unique postcodes to geocode: ${postcodes.length}`);
+      console.log(`[geocoding] Sample postcodes: ${postcodes.slice(0, 5).join(', ')}`);
+      
       const results = await geocodeBulkPostcodes(postcodes);
+      console.log(`[geocoding] Geocoding API returned results for: ${results.size} postcodes`);
       
       let updated = 0;
       for (const prop of needsGeocoding) {
@@ -1501,6 +1507,8 @@ export async function registerRoutes(
           updated++;
         }
       }
+      
+      console.log(`[geocoding] Updated ${updated} properties`);
       
       res.json({ 
         message: `Geocoded ${updated} properties`, 
