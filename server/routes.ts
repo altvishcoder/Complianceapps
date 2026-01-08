@@ -6933,58 +6933,85 @@ export async function registerRoutes(
   // ===== TSM BUILDING SAFETY REPORTS =====
   app.get("/api/reports/tsm-building-safety", async (req, res) => {
     try {
-      const period = req.query.period as string || 'current'; // 'current', 'previous', 'ytd'
+      const period = req.query.period as string || 'current';
       const today = new Date();
       
-      // Get all components and certificates for calculations
-      const allComponents = await storage.listComponents();
-      const allCertificates = await storage.listCertificates(ORG_ID);
-      const remedialActions = await storage.listRemedialActions(ORG_ID);
+      // Use efficient SQL COUNT queries instead of loading all records
+      const [
+        bs01Result,
+        bs02Result,
+        bs03Result,
+        bs04Result,
+        bs06Result,
+        summaryResult
+      ] = await Promise.all([
+        // BS01: Buildings with valid certificates
+        db.execute(sql`
+          SELECT COUNT(DISTINCT property_id) as buildings_with_compliance 
+          FROM certificates 
+          WHERE expiry_date > NOW() AND property_id IS NOT NULL
+        `),
+        // BS02: FRA compliance
+        db.execute(sql`
+          SELECT 
+            COUNT(*) as total_fra,
+            COUNT(CASE WHEN expiry_date > NOW() THEN 1 END) as up_to_date_fra
+          FROM certificates 
+          WHERE certificate_type = 'FIRE_RISK_ASSESSMENT'
+        `),
+        // BS03: Outstanding remedial actions by severity
+        db.execute(sql`
+          SELECT 
+            COUNT(*) as total_outstanding,
+            COUNT(CASE WHEN severity = 'IMMEDIATE' THEN 1 END) as immediate,
+            COUNT(CASE WHEN severity = 'URGENT' THEN 1 END) as urgent,
+            COUNT(CASE WHEN severity = 'PRIORITY' THEN 1 END) as priority,
+            COUNT(CASE WHEN severity = 'ROUTINE' THEN 1 END) as routine
+          FROM remedial_actions 
+          WHERE status NOT IN ('COMPLETED', 'CANCELLED')
+        `),
+        // BS04: Overdue inspections by type
+        db.execute(sql`
+          SELECT certificate_type, COUNT(*) as count
+          FROM certificates 
+          WHERE expiry_date < NOW()
+          GROUP BY certificate_type
+        `),
+        // BS06: Critical alerts (top 10)
+        db.execute(sql`
+          SELECT id, description, property_id, due_date
+          FROM remedial_actions 
+          WHERE severity = 'IMMEDIATE' AND status NOT IN ('COMPLETED', 'CANCELLED')
+          ORDER BY due_date ASC NULLS LAST
+          LIMIT 10
+        `),
+        // Summary counts
+        db.execute(sql`
+          SELECT 
+            (SELECT COUNT(DISTINCT COALESCE(property_id, block_id)) FROM components) as unique_buildings,
+            (SELECT COUNT(*) FROM components) as total_components,
+            (SELECT COUNT(*) FROM certificates) as total_certificates,
+            (SELECT COUNT(*) FROM remedial_actions) as total_remedial,
+            (SELECT COUNT(*) FROM certificates WHERE expiry_date > NOW()) as valid_certificates
+        `)
+      ]);
+
+      // Extract results
+      const bs01Row = (bs01Result.rows as any[])[0] || { buildings_with_compliance: 0 };
+      const bs02Row = (bs02Result.rows as any[])[0] || { total_fra: 0, up_to_date_fra: 0 };
+      const bs03Row = (bs03Result.rows as any[])[0] || { total_outstanding: 0, immediate: 0, urgent: 0, priority: 0, routine: 0 };
+      const bs04Rows = (bs04Result.rows as any[]) || [];
+      const bs06Rows = (bs06Result.rows as any[]) || [];
+      const summaryRow = (summaryResult.rows as any[])[0] || { unique_buildings: 0, total_components: 0, total_certificates: 0, total_remedial: 0, valid_certificates: 0 };
+
+      const totalFRA = Number(bs02Row.total_fra) || 0;
+      const upToDateFRA = Number(bs02Row.up_to_date_fra) || 0;
+      const bs02Percentage = totalFRA > 0 ? (upToDateFRA / totalFRA * 100) : 0;
       
-      // Get high-risk building safety components
-      const componentTypesData = await storage.listComponentTypes();
-      const highRiskTypes = componentTypesData.filter(t => t.isHighRisk || t.buildingSafetyRelevant);
-      const highRiskTypeIds = highRiskTypes.map(t => t.id);
-      
-      const highRiskComponents = allComponents.filter(c => highRiskTypeIds.includes(c.componentTypeId));
-      
-      // BS01: Building Safety Cases completed
-      // (Count of high-risk buildings with all required certificates up to date)
-      const buildingsWithCompliance = new Set();
-      allCertificates.forEach(cert => {
-        if (cert.expiryDate && new Date(cert.expiryDate) > today) {
-          buildingsWithCompliance.add(cert.propertyId);
-        }
-      });
-      
-      // BS02: Percentage of buildings with up-to-date Fire Risk Assessment
-      const fraType = componentTypesData.find(t => t.code === 'FIRE_RISK_ASSESSMENT' || t.relatedCertificateTypes?.includes('FIRE_RISK_ASSESSMENT'));
-      const fraCertificates = allCertificates.filter(c => c.certificateType === 'FIRE_RISK_ASSESSMENT');
-      const upToDateFRA = fraCertificates.filter(c => c.expiryDate && new Date(c.expiryDate) > today);
-      const bs02Percentage = fraCertificates.length > 0 ? (upToDateFRA.length / fraCertificates.length * 100) : 0;
-      
-      // BS03: Outstanding remedial actions on high-risk components
-      const outstandingActions = remedialActions.filter(a => 
-        a.status !== 'COMPLETED' && a.status !== 'CANCELLED'
-      );
-      
-      // BS04: Overdue safety inspections
-      const overdueInspections = allCertificates.filter(c => 
-        c.expiryDate && new Date(c.expiryDate) < today
-      );
-      
-      // BS05: Resident communication (placeholder - requires additional tracking)
-      const bs05ResidentComms = {
-        notified: 0,
-        pending: 0,
-        percentage: 0
-      };
-      
-      // BS06: Critical safety alerts
-      const criticalActions = remedialActions.filter(a => 
-        a.severity === 'IMMEDIATE' && a.status !== 'COMPLETED'
-      );
-      
+      const totalCerts = Number(summaryRow.total_certificates) || 0;
+      const validCerts = Number(summaryRow.valid_certificates) || 0;
+      const complianceScore = totalCerts > 0 ? Math.round((validCerts / totalCerts) * 100) : 0;
+
       res.json({
         period,
         reportDate: today.toISOString(),
@@ -6992,70 +7019,63 @@ export async function registerRoutes(
           BS01: {
             name: "Building Safety Cases",
             description: "Buildings with safety case reviews completed",
-            value: buildingsWithCompliance.size,
-            total: allComponents.length > 0 ? new Set(allComponents.map(c => c.propertyId || c.blockId)).size : 0,
+            value: Number(bs01Row.buildings_with_compliance) || 0,
+            total: Number(summaryRow.unique_buildings) || 0,
             unit: "buildings"
           },
           BS02: {
             name: "Fire Risk Assessment Compliance",
             description: "Percentage of buildings with up-to-date FRA",
             value: Math.round(bs02Percentage * 10) / 10,
-            total: fraCertificates.length,
-            upToDate: upToDateFRA.length,
+            total: totalFRA,
+            upToDate: upToDateFRA,
             unit: "percent"
           },
           BS03: {
             name: "Outstanding Remedial Actions",
             description: "Remedial actions awaiting completion",
-            value: outstandingActions.length,
+            value: Number(bs03Row.total_outstanding) || 0,
             bySeverity: {
-              immediate: outstandingActions.filter(a => a.severity === 'IMMEDIATE').length,
-              urgent: outstandingActions.filter(a => a.severity === 'URGENT').length,
-              priority: outstandingActions.filter(a => a.severity === 'PRIORITY').length,
-              routine: outstandingActions.filter(a => a.severity === 'ROUTINE').length,
+              immediate: Number(bs03Row.immediate) || 0,
+              urgent: Number(bs03Row.urgent) || 0,
+              priority: Number(bs03Row.priority) || 0,
+              routine: Number(bs03Row.routine) || 0,
             },
             unit: "actions"
           },
           BS04: {
             name: "Overdue Safety Inspections",
             description: "Certificates past expiry date",
-            value: overdueInspections.length,
-            byType: Object.entries(
-              overdueInspections.reduce((acc, c) => {
-                acc[c.certificateType] = (acc[c.certificateType] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>)
-            ).map(([type, count]) => ({ type, count })),
+            value: bs04Rows.reduce((sum, r) => sum + (Number(r.count) || 0), 0),
+            byType: bs04Rows.map(r => ({ type: r.certificate_type, count: Number(r.count) || 0 })),
             unit: "inspections"
           },
           BS05: {
             name: "Resident Safety Communication",
             description: "Residents notified of safety information",
-            value: bs05ResidentComms.percentage,
-            notified: bs05ResidentComms.notified,
-            pending: bs05ResidentComms.pending,
+            value: 0,
+            notified: 0,
+            pending: 0,
             unit: "percent"
           },
           BS06: {
             name: "Critical Safety Alerts",
             description: "Immediate severity actions outstanding",
-            value: criticalActions.length,
-            alerts: criticalActions.slice(0, 10).map(a => ({
+            value: Number(bs03Row.immediate) || 0,
+            alerts: bs06Rows.map(a => ({
               id: a.id,
               description: a.description,
-              propertyId: a.propertyId,
-              dueDate: a.dueDate
+              propertyId: a.property_id,
+              dueDate: a.due_date
             })),
             unit: "alerts"
           }
         },
         summary: {
-          totalHighRiskComponents: highRiskComponents.length,
-          totalCertificates: allCertificates.length,
-          totalRemedialActions: remedialActions.length,
-          complianceScore: allCertificates.length > 0 
-            ? Math.round((allCertificates.filter(c => c.expiryDate && new Date(c.expiryDate) > today).length / allCertificates.length) * 100)
-            : 0
+          totalHighRiskComponents: Number(summaryRow.total_components) || 0,
+          totalCertificates: totalCerts,
+          totalRemedialActions: Number(summaryRow.total_remedial) || 0,
+          complianceScore
         }
       });
     } catch (error) {
