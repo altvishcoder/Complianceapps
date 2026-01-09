@@ -161,7 +161,7 @@ export default function ActionsPage() {
   });
   
   const { data: paginatedData, isLoading: isLoadingActions, isFetching } = useQuery({
-    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase],
+    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase, typeFilter],
     queryFn: () => actionsApi.list({ 
       page, 
       limit: ITEMS_PER_PAGE,
@@ -170,7 +170,8 @@ export default function ActionsPage() {
       search: debouncedSearch || undefined,
       overdue: isOverdueFilter || undefined,
       awaabs: isAwaabsFilter || undefined,
-      phase: isAwaabsFilter ? awaabsPhase : undefined
+      phase: isAwaabsFilter ? awaabsPhase : undefined,
+      certificateType: typeFilter || undefined
     }),
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
     staleTime: 30000, // Keep data fresh for 30 seconds
@@ -191,12 +192,11 @@ export default function ActionsPage() {
   const resolvedCount = apiStats?.completed ?? (apiStatus === 'COMPLETED' ? totalItems : 0);
   const overdueCount = apiStats?.overdue ?? remedialActions.filter(a => a.dueDate && new Date(a.dueDate) < new Date() && a.status === 'OPEN').length;
   
-  const filteredActions = typeFilter 
-    ? remedialActions.filter(action => action.certificate?.certificateType === typeFilter)
-    : remedialActions;
+  // No longer need client-side filtering since typeFilter is passed to API
+  const filteredActions = remedialActions;
   
   // Current query key for actions list (must match useQuery above)
-  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase] as const;
+  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase, typeFilter] as const;
   
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 

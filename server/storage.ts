@@ -173,6 +173,7 @@ export interface IStorage {
     propertyId?: string;
     awaabs?: boolean;
     phase?: number;
+    certificateType?: string;
   }): Promise<{ items: RemedialAction[]; total: number }>;
   getRemedialAction(id: string): Promise<RemedialAction | undefined>;
   createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction>;
@@ -1371,8 +1372,9 @@ export class DatabaseStorage implements IStorage {
     propertyId?: string;
     awaabs?: boolean;
     phase?: number;
+    certificateType?: string;
   }): Promise<{ items: RemedialAction[]; total: number }> {
-    const { limit, offset, status, severity, search, overdue, propertyId, awaabs, phase } = options;
+    const { limit, offset, status, severity, search, overdue, propertyId, awaabs, phase, certificateType } = options;
     
     // Build conditions with SQL template for complex filters
     const conditions: any[] = [eq(certificates.organisationId, organisationId)];
@@ -1415,6 +1417,10 @@ export class DatabaseStorage implements IStorage {
     if (search) {
       const searchPattern = `%${search.toLowerCase()}%`;
       conditions.push(sql`(LOWER(${remedialActions.code}) LIKE ${searchPattern} OR LOWER(${remedialActions.description}) LIKE ${searchPattern})`);
+    }
+    
+    if (certificateType) {
+      conditions.push(sql`${certificates.certificateType}::text = ${certificateType}`);
     }
     
     // Get count first (single efficient query)

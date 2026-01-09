@@ -223,7 +223,7 @@ export interface EnrichedRemedialAction extends RemedialAction {
 }
 
 export const actionsApi = {
-  list: (filters?: { propertyId?: string; status?: string; certificateId?: string; severity?: string; page?: number; limit?: number; search?: string; overdue?: boolean; awaabs?: boolean; phase?: number }) => {
+  list: (filters?: { propertyId?: string; status?: string; certificateId?: string; severity?: string; page?: number; limit?: number; search?: string; overdue?: boolean; awaabs?: boolean; phase?: number; certificateType?: string }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);
     if (filters?.status) params.append("status", filters.status);
@@ -235,6 +235,7 @@ export const actionsApi = {
     if (filters?.overdue) params.append("overdue", "true");
     if (filters?.awaabs) params.append("awaabs", "true");
     if (filters?.phase) params.append("phase", filters.phase.toString());
+    if (filters?.certificateType) params.append("certificateType", filters.certificateType);
     const query = params.toString() ? `?${params}` : "";
     return fetchJSON<PaginatedResponse<EnrichedRemedialAction>>(`${API_BASE}/actions${query}`);
   },
