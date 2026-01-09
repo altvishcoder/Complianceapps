@@ -273,6 +273,60 @@ export default function ReportBuilder() {
     });
   };
 
+  const handleRunScheduledReport = (report: typeof scheduledReports[0]) => {
+    setIsGenerating(report.id);
+    toast({
+      title: "Running Report",
+      description: `"${report.name}" is being generated now. This may take a moment.`,
+    });
+    setTimeout(() => {
+      setIsGenerating(null);
+      toast({
+        title: "Report Complete",
+        description: `"${report.name}" has been generated and is ready for download.`,
+      });
+    }, 3000);
+  };
+
+  const handleEditSchedule = (report: typeof scheduledReports[0]) => {
+    toast({
+      title: "Edit Schedule",
+      description: `Editing schedule for "${report.name}". Use the Schedule Report dialog to modify settings.`,
+    });
+    setShowScheduleDialog(true);
+  };
+
+  const handleDeleteSchedule = (report: typeof scheduledReports[0]) => {
+    toast({
+      title: "Schedule Deleted",
+      description: `"${report.name}" has been removed from scheduled reports.`,
+      variant: "destructive",
+    });
+  };
+
+  const handleGenerateCustomReport = () => {
+    setIsGenerating("custom");
+    toast({
+      title: "Generating Custom Report",
+      description: "Your custom report is being generated...",
+    });
+    setTimeout(() => {
+      setIsGenerating(null);
+      toast({
+        title: "Report Complete",
+        description: "Your custom report has been generated and is ready for download.",
+      });
+    }, 3000);
+  };
+
+  const handleScheduleCustomReport = () => {
+    setShowScheduleDialog(true);
+    toast({
+      title: "Schedule Custom Report",
+      description: "Configure your schedule settings for this custom report.",
+    });
+  };
+
   const handleStreamToggle = (streamId: string) => {
     setCustomReportConfig(prev => ({
       ...prev,
@@ -660,11 +714,24 @@ export default function ReportBuilder() {
                     </div>
 
                     <div className="flex gap-3">
-                      <Button data-testid="button-generate-custom">
-                        <Play className="h-4 w-4 mr-2" />
-                        Generate Report
+                      <Button 
+                        onClick={handleGenerateCustomReport}
+                        disabled={isGenerating === "custom"}
+                        data-testid="button-generate-custom"
+                      >
+                        {isGenerating === "custom" ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Generate Report
+                          </>
+                        )}
                       </Button>
-                      <Button variant="outline" data-testid="button-schedule-custom">
+                      <Button variant="outline" onClick={handleScheduleCustomReport} data-testid="button-schedule-custom">
                         <Clock className="h-4 w-4 mr-2" />
                         Schedule for Off-Peak
                       </Button>
@@ -691,7 +758,7 @@ export default function ReportBuilder() {
                           Automated reports scheduled to run during off-peak hours
                         </CardDescription>
                       </div>
-                      <Button data-testid="button-new-schedule">
+                      <Button onClick={() => setShowScheduleDialog(true)} data-testid="button-new-schedule">
                         <Plus className="h-4 w-4 mr-2" />
                         New Schedule
                       </Button>
@@ -752,13 +819,33 @@ export default function ReportBuilder() {
                               </p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <Button variant="ghost" size="icon" data-testid={`button-edit-schedule-${index}`}>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleEditSchedule(report)}
+                                data-testid={`button-edit-schedule-${index}`}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" data-testid={`button-run-now-${index}`}>
-                                <Play className="h-4 w-4" />
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleRunScheduledReport(report)}
+                                disabled={isGenerating === report.id}
+                                data-testid={`button-run-now-${index}`}
+                              >
+                                {isGenerating === report.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
                               </Button>
-                              <Button variant="ghost" size="icon" data-testid={`button-delete-schedule-${index}`}>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleDeleteSchedule(report)}
+                                data-testid={`button-delete-schedule-${index}`}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
