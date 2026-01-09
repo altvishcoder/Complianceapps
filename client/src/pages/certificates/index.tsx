@@ -185,11 +185,15 @@ export default function CertificatesPage() {
   
   // Build stream filter param - get all certificate types for the selected stream
   const streamTypeCodesParam = useMemo(() => {
-    if (!streamFilter || !streamCertTypes) return undefined;
+    if (!streamFilter || !streamCertTypes || streamCertTypes.size === 0) return undefined;
     return Array.from(streamCertTypes).join(',');
   }, [streamFilter, streamCertTypes]);
   
+  // Check if stream filter is ready (types loaded) or no stream filter is active
+  const isStreamFilterReady = !streamFilter || (certificateTypes.length > 0 && streamTypeCodesParam !== undefined);
+  
   // Separate stats query - refetches when stream filter changes
+  // Only run when stream filter is ready (or no stream filter)
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ["certificates-stats", streamFilter, streamTypeCodesParam],
     queryFn: async () => {
@@ -208,6 +212,7 @@ export default function CertificatesPage() {
       }
       return res.json();
     },
+    enabled: isStreamFilterReady, // Wait for certificate types when stream filter is set
     staleTime: 60000, // Keep stats stable for 1 minute
     refetchOnWindowFocus: false,
   });
@@ -226,6 +231,7 @@ export default function CertificatesPage() {
       }
       return certificatesApi.list(params);
     },
+    enabled: isStreamFilterReady, // Wait for certificate types when stream filter is set
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
     staleTime: 30000, // Keep data fresh for 30 seconds
     gcTime: 300000, // Keep in cache for 5 minutes
