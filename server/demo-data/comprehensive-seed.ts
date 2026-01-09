@@ -354,10 +354,8 @@ async function seedComponents(
   }
   
   // Get property -> blockId mapping for block space linking
-  const allProperties = await db.query.properties.findMany({
-    columns: { id: true, blockId: true }
-  });
-  const propertyToBlock = new Map(allProperties.map(p => [p.id, p.blockId]));
+  const allProperties = await db.select({ id: properties.id, blockId: properties.blockId }).from(properties);
+  const propertyToBlock = new Map<string, string | null>(allProperties.map((p: { id: string; blockId: string | null }) => [p.id, p.blockId]));
   
   const allBatchValues = [];
   let propertySpaceLinkCount = 0;
@@ -663,7 +661,11 @@ async function seedRemedialActions(
   const phase3Certs: string[] = [];
   const otherCerts: string[] = [];
   
-  for (const [certId, certType] of certTypeMap) {
+  // Convert Map to array for iteration compatibility
+  const certTypeEntries = Array.from(certTypeMap.entries());
+  for (const entry of certTypeEntries) {
+    const certId = entry[0];
+    const certType = entry[1];
     if ((AWAABS_PHASE1_CERT_TYPES as readonly string[]).includes(certType)) {
       phase1Certs.push(certId);
     } else if ((AWAABS_PHASE2_CERT_TYPES as readonly string[]).includes(certType)) {

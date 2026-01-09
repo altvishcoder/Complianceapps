@@ -42,18 +42,18 @@ export const VOLUME_CONFIGS: Record<VolumeTier, VolumeConfig> = {
   },
   medium: {
     tier: "medium",
-    label: "Medium (10K)",
-    description: "~10,000 properties, 50K components, 100K certificates",
-    schemes: 50,
+    label: "Medium (25K)",
+    description: "~25,000 properties - large UK housing association scale",
+    schemes: 100,
     blocksPerScheme: 5,
-    propertiesPerBlock: 40,
-    spacesPerProperty: 3,
-    componentsPerProperty: 5,
-    certificatesPerProperty: 10,
-    remedialsPerCertificate: 0.75,
-    contractors: 200,
-    staffMembers: 100,
-    estimatedMinutes: 5,
+    propertiesPerBlock: 50,
+    spacesPerProperty: 4,
+    componentsPerProperty: 4,
+    certificatesPerProperty: 3,
+    remedialsPerCertificate: 0.5,
+    contractors: 250,
+    staffMembers: 120,
+    estimatedMinutes: 15,
   },
   large: {
     tier: "large",
@@ -744,50 +744,195 @@ async function seedCertificatesBulk(
   return certIds;
 }
 
+// Realistic Awaab's Law breach data for 25k portfolio
+const AWAABS_COUNTS = {
+  PHASE1_BREACHES: 175,   // Damp/mould - 24-hour statutory deadline breached
+  PHASE2_BREACHES: 95,    // Fire/electrical - 7-day deadline (2026)
+  PHASE3_BREACHES: 70,    // All HHSRS - 14-day deadline (2027)
+  IMMEDIATE_HAZARDS: 48,  // Internal severity classification
+  OVERDUE_ACTIONS: 105,   // Past due date
+};
+
+const DAMP_MOULD_DESCRIPTIONS = [
+  "Black mould growth on bedroom ceiling - tenant reports respiratory issues",
+  "Severe condensation on windows causing mould on window frames",
+  "Penetrating damp in living room corner - water ingress from external wall",
+  "Rising damp in hallway - visible tide marks and peeling wallpaper",
+  "Mould behind wardrobe in main bedroom - tenant notified 3 weeks ago",
+  "Condensation causing mould in bathroom - extractor fan not working",
+  "Water staining and mould on kitchen ceiling - flat roof leak suspected",
+  "Damp patch spreading on nursery wall - vulnerable child in property",
+  "Mould growth around window seals in multiple rooms",
+  "Severe condensation pooling on windowsills causing wood rot",
+  "Black spot mould in corner of living room - repeat complaint",
+  "Damp causing wallpaper to peel in elderly tenant's bedroom",
+];
+
+const FIRE_ELECTRICAL_DESCRIPTIONS = [
+  "C2 defect on consumer unit - requires urgent replacement",
+  "Fire alarm system showing intermittent faults",
+  "Emergency lighting failed monthly test - batteries depleted",
+  "Damaged socket outlet in kitchen showing signs of overheating",
+  "Fire door closer not functioning correctly on communal landing",
+  "EICR identified unsatisfactory condition - immediate investigation required",
+  "PAT test failure on communal area equipment",
+  "Fire risk assessment identified blocked escape route",
+  "Smoke detector not functioning in high-rise flat",
+  "Electrical installation over 5 years since last inspection",
+];
+
+const HHSRS_DESCRIPTIONS = [
+  "Gas boiler annual service overdue - potential CO risk",
+  "Legionella risk assessment identified stagnant water in unused outlet",
+  "Asbestos survey identified damaged AIB in communal area",
+  "Lift LOLER inspection overdue - 6 weeks past due date",
+  "EPC rating band G - fuel poverty risk for vulnerable tenant",
+  "Gas safety certificate expired - no access issues documented",
+  "Water temperature at outlets exceeds safe limits",
+  "Identified ACM requiring encapsulation or removal",
+  "Lift brake mechanism flagged for urgent maintenance",
+  "Boiler flue terminal clearance below regulations",
+];
+
+const ROUTINE_DESCRIPTIONS = [
+  "Replace faulty component", "Annual service required", "Safety inspection needed",
+  "Repair leak", "Replace sensor", "Test emergency lighting", "Clear blockage",
+  "Update documentation", "Install new equipment", "Conduct risk assessment"
+];
+
 async function seedRemedialsBulk(
   certIds: string[],
   propertyIds: string[],
   contractorIds: string[],
   config: VolumeConfig
 ): Promise<void> {
-  const remedialCount = Math.floor(certIds.length * config.remedialsPerCertificate);
-  const values = [];
-  
-  const descriptions = [
-    "Replace faulty component", "Annual service required", "Safety inspection needed",
-    "Repair leak", "Replace sensor", "Test emergency lighting", "Clear blockage",
-    "Update documentation", "Install new equipment", "Conduct risk assessment"
-  ];
-  
-  for (let i = 0; i < remedialCount; i++) {
-    const certId = certIds[i % certIds.length];
+  const values: any[] = [];
+  let idx = 0;
+
+  // Phase 1 breaches (damp/mould - 24 hour deadline BREACHED)
+  for (let i = 0; i < AWAABS_COUNTS.PHASE1_BREACHES; i++) {
+    const certId = certIds[idx++ % certIds.length];
     const propertyId = propertyIds[i % propertyIds.length];
-    const status = weightedRandom(REMEDIAL_STATUSES, REMEDIAL_STATUS_WEIGHTS);
-    const severity = weightedRandom(SEVERITIES, SEVERITY_WEIGHTS);
-    
-    const daysFromNow = severity === "IMMEDIATE" ? 7 : severity === "URGENT" ? 14 : severity === "PRIORITY" ? 30 : 60;
-    const dueDate = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
+    const hoursOverdue = Math.floor(rng.random() * 168) + 24; // 1-8 days overdue
+    const dueDate = new Date(Date.now() - hoursOverdue * 60 * 60 * 1000);
     
     values.push({
       certificateId: certId,
       propertyId,
-      description: `${descriptions[i % descriptions.length]} - auto-generated for testing`,
-      severity,
-      status,
+      description: DAMP_MOULD_DESCRIPTIONS[i % DAMP_MOULD_DESCRIPTIONS.length],
+      severity: "IMMEDIATE" as const,
+      status: "OPEN" as const,
       dueDate: dueDate.toISOString().split('T')[0],
-      costEstimate: String(Math.floor(rng.random() * 500) + 50),
+      costEstimate: String(Math.floor(rng.random() * 3000) + 500),
     });
   }
+
+  // Phase 2 breaches (fire/electrical - 7 day deadline breached)
+  for (let i = 0; i < AWAABS_COUNTS.PHASE2_BREACHES; i++) {
+    const certId = certIds[idx++ % certIds.length];
+    const propertyId = propertyIds[(i + 1000) % propertyIds.length];
+    const daysOverdue = Math.floor(rng.random() * 21) + 7; // 7-28 days overdue
+    const dueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000);
+    
+    values.push({
+      certificateId: certId,
+      propertyId,
+      description: FIRE_ELECTRICAL_DESCRIPTIONS[i % FIRE_ELECTRICAL_DESCRIPTIONS.length],
+      severity: i % 3 === 0 ? "IMMEDIATE" as const : "URGENT" as const,
+      status: i % 4 === 0 ? "IN_PROGRESS" as const : "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      costEstimate: String(Math.floor(rng.random() * 2500) + 200),
+    });
+  }
+
+  // Phase 3 breaches (all HHSRS - 14 day deadline breached)
+  for (let i = 0; i < AWAABS_COUNTS.PHASE3_BREACHES; i++) {
+    const certId = certIds[idx++ % certIds.length];
+    const propertyId = propertyIds[(i + 2000) % propertyIds.length];
+    const daysOverdue = Math.floor(rng.random() * 30) + 14; // 14-44 days overdue
+    const dueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000);
+    
+    values.push({
+      certificateId: certId,
+      propertyId,
+      description: HHSRS_DESCRIPTIONS[i % HHSRS_DESCRIPTIONS.length],
+      severity: i % 4 === 0 ? "IMMEDIATE" as const : i % 2 === 0 ? "URGENT" as const : "PRIORITY" as const,
+      status: i % 5 === 0 ? "SCHEDULED" as const : i % 3 === 0 ? "IN_PROGRESS" as const : "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      costEstimate: String(Math.floor(rng.random() * 4000) + 300),
+    });
+  }
+
+  // Additional immediate hazards (internal severity)
+  for (let i = 0; i < AWAABS_COUNTS.IMMEDIATE_HAZARDS; i++) {
+    const certId = certIds[idx++ % certIds.length];
+    const propertyId = propertyIds[(i + 3000) % propertyIds.length];
+    const hoursOverdue = Math.floor(rng.random() * 48) + 24;
+    const dueDate = new Date(Date.now() - hoursOverdue * 60 * 60 * 1000);
+    
+    values.push({
+      certificateId: certId,
+      propertyId,
+      description: "Immediate hazard requiring urgent attention - safety risk identified",
+      severity: "IMMEDIATE" as const,
+      status: "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      costEstimate: String(Math.floor(rng.random() * 2000) + 100),
+    });
+  }
+
+  // Overdue actions (mix of severities)
+  const overdueSeverities = ["URGENT", "PRIORITY", "ROUTINE"] as const;
+  for (let i = 0; i < AWAABS_COUNTS.OVERDUE_ACTIONS; i++) {
+    const certId = certIds[idx++ % certIds.length];
+    const propertyId = propertyIds[(i + 4000) % propertyIds.length];
+    const daysOverdue = Math.floor(rng.random() * 60) + 1;
+    const dueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000);
+    
+    values.push({
+      certificateId: certId,
+      propertyId,
+      description: `Remedial action ${i + 1} - follow-up work required from inspection`,
+      severity: overdueSeverities[i % overdueSeverities.length],
+      status: i % 3 === 0 ? "IN_PROGRESS" as const : "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      costEstimate: String(Math.floor(rng.random() * 3000) + 150),
+    });
+  }
+
+  // Remaining scheduled/future actions (not breaching)
+  const remainingCount = Math.floor(certIds.length * config.remedialsPerCertificate) - values.length;
+  const futureSeverities = ["PRIORITY", "ROUTINE", "ADVISORY"] as const;
+  const futureStatuses = ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "OPEN"] as const;
+  for (let i = 0; i < Math.max(remainingCount, 0); i++) {
+    const certId = certIds[idx++ % certIds.length];
+    const propertyId = propertyIds[(i + 5000) % propertyIds.length];
+    const daysUntilDue = Math.floor(rng.random() * 90) + 1;
+    const dueDate = new Date(Date.now() + daysUntilDue * 24 * 60 * 60 * 1000);
+    const status = futureStatuses[i % futureStatuses.length];
+    
+    values.push({
+      certificateId: certId,
+      propertyId,
+      description: `${ROUTINE_DESCRIPTIONS[i % ROUTINE_DESCRIPTIONS.length]} - scheduled maintenance`,
+      severity: futureSeverities[i % futureSeverities.length],
+      status,
+      dueDate: dueDate.toISOString().split('T')[0],
+      costEstimate: String(Math.floor(rng.random() * 2000) + 100),
+    });
+  }
+
+  console.log(`  Creating ${values.length} remedial actions (${AWAABS_COUNTS.PHASE1_BREACHES} Phase 1, ${AWAABS_COUNTS.PHASE2_BREACHES} Phase 2, ${AWAABS_COUNTS.PHASE3_BREACHES} Phase 3 breaches)`);
   
   let done = 0;
   for (let i = 0; i < values.length; i += BATCH_SIZE) {
     const batch = values.slice(i, i + BATCH_SIZE);
     await db.insert(remedialActions).values(batch);
     done += batch.length;
-    updateProgress("remedials", done, remedialCount);
+    updateProgress("remedials", done, values.length);
   }
   
-  console.log(`  ✓ ${remedialCount} remedial actions`);
+  console.log(`  ✓ ${values.length} remedial actions with Awaab's Law breach scenarios`);
 }
 
 export async function refreshMaterializedViewsAfterSeed(): Promise<void> {
