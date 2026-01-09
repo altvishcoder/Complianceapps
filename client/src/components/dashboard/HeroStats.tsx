@@ -2,6 +2,12 @@ import { cn } from "@/lib/utils";
 import { LucideIcon, AlertTriangle, Clock, FileWarning, Wrench, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type RiskLevel = "critical" | "high" | "medium" | "low" | "good";
 
@@ -74,14 +80,52 @@ function HeroStat({ title, value, subtitle, icon: Icon, riskLevel, href, onClick
             <div className={cn("p-1 sm:p-1.5 rounded-md flex-shrink-0", styles.icon)}>
               <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
             </div>
-            <span className="text-xs sm:text-sm font-medium text-muted-foreground truncate min-w-0">{title}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span 
+                  className="font-medium text-muted-foreground min-w-0 line-clamp-2 leading-tight"
+                  style={{ fontSize: 'clamp(0.65rem, 2vw, 0.875rem)' }}
+                >
+                  {title}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px]">
+                <p className="text-xs">{title}</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className="flex-1 min-w-0">
             <span className={cn(valueFontSize, "font-bold block", styles.text)}>{value}</span>
-            {subtitle && <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
+            {subtitle && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p 
+                    className="text-muted-foreground mt-0.5 line-clamp-1"
+                    style={{ fontSize: 'clamp(0.625rem, 1.5vw, 0.75rem)' }}
+                  >
+                    {subtitle}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px]">
+                  <p className="text-xs">{subtitle}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
           {slaInfo && (
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 truncate">{slaInfo}</p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p 
+                  className="text-muted-foreground mt-1 line-clamp-1"
+                  style={{ fontSize: 'clamp(0.625rem, 1.5vw, 0.75rem)' }}
+                >
+                  {slaInfo}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px]">
+                <p className="text-xs">{slaInfo}</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         {isClickable && <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />}
@@ -169,22 +213,24 @@ export function HeroStatsGrid({ stats, isLoading }: HeroStatsGridProps) {
   }
   
   return (
-    <div className={`grid ${gridCols} gap-3 animate-in fade-in duration-300`}>
-      {stats.map((stat, index) => (
-        <HeroStat
-          key={index}
-          title={stat.title}
-          value={stat.value}
-          subtitle={stat.subtitle}
-          icon={stat.icon}
-          riskLevel={stat.riskLevel}
-          href={stat.href}
-          onClick={stat.onClick}
-          slaInfo={stat.slaInfo}
-          data-testid={stat.testId}
-        />
-      ))}
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <div className={`grid ${gridCols} gap-3 animate-in fade-in duration-300`}>
+        {stats.map((stat, index) => (
+          <HeroStat
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            subtitle={stat.subtitle}
+            icon={stat.icon}
+            riskLevel={stat.riskLevel}
+            href={stat.href}
+            onClick={stat.onClick}
+            slaInfo={stat.slaInfo}
+            data-testid={stat.testId}
+          />
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
 
