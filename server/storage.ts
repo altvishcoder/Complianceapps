@@ -1392,13 +1392,14 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (overdue) {
-      conditions.push(sql`${remedialActions.status} = 'OPEN' AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
+      // Match stats endpoint: NOT IN ('COMPLETED', 'CANCELLED') to include OPEN and IN_PROGRESS
+      conditions.push(sql`${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED') AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
     }
     
     // Awaab's Law filtering - overdue actions with certificate types matching the phase
     if (awaabs) {
-      // Always filter for overdue OPEN actions for Awaab's Law
-      conditions.push(sql`${remedialActions.status} = 'OPEN' AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
+      // Always filter for overdue actions (matching stats definition)
+      conditions.push(sql`${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED') AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
       
       // Filter by certificate types based on phase
       if (phase === 1) {
