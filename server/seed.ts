@@ -2273,12 +2273,16 @@ async function seedNavigation() {
     { sectionId: "sec-operate", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
     { sectionId: "sec-operate", slug: "calendar", name: "Calendar", href: "/calendar", iconKey: "Calendar", displayOrder: 5, isSystem: true },
     { sectionId: "sec-operate", slug: "human-review", name: "Human Review", href: "/human-review", iconKey: "Eye", displayOrder: 6, requiresAITools: true, isSystem: true },
+    { sectionId: "sec-operate", slug: "remedial-kanban", name: "Remedial Kanban", href: "/admin/remedial-kanban", iconKey: "Kanban", displayOrder: 7, requiresAdmin: true, isSystem: true },
     
     // Assure - Compliance & proof
     { sectionId: "sec-assure", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 1, isSystem: true },
     { sectionId: "sec-assure", slug: "regulatory-evidence", name: "Regulatory Evidence", href: "/reports/regulatory", iconKey: "Shield", displayOrder: 2, isSystem: true },
     { sectionId: "sec-assure", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 3, isSystem: true },
     { sectionId: "sec-assure", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
+    { sectionId: "sec-assure", slug: "risk-heatmap", name: "Risk Heatmap", href: "/maps/risk-heatmap", iconKey: "MapPin", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-assure", slug: "scenarios", name: "Scenarios", href: "/maps/scenarios", iconKey: "FlaskConical", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-assure", slug: "evidence", name: "Evidence", href: "/maps/evidence", iconKey: "FileCheck", displayOrder: 7, isSystem: true },
     
     // Understand - Insights & analytics
     { sectionId: "sec-understand", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
@@ -2287,6 +2291,7 @@ async function seedNavigation() {
     { sectionId: "sec-understand", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 4, isSystem: true },
     { sectionId: "sec-understand", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
     { sectionId: "sec-understand", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 6, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-understand", slug: "model-insights", name: "Model Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 7, isSystem: true },
     
     // Assets - Property & component management
     { sectionId: "sec-assets", slug: "property-hierarchy", name: "Property Hierarchy", href: "/admin/hierarchy", iconKey: "TreePine", displayOrder: 1, requiresAITools: true, isSystem: true },
@@ -2298,6 +2303,10 @@ async function seedNavigation() {
     { sectionId: "sec-people", slug: "staff-dlo", name: "Staff & DLO", href: "/staff", iconKey: "Briefcase", displayOrder: 2, isSystem: true },
     { sectionId: "sec-people", slug: "sla-tracking", name: "SLA Tracking", href: "/contractors/sla", iconKey: "Target", displayOrder: 3, isSystem: true },
     { sectionId: "sec-people", slug: "performance", name: "Performance", href: "/contractors/dashboard", iconKey: "BarChart3", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-people", slug: "contractor-reports", name: "Contractor Reports", href: "/contractors/reports", iconKey: "FileText", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-people", slug: "staff-dashboard", name: "Staff Dashboard", href: "/staff/dashboard", iconKey: "LayoutDashboard", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-people", slug: "staff-sla", name: "Staff SLA", href: "/staff/sla", iconKey: "Clock", displayOrder: 7, isSystem: true },
+    { sectionId: "sec-people", slug: "staff-reports", name: "Staff Reports", href: "/staff/reports", iconKey: "FileText", displayOrder: 8, isSystem: true },
     
     // System Monitoring - Health & analytics
     { sectionId: "sec-monitor", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, isSystem: true },
@@ -2306,6 +2315,9 @@ async function seedNavigation() {
     { sectionId: "sec-monitor", slug: "chatbot-analytics", name: "Chatbot Analytics", href: "/admin/chatbot-analytics", iconKey: "MessageSquare", displayOrder: 4, isSystem: true },
     { sectionId: "sec-monitor", slug: "test-suite", name: "Test Suite", href: "/admin/tests", iconKey: "FlaskConical", displayOrder: 5, isSystem: true },
     { sectionId: "sec-monitor", slug: "jobs-queue", name: "Job Queue", href: "/admin/jobs-management", iconKey: "Cog", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-monitor", slug: "db-optimization", name: "DB Optimization", href: "/admin/db-optimization", iconKey: "Database", displayOrder: 7, isSystem: true },
+    { sectionId: "sec-monitor", slug: "observability", name: "Observability", href: "/admin/observability", iconKey: "Activity", displayOrder: 8, isSystem: true },
+    { sectionId: "sec-monitor", slug: "cache-control", name: "Cache Control", href: "/admin/cache-control", iconKey: "RefreshCw", displayOrder: 9, isSystem: true },
     
     // Manage System - Admin configuration
     { sectionId: "sec-manage", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },
@@ -2314,6 +2326,8 @@ async function seedNavigation() {
     { sectionId: "sec-manage", slug: "integrations", name: "Integrations", href: "/admin/integrations", iconKey: "Webhook", displayOrder: 4, isSystem: true },
     { sectionId: "sec-manage", slug: "api-integration", name: "API Integration", href: "/admin/api-integration", iconKey: "Key", displayOrder: 5, isSystem: true },
     { sectionId: "sec-manage", slug: "api-docs", name: "API Documentation", href: "/admin/api-docs", iconKey: "BookOpen", displayOrder: 6, isSystem: true },
+    { sectionId: "sec-manage", slug: "knowledge-training", name: "Knowledge Training", href: "/admin/knowledge-training", iconKey: "Brain", displayOrder: 7, isSystem: true },
+    { sectionId: "sec-manage", slug: "navigation-mgmt", name: "Navigation", href: "/admin/navigation", iconKey: "Navigation", displayOrder: 8, isSystem: true },
     
     // Resources - Help & training
     { sectionId: "sec-resources", slug: "data-import", name: "Data Import", href: "/admin/imports", iconKey: "Database", displayOrder: 1, isSystem: true },
