@@ -134,7 +134,9 @@ export default function ActionsPage() {
   const isOverdueFilter = activeFilter === 'overdue';
   const isAwaabsFilter = activeFilter === 'awaabs';
   
-  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent' || activeFilter === 'overdue' || activeFilter === 'awaabs'
+  // Note: 'overdue' and 'awaabs' filters handle their own status filtering (NOT IN COMPLETED/CANCELLED)
+  // so we don't pass a status filter for them - the backend overdue condition handles it
+  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent'
     ? 'OPEN' 
     : activeFilter === 'in_progress' 
     ? 'IN_PROGRESS' 
