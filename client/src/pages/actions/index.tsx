@@ -183,11 +183,50 @@ export default function ActionsPage() {
     ? remedialActions.filter(action => action.certificate?.certificateType === typeFilter)
     : remedialActions;
   
+  // Current query key for actions list (must match useQuery above)
+  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter] as const;
+  
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
       actionsApi.update(id, data),
+    // Optimistic update: immediately update UI before server confirms
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches for this specific query
+      await queryClient.cancelQueries({ queryKey: actionsQueryKey });
+      
+      // Snapshot previous value for rollback using exact query key
+      const previousData = queryClient.getQueryData(actionsQueryKey);
+      
+      // Optimistically update the specific cache entry
+      queryClient.setQueryData(actionsQueryKey, (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((action: EnrichedRemedialAction) => 
+            action.id === id ? { ...action, ...data } : action
+          )
+        };
+      });
+      
+      // Update selected action if it's the one being modified
+      if (selectedAction?.id === id) {
+        setSelectedAction(prev => prev ? { ...prev, ...data } : null);
+      }
+      
+      return { previousData, queryKey: actionsQueryKey };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error using exact query key
+      if (context?.previousData && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
+      }
+      toast({
+        title: "Update Failed",
+        description: "Failed to update action. Please try again.",
+        variant: "destructive",
+      });
+    },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["actions"] });
       const isComplete = variables.data.status === 'COMPLETED';
       toast({
         title: isComplete ? "Action Resolved" : "Status Updated",
@@ -196,6 +235,11 @@ export default function ActionsPage() {
       if (isComplete) {
         setSelectedAction(null);
       }
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency with server
+      queryClient.invalidateQueries({ queryKey: ["actions"] });
+      queryClient.invalidateQueries({ queryKey: ["actions-stats"] });
     },
   });
 
