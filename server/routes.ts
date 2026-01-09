@@ -1606,16 +1606,16 @@ export async function registerRoutes(
       }
       
       // Try mv_risk_aggregates materialized view first (fast path)
-      // Query directly from pre-computed view - no joins needed for aggregate stats
+      // Uses pre-computed risk_tier from property_risk_snapshots for accuracy
       try {
         const mvResult = await db.execute(sql`
           SELECT 
             COUNT(*) as total,
             COALESCE(SUM(risk_score), 0) as total_score,
-            COUNT(*) FILTER (WHERE risk_score >= 45) as critical,
-            COUNT(*) FILTER (WHERE risk_score >= 35 AND risk_score < 45) as high,
-            COUNT(*) FILTER (WHERE risk_score >= 20 AND risk_score < 35) as medium,
-            COUNT(*) FILTER (WHERE risk_score < 20) as low
+            COUNT(*) FILTER (WHERE risk_tier = 'CRITICAL') as critical,
+            COUNT(*) FILTER (WHERE risk_tier = 'HIGH') as high,
+            COUNT(*) FILTER (WHERE risk_tier = 'MEDIUM') as medium,
+            COUNT(*) FILTER (WHERE risk_tier = 'LOW' OR risk_tier IS NULL) as low
           FROM mv_risk_aggregates
         `);
         

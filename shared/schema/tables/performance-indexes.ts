@@ -416,52 +416,39 @@ CREATE INDEX IF NOT EXISTS mv_property_summary_status_idx ON mv_property_summary
 
 export const riskViewDefinitions = `
 -- Risk aggregates for ML/Predictive Compliance Radar
+-- OPTIMIZED: Uses property_risk_snapshots for fast refresh (milliseconds instead of minutes)
+-- The risk scoring service maintains snapshots with is_latest=true flag
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_risk_aggregates AS
 SELECT 
     p.id as property_id,
     p.uprn,
-    b.id as block_id,
+    p.block_id,
     b.scheme_id,
     p.compliance_status,
-    -- Certificate risk factors
-    COUNT(DISTINCT c.id) as total_certificates,
-    COUNT(DISTINCT c.id) FILTER (WHERE c.expiry_date::date < CURRENT_DATE) as expired_count,
-    COUNT(DISTINCT c.id) FILTER (WHERE c.expiry_date::date < CURRENT_DATE + INTERVAL '30 days' AND c.expiry_date::date >= CURRENT_DATE) as expiring_30_days,
-    COUNT(DISTINCT c.id) FILTER (WHERE c.expiry_date::date < CURRENT_DATE + INTERVAL '7 days' AND c.expiry_date::date >= CURRENT_DATE) as expiring_7_days,
-    -- Remedial risk factors  
-    COUNT(DISTINCT ra.id) FILTER (WHERE ra.status = 'OPEN') as open_actions,
-    COUNT(DISTINCT ra.id) FILTER (WHERE ra.severity = 'URGENT' AND ra.status = 'OPEN') as urgent_actions,
-    COUNT(DISTINCT ra.id) FILTER (WHERE ra.severity = 'IMMEDIATE' AND ra.status = 'OPEN') as immediate_severity_actions,
-    COUNT(DISTINCT ra.id) FILTER (WHERE ra.due_date::date < CURRENT_DATE AND ra.status = 'OPEN') as overdue_actions,
-    -- Component risk factors
-    COUNT(DISTINCT co.id) as total_components,
-    COUNT(DISTINCT co.id) FILTER (WHERE LOWER(co.condition) = 'poor') as poor_condition_components,
-    COUNT(DISTINCT co.id) FILTER (WHERE LOWER(co.condition) = 'critical') as critical_components,
-    COUNT(DISTINCT co.id) FILTER (WHERE co.needs_verification = true) as unverified_components,
-    -- Calculated risk score (weighted formula)
-    (
-        COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.expiry_date::date < CURRENT_DATE), 0) * 25 +
-        COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.expiry_date::date < CURRENT_DATE + INTERVAL '7 days' AND c.expiry_date::date >= CURRENT_DATE), 0) * 15 +
-        COALESCE(COUNT(DISTINCT ra.id) FILTER (WHERE ra.severity = 'URGENT' AND ra.status = 'OPEN'), 0) * 30 +
-        COALESCE(COUNT(DISTINCT ra.id) FILTER (WHERE ra.due_date::date < CURRENT_DATE AND ra.status = 'OPEN'), 0) * 20 +
-        COALESCE(COUNT(DISTINCT co.id) FILTER (WHERE LOWER(co.condition) = 'critical'), 0) * 35
-    ) as risk_score
+    -- Risk scores from pre-computed snapshots
+    COALESCE(prs.overall_score, 0) as risk_score,
+    COALESCE(prs.risk_tier, 'LOW') as risk_tier,
+    COALESCE(prs.expiry_risk_score, 0) as expiry_risk_score,
+    COALESCE(prs.defect_risk_score, 0) as defect_risk_score,
+    COALESCE(prs.asset_profile_risk_score, 0) as asset_profile_risk_score,
+    COALESCE(prs.coverage_gap_risk_score, 0) as coverage_gap_risk_score,
+    prs.factor_breakdown,
+    prs.triggering_factors,
+    prs.trend_direction,
+    prs.calculated_at
 FROM properties p
 LEFT JOIN blocks b ON b.id = p.block_id
-LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
-LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
-LEFT JOIN spaces sp ON sp.property_id = p.id
-LEFT JOIN components co ON (co.property_id = p.id OR co.space_id = sp.id) AND co.is_active = true
-WHERE p.deleted_at IS NULL
-GROUP BY p.id, p.uprn, b.id, b.scheme_id, p.compliance_status;
+LEFT JOIN property_risk_snapshots prs ON prs.property_id = p.id AND prs.is_latest = true
+WHERE p.deleted_at IS NULL;
 `;
 
 export const riskViewIndexDefinitions = `
--- Risk view indexes for radar queries
+-- Risk view indexes for radar queries (aligned with snapshot-based view)
 CREATE UNIQUE INDEX IF NOT EXISTS mv_risk_aggregates_property_idx ON mv_risk_aggregates(property_id);
 CREATE INDEX IF NOT EXISTS mv_risk_aggregates_block_idx ON mv_risk_aggregates(block_id);
 CREATE INDEX IF NOT EXISTS mv_risk_aggregates_scheme_idx ON mv_risk_aggregates(scheme_id);
 CREATE INDEX IF NOT EXISTS mv_risk_aggregates_score_idx ON mv_risk_aggregates(risk_score DESC);
+CREATE INDEX IF NOT EXISTS mv_risk_aggregates_tier_idx ON mv_risk_aggregates(risk_tier);
 CREATE INDEX IF NOT EXISTS mv_risk_aggregates_status_idx ON mv_risk_aggregates(compliance_status);
 `;
 
