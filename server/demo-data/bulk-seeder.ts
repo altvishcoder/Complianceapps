@@ -207,16 +207,16 @@ function updateProgress(entity: string, done: number, total: number): void {
 const BATCH_SIZE = 2000;
 
 const UK_CITIES = [
-  { name: "London", postcodePrefix: "SW" },
-  { name: "Manchester", postcodePrefix: "M" },
-  { name: "Birmingham", postcodePrefix: "B" },
-  { name: "Leeds", postcodePrefix: "LS" },
-  { name: "Liverpool", postcodePrefix: "L" },
-  { name: "Sheffield", postcodePrefix: "S" },
-  { name: "Bristol", postcodePrefix: "BS" },
-  { name: "Newcastle", postcodePrefix: "NE" },
-  { name: "Nottingham", postcodePrefix: "NG" },
-  { name: "Glasgow", postcodePrefix: "G" },
+  { name: "London", postcodePrefix: "SW", lat: 51.5074, lng: -0.1278 },
+  { name: "Manchester", postcodePrefix: "M", lat: 53.4808, lng: -2.2426 },
+  { name: "Birmingham", postcodePrefix: "B", lat: 52.4862, lng: -1.8904 },
+  { name: "Leeds", postcodePrefix: "LS", lat: 53.8008, lng: -1.5491 },
+  { name: "Liverpool", postcodePrefix: "L", lat: 53.4084, lng: -2.9916 },
+  { name: "Sheffield", postcodePrefix: "S", lat: 53.3811, lng: -1.4701 },
+  { name: "Bristol", postcodePrefix: "BS", lat: 51.4545, lng: -2.5879 },
+  { name: "Newcastle", postcodePrefix: "NE", lat: 54.9783, lng: -1.6178 },
+  { name: "Nottingham", postcodePrefix: "NG", lat: 52.9548, lng: -1.1581 },
+  { name: "Glasgow", postcodePrefix: "G", lat: 55.8642, lng: -4.2518 },
 ];
 
 const SCHEME_PREFIXES = ["Oak", "Riverside", "Meadow", "Park", "Victoria", "Windsor", "Manor", "Green", "Garden", "Tower"];
@@ -472,9 +472,17 @@ async function seedPropertiesBulk(blockIds: string[], config: VolumeConfig): Pro
     const city = UK_CITIES[blockIndex % UK_CITIES.length];
     const street = STREET_NAMES[blockIndex % STREET_NAMES.length];
     
+    // Add small random offset to create realistic property distribution within city
+    const blockLatOffset = (rng.random() - 0.5) * 0.1; // ~5km spread
+    const blockLngOffset = (rng.random() - 0.5) * 0.15;
+    
     for (let p = 0; p < config.propertiesPerBlock; p++) {
       const flat = p + 1;
       const floor = Math.floor(p / 4) + 1;
+      
+      // Properties in same block cluster together with tiny offset
+      const propLatOffset = (rng.random() - 0.5) * 0.002; // ~100m spread within block
+      const propLngOffset = (rng.random() - 0.5) * 0.003;
       
       values.push({
         blockId: blockIds[blockIndex],
@@ -490,6 +498,8 @@ async function seedPropertiesBulk(blockIds: string[], config: VolumeConfig): Pro
         complianceStatus: weightedRandom(STATUSES, STATUS_WEIGHTS),
         isHighRiseBuilding: rng.random() > 0.85,
         buildingHeight: rng.random() > 0.9 ? Math.floor(rng.random() * 30) + 18 : null,
+        latitude: city.lat + blockLatOffset + propLatOffset,
+        longitude: city.lng + blockLngOffset + propLngOffset,
       });
     }
   }
