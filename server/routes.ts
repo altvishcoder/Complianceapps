@@ -5686,114 +5686,117 @@ export async function registerRoutes(
     }
   });
   
-  // ===== DASHBOARD STATS (USING MATERIALIZED VIEWS) =====
+  // ===== DASHBOARD STATS (OPTIMIZED FOR SPEED) =====
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      // Use materialized views for fast dashboard stats
+      // Use fast COUNT queries on indexed columns for core stats
+      // This avoids slow materialized view scans at scale
       const [
-        dashboardStatsRaw,
-        complianceStatsRaw,
+        coreCountsRaw,
+        certStatusCountsRaw,
+        remedialStatusCountsRaw,
         expiringCertsRaw,
-        remedialBacklogRaw,
-        hazardBySeverity,
-        overdueCountRaw
+        urgentActionsRaw
       ] = await Promise.all([
-        // mv_dashboard_stats - aggregated across all schemes (sum up grouped rows)
+        // Fast core counts using primary key indexes
         db.execute(sql`
           SELECT 
-            SUM(property_count)::int as total_properties,
-            SUM(certificate_count)::int as total_certificates,
-            SUM(compliant_count)::int as compliant_properties,
-            SUM(open_actions_count)::int as open_actions
-          FROM mv_dashboard_stats
+            (SELECT COUNT(*) FROM properties) as total_properties,
+            (SELECT COUNT(*) FROM certificates) as total_certificates,
+            (SELECT COUNT(*) FROM components) as total_components
         `),
         
-        // mv_certificate_compliance - grouped by certificate_type and status
-        // Aggregate to get total/approved/rejected per certificate type
+        // Certificate status counts using indexed status column
         db.execute(sql`
           SELECT 
-            certificate_type,
-            SUM(count)::int as total_count,
-            SUM(CASE WHEN status = 'APPROVED' THEN count ELSE 0 END)::int as approved_count,
-            SUM(CASE WHEN status = 'REJECTED' THEN count ELSE 0 END)::int as rejected_count,
-            SUM(expired_count)::int as expired_count,
-            SUM(expiring_soon_count)::int as expiring_soon_count
-          FROM mv_certificate_compliance
-          GROUP BY certificate_type
+            status,
+            COUNT(*)::int as count
+          FROM certificates
+          GROUP BY status
         `),
         
-        // mv_certificate_expiry_calendar - expiring certificates (next 30 days)
+        // Remedial action counts by status and severity using indexed columns  
         db.execute(sql`
-          SELECT certificate_id, certificate_type, expiry_date, property_id, uprn, 
-                 address_line1, postcode, urgency_level, days_until_expiry
-          FROM mv_certificate_expiry_calendar 
-          WHERE days_until_expiry >= 0 AND days_until_expiry <= 30
-          ORDER BY days_until_expiry ASC
+          SELECT 
+            status,
+            severity,
+            COUNT(*)::int as count,
+            COUNT(*) FILTER (WHERE due_date::date < CURRENT_DATE)::int as overdue_count
+          FROM remedial_actions
+          GROUP BY status, severity
+        `),
+        
+        // Expiring certificates (next 30 days) - indexed on expiry_date
+        db.execute(sql`
+          SELECT c.id as certificate_id, c.certificate_type, c.expiry_date, 
+                 c.property_id, p.uprn, p.address_line1, p.postcode,
+                 (c.expiry_date::date - CURRENT_DATE)::int as days_until_expiry
+          FROM certificates c
+          LEFT JOIN properties p ON c.property_id = p.id
+          WHERE c.expiry_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
+          ORDER BY c.expiry_date::date ASC
           LIMIT 10
         `),
         
-        // mv_remedial_backlog - urgent/immediate actions
+        // Urgent remedial actions - indexed on status and severity
         db.execute(sql`
-          SELECT action_id, description, severity, status, due_date, 
-                 address_line1, postcode, due_status
-          FROM mv_remedial_backlog
-          WHERE severity IN ('IMMEDIATE', 'URGENT') AND status = 'OPEN'
-          ORDER BY CASE severity WHEN 'IMMEDIATE' THEN 0 WHEN 'URGENT' THEN 1 ELSE 2 END
+          SELECT ra.id as action_id, ra.description, ra.severity, ra.status, ra.due_date,
+                 p.address_line1, p.postcode
+          FROM remedial_actions ra
+          LEFT JOIN properties p ON ra.property_id = p.id
+          WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED') 
+            AND ra.severity IN ('IMMEDIATE', 'URGENT')
+          ORDER BY CASE ra.severity WHEN 'IMMEDIATE' THEN 0 WHEN 'URGENT' THEN 1 END,
+                   ra.due_date::date ASC NULLS LAST
           LIMIT 10
-        `),
-        
-        // Hazard distribution by severity from mv_remedial_backlog
-        db.execute(sql`
-          SELECT severity, COUNT(*)::int as count
-          FROM mv_remedial_backlog
-          WHERE status = 'OPEN'
-          GROUP BY severity
-        `),
-        
-        // Overdue actions from mv_remedial_backlog
-        db.execute(sql`
-          SELECT COUNT(*)::int as count
-          FROM mv_remedial_backlog
-          WHERE status = 'OPEN' AND due_status = 'OVERDUE'
         `)
       ]);
 
-      // Extract dashboard stats from aggregated materialized view
-      const dashStats = (dashboardStatsRaw.rows?.[0] as any) || {};
-      const totalProperties = Number(dashStats.total_properties || 0);
-      const totalCerts = Number(dashStats.total_certificates || 0);
-      const activeHazards = Number(dashStats.open_actions || 0);
+      // Process core counts
+      const coreCounts = (coreCountsRaw.rows?.[0] as any) || {};
+      const totalProperties = Number(coreCounts.total_properties || 0);
+      const totalCerts = Number(coreCounts.total_certificates || 0);
       
-      // Get approved/pending certificate counts from mv_certificate_compliance
-      const complianceRows = (complianceStatsRaw.rows || []) as any[];
+      // Process certificate status counts
+      const certStatusRows = (certStatusCountsRaw.rows || []) as any[];
       let validCerts = 0;
       let pendingCerts = 0;
-      for (const row of complianceRows) {
-        validCerts += Number(row.approved_count || 0);
+      for (const row of certStatusRows) {
+        if (row.status === 'APPROVED') validCerts += Number(row.count);
+        else if (row.status === 'PENDING' || row.status === 'PROCESSING') pendingCerts += Number(row.count);
       }
-      // Pending = total - approved - rejected (from base view stats)
-      const totalFromCompliance = complianceRows.reduce((sum, r) => sum + Number(r.total_count || 0), 0);
-      const rejectedCerts = complianceRows.reduce((sum, r) => sum + Number(r.rejected_count || 0), 0);
-      pendingCerts = Math.max(0, totalFromCompliance - validCerts - rejectedCerts);
       
-      // Get immediate count from hazard distribution
-      const hazardRows = (hazardBySeverity.rows || []) as any[];
-      const immediateHazards = hazardRows.find((h: any) => h.severity === 'IMMEDIATE')?.count || 0;
+      // Process remedial action counts
+      const remedialRows = (remedialStatusCountsRaw.rows || []) as any[];
+      let activeHazards = 0;
+      let immediateHazards = 0;
+      let overdueTotal = 0;
+      const hazardBySeverityMap: Record<string, number> = {};
       
-      const overdueTotal = Number((overdueCountRaw.rows?.[0] as any)?.count || 0);
+      for (const row of remedialRows) {
+        const isOpen = row.status !== 'COMPLETED' && row.status !== 'CANCELLED';
+        if (isOpen) {
+          const cnt = Number(row.count);
+          activeHazards += cnt;
+          overdueTotal += Number(row.overdue_count || 0);
+          if (row.severity === 'IMMEDIATE') immediateHazards += cnt;
+          hazardBySeverityMap[row.severity] = (hazardBySeverityMap[row.severity] || 0) + cnt;
+        }
+      }
+      
       const complianceRate = totalCerts > 0 ? ((validCerts / totalCerts) * 100).toFixed(1) : '0';
 
       // Format hazard distribution
       const severityLabels: Record<string, string> = {
         'IMMEDIATE': 'Immediate', 'URGENT': 'Urgent', 'PRIORITY': 'Priority', 'ROUTINE': 'Routine', 'ADVISORY': 'Advisory'
       };
-      const hazardDistribution = hazardRows.map((h: any) => ({
-        name: severityLabels[h.severity || 'ROUTINE'] || h.severity || 'Routine',
-        value: Number(h.count),
-        severity: h.severity || 'ROUTINE'
+      const hazardDistribution = Object.entries(hazardBySeverityMap).map(([severity, count]) => ({
+        name: severityLabels[severity] || severity,
+        value: count,
+        severity
       }));
 
-      // Format expiring certificates from mv_certificate_expiry_calendar
+      // Format expiring certificates
       const expiringCertificates = ((expiringCertsRaw.rows || []) as any[]).map(c => ({
         id: c.certificate_id,
         propertyAddress: c.address_line1 && c.postcode ? `${c.address_line1}, ${c.postcode}` : 'Unknown Property',
@@ -5801,8 +5804,8 @@ export async function registerRoutes(
         expiryDate: c.expiry_date
       }));
 
-      // Format urgent actions from mv_remedial_backlog
-      const urgentActions = ((remedialBacklogRaw.rows || []) as any[]).map(a => ({
+      // Format urgent actions
+      const urgentActions = ((urgentActionsRaw.rows || []) as any[]).map(a => ({
         id: a.action_id,
         description: a.description || 'No description',
         severity: a.severity,
@@ -5810,36 +5813,50 @@ export async function registerRoutes(
         dueDate: a.due_date
       }));
 
-      // Problem properties from mv_property_summary (top by open actions)
+      // Simplified compliance by type (top certificate types)
+      const certTypeCountsRaw = await db.execute(sql`
+        SELECT certificate_type, 
+               COUNT(*)::int as total,
+               COUNT(*) FILTER (WHERE status = 'APPROVED')::int as approved,
+               COUNT(*) FILTER (WHERE status = 'REJECTED')::int as rejected
+        FROM certificates
+        GROUP BY certificate_type
+        ORDER BY COUNT(*) DESC
+        LIMIT 20
+      `);
+      
+      const complianceByType = ((certTypeCountsRaw.rows || []) as any[]).map(row => ({
+        type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
+        code: row.certificate_type,
+        streamId: null,
+        total: Number(row.total || 0),
+        approved: Number(row.approved || 0),
+        rejected: Number(row.rejected || 0),
+        rate: row.total > 0 ? ((Number(row.approved) / Number(row.total)) * 100).toFixed(1) : '0'
+      }));
+
+      // Problem properties (simple query)
       const problemPropsRaw = await db.execute(sql`
-        SELECT property_id, address_line1, postcode, open_actions, urgent_actions
-        FROM mv_property_summary
-        WHERE open_actions > 0
-        ORDER BY urgent_actions DESC, open_actions DESC
+        SELECT p.id as property_id, p.address_line1, p.postcode, 
+               COUNT(ra.id)::int as open_actions,
+               COUNT(ra.id) FILTER (WHERE ra.severity IN ('IMMEDIATE', 'URGENT'))::int as urgent_actions
+        FROM properties p
+        INNER JOIN remedial_actions ra ON ra.property_id = p.id
+        WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED')
+        GROUP BY p.id, p.address_line1, p.postcode
+        ORDER BY COUNT(ra.id) FILTER (WHERE ra.severity IN ('IMMEDIATE', 'URGENT')) DESC,
+                 COUNT(ra.id) DESC
         LIMIT 10
       `);
       
       const problemProperties = ((problemPropsRaw.rows || []) as any[]).map(p => ({
         id: p.property_id,
-        address: `${p.address_line1}, ${p.postcode}`,
+        address: `${p.address_line1 || 'Unknown'}, ${p.postcode || ''}`,
         issueCount: Number(p.open_actions),
         criticalCount: Number(p.urgent_actions)
       }));
 
-      // Compliance by certificate type from mv_certificate_compliance
-      const complianceByType = complianceRows.map(row => ({
-        type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
-        code: row.certificate_type,
-        streamId: null,
-        total: Number(row.total_count || 0),
-        satisfactory: Number(row.approved_count || 0),
-        unsatisfactory: Number(row.rejected_count || 0),
-        unclear: Number(row.total_count || 0) - Number(row.approved_count || 0) - Number(row.rejected_count || 0),
-        compliant: Number(row.total_count) > 0 ? Math.round((Number(row.approved_count) / Number(row.total_count)) * 100) : 0,
-        nonCompliant: Number(row.total_count) > 0 ? Math.round((Number(row.rejected_count) / Number(row.total_count)) * 100) : 0,
-      })).filter(s => s.total > 0);
-
-      // Awaab's Law counts
+      // Awaab's Law counts (based on overdue remedials)
       const awaabsPhase1 = Math.floor(overdueTotal * 0.2);
       const awaabsPhase2 = Math.floor(overdueTotal * 0.3);
       const awaabsPhase3 = Math.floor(overdueTotal * 0.5);
@@ -5847,7 +5864,7 @@ export async function registerRoutes(
       res.json({
         overallCompliance: complianceRate,
         activeHazards,
-        immediateHazards: Number(immediateHazards),
+        immediateHazards,
         awaabsLawBreaches: awaabsPhase1,
         awaabsLaw: {
           phase1: { count: awaabsPhase1, status: 'active', label: 'Damp & Mould' },
@@ -5858,13 +5875,13 @@ export async function registerRoutes(
         pendingCertificates: pendingCerts,
         totalProperties,
         totalHomes: totalProperties,
-        totalCertificates: totalCerts > 0 ? totalCerts : totalFromCompliance,
+        totalCertificates: totalCerts,
         complianceByType,
         hazardDistribution,
         expiringCertificates,
         urgentActions,
         problemProperties,
-        _source: 'materialized_views'
+        _source: 'optimized_direct_queries'
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
