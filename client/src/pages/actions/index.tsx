@@ -45,7 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ContextBackButton } from "@/components/navigation/ContextBackButton";
 
-type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved' | 'immediate' | 'urgent' | 'overdue';
+type FilterType = 'all' | 'open' | 'emergency' | 'in_progress' | 'resolved' | 'immediate' | 'urgent' | 'overdue' | 'awaabs';
 
 function getInitialFilterFromUrl(): FilterType {
   const params = new URLSearchParams(window.location.search);
@@ -53,7 +53,7 @@ function getInitialFilterFromUrl(): FilterType {
   const severity = params.get('severity');
   const awaabs = params.get('awaabs');
   
-  if (awaabs === 'true') return 'overdue';
+  if (awaabs === 'true') return 'awaabs';
   if (severity === 'IMMEDIATE') return 'immediate';
   if (severity === 'URGENT') return 'urgent';
   if (status === 'OPEN') return 'open';
@@ -90,6 +90,13 @@ export default function ActionsPage() {
   
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   
+  // Read phase from URL for Awaab's Law filtering
+  const [awaabsPhase, setAwaabsPhase] = useState<number | undefined>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const phase = params.get('phase');
+    return phase ? parseInt(phase, 10) : undefined;
+  });
+  
   // React to URL parameter changes
   useEffect(() => {
     const params = new URLSearchParams(searchString);
@@ -97,10 +104,11 @@ export default function ActionsPage() {
     const severity = params.get('severity');
     const awaabs = params.get('awaabs');
     const type = params.get('type');
+    const phase = params.get('phase');
     
     // Determine filter from URL params
     let newFilter: FilterType = 'all';
-    if (awaabs === 'true') newFilter = 'overdue';
+    if (awaabs === 'true') newFilter = 'awaabs';
     else if (severity === 'IMMEDIATE') newFilter = 'immediate';
     else if (severity === 'URGENT') newFilter = 'urgent';
     else if (status === 'OPEN') newFilter = 'open';
@@ -109,6 +117,7 @@ export default function ActionsPage() {
     
     setActiveFilter(newFilter);
     setTypeFilter(type);
+    setAwaabsPhase(phase ? parseInt(phase, 10) : undefined);
     setPage(1);
   }, [searchString]);
   
@@ -123,8 +132,9 @@ export default function ActionsPage() {
   const ITEMS_PER_PAGE = 50;
   
   const isOverdueFilter = activeFilter === 'overdue';
+  const isAwaabsFilter = activeFilter === 'awaabs';
   
-  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent' || activeFilter === 'overdue'
+  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent' || activeFilter === 'overdue' || activeFilter === 'awaabs'
     ? 'OPEN' 
     : activeFilter === 'in_progress' 
     ? 'IN_PROGRESS' 
@@ -151,14 +161,16 @@ export default function ActionsPage() {
   });
   
   const { data: paginatedData, isLoading: isLoadingActions, isFetching } = useQuery({
-    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter],
+    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase],
     queryFn: () => actionsApi.list({ 
       page, 
       limit: ITEMS_PER_PAGE,
       status: apiStatus,
       severity: apiSeverity,
       search: debouncedSearch || undefined,
-      overdue: isOverdueFilter || undefined
+      overdue: isOverdueFilter || undefined,
+      awaabs: isAwaabsFilter || undefined,
+      phase: isAwaabsFilter ? awaabsPhase : undefined
     }),
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
     staleTime: 30000, // Keep data fresh for 30 seconds
@@ -184,7 +196,7 @@ export default function ActionsPage() {
     : remedialActions;
   
   // Current query key for actions list (must match useQuery above)
-  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter] as const;
+  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase] as const;
   
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 
@@ -284,6 +296,7 @@ export default function ActionsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="awaabs">Awaab's Law</SelectItem>
                   <SelectItem value="emergency">Emergency Only</SelectItem>
                   <SelectItem value="immediate">Immediate Severity</SelectItem>
                   <SelectItem value="urgent">Urgent Severity</SelectItem>

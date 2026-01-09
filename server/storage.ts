@@ -171,6 +171,8 @@ export interface IStorage {
     search?: string;
     overdue?: boolean;
     propertyId?: string;
+    awaabs?: boolean;
+    phase?: number;
   }): Promise<{ items: RemedialAction[]; total: number }>;
   getRemedialAction(id: string): Promise<RemedialAction | undefined>;
   createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction>;
@@ -1347,8 +1349,10 @@ export class DatabaseStorage implements IStorage {
     search?: string;
     overdue?: boolean;
     propertyId?: string;
+    awaabs?: boolean;
+    phase?: number;
   }): Promise<{ items: RemedialAction[]; total: number }> {
-    const { limit, offset, status, severity, search, overdue, propertyId } = options;
+    const { limit, offset, status, severity, search, overdue, propertyId, awaabs, phase } = options;
     
     // Build conditions with SQL template for complex filters
     const conditions: any[] = [eq(certificates.organisationId, organisationId)];
@@ -1367,6 +1371,25 @@ export class DatabaseStorage implements IStorage {
     
     if (overdue) {
       conditions.push(sql`${remedialActions.status} = 'OPEN' AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
+    }
+    
+    // Awaab's Law filtering - overdue actions with certificate types matching the phase
+    if (awaabs) {
+      // Always filter for overdue OPEN actions for Awaab's Law
+      conditions.push(sql`${remedialActions.status} = 'OPEN' AND ${remedialActions.dueDate}::date < CURRENT_DATE`);
+      
+      // Filter by certificate types based on phase
+      if (phase === 1) {
+        // Phase 1: Damp & Mould
+        conditions.push(sql`${certificates.certificateType} IN ('DAMP_MOULD_SURVEY', 'DAMP_SURVEY', 'MOULD_INSPECTION', 'CONDENSATION_REPORT')`);
+      } else if (phase === 2) {
+        // Phase 2: Fire, Electrical, Falls & Temperature
+        conditions.push(sql`${certificates.certificateType} IN ('EICR', 'FIRE_RISK_ASSESSMENT', 'EMERGENCY_LIGHTING', 'FIRE_ALARM', 'PAT')`);
+      } else if (phase === 3) {
+        // Phase 3: All HHSRS Hazards
+        conditions.push(sql`${certificates.certificateType} IN ('GAS_SAFETY', 'LEGIONELLA_ASSESSMENT', 'ASBESTOS_SURVEY', 'LIFT_LOLER', 'EPC')`);
+      }
+      // If no phase specified, return all overdue actions (already applied above)
     }
     
     if (search) {

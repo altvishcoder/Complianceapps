@@ -3636,6 +3636,8 @@ export async function registerRoutes(
       const status = req.query.status as string | undefined;
       const severity = req.query.severity as string | undefined;
       const overdue = req.query.overdue === 'true';
+      const awaabs = req.query.awaabs === 'true';
+      const phase = req.query.phase ? parseInt(req.query.phase as string, 10) : undefined;
       
       // Use database-level pagination for efficiency
       const { items: paginatedActions, total } = await storage.listRemedialActionsPaginated(ORG_ID, {
@@ -3646,6 +3648,8 @@ export async function registerRoutes(
         search,
         overdue,
         propertyId,
+        awaabs,
+        phase,
       });
       
       // Pre-fetch all schemes and blocks for efficiency
