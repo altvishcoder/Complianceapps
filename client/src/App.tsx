@@ -201,6 +201,7 @@ function Router() {
       <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
       <Route path="/human-review">{() => <ProtectedRoute component={HumanReviewPage} />}</Route>
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
+      <Route path="/reporting">{() => <Redirect to="/reports" />}</Route>
       <Route path="/components">{() => <ProtectedRoute component={ComponentsPage} />}</Route>
       <Route path="/video-library">{() => <ProtectedRoute component={VideoLibrary} />}</Route>
       <Route path="/maps">{() => <ProtectedRoute component={MapsIndex} />}</Route>
