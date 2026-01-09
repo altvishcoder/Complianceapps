@@ -5842,15 +5842,22 @@ export async function registerRoutes(
         LIMIT 20
       `);
       
-      const complianceByType = ((certTypeCountsRaw.rows || []) as any[]).map(row => ({
-        type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
-        code: row.certificate_type,
-        streamId: null,
-        total: Number(row.total || 0),
-        approved: Number(row.approved || 0),
-        rejected: Number(row.rejected || 0),
-        rate: row.total > 0 ? ((Number(row.approved) / Number(row.total)) * 100).toFixed(1) : '0'
-      }));
+      const complianceByType = ((certTypeCountsRaw.rows || []) as any[]).map(row => {
+        const total = Number(row.total || 0);
+        const approved = Number(row.approved || 0);
+        const compliant = total > 0 ? Math.round((approved / total) * 100) : 0;
+        return {
+          type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
+          code: row.certificate_type,
+          streamId: null,
+          total,
+          approved,
+          rejected: Number(row.rejected || 0),
+          rate: total > 0 ? ((approved / total) * 100).toFixed(1) : '0',
+          compliant,
+          nonCompliant: 100 - compliant
+        };
+      });
 
       // Problem properties (simple query)
       const problemPropsRaw = await db.execute(sql`
