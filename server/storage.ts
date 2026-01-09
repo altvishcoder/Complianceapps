@@ -174,6 +174,7 @@ export interface IStorage {
     awaabs?: boolean;
     phase?: number;
     certificateType?: string;
+    excludeCompleted?: boolean;
   }): Promise<{ items: RemedialAction[]; total: number }>;
   getRemedialAction(id: string): Promise<RemedialAction | undefined>;
   createRemedialAction(action: InsertRemedialAction): Promise<RemedialAction>;
@@ -1373,8 +1374,9 @@ export class DatabaseStorage implements IStorage {
     awaabs?: boolean;
     phase?: number;
     certificateType?: string;
+    excludeCompleted?: boolean;
   }): Promise<{ items: RemedialAction[]; total: number }> {
-    const { limit, offset, status, severity, search, overdue, propertyId, awaabs, phase, certificateType } = options;
+    const { limit, offset, status, severity, search, overdue, propertyId, awaabs, phase, certificateType, excludeCompleted } = options;
     
     // Build conditions with SQL template for complex filters
     const conditions: any[] = [eq(certificates.organisationId, organisationId)];
@@ -1422,6 +1424,11 @@ export class DatabaseStorage implements IStorage {
     
     if (certificateType) {
       conditions.push(sql`${certificates.certificateType}::text = ${certificateType}`);
+    }
+    
+    // Exclude completed/cancelled actions - matches stats 'totalOpen' definition
+    if (excludeCompleted) {
+      conditions.push(sql`${remedialActions.status} NOT IN ('COMPLETED', 'CANCELLED')`);
     }
     
     // Get count first (single efficient query)

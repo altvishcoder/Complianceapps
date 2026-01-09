@@ -134,11 +134,9 @@ export default function ActionsPage() {
   const isOverdueFilter = activeFilter === 'overdue';
   const isAwaabsFilter = activeFilter === 'awaabs';
   
-  // Note: 'overdue' and 'awaabs' filters handle their own status filtering (NOT IN COMPLETED/CANCELLED)
-  // so we don't pass a status filter for them - the backend overdue condition handles it
-  const apiStatus = activeFilter === 'open' || activeFilter === 'emergency' || activeFilter === 'immediate' || activeFilter === 'urgent'
-    ? 'OPEN' 
-    : activeFilter === 'in_progress' 
+  // Status filter - only set for specific status filters, not for severity/overdue filters
+  // 'open' filter now uses excludeCompleted to match stats definition (all non-completed actions)
+  const apiStatus = activeFilter === 'in_progress' 
     ? 'IN_PROGRESS' 
     : activeFilter === 'resolved' 
     ? 'COMPLETED' 
@@ -149,6 +147,10 @@ export default function ActionsPage() {
     : activeFilter === 'urgent' 
     ? 'URGENT' 
     : undefined;
+  
+  // Use excludeCompleted for filters that should show all non-completed actions
+  // This matches the stats endpoint definition: NOT IN ('COMPLETED', 'CANCELLED')
+  const shouldExcludeCompleted = activeFilter === 'open' || activeFilter === 'immediate' || activeFilter === 'emergency' || activeFilter === 'urgent';
   
   // Separate stats query - uses dedicated lightweight endpoint
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
@@ -163,7 +165,7 @@ export default function ActionsPage() {
   });
   
   const { data: paginatedData, isLoading: isLoadingActions, isFetching } = useQuery({
-    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase, typeFilter],
+    queryKey: ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase, typeFilter, shouldExcludeCompleted],
     queryFn: () => actionsApi.list({ 
       page, 
       limit: ITEMS_PER_PAGE,
@@ -173,7 +175,8 @@ export default function ActionsPage() {
       overdue: isOverdueFilter || undefined,
       awaabs: isAwaabsFilter || undefined,
       phase: isAwaabsFilter ? awaabsPhase : undefined,
-      certificateType: typeFilter || undefined
+      certificateType: typeFilter || undefined,
+      excludeCompleted: shouldExcludeCompleted || undefined
     }),
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
     staleTime: 30000, // Keep data fresh for 30 seconds
@@ -198,7 +201,7 @@ export default function ActionsPage() {
   const filteredActions = remedialActions;
   
   // Current query key for actions list (must match useQuery above)
-  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase, typeFilter] as const;
+  const actionsQueryKey = ["actions", page, apiStatus, apiSeverity, debouncedSearch, isOverdueFilter, isAwaabsFilter, awaabsPhase, typeFilter, shouldExcludeCompleted] as const;
   
   const updateAction = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<EnrichedRemedialAction> }) => 

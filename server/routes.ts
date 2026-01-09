@@ -3703,6 +3703,7 @@ export async function registerRoutes(
       const awaabs = req.query.awaabs === 'true';
       const phase = req.query.phase ? parseInt(req.query.phase as string, 10) : undefined;
       const certificateType = req.query.certificateType as string | undefined;
+      const excludeCompleted = req.query.excludeCompleted === 'true';
       
       // Use database-level pagination for efficiency
       const { items: paginatedActions, total } = await storage.listRemedialActionsPaginated(ORG_ID, {
@@ -3716,6 +3717,7 @@ export async function registerRoutes(
         awaabs,
         phase,
         certificateType,
+        excludeCompleted,
       });
       
       // Pre-fetch all schemes and blocks for efficiency
