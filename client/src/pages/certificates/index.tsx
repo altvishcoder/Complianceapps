@@ -306,6 +306,21 @@ export default function CertificatesPage() {
     }
   };
 
+  // Build filter URL that preserves existing stream filter
+  const buildFilterUrl = (newParams: Record<string, string>) => {
+    const params = new URLSearchParams();
+    // Preserve stream filter
+    if (streamFilter) {
+      params.set('stream', streamFilter);
+    }
+    // Add new filter params
+    for (const [key, value] of Object.entries(newParams)) {
+      params.set(key, value);
+    }
+    const queryStr = params.toString();
+    return queryStr ? `/certificates?${queryStr}` : '/certificates';
+  };
+
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     toast({
@@ -337,7 +352,7 @@ export default function CertificatesPage() {
                   subtitle: "past expiry date",
                   icon: AlertOctagon,
                   riskLevel: expiredCount > 0 ? "critical" : "good",
-                  href: "/certificates?filter=expired",
+                  href: buildFilterUrl({ filter: 'expired' }),
                   slaInfo: "Immediate renewal required",
                   testId: "hero-expired-certs",
                 },
@@ -347,7 +362,7 @@ export default function CertificatesPage() {
                   subtitle: "within 30 days",
                   icon: Clock,
                   riskLevel: expiringCount > 5 ? "high" : expiringCount > 0 ? "medium" : "good",
-                  href: "/certificates?filter=expiring",
+                  href: buildFilterUrl({ filter: 'expiring' }),
                   slaInfo: "Schedule renewal",
                   testId: "hero-expiring-certs",
                 },
@@ -357,7 +372,7 @@ export default function CertificatesPage() {
                   subtitle: "awaiting approval",
                   icon: AlertTriangle,
                   riskLevel: pendingReviewCount > 10 ? "medium" : pendingReviewCount > 0 ? "low" : "good",
-                  href: "/certificates?status=NEEDS_REVIEW",
+                  href: buildFilterUrl({ status: 'NEEDS_REVIEW' }),
                   testId: "hero-pending-review",
                 },
                 {
@@ -366,7 +381,7 @@ export default function CertificatesPage() {
                   subtitle: "valid certificates",
                   icon: CheckCircle2,
                   riskLevel: "good",
-                  href: "/certificates?status=APPROVED",
+                  href: buildFilterUrl({ status: 'APPROVED' }),
                   testId: "hero-approved-certs",
                 },
               ]}
