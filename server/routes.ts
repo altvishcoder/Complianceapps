@@ -3240,6 +3240,8 @@ export async function registerRoutes(
       const status = req.query.status as string | undefined;
       const typesParam = req.query.types as string | undefined;
       const typesList = typesParam ? typesParam.split(',').filter(Boolean) : undefined;
+      const expired = req.query.expired === 'true';
+      const expiring = req.query.expiring === 'true';
       
       // Handle special PENDING status - maps to UPLOADED, PROCESSING, NEEDS_REVIEW
       const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
@@ -3253,6 +3255,8 @@ export async function registerRoutes(
         limit,
         offset,
         types: typesList,
+        expired,
+        expiring,
       });
       
       // Data already includes property and extraction from JOINs

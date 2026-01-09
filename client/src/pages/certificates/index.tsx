@@ -218,13 +218,15 @@ export default function CertificatesPage() {
   });
   
   const { data: paginatedData, isLoading: isLoadingCerts, isFetching } = useQuery({
-    queryKey: ["certificates", page, statusFilter, debouncedSearch, streamTypeCodesParam],
+    queryKey: ["certificates", page, statusFilter, debouncedSearch, streamTypeCodesParam, overdueFilter, expiringFilter],
     queryFn: () => {
       const params: any = { 
         page, 
         limit: ITEMS_PER_PAGE, 
         status: statusFilter || undefined,
-        search: debouncedSearch || undefined
+        search: debouncedSearch || undefined,
+        expired: overdueFilter || undefined,
+        expiring: expiringFilter || undefined
       };
       if (streamTypeCodesParam) {
         params.types = streamTypeCodesParam;

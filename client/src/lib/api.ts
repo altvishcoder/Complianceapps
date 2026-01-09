@@ -183,7 +183,7 @@ export interface CertificateUploadData {
 }
 
 export const certificatesApi = {
-  list: (filters?: { propertyId?: string; status?: string; page?: number; limit?: number; search?: string; types?: string }) => {
+  list: (filters?: { propertyId?: string; status?: string; page?: number; limit?: number; search?: string; types?: string; expired?: boolean; expiring?: boolean }) => {
     const params = new URLSearchParams();
     if (filters?.propertyId) params.append("propertyId", filters.propertyId);
     if (filters?.status) params.append("status", filters.status);
@@ -191,6 +191,8 @@ export const certificatesApi = {
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.search) params.append("search", filters.search);
     if (filters?.types) params.append("types", filters.types);
+    if (filters?.expired) params.append("expired", "true");
+    if (filters?.expiring) params.append("expiring", "true");
     const query = params.toString() ? `?${params}` : "";
     return fetchJSON<PaginatedResponse<EnrichedCertificate>>(`${API_BASE}/certificates${query}`);
   },

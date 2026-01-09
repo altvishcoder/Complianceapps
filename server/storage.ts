@@ -1070,6 +1070,8 @@ export class DatabaseStorage implements IStorage {
       status?: string | string[];
       search?: string;
       types?: string[];
+      expired?: boolean;
+      expiring?: boolean;
       limit: number; 
       offset: number;
     }
@@ -1097,6 +1099,16 @@ export class DatabaseStorage implements IStorage {
       // Create a proper PostgreSQL array literal for the ANY clause
       const typesArrayLiteral = `{${options.types.join(',')}}`;
       conditions.push(sql`${certificates.certificateType}::text = ANY(${typesArrayLiteral}::text[])`);
+    }
+    
+    // Expired filter - certificates past expiry date
+    if (options.expired) {
+      conditions.push(sql`${certificates.expiryDate}::date < CURRENT_DATE`);
+    }
+    
+    // Expiring soon filter - certificates expiring within 30 days
+    if (options.expiring) {
+      conditions.push(sql`${certificates.expiryDate}::date >= CURRENT_DATE AND ${certificates.expiryDate}::date < CURRENT_DATE + INTERVAL '30 days'`);
     }
     
     // Search filter on DB level using ILIKE
