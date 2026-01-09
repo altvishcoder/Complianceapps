@@ -5,18 +5,28 @@ import {
   contractorSLAProfiles, complianceStreams
 } from "@shared/schema";
 
-// Scaling configuration - adjust these for larger datasets
+// Scaling configuration for 25,000 property portfolio (large housing association)
 const SCALE_CONFIG = {
-  SCHEMES: 50,           // Number of schemes
-  BLOCKS_PER_SCHEME: 4,  // 200 blocks total
-  PROPERTIES_PER_BLOCK: 10, // 2000 properties total
+  SCHEMES: 100,           // Number of schemes (estates/developments)
+  BLOCKS_PER_SCHEME: 5,   // 500 blocks total
+  PROPERTIES_PER_BLOCK: 50, // 25,000 properties total
   SPACES_PER_PROPERTY: 4, // Rooms within each dwelling
   BLOCK_SPACES_PER_BLOCK: 3, // Communal spaces per block (Stairwell, Plant Room, etc.)
   COMPONENTS_PER_PROPERTY: 4,
   CERTS_PER_PROPERTY: 3,
-  BATCH_SIZE: 200,        // Insert batch size for performance
-  CONTRACTORS: 150,
-  STAFF_MEMBERS: 50,
+  BATCH_SIZE: 500,        // Insert batch size for performance (larger for 25k scale)
+  CONTRACTORS: 250,       // Larger contractor pool for 25k properties
+  STAFF_MEMBERS: 120,     // Larger DLO team
+
+  // Realistic breach/action counts for 25k portfolio based on UK industry data
+  // Source: Housing Ombudsman, RSH notices, Awaab's Law consultation
+  AWAABS_PHASE1_BREACHES: 175,   // Active damp/mould breaches (24-hour deadline)
+  AWAABS_PHASE2_BREACHES: 95,    // Fire/electrical breaches (7-day deadline, 2026)
+  AWAABS_PHASE3_BREACHES: 70,    // All HHSRS breaches (14-day deadline, 2027)
+  IMMEDIATE_HAZARDS: 48,         // Internal severity classification
+  EXPIRING_CERTS_30_DAYS: 210,   // Certificates expiring within 30 days
+  OVERDUE_ACTIONS: 105,          // Past due date
+  PENDING_CERTIFICATES: 85,      // In processing queue
 };
 
 const SPACE_NAMES = [
@@ -116,11 +126,11 @@ export async function seedComprehensiveDemoData(orgId: string) {
   await seedSLAProfiles(orgId);
   console.log("✓ Created SLA profiles");
   
-  const certIds = await seedCertificates(orgId, propertyIds, streamCodeToId);
+  const { certIds, certTypeMap } = await seedCertificates(orgId, propertyIds, streamCodeToId);
   console.log(`✓ Created ${certIds.length} certificates`);
   
-  await seedRemedialActions(certIds, propertyIds);
-  console.log("✓ Created remedial actions");
+  await seedRemedialActions(certIds, propertyIds, certTypeMap);
+  console.log("✓ Created remedial actions with Awaab's Law breach scenarios");
   
   const totalSpaces = propertySpaceIds.length + blockSpaceIds.length;
   const totalRecords = schemeIds.length + blockIds.length + propertyIds.length + 
@@ -513,14 +523,27 @@ async function seedSLAProfiles(orgId: string) {
   }
 }
 
+// Awaab's Law phase certificate type mappings
+const AWAABS_PHASE1_CERT_TYPES = ["DAMP_MOULD_SURVEY", "DAMP_SURVEY", "MOULD_INSPECTION", "CONDENSATION_REPORT"] as const;
+const AWAABS_PHASE2_CERT_TYPES = ["EICR", "FIRE_RISK_ASSESSMENT", "EMERGENCY_LIGHTING", "FIRE_ALARM", "PAT"] as const;
+const AWAABS_PHASE3_CERT_TYPES = ["GAS_SAFETY", "LEGIONELLA_ASSESSMENT", "ASBESTOS_SURVEY", "LIFT_LOLER", "EPC"] as const;
+
 async function seedCertificates(
   orgId: string, 
   propertyIds: string[], 
   streamCodeToId: Record<string, string>
-): Promise<string[]> {
+): Promise<{ certIds: string[], certTypeMap: Map<string, string> }> {
   const certIds: string[] = [];
+  const certTypeMap = new Map<string, string>(); // Map certId -> certType
   const statuses = ["APPROVED", "EXTRACTED", "NEEDS_REVIEW", "UPLOADED", "PROCESSING"] as const;
-  const certTypes = ["GAS_SAFETY", "EICR", "FIRE_RISK_ASSESSMENT", "ASBESTOS_SURVEY", "LIFT_LOLER", "LEGIONELLA_ASSESSMENT", "EPC"] as const;
+  
+  // Expanded cert types including Awaab's Law types
+  const allCertTypes = [
+    "GAS_SAFETY", "EICR", "FIRE_RISK_ASSESSMENT", "ASBESTOS_SURVEY", 
+    "LIFT_LOLER", "LEGIONELLA_ASSESSMENT", "EPC", "EMERGENCY_LIGHTING",
+    "FIRE_ALARM", "PAT", "DAMP_MOULD_SURVEY", "DAMP_SURVEY", 
+    "MOULD_INSPECTION", "CONDENSATION_REPORT"
+  ] as const;
   
   const certTypeToStream: Record<string, string> = {
     "GAS_SAFETY": "GAS_HEATING",
@@ -530,12 +553,21 @@ async function seedCertificates(
     "LIFT_LOLER": "LIFTING",
     "LEGIONELLA_ASSESSMENT": "WATER_SAFETY",
     "EPC": "ENERGY",
+    "EMERGENCY_LIGHTING": "FIRE_SAFETY",
+    "FIRE_ALARM": "FIRE_SAFETY",
+    "PAT": "ELECTRICAL",
+    "DAMP_MOULD_SURVEY": "BUILDING_SAFETY",
+    "DAMP_SURVEY": "BUILDING_SAFETY",
+    "MOULD_INSPECTION": "BUILDING_SAFETY",
+    "CONDENSATION_REPORT": "BUILDING_SAFETY",
   };
   
-  const allCertBatch = [];
+  const allCertBatch: any[] = [];
+  
+  // Create regular certificates for properties
   for (let i = 0; i < propertyIds.length; i++) {
     for (let c = 0; c < SCALE_CONFIG.CERTS_PER_PROPERTY; c++) {
-      const certType = certTypes[(i + c) % certTypes.length];
+      const certType = allCertTypes[(i + c) % allCertTypes.length];
       const streamCode = certTypeToStream[certType];
       const status = statuses[(i + c) % statuses.length];
       
@@ -558,49 +590,224 @@ async function seedCertificates(
     }
   }
   
-  // Insert in batches
+  // Insert in batches and track cert types
   for (let i = 0; i < allCertBatch.length; i += SCALE_CONFIG.BATCH_SIZE) {
     const batch = allCertBatch.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
-    const inserted = await db.insert(certificates).values(batch as any).returning();
-    certIds.push(...inserted.map(c => c.id));
-    if ((i / SCALE_CONFIG.BATCH_SIZE) % 10 === 0) {
+    const inserted = await db.insert(certificates).values(batch).returning();
+    for (let j = 0; j < inserted.length; j++) {
+      certIds.push(inserted[j].id);
+      certTypeMap.set(inserted[j].id, batch[j].certificateType);
+    }
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 20 === 0) {
       console.log(`   Certificates: ${certIds.length}/${allCertBatch.length} inserted`);
     }
   }
   
-  return certIds;
+  return { certIds, certTypeMap };
 }
 
-async function seedRemedialActions(certIds: string[], propertyIds: string[]) {
-  const severities = ["IMMEDIATE", "URGENT", "PRIORITY", "ROUTINE", "ADVISORY"] as const;
-  const statuses = ["OPEN", "IN_PROGRESS", "SCHEDULED", "COMPLETED", "CANCELLED"] as const;
+// Realistic damp/mould issue descriptions for Phase 1
+const DAMP_MOULD_DESCRIPTIONS = [
+  "Black mould growth on bedroom ceiling - tenant reports respiratory issues",
+  "Severe condensation on windows causing mould on window frames",
+  "Penetrating damp in living room corner - water ingress from external wall",
+  "Rising damp in hallway - visible tide marks and peeling wallpaper",
+  "Mould behind wardrobe in main bedroom - tenant notified 3 weeks ago",
+  "Condensation causing mould in bathroom - extractor fan not working",
+  "Water staining and mould on kitchen ceiling - flat roof leak suspected",
+  "Damp patch spreading on nursery wall - vulnerable child in property",
+  "Mould growth around window seals in multiple rooms",
+  "Severe condensation pooling on windowsills causing wood rot",
+  "Black spot mould in corner of living room - repeat complaint",
+  "Damp causing wallpaper to peel in elderly tenant's bedroom",
+];
+
+// Realistic fire/electrical issue descriptions for Phase 2
+const FIRE_ELECTRICAL_DESCRIPTIONS = [
+  "C2 defect on consumer unit - requires urgent replacement",
+  "Fire alarm system showing intermittent faults",
+  "Emergency lighting failed monthly test - batteries depleted",
+  "Damaged socket outlet in kitchen showing signs of overheating",
+  "Fire door closer not functioning correctly on communal landing",
+  "EICR identified unsatisfactory condition - immediate investigation required",
+  "PAT test failure on communal area equipment",
+  "Fire risk assessment identified blocked escape route",
+  "Smoke detector not functioning in high-rise flat",
+  "Electrical installation over 5 years since last inspection",
+];
+
+// Realistic HHSRS hazard descriptions for Phase 3
+const HHSRS_DESCRIPTIONS = [
+  "Gas boiler annual service overdue - potential CO risk",
+  "Legionella risk assessment identified stagnant water in unused outlet",
+  "Asbestos survey identified damaged AIB in communal area",
+  "Lift LOLER inspection overdue - 6 weeks past due date",
+  "EPC rating band G - fuel poverty risk for vulnerable tenant",
+  "Gas safety certificate expired - no access issues documented",
+  "Water temperature at outlets exceeds safe limits",
+  "Identified ACM requiring encapsulation or removal",
+  "Lift brake mechanism flagged for urgent maintenance",
+  "Boiler flue terminal clearance below regulations",
+];
+
+async function seedRemedialActions(
+  certIds: string[], 
+  propertyIds: string[], 
+  certTypeMap: Map<string, string>
+) {
+  const actionBatch: any[] = [];
   
-  const actionsToCreate = Math.floor(certIds.length * 0.3);
+  // Group certificates by Awaab's Law phase
+  const phase1Certs: string[] = [];
+  const phase2Certs: string[] = [];
+  const phase3Certs: string[] = [];
+  const otherCerts: string[] = [];
   
-  const actionBatch = [];
-  for (let i = 0; i < actionsToCreate; i++) {
-    const certId = certIds[i % certIds.length];
+  for (const [certId, certType] of certTypeMap) {
+    if ((AWAABS_PHASE1_CERT_TYPES as readonly string[]).includes(certType)) {
+      phase1Certs.push(certId);
+    } else if ((AWAABS_PHASE2_CERT_TYPES as readonly string[]).includes(certType)) {
+      phase2Certs.push(certId);
+    } else if ((AWAABS_PHASE3_CERT_TYPES as readonly string[]).includes(certType)) {
+      phase3Certs.push(certId);
+    } else {
+      otherCerts.push(certId);
+    }
+  }
+  
+  console.log(`   Phase 1 certs: ${phase1Certs.length}, Phase 2: ${phase2Certs.length}, Phase 3: ${phase3Certs.length}`);
+  
+  // Create Phase 1 breaches (damp/mould - 24 hour deadline breached)
+  const phase1Count = Math.min(SCALE_CONFIG.AWAABS_PHASE1_BREACHES, phase1Certs.length);
+  for (let i = 0; i < phase1Count; i++) {
+    const certId = phase1Certs[i];
     const propertyId = propertyIds[i % propertyIds.length];
-    const severity = severities[i % severities.length];
-    const status = statuses[i % statuses.length];
+    const hoursOverdue = Math.floor(Math.random() * 168) + 24; // 1-8 days overdue
+    const dueDate = new Date(Date.now() - hoursOverdue * 60 * 60 * 1000);
     
     actionBatch.push({
       certificateId: certId,
       propertyId,
-      description: `Remedial action ${i + 1} - ${severity} priority work required`,
-      severity,
-      status,
-      dueDate: new Date(Date.now() + Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      resolvedAt: status === "COMPLETED" ? new Date() : null,
-      costEstimate: String(Math.floor(Math.random() * 5000) + 100),
+      description: DAMP_MOULD_DESCRIPTIONS[i % DAMP_MOULD_DESCRIPTIONS.length],
+      severity: "IMMEDIATE" as const,
+      status: "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      resolvedAt: null,
+      costEstimate: String(Math.floor(Math.random() * 3000) + 500),
     });
   }
+  
+  // Create Phase 2 breaches (fire/electrical - 7 day deadline, preview for 2026)
+  const phase2Count = Math.min(SCALE_CONFIG.AWAABS_PHASE2_BREACHES, phase2Certs.length);
+  for (let i = 0; i < phase2Count; i++) {
+    const certId = phase2Certs[i];
+    const propertyId = propertyIds[(i + 1000) % propertyIds.length];
+    const daysOverdue = Math.floor(Math.random() * 21) + 7; // 7-28 days overdue
+    const dueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000);
+    
+    actionBatch.push({
+      certificateId: certId,
+      propertyId,
+      description: FIRE_ELECTRICAL_DESCRIPTIONS[i % FIRE_ELECTRICAL_DESCRIPTIONS.length],
+      severity: i % 3 === 0 ? "IMMEDIATE" as const : "URGENT" as const,
+      status: i % 4 === 0 ? "IN_PROGRESS" as const : "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      resolvedAt: null,
+      costEstimate: String(Math.floor(Math.random() * 2500) + 200),
+    });
+  }
+  
+  // Create Phase 3 breaches (all HHSRS - 14 day deadline, future for 2027)
+  const phase3Count = Math.min(SCALE_CONFIG.AWAABS_PHASE3_BREACHES, phase3Certs.length);
+  for (let i = 0; i < phase3Count; i++) {
+    const certId = phase3Certs[i];
+    const propertyId = propertyIds[(i + 2000) % propertyIds.length];
+    const daysOverdue = Math.floor(Math.random() * 30) + 14; // 14-44 days overdue
+    const dueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000);
+    
+    actionBatch.push({
+      certificateId: certId,
+      propertyId,
+      description: HHSRS_DESCRIPTIONS[i % HHSRS_DESCRIPTIONS.length],
+      severity: i % 4 === 0 ? "IMMEDIATE" as const : i % 2 === 0 ? "URGENT" as const : "PRIORITY" as const,
+      status: i % 5 === 0 ? "SCHEDULED" as const : i % 3 === 0 ? "IN_PROGRESS" as const : "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      resolvedAt: null,
+      costEstimate: String(Math.floor(Math.random() * 4000) + 300),
+    });
+  }
+  
+  // Create additional immediate hazards (internal severity classification)
+  const immediateCount = SCALE_CONFIG.IMMEDIATE_HAZARDS;
+  for (let i = 0; i < immediateCount; i++) {
+    const certId = otherCerts[i % otherCerts.length] || certIds[i % certIds.length];
+    const propertyId = propertyIds[(i + 3000) % propertyIds.length];
+    const hoursOverdue = Math.floor(Math.random() * 48) + 24; // 24-72 hours overdue
+    const dueDate = new Date(Date.now() - hoursOverdue * 60 * 60 * 1000);
+    
+    actionBatch.push({
+      certificateId: certId,
+      propertyId,
+      description: `Immediate hazard requiring urgent attention - safety risk identified`,
+      severity: "IMMEDIATE" as const,
+      status: "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      resolvedAt: null,
+      costEstimate: String(Math.floor(Math.random() * 2000) + 100),
+    });
+  }
+  
+  // Create overdue actions (mix of severities)
+  const overdueCount = SCALE_CONFIG.OVERDUE_ACTIONS;
+  const overdueSeverities = ["URGENT", "PRIORITY", "ROUTINE"] as const;
+  for (let i = 0; i < overdueCount; i++) {
+    const certId = certIds[(i + 5000) % certIds.length];
+    const propertyId = propertyIds[(i + 4000) % propertyIds.length];
+    const daysOverdue = Math.floor(Math.random() * 60) + 1; // 1-60 days overdue
+    const dueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000);
+    
+    actionBatch.push({
+      certificateId: certId,
+      propertyId,
+      description: `Remedial action ${i + 1} - follow-up work required from inspection`,
+      severity: overdueSeverities[i % overdueSeverities.length],
+      status: i % 3 === 0 ? "IN_PROGRESS" as const : "OPEN" as const,
+      dueDate: dueDate.toISOString().split('T')[0],
+      resolvedAt: null,
+      costEstimate: String(Math.floor(Math.random() * 3000) + 150),
+    });
+  }
+  
+  // Create future/scheduled actions (not breaching)
+  const futureCount = Math.floor(certIds.length * 0.1);
+  const futureSeverities = ["PRIORITY", "ROUTINE", "ADVISORY"] as const;
+  const futureStatuses = ["SCHEDULED", "IN_PROGRESS", "COMPLETED"] as const;
+  for (let i = 0; i < futureCount; i++) {
+    const certId = certIds[(i + 6000) % certIds.length];
+    const propertyId = propertyIds[(i + 5000) % propertyIds.length];
+    const daysUntilDue = Math.floor(Math.random() * 90) + 1; // 1-90 days in future
+    const dueDate = new Date(Date.now() + daysUntilDue * 24 * 60 * 60 * 1000);
+    const status = futureStatuses[i % futureStatuses.length];
+    
+    actionBatch.push({
+      certificateId: certId,
+      propertyId,
+      description: `Scheduled maintenance - ${futureSeverities[i % futureSeverities.length].toLowerCase()} priority`,
+      severity: futureSeverities[i % futureSeverities.length],
+      status,
+      dueDate: dueDate.toISOString().split('T')[0],
+      resolvedAt: status === "COMPLETED" ? new Date() : null,
+      costEstimate: String(Math.floor(Math.random() * 2000) + 100),
+    });
+  }
+  
+  console.log(`   Creating ${actionBatch.length} remedial actions (${phase1Count} Phase 1, ${phase2Count} Phase 2, ${phase3Count} Phase 3 breaches)`);
   
   // Insert in batches
   for (let i = 0; i < actionBatch.length; i += SCALE_CONFIG.BATCH_SIZE) {
     const batch = actionBatch.slice(i, i + SCALE_CONFIG.BATCH_SIZE);
     await db.insert(remedialActions).values(batch);
-    if ((i / SCALE_CONFIG.BATCH_SIZE) % 5 === 0) {
+    if ((i / SCALE_CONFIG.BATCH_SIZE) % 10 === 0) {
       console.log(`   Remedial actions: ${Math.min(i + SCALE_CONFIG.BATCH_SIZE, actionBatch.length)}/${actionBatch.length} inserted`);
     }
   }
