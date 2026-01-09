@@ -290,21 +290,21 @@ export default function Dashboard() {
                 {
                   title: "Awaab's Law Phase 1",
                   value: phase1Breaches,
-                  subtitle: "breaches",
+                  subtitle: "damp & mould breaches",
                   icon: Zap,
                   riskLevel: phase1Breaches > 0 ? "critical" : "good",
                   href: "/actions?awaabs=true&phase=1&from=/dashboard",
-                  slaInfo: "14-day response required",
+                  slaInfo: "24-hour statutory deadline",
                   testId: "hero-awaabs-phase1",
                 },
                 {
                   title: "Immediate Hazards",
                   value: immediateHazards,
-                  subtitle: "need action now",
+                  subtitle: "internal severity",
                   icon: AlertTriangle,
                   riskLevel: immediateHazards > 0 ? "critical" : "good",
                   href: "/actions?severity=IMMEDIATE&from=/dashboard",
-                  slaInfo: "24-hour response SLA",
+                  slaInfo: "24-hour SLA (policy)",
                   testId: "hero-immediate-hazards",
                 },
                 {
@@ -575,7 +575,7 @@ export default function Dashboard() {
                           <Badge className="bg-red-600 hover:bg-red-700 text-[10px] sm:text-xs whitespace-nowrap">NOW IN FORCE</Badge>
                           <span className="text-xs sm:text-sm font-bold">Phase 1: Damp & Mould</span>
                         </div>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground">Strict timescales - respond within 14 days</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">24-hour statutory deadline</span>
                       </div>
                       <div className="flex flex-col items-end flex-shrink-0">
                         <span className={`text-xl sm:text-2xl font-bold ${(awaabsData?.phase1?.count || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -587,9 +587,12 @@ export default function Dashboard() {
                   </Link>
                   <Link href="/actions?awaabs=true&phase=2&from=/dashboard" className="block">
                     <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer gap-2">
-                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                        <Badge variant="secondary" className="text-[10px] sm:text-xs">2026</Badge>
-                        <span className="text-xs sm:text-sm font-medium truncate">Phase 2: Fire, Electrical, Falls</span>
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <Badge variant="secondary" className="text-[10px] sm:text-xs">2026</Badge>
+                          <span className="text-xs sm:text-sm font-medium truncate">Phase 2: Fire, Electrical, Falls</span>
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">7-day statutory deadline</span>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <span className={`text-base sm:text-lg font-bold ${(awaabsData?.phase2?.count || 0) > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
@@ -601,9 +604,12 @@ export default function Dashboard() {
                   </Link>
                   <Link href="/actions?awaabs=true&phase=3&from=/dashboard" className="block">
                     <div className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer opacity-60 gap-2">
-                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                        <Badge variant="outline" className="text-[10px] sm:text-xs">2027</Badge>
-                        <span className="text-xs sm:text-sm font-medium">Phase 3: All HHSRS</span>
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <Badge variant="outline" className="text-[10px] sm:text-xs">2027</Badge>
+                          <span className="text-xs sm:text-sm font-medium">Phase 3: All HHSRS</span>
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">14-day statutory deadline</span>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <span className="text-base sm:text-lg font-bold text-muted-foreground">
