@@ -729,11 +729,10 @@ export default function PropertyHierarchy() {
     queryFn: () => blocksApi.list(),
   });
 
-  const { data: propertiesResponse, isLoading: propertiesLoading } = useQuery({
-    queryKey: ["properties"],
-    queryFn: () => propertiesApi.list({ limit: 500 }),
-  });
-  const properties = propertiesResponse?.data ?? [];
+  // Properties are loaded on-demand via LazyPropertiesLoader when a block is expanded
+  // No upfront fetch needed for 25k+ property portfolios
+  const properties: Property[] = [];
+  const propertiesLoading = false;
 
   // Components for tree view are loaded on-demand per property/space via LazyComponentsLoader
   // This query is for the Assets tab with pagination
@@ -833,8 +832,6 @@ export default function PropertyHierarchy() {
       const blockNodes = blocks
         .filter((b) => b.schemeId === scheme.id)
         .map((block) => {
-          const blockProperties = properties.filter((p: Property) => p.blockId === block.id);
-          
           // Block-level spaces: communal areas, plant rooms, stairwells, etc.
           const blockLevelSpaces: HierarchyNode[] = allSpaces
             .filter((s: Space) => (s as any).blockId === block.id && !(s as any).propertyId)
@@ -877,7 +874,7 @@ export default function PropertyHierarchy() {
         children: schemeChildren,
       };
     });
-  }, [schemes, blocks, properties, allSpaces]);
+  }, [schemes, blocks, allSpaces]);
 
   // Filter hierarchy data based on debounced search
   const filteredHierarchyData = useMemo(() => {
@@ -1095,7 +1092,7 @@ export default function PropertyHierarchy() {
     organisations: hierarchyStats?.organisations ?? organisations.length,
     schemes: hierarchyStats?.schemes ?? schemes.length,
     blocks: hierarchyStats?.blocks ?? blocks.length,
-    properties: hierarchyStats?.properties ?? (propertiesResponse?.total ?? properties.length),
+    properties: hierarchyStats?.properties ?? 0,
     spaces: hierarchyStats?.spaces ?? allSpaces.length,
     components: hierarchyStats?.components ?? assetsTotalCount,
   };
