@@ -3727,9 +3727,22 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Action not found" });
       }
       
+      // Normalize status to uppercase enum values (OPEN, IN_PROGRESS, SCHEDULED, COMPLETED, CANCELLED)
+      if (updates.status) {
+        const statusMap: Record<string, string> = {
+          'open': 'OPEN',
+          'in_progress': 'IN_PROGRESS',
+          'in-progress': 'IN_PROGRESS',
+          'scheduled': 'SCHEDULED',
+          'completed': 'COMPLETED',
+          'cancelled': 'CANCELLED',
+          'canceled': 'CANCELLED',
+        };
+        updates.status = statusMap[updates.status.toLowerCase()] || updates.status.toUpperCase();
+      }
+      
       // Set resolvedAt when marking as completed
-      if (updates.status === 'COMPLETED' || updates.status === 'completed') {
-        updates.status = 'COMPLETED';
+      if (updates.status === 'COMPLETED') {
         updates.resolvedAt = new Date().toISOString();
       }
       
