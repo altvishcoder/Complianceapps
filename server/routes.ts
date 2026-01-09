@@ -6107,7 +6107,7 @@ export async function registerRoutes(
       const quarterlyHighlights = [
         { metric: "Compliance Rate", current: `${complianceRate}%`, target: "95%", status: complianceRate >= 95 ? "achieved" : complianceRate >= 85 ? "approaching" : "behind" },
         { metric: "Certificate Renewals", current: validCerts.toString(), target: Math.round(totalCerts * 0.9).toString(), status: validCerts >= totalCerts * 0.9 ? "achieved" : "approaching" },
-        { metric: "Actions Closed", current: closedActions.toString(), target: Math.round(allActions.length * 0.8).toString(), status: closedActions >= allActions.length * 0.8 ? "achieved" : "approaching" },
+        { metric: "Actions Closed", current: completedActions.toString(), target: Math.round(allActions.length * 0.8).toString(), status: completedActions >= allActions.length * 0.8 ? "achieved" : "approaching" },
         { metric: "Response Time (avg)", current: "4.2 days", target: "3 days", status: "behind" },
       ];
       
