@@ -1069,6 +1069,7 @@ export class DatabaseStorage implements IStorage {
       propertyId?: string; 
       status?: string | string[];
       search?: string;
+      types?: string[];
       limit: number; 
       offset: number;
     }
@@ -1089,6 +1090,13 @@ export class DatabaseStorage implements IStorage {
       } else {
         conditions.push(eq(certificates.status, options.status as any));
       }
+    }
+    
+    // Filter by certificate types (for stream filtering) - cast enum to text for comparison
+    if (options.types && options.types.length > 0) {
+      // Create a proper PostgreSQL array literal for the ANY clause
+      const typesArrayLiteral = `{${options.types.join(',')}}`;
+      conditions.push(sql`${certificates.certificateType}::text = ANY(${typesArrayLiteral}::text[])`);
     }
     
     // Search filter on DB level using ILIKE

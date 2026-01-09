@@ -183,26 +183,49 @@ export default function CertificatesPage() {
   
   const ITEMS_PER_PAGE = 50;
   
-  // Separate stats query - doesn't depend on pagination, only refetches on filter changes
+  // Build stream filter param - get all certificate types for the selected stream
+  const streamTypeCodesParam = useMemo(() => {
+    if (!streamFilter || !streamCertTypes) return undefined;
+    return Array.from(streamCertTypes).join(',');
+  }, [streamFilter, streamCertTypes]);
+  
+  // Separate stats query - refetches when stream filter changes
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["certificates-stats"],
+    queryKey: ["certificates-stats", streamFilter, streamTypeCodesParam],
     queryFn: async () => {
-      // Fetch first page to get stats (stats are global, not affected by pagination)
-      const result = await certificatesApi.list({ page: 1, limit: 1 });
-      return (result as any)?.stats || null;
+      // Build params for filtered stats
+      const params = new URLSearchParams();
+      if (streamTypeCodesParam) {
+        params.set('types', streamTypeCodesParam);
+      }
+      const queryStr = params.toString();
+      const url = queryStr ? `/api/certificates/stats?${queryStr}` : '/api/certificates/stats';
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) {
+        // Fallback to unfiltered stats
+        const result = await certificatesApi.list({ page: 1, limit: 1 });
+        return (result as any)?.stats || null;
+      }
+      return res.json();
     },
     staleTime: 60000, // Keep stats stable for 1 minute
     refetchOnWindowFocus: false,
   });
   
   const { data: paginatedData, isLoading: isLoadingCerts, isFetching } = useQuery({
-    queryKey: ["certificates", page, statusFilter, debouncedSearch],
-    queryFn: () => certificatesApi.list({ 
-      page, 
-      limit: ITEMS_PER_PAGE, 
-      status: statusFilter || undefined,
-      search: debouncedSearch || undefined
-    }),
+    queryKey: ["certificates", page, statusFilter, debouncedSearch, streamTypeCodesParam],
+    queryFn: () => {
+      const params: any = { 
+        page, 
+        limit: ITEMS_PER_PAGE, 
+        status: statusFilter || undefined,
+        search: debouncedSearch || undefined
+      };
+      if (streamTypeCodesParam) {
+        params.types = streamTypeCodesParam;
+      }
+      return certificatesApi.list(params);
+    },
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
     staleTime: 30000, // Keep data fresh for 30 seconds
     gcTime: 300000, // Keep in cache for 5 minutes

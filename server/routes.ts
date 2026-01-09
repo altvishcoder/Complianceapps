@@ -3197,6 +3197,40 @@ export async function registerRoutes(
   });
   
   // ===== CERTIFICATES =====
+  // Stats endpoint for filtered certificate stats
+  app.get("/api/certificates/stats", async (req, res) => {
+    try {
+      const typesParam = req.query.types as string | undefined;
+      const typesList = typesParam ? typesParam.split(',').filter(Boolean) : null;
+      
+      // Build WHERE clause for types filter
+      let typeCondition = sql`1=1`;
+      if (typesList && typesList.length > 0) {
+        const typesArrayLiteral = `{${typesList.join(',')}}`;
+        typeCondition = sql`${certificates.certificateType}::text = ANY(${typesArrayLiteral}::text[])`;
+      }
+      
+      const [certStats] = await db.select({
+        expired: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date < CURRENT_DATE)`,
+        expiringSoon: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date >= CURRENT_DATE AND expiry_date::date < CURRENT_DATE + INTERVAL '30 days')`,
+        pendingReview: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'NEEDS_REVIEW')`,
+        approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
+      })
+      .from(certificates)
+      .where(and(eq(certificates.organisationId, ORG_ID), typeCondition));
+      
+      res.json({
+        expired: Number(certStats?.expired || 0),
+        expiringSoon: Number(certStats?.expiringSoon || 0),
+        pendingReview: Number(certStats?.pendingReview || 0),
+        approved: Number(certStats?.approved || 0),
+      });
+    } catch (error) {
+      console.error("Error fetching certificate stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+  
   app.get("/api/certificates", paginationMiddleware(), async (req, res) => {
     try {
       const pagination = (req as any).pagination as PaginationParams;
@@ -3204,6 +3238,8 @@ export async function registerRoutes(
       const search = req.query.search as string | undefined;
       const propertyId = req.query.propertyId as string | undefined;
       const status = req.query.status as string | undefined;
+      const typesParam = req.query.types as string | undefined;
+      const typesList = typesParam ? typesParam.split(',').filter(Boolean) : undefined;
       
       // Handle special PENDING status - maps to UPLOADED, PROCESSING, NEEDS_REVIEW
       const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
@@ -3216,6 +3252,7 @@ export async function registerRoutes(
         search,
         limit,
         offset,
+        types: typesList,
       });
       
       // Data already includes property and extraction from JOINs
@@ -3224,12 +3261,9 @@ export async function registerRoutes(
         extractedData: cert.extraction?.extractedData,
       }));
       
-      // Get certificate stats from materialized view (fast) with fallback to direct query
-      const { getCertificateStats } = await import('./reporting/materialized-views');
-      let stats = await getCertificateStats(ORG_ID);
-      
-      // Fallback to direct query if materialized view not available
-      if (!stats) {
+      // Get certificate stats - if types filter is applied, compute filtered stats
+      let stats;
+      if (typesList && typesList.length > 0) {
         const [certStats] = await db.select({
           expired: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date < CURRENT_DATE)`,
           expiringSoon: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date >= CURRENT_DATE AND expiry_date::date < CURRENT_DATE + INTERVAL '30 days')`,
@@ -3237,7 +3271,10 @@ export async function registerRoutes(
           approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
         })
         .from(certificates)
-        .where(eq(certificates.organisationId, ORG_ID));
+        .where(and(
+          eq(certificates.organisationId, ORG_ID),
+          sql`${certificates.certificateType}::text = ANY(${`{${typesList.join(',')}}`}::text[])`
+        ));
         
         stats = {
           expired: Number(certStats?.expired || 0),
@@ -3245,6 +3282,29 @@ export async function registerRoutes(
           pendingReview: Number(certStats?.pendingReview || 0),
           approved: Number(certStats?.approved || 0),
         };
+      } else {
+        // Get certificate stats from materialized view (fast) with fallback to direct query
+        const { getCertificateStats } = await import('./reporting/materialized-views');
+        stats = await getCertificateStats(ORG_ID);
+        
+        // Fallback to direct query if materialized view not available
+        if (!stats) {
+          const [certStats] = await db.select({
+            expired: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date < CURRENT_DATE)`,
+            expiringSoon: sql<number>`COUNT(*) FILTER (WHERE expiry_date::date >= CURRENT_DATE AND expiry_date::date < CURRENT_DATE + INTERVAL '30 days')`,
+            pendingReview: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'NEEDS_REVIEW')`,
+            approved: sql<number>`COUNT(*) FILTER (WHERE ${certificates.status} = 'APPROVED')`,
+          })
+          .from(certificates)
+          .where(eq(certificates.organisationId, ORG_ID));
+          
+          stats = {
+            expired: Number(certStats?.expired || 0),
+            expiringSoon: Number(certStats?.expiringSoon || 0),
+            pendingReview: Number(certStats?.pendingReview || 0),
+            approved: Number(certStats?.approved || 0),
+          };
+        }
       }
       
       res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit), stats });
@@ -5830,26 +5890,30 @@ export async function registerRoutes(
         dueDate: a.due_date
       }));
 
-      // Simplified compliance by type (top certificate types)
-      const certTypeCountsRaw = await db.execute(sql`
-        SELECT certificate_type, 
-               COUNT(*)::int as total,
-               COUNT(*) FILTER (WHERE status = 'APPROVED')::int as approved,
-               COUNT(*) FILTER (WHERE status = 'REJECTED')::int as rejected
-        FROM certificates
-        GROUP BY certificate_type
-        ORDER BY COUNT(*) DESC
-        LIMIT 20
+      // Compliance by stream (aggregates certificate types by their compliance stream)
+      // Cast certificate_type enum to text for JOIN with certificate_types.code
+      const streamStatsRaw = await db.execute(sql`
+        SELECT 
+          COALESCE(cs.code, 'OTHER') as stream_code,
+          COALESCE(cs.name, 'Other') as stream_name,
+          COUNT(c.id)::int as total,
+          COUNT(c.id) FILTER (WHERE c.status = 'APPROVED')::int as approved,
+          COUNT(c.id) FILTER (WHERE c.status = 'REJECTED')::int as rejected
+        FROM certificates c
+        LEFT JOIN certificate_types ct ON c.certificate_type::text = ct.code
+        LEFT JOIN compliance_streams cs ON ct.compliance_stream = cs.code
+        GROUP BY cs.code, cs.name, cs.display_order
+        ORDER BY COUNT(c.id) DESC
       `);
       
-      const complianceByType = ((certTypeCountsRaw.rows || []) as any[]).map(row => {
+      const complianceByType = ((streamStatsRaw.rows || []) as any[]).map(row => {
         const total = Number(row.total || 0);
         const approved = Number(row.approved || 0);
         const compliant = total > 0 ? Math.round((approved / total) * 100) : 0;
         return {
-          type: row.certificate_type?.replace(/_/g, ' ') || 'Unknown',
-          code: row.certificate_type,
-          streamId: null,
+          type: row.stream_name || 'Other',
+          code: row.stream_code || 'OTHER',
+          streamId: row.stream_code,
           total,
           approved,
           rejected: Number(row.rejected || 0),
