@@ -80,7 +80,11 @@ Preferred communication style: Simple, everyday language.
 -   PostgreSQL
 
 ### AI/ML Services
--   Anthropic Claude Vision (Claude 3.5 Sonnet) for AI-powered certificate document extraction.
+-   **AI Provider Abstraction**: `IOCRProvider`, `ILLMProvider`, `IVisionProvider` interfaces in `server/services/ai/providers/`
+-   **Provider Registry**: `AIProviderRegistry` with priority-based selection and health-aware fallback
+-   **Supported Providers**: Claude (LLM + Vision), Azure Document Intelligence (OCR + Document Analysis)
+-   **Configuration**: Providers auto-initialize from environment variables (ANTHROPIC_API_KEY, AZURE_DOCUMENT_INTELLIGENCE_*)
+-   **Legacy**: Anthropic Claude Vision (Claude 3.5 Sonnet) for AI-powered certificate document extraction.
 
 ### Third-Party Libraries
 -   **Charts**: Recharts.
