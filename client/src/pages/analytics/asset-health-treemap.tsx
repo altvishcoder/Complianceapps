@@ -4,9 +4,9 @@ import { Header } from '@/components/layout/Header';
 import { ComplianceTreeMap } from '@/components/analytics/ComplianceTreeMap';
 import { HierarchyExplorer } from '@/components/analytics/HierarchyExplorer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { 
@@ -171,51 +171,6 @@ export default function AssetHealthTreemapPage() {
                   height={500}
                 />
                 
-                {selectedStream && (
-                  <Card className="mt-4 animate-in slide-in-from-bottom-4 duration-300" data-testid="selected-stream-card">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{selectedStream.name}</CardTitle>
-                        <Badge 
-                          variant={selectedStream.riskLevel === 'HIGH' ? 'destructive' : selectedStream.riskLevel === 'MEDIUM' ? 'secondary' : 'outline'}
-                        >
-                          {selectedStream.riskLevel || 'LOW'} Risk
-                        </Badge>
-                      </div>
-                      <CardDescription>Compliance stream details</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <div className="text-2xl font-bold">{(selectedStream.displayValue ?? selectedStream.value ?? 0).toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">Properties</div>
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <div className="text-2xl font-bold">{selectedStream.certificateCount?.toLocaleString() || 0}</div>
-                          <div className="text-xs text-muted-foreground">Certificates</div>
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <div className={`text-2xl font-bold ${(selectedStream.complianceRate || 0) >= 90 ? 'text-green-500' : (selectedStream.complianceRate || 0) >= 70 ? 'text-amber-500' : 'text-red-500'}`}>
-                            {selectedStream.complianceRate || 0}%
-                          </div>
-                          <div className="text-xs text-muted-foreground">Compliance</div>
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <Button 
-                            size="sm" 
-                            className="w-full"
-                            onClick={() => {
-                              setActiveView('explorer');
-                              setSelectedStream(null);
-                            }}
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </TabsContent>
 
               <TabsContent value="explorer" className="mt-4">
@@ -226,6 +181,65 @@ export default function AssetHealthTreemapPage() {
           </div>
         </main>
       </div>
+
+      <Sheet open={!!selectedStream} onOpenChange={(open) => !open && setSelectedStream(null)}>
+        <SheetContent 
+          side={isMobile ? 'bottom' : 'right'} 
+          className={isMobile ? 'h-auto max-h-[70vh]' : 'w-[420px] sm:w-[480px]'}
+          data-testid="stream-detail-sheet"
+        >
+          <SheetHeader>
+            <div className="flex items-center justify-between">
+              <SheetTitle>{selectedStream?.name}</SheetTitle>
+              <Badge 
+                variant={selectedStream?.riskLevel === 'HIGH' ? 'destructive' : selectedStream?.riskLevel === 'MEDIUM' ? 'secondary' : 'outline'}
+              >
+                {selectedStream?.riskLevel || 'LOW'} Risk
+              </Badge>
+            </div>
+            <SheetDescription>Compliance stream details and metrics</SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold">{(selectedStream?.displayValue ?? selectedStream?.value ?? 0).toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground mt-1">Properties</div>
+              </div>
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold">{selectedStream?.certificateCount?.toLocaleString() || 0}</div>
+                <div className="text-sm text-muted-foreground mt-1">Certificates</div>
+              </div>
+            </div>
+            
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className={`text-4xl font-bold ${(selectedStream?.complianceRate || 0) >= 90 ? 'text-green-500' : (selectedStream?.complianceRate || 0) >= 70 ? 'text-amber-500' : 'text-red-500'}`}>
+                {selectedStream?.complianceRate || 0}%
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Compliance Rate</div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button 
+                className="w-full"
+                onClick={() => {
+                  setActiveView('explorer');
+                  setSelectedStream(null);
+                }}
+              >
+                View in Hierarchy Explorer
+              </Button>
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={() => setSelectedStream(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
