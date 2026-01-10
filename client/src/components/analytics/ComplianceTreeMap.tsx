@@ -141,11 +141,16 @@ export function ComplianceTreeMap({
             margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
             innerPadding={3}
             outerPadding={3}
-            labelSkipSize={12}
+            labelSkipSize={40}
+            orientLabel={false}
             label={(node) => {
+              const width = node.width || 0;
+              const height = node.height || 0;
+              if (width < 80 || height < 40) return '';
               const origVal = (node.data as any).originalValue || node.value;
               const formatted = origVal >= 1000 ? `${(origVal/1000).toFixed(0)}k` : String(origVal);
-              return `${node.id} (${formatted})`;
+              const name = node.id.length > 15 ? node.id.substring(0, 13) + '..' : node.id;
+              return `${name} (${formatted})`;
             }}
             labelTextColor="#ffffff"
             enableParentLabel={false}
