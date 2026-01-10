@@ -54,6 +54,7 @@ import { queryCache, withCache } from "./services/query-cache";
 import { cacheRegions, cacheClearAudit, userFavorites, organizationBranding } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
+import { adminRouter } from "./routes/admin.routes";
 import { apiLogger } from "./logger";
 import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -266,6 +267,9 @@ export async function registerRoutes(
   
   // Register observability routes (circuit breakers, queue metrics, etc.)
   app.use('/api/observability', observabilityRoutes);
+  
+  // Register admin routes (cloud config, bulk seeding, etc.)
+  app.use('/api/admin', adminRouter);
   
   // NOTE: Modular route files exist in server/routes/ for future migration
   // They are not mounted here to avoid conflicts with existing routes below
