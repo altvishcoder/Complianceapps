@@ -15,7 +15,7 @@ import {
   VOLUME_CONFIGS, calculateTotals, refreshMaterializedViewsAfterSeed,
   type VolumeTier 
 } from "../demo-data/bulk-seeder";
-import { getAIRegistry } from "../services/ai/providers/registry";
+import { getAIRegistry } from "../services/ai/providers";
 import { getConfiguredProviders } from "../auth";
 import { ObjectStorageService } from "../replit_integrations/object_storage";
 
