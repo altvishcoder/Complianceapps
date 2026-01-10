@@ -6186,88 +6186,60 @@ export async function registerRoutes(
     }
   });
 
-  // Treemap data - aggregated for visualization
+  // Treemap data - aggregated for visualization (includes ALL compliance streams)
   app.get("/api/analytics/treemap", async (req, res) => {
     try {
       const { groupBy = 'stream' } = req.query;
       
-      // Build treemap structure: root -> streams -> schemes (optional)
+      // Get ALL compliance streams (including those with 0 certificates)
       const streamData = await db.execute(sql`
         SELECT 
-          COALESCE(cs.code, 'OTHER') as stream_code,
-          COALESCE(cs.name, 'Other') as stream_name,
+          cs.code as stream_code,
+          cs.name as stream_name,
           COALESCE(cs.color_code, '#6b7280') as stream_color,
-          b.scheme_id,
-          s.name as scheme_name,
-          COUNT(DISTINCT c.property_id)::int as property_count,
-          COUNT(DISTINCT c.id)::int as certificate_count,
-          COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
-          COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count
-        FROM certificates c
-        LEFT JOIN certificate_types ct ON c.certificate_type::text = ct.code
-        LEFT JOIN compliance_streams cs ON ct.compliance_stream = cs.code
-        LEFT JOIN properties p ON c.property_id = p.id
-        LEFT JOIN blocks b ON p.block_id = b.id
-        LEFT JOIN schemes s ON b.scheme_id = s.id
-        WHERE c.deleted_at IS NULL
-        GROUP BY cs.code, cs.name, cs.color_code, cs.display_order, b.scheme_id, s.name
-        ORDER BY cs.display_order, COUNT(c.id) DESC
+          cs.display_order,
+          COALESCE(cert_stats.property_count, 0)::int as property_count,
+          COALESCE(cert_stats.certificate_count, 0)::int as certificate_count,
+          COALESCE(cert_stats.compliant_count, 0)::int as compliant_count,
+          COALESCE(cert_stats.expired_count, 0)::int as expired_count
+        FROM compliance_streams cs
+        LEFT JOIN (
+          SELECT 
+            ct.compliance_stream,
+            COUNT(DISTINCT c.property_id) as property_count,
+            COUNT(DISTINCT c.id) as certificate_count,
+            COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END) as compliant_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END) as expired_count
+          FROM certificates c
+          JOIN certificate_types ct ON c.certificate_type::text = ct.code
+          WHERE c.deleted_at IS NULL
+          GROUP BY ct.compliance_stream
+        ) cert_stats ON cert_stats.compliance_stream = cs.code
+        WHERE cs.is_active = true
+        ORDER BY cs.display_order, cs.name
       `);
       
-      // Build nested treemap structure
-      const streamMap = new Map<string, {
-        name: string;
-        color: string;
-        children: Array<{ name: string; value: number; complianceRate: number; riskLevel: string }>;
-        totalValue: number;
-        totalCompliant: number;
-        totalExpired: number;
-      }>();
-      
-      for (const row of (streamData.rows || []) as any[]) {
-        const streamCode = row.stream_code;
-        if (!streamMap.has(streamCode)) {
-          streamMap.set(streamCode, {
-            name: row.stream_name,
-            color: row.stream_color,
-            children: [],
-            totalValue: 0,
-            totalCompliant: 0,
-            totalExpired: 0
-          });
-        }
-        const stream = streamMap.get(streamCode)!;
+      // Build treemap structure from all streams
+      const children = ((streamData.rows || []) as any[]).map(row => {
         const propCount = Number(row.property_count) || 0;
-        const compliantCount = Number(row.compliant_count) || 0;
         const certCount = Number(row.certificate_count) || 0;
+        const compliantCount = Number(row.compliant_count) || 0;
         const expiredCount = Number(row.expired_count) || 0;
         
-        if (row.scheme_name && groupBy === 'scheme') {
-          stream.children.push({
-            name: row.scheme_name,
-            value: propCount,
-            complianceRate: certCount > 0 ? Math.round((compliantCount / certCount) * 100) : 0,
-            riskLevel: expiredCount > 5 ? 'HIGH' : expiredCount > 0 ? 'MEDIUM' : 'LOW'
-          });
-        }
-        stream.totalValue += propCount;
-        stream.totalCompliant += compliantCount;
-        stream.totalExpired += expiredCount;
-      }
+        return {
+          name: row.stream_name,
+          code: row.stream_code,
+          color: row.stream_color,
+          value: propCount,
+          certificateCount: certCount,
+          complianceRate: certCount > 0 ? Math.round((compliantCount / certCount) * 100) : 0,
+          riskLevel: expiredCount > 10 ? 'HIGH' : expiredCount > 0 ? 'MEDIUM' : propCount === 0 ? 'LOW' : 'LOW'
+        };
+      });
       
       const treemapData = {
         name: 'Portfolio',
-        children: Array.from(streamMap.entries()).map(([code, stream]) => ({
-          name: stream.name,
-          code,
-          color: stream.color,
-          value: stream.totalValue,
-          complianceRate: stream.totalValue > 0 
-            ? Math.round((stream.totalCompliant / (stream.totalValue + stream.totalCompliant)) * 100) 
-            : 0,
-          riskLevel: stream.totalExpired > 10 ? 'HIGH' : stream.totalExpired > 0 ? 'MEDIUM' : 'LOW',
-          children: groupBy === 'scheme' ? stream.children : undefined
-        }))
+        children
       };
       
       res.json(treemapData);

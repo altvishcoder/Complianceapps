@@ -14,8 +14,7 @@ import {
   MapPin,
   AlertTriangle,
   CheckCircle2,
-  Clock,
-  FileText
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,42 +39,37 @@ interface HierarchyItem {
 }
 
 interface BreadcrumbItem {
-  level: 'stream' | 'scheme' | 'block' | 'property';
+  level: 'scheme' | 'block' | 'property';
   id: string | null;
   name: string;
 }
 
 interface HierarchyExplorerProps {
   onPropertyClick?: (propertyId: string) => void;
-  initialLevel?: 'stream' | 'scheme' | 'block';
 }
 
 const levelIcons = {
-  stream: FileText,
   scheme: Layers,
   block: Building2,
   property: MapPin,
 };
 
 const levelLabels = {
-  stream: 'Compliance Stream',
   scheme: 'Scheme',
   block: 'Block',
   property: 'Property',
 };
 
-const nextLevel: Record<string, 'stream' | 'scheme' | 'block' | 'property'> = {
-  stream: 'scheme',
+const nextLevel: Record<string, 'scheme' | 'block' | 'property'> = {
   scheme: 'block',
   block: 'property',
 };
 
 export function HierarchyExplorer({ 
   onPropertyClick,
-  initialLevel = 'stream'
 }: HierarchyExplorerProps) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
-    { level: 'stream', id: null, name: 'All Streams' }
+    { level: 'scheme', id: null, name: 'All Schemes' }
   ]);
   
   const currentLevel = breadcrumbs[breadcrumbs.length - 1];
