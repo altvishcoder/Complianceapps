@@ -36,8 +36,7 @@ const getRiskColor = (riskLevel?: string) => {
   return riskColors[riskLevel as keyof typeof riskColors] || '#6b7280';
 };
 
-const MIN_TILE_SIZE = 1;
-const SCALE_FACTOR = 10;
+const BASE_SIZE = 100;
 
 function CustomNode({ node }: { node: any }) {
   const { x, y, width, height, color, data } = node;
@@ -143,14 +142,12 @@ export function ComplianceTreeMap({
     code: 'PORTFOLIO',
     children: data.children?.map((child, idx) => {
       const actualValue = child.value ?? 0;
-      const scaledSize = actualValue > 0 
-        ? Math.pow(actualValue, 0.5) * SCALE_FACTOR
-        : MIN_TILE_SIZE;
+      const sizeBoost = actualValue > 0 ? Math.log10(actualValue + 1) * 50 : 0;
       return {
         ...child,
         id: child.code || `stream-${idx}`,
         displayValue: actualValue,
-        value: Math.max(scaledSize, MIN_TILE_SIZE),
+        value: BASE_SIZE + sizeBoost,
       } as TransformedNode;
     }) || []
   };
