@@ -136,6 +136,7 @@ export function ComplianceTreeMap({
             identity="name"
             value="value"
             tile="squarify"
+            leavesOnly={true}
             valueFormat={() => ''}
             margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
             innerPadding={3}
@@ -147,8 +148,7 @@ export function ComplianceTreeMap({
               return `${node.id} (${formatted})`;
             }}
             labelTextColor="#ffffff"
-            parentLabelPosition="left"
-            parentLabelTextColor="#ffffff"
+            enableParentLabel={false}
             colors={(node) => {
               const riskLevel = (node.data as TreeMapNode).riskLevel;
               return getRiskColor(riskLevel);
