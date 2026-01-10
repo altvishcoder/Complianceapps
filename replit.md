@@ -39,7 +39,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Security
 -   **User Role Hierarchy**: Hierarchical Role-Based Access Control (RBAC) system with various roles.
--   **Authentication**: BetterAuth-only authentication with email/password (bcrypt), session management, and optional Microsoft Entra ID SSO.
+-   **Authentication**: BetterAuth-only authentication with email/password (bcrypt), session management, and multi-provider SSO.
+-   **SSO Providers**: Generic OIDC supporting Microsoft Entra ID, Google, Okta, Keycloak, and custom OIDC providers.
+-   **SSO Configuration**: Environment variables control provider enablement (AZURE_*, GOOGLE_*, OKTA_*, KEYCLOAK_*, OIDC_*).
 -   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
 -   **Rate Limiting**: PostgreSQL-backed rate limiting.
 
@@ -63,7 +65,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Cloud-Agnostic Storage
 -   **Storage Provider Abstraction**: `IStorageProvider` interface in `server/storage/providers/` supports multiple backends
--   **Supported Providers**: Replit Object Storage, Local Filesystem (S3, Azure Blob, GCS stubs available)
+-   **Supported Providers**: Replit Object Storage, Local Filesystem, AWS S3, Azure Blob Storage, GCS
+-   **S3 Provider**: Full implementation with presigned URLs for AWS and MinIO deployments
+-   **Azure Provider**: Full implementation with SAS tokens (note: cross-container visibility change not supported)
 -   **Configuration**: `STORAGE_PROVIDER` env var selects provider (replit, local, s3, azure, gcs)
 -   **Factory Pattern**: `StorageFactory` with runtime provider selection and health checks
 -   **Features**: Upload/download, signed URLs, ACL policies, public object search, entity path normalization
@@ -82,9 +86,10 @@ Preferred communication style: Simple, everyday language.
 ### AI/ML Services
 -   **AI Provider Abstraction**: `IOCRProvider`, `ILLMProvider`, `IVisionProvider` interfaces in `server/services/ai/providers/`
 -   **Provider Registry**: `AIProviderRegistry` with priority-based selection and health-aware fallback
--   **Supported Providers**: Claude (LLM + Vision), Azure Document Intelligence (OCR + Document Analysis)
--   **Configuration**: Providers auto-initialize from environment variables (ANTHROPIC_API_KEY, AZURE_DOCUMENT_INTELLIGENCE_*)
--   **Legacy**: Anthropic Claude Vision (Claude 3.5 Sonnet) for AI-powered certificate document extraction.
+-   **Cloud Providers**: Claude (LLM + Vision, priority 20), Azure Document Intelligence (OCR + Document Analysis, priority 10)
+-   **Offline Providers**: Tesseract.js (OCR, priority 50), Ollama (LLM + Vision, priority 60)
+-   **Fallback Behavior**: Registry tries providers in priority order, skipping unhealthy instances for airgapped resilience
+-   **Configuration**: Providers auto-initialize from environment variables (ANTHROPIC_API_KEY, AZURE_DOCUMENT_INTELLIGENCE_*, OLLAMA_BASE_URL)
 
 ### Third-Party Libraries
 -   **Charts**: Recharts.
