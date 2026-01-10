@@ -78,6 +78,17 @@ export function ComplianceTreeMap({
     ? Math.round(data.children.reduce((sum, child) => sum + (child.complianceRate || 0), 0) / data.children.length)
     : 0;
 
+  // Apply log scale transformation to make small values visible
+  // Use sqrt for gentler scaling that still shows proportion
+  const transformedData = {
+    ...data,
+    children: data.children?.map(child => ({
+      ...child,
+      originalValue: child.value,
+      value: Math.max(Math.sqrt(child.value || 1) * 100, 500), // Min size for visibility
+    }))
+  };
+
   return (
     <Card data-testid="treemap-container">
       <CardHeader>
@@ -121,13 +132,20 @@ export function ComplianceTreeMap({
       <CardContent>
         <div style={{ height }} data-testid="treemap-chart">
           <ResponsiveTreeMap
-            data={data}
+            data={transformedData}
             identity="name"
             value="value"
-            valueFormat={(value) => value >= 1000 ? `${(value/1000).toFixed(0)}k` : String(value)}
+            valueFormat={(value) => {
+              // Display format - show original values from node data
+              return '';
+            }}
             margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            labelSkipSize={20}
-            label={(node) => `${node.id}`}
+            labelSkipSize={15}
+            label={(node) => {
+              const origVal = (node.data as any).originalValue || node.value;
+              const formatted = origVal >= 1000 ? `${(origVal/1000).toFixed(0)}k` : String(origVal);
+              return `${node.id} (${formatted})`;
+            }}
             labelTextColor="#ffffff"
             parentLabelPosition="left"
             parentLabelTextColor="#ffffff"
@@ -146,12 +164,13 @@ export function ComplianceTreeMap({
               }
             }}
             tooltip={({ node }) => {
-              const nodeData = node.data as TreeMapNode;
+              const nodeData = node.data as TreeMapNode & { originalValue?: number };
+              const displayValue = nodeData.originalValue ?? nodeData.value ?? 0;
               return (
                 <div className="bg-background border rounded-lg shadow-lg p-3 text-sm" data-testid="treemap-tooltip">
                   <div className="font-semibold">{nodeData.name}</div>
                   <div className="text-muted-foreground mt-1">
-                    <div>Properties: {nodeData.value?.toLocaleString() || 0}</div>
+                    <div>Properties: {displayValue.toLocaleString()}</div>
                     {nodeData.complianceRate !== undefined && (
                       <div className="flex items-center gap-1">
                         Compliance: {nodeData.complianceRate}%
