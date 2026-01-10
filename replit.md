@@ -18,6 +18,7 @@ Preferred communication style: Simple, everyday language.
 -   **Runtime**: Node.js with Express.js.
 -   **Language**: TypeScript with ES modules.
 -   **API Design**: RESTful JSON API endpoints.
+-   **Route Architecture**: Modular routers in `server/routes/` with mounted routers for admin and reports. Legacy routes in `routes.ts` being incrementally migrated.
 
 ### Data Layer
 -   **ORM**: Drizzle ORM with PostgreSQL.

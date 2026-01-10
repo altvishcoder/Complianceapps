@@ -6,4 +6,5 @@ export { contractorsRouter } from './contractors.routes';
 export { adminRouter } from './admin.routes';
 export { systemRouter } from './system.routes';
 export { configRouter } from './config.routes';
+export { reportsRouter } from './reports.routes';
 export { default as observabilityRoutes } from './observability.routes';

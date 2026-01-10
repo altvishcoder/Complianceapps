@@ -55,6 +55,7 @@ import { cacheRegions, cacheClearAudit, userFavorites, organizationBranding } fr
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
 import { adminRouter } from "./routes/admin.routes";
+import { reportsRouter } from "./routes/reports.routes";
 import { apiLogger } from "./logger";
 import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -270,6 +271,9 @@ export async function registerRoutes(
   
   // Register admin routes (cloud config, bulk seeding, etc.)
   app.use('/api/admin', adminRouter);
+  
+  // Register reports routes (compliance summary, property health, board reports, etc.)
+  app.use('/api/reports', reportsRouter);
   
   // NOTE: Modular route files exist in server/routes/ for future migration
   // They are not mounted here to avoid conflicts with existing routes below
@@ -7799,6 +7803,9 @@ export async function registerRoutes(
   });
   
   // ===== TSM BUILDING SAFETY REPORTS =====
+  // DEPRECATED: These routes are now handled by server/routes/reports.routes.ts
+  // The reportsRouter is mounted at /api/reports and takes precedence.
+  // TODO: Remove these duplicate routes in future refactor (lines 7810-7973)
   // In-memory cache for TSM report (5-minute TTL) to avoid expensive repeated queries
   let tsmReportCache: { data: any; timestamp: number } | null = null;
   const TSM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -10256,6 +10263,9 @@ export async function registerRoutes(
   });
 
   // ============ REPORTING API ENDPOINTS ============
+  // DEPRECATED: These routes are now handled by server/routes/reports.routes.ts
+  // The reportsRouter is mounted at /api/reports and takes precedence.
+  // TODO: Remove these duplicate routes in future refactor (lines 10265-11128)
 
   // Compliance Summary Report - uses materialized view or live query
   app.get("/api/reports/compliance-summary", async (req, res) => {
