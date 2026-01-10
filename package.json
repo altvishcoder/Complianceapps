@@ -14,8 +14,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@asteasolutions/zod-to-openapi": "^7.3.4",
+    "@aws-sdk/client-s3": "^3.966.0",
+    "@aws-sdk/s3-request-presigner": "^3.966.0",
     "@axe-core/playwright": "^4.11.0",
     "@axe-core/react": "^4.11.0",
+    "@azure/storage-blob": "^12.29.1",
     "@google-cloud/storage": "^7.18.0",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",

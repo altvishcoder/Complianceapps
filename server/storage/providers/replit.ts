@@ -45,6 +45,7 @@ function createReplitStorageClient(): Storage {
 export class ReplitStorageProvider implements IStorageProvider {
   readonly name = "Replit Object Storage";
   readonly type = StorageProviderType.REPLIT;
+  readonly supportsInPlaceVisibilityChange = true;
   
   private client: Storage | null = null;
   private publicSearchPaths: string[] = [];

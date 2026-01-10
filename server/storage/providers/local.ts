@@ -25,6 +25,7 @@ import { registerStorageProvider } from "./factory";
 export class LocalStorageProvider implements IStorageProvider {
   readonly name = "Local Filesystem Storage";
   readonly type = StorageProviderType.LOCAL;
+  readonly supportsInPlaceVisibilityChange = true;
   
   private basePath: string = "./data/storage";
   private publicUrlBase: string | null = null;

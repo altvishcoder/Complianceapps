@@ -61,6 +61,7 @@ export interface ObjectAclPolicy {
 export interface IStorageProvider {
   readonly name: string;
   readonly type: StorageProviderType;
+  readonly supportsInPlaceVisibilityChange: boolean;
   
   initialize(): Promise<void>;
   
