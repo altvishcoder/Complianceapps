@@ -15,6 +15,9 @@ import {
   VOLUME_CONFIGS, calculateTotals, refreshMaterializedViewsAfterSeed,
   type VolumeTier 
 } from "../demo-data/bulk-seeder";
+import { getAIRegistry } from "../services/ai/providers/registry";
+import { getConfiguredProviders } from "../auth";
+import { ObjectStorageService } from "../replit_integrations/object_storage";
 
 export const adminRouter = Router();
 
@@ -286,5 +289,170 @@ adminRouter.get("/factory-settings/audit", requireRole('LASHAN_SUPER_USER'), asy
   } catch (error) {
     console.error("Error fetching factory settings audit:", error);
     res.status(500).json({ error: "Failed to fetch audit log" });
+  }
+});
+
+// ===== CLOUD CONFIGURATION =====
+
+const STORAGE_PROVIDER_INFO: Record<string, { name: string; description: string; envVars: string[] }> = {
+  replit: { 
+    name: "Replit Object Storage", 
+    description: "Built-in Replit storage with automatic management",
+    envVars: ["DEFAULT_OBJECT_STORAGE_BUCKET_ID", "PUBLIC_OBJECT_SEARCH_PATHS", "PRIVATE_OBJECT_DIR"]
+  },
+  local: { 
+    name: "Local Filesystem", 
+    description: "Local file storage for development/airgapped",
+    envVars: ["LOCAL_STORAGE_PATH"]
+  },
+  s3: { 
+    name: "AWS S3", 
+    description: "Amazon S3 or S3-compatible storage (MinIO)",
+    envVars: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "S3_BUCKET"]
+  },
+  azure_blob: { 
+    name: "Azure Blob Storage", 
+    description: "Microsoft Azure Blob Storage",
+    envVars: ["AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_CONTAINER"]
+  },
+  gcs: { 
+    name: "Google Cloud Storage", 
+    description: "Google Cloud Storage buckets",
+    envVars: ["GOOGLE_APPLICATION_CREDENTIALS", "GCS_BUCKET"]
+  },
+};
+
+const SSO_PROVIDER_INFO: Record<string, { name: string; description: string; envVars: string[] }> = {
+  "microsoft-entra": { 
+    name: "Microsoft Entra ID", 
+    description: "Azure Active Directory / Microsoft 365",
+    envVars: ["AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"]
+  },
+  google: { 
+    name: "Google", 
+    description: "Google Workspace / Gmail accounts",
+    envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
+  },
+  okta: { 
+    name: "Okta", 
+    description: "Okta Identity Platform",
+    envVars: ["OKTA_DOMAIN", "OKTA_CLIENT_ID", "OKTA_CLIENT_SECRET", "OKTA_AUTH_SERVER"]
+  },
+  keycloak: { 
+    name: "Keycloak", 
+    description: "Open source identity and access management",
+    envVars: ["KEYCLOAK_URL", "KEYCLOAK_REALM", "KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT_SECRET"]
+  },
+  "generic-oidc": { 
+    name: "Generic OIDC", 
+    description: "Any OpenID Connect compliant provider",
+    envVars: ["OIDC_DISCOVERY_URL", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_PROVIDER_ID"]
+  },
+};
+
+adminRouter.get("/cloud-config", requireRole(...ADMIN_ROLES), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const aiRegistry = getAIRegistry();
+    const aiProviders = aiRegistry.listProviders();
+    
+    const activeStorageProvider = process.env.STORAGE_PROVIDER || "replit";
+    const storageProviders = Object.entries(STORAGE_PROVIDER_INFO).map(([id, info]) => {
+      const isActive = id === activeStorageProvider;
+      const envVarsSet = info.envVars.filter(v => !!process.env[v]);
+      return {
+        id,
+        ...info,
+        isActive,
+        configured: isActive || envVarsSet.length === info.envVars.length,
+        envVarsConfigured: envVarsSet.length,
+        envVarsRequired: info.envVars.length,
+      };
+    });
+    
+    const configuredSSOProviders = getConfiguredProviders();
+    const ssoProviders = Object.entries(SSO_PROVIDER_INFO).map(([id, info]) => {
+      const isEnabled = configuredSSOProviders.includes(id);
+      const envVarsSet = info.envVars.filter(v => !!process.env[v]);
+      return {
+        id,
+        ...info,
+        isEnabled,
+        configured: envVarsSet.length >= 3,
+        envVarsConfigured: envVarsSet.length,
+        envVarsRequired: info.envVars.length,
+      };
+    });
+    
+    res.json({
+      storage: {
+        activeProvider: activeStorageProvider,
+        providers: storageProviders,
+      },
+      ai: {
+        providers: aiProviders.map(p => ({
+          ...p,
+          health: aiRegistry.getHealth(p.type),
+        })),
+      },
+      sso: {
+        providers: ssoProviders,
+        emailPasswordEnabled: true,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching cloud config:", error);
+    res.status(500).json({ error: "Failed to fetch cloud configuration" });
+  }
+});
+
+adminRouter.post("/cloud-config/health-check", requireRole(...ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { category, providerId } = req.body;
+    
+    if (category === "ai") {
+      const aiRegistry = getAIRegistry();
+      await aiRegistry.ensureInitialized();
+      const healthResults = await aiRegistry.healthCheckAll();
+      
+      const results: Record<string, any> = {};
+      for (const [type, health] of Array.from(healthResults.entries())) {
+        results[type] = health;
+      }
+      
+      res.json({ 
+        success: true, 
+        category: "ai",
+        results,
+      });
+    } else if (category === "storage") {
+      const storageService = new ObjectStorageService();
+      let healthy = false;
+      let error: string | undefined;
+      
+      try {
+        storageService.getPublicObjectSearchPaths();
+        storageService.getPrivateObjectDir();
+        healthy = true;
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+      
+      res.json({
+        success: true,
+        category: "storage",
+        results: {
+          [process.env.STORAGE_PROVIDER || "replit"]: {
+            isHealthy: healthy,
+            lastChecked: new Date(),
+            error,
+          },
+        },
+      });
+    } else {
+      res.status(400).json({ error: "Invalid category. Use 'ai' or 'storage'" });
+    }
+  } catch (error) {
+    console.error("Error running health check:", error);
+    res.status(500).json({ error: "Failed to run health check" });
   }
 });

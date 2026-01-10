@@ -123,6 +123,7 @@ const AdminMLInsights = lazy(() => import("@/pages/admin/ml-insights"));
 const AdminCacheControl = lazy(() => import("@/pages/admin/cache-control"));
 const AdminJobsManagement = lazy(() => import("@/pages/admin/jobs-management"));
 const AdminPerformance = lazy(() => import("@/pages/admin/performance"));
+const AdminCloudConfig = lazy(() => import("@/pages/admin/cloud-config"));
 const AdminLoginPage = lazy(() => import("@/pages/admin/login"));
 const ModelInsightsPage = lazy(() => import("@/pages/model-insights"));
 const HumanReviewPage = lazy(() => import("@/pages/human-review"));
@@ -202,6 +203,7 @@ function Router() {
       <Route path="/admin/cache-control">{() => <AdminProtectedRoute component={AdminCacheControl} />}</Route>
       <Route path="/admin/jobs">{() => <AdminProtectedRoute component={AdminJobsManagement} />}</Route>
       <Route path="/admin/performance">{() => <AdminProtectedRoute component={AdminPerformance} />}</Route>
+      <Route path="/admin/cloud-config">{() => <AdminProtectedRoute component={AdminCloudConfig} />}</Route>
       <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
       <Route path="/human-review">{() => <ProtectedRoute component={HumanReviewPage} />}</Route>
       <Route path="/domain-rules">{() => <Redirect to="/admin/configuration" />}</Route>
