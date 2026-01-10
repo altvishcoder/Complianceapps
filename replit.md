@@ -61,6 +61,13 @@ Preferred communication style: Simple, everyday language.
 -   **Logging & Monitoring**: Structured JSON logging (Pino) and Sentry integration for error tracking. System health monitoring page.
 -   **Database Optimization**: Migration-based approach for database optimization including ~15 performance indexes and 12 materialized views across 6 categories for scalability, and optimization tables for cached calculations. Admin API for managing optimizations.
 
+### Cloud-Agnostic Storage
+-   **Storage Provider Abstraction**: `IStorageProvider` interface in `server/storage/providers/` supports multiple backends
+-   **Supported Providers**: Replit Object Storage, Local Filesystem (S3, Azure Blob, GCS stubs available)
+-   **Configuration**: `STORAGE_PROVIDER` env var selects provider (replit, local, s3, azure, gcs)
+-   **Factory Pattern**: `StorageFactory` with runtime provider selection and health checks
+-   **Features**: Upload/download, signed URLs, ACL policies, public object search, entity path normalization
+
 ### Asset Strategy
 -   **Cloud-Agnostic Design**: All assets are bundled locally for offline deployment.
 -   **Icon Registry**: Centralized icon management.
