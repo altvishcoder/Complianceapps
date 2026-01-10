@@ -135,7 +135,7 @@ export function ComplianceTreeMap({
             data={transformedData}
             identity="name"
             value="value"
-            tile="sliceDice"
+            tile="squarify"
             valueFormat={() => ''}
             margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
             innerPadding={3}
