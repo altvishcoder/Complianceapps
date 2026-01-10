@@ -64,81 +64,49 @@ export default function AssetHealthTreemapPage() {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Asset Health Overview" />
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="text-muted-foreground">
-                  Visual breakdown of compliance across your property portfolio
-                </p>
+        <Header title="Compliance Portfolio" />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 rounded-lg p-3">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                <div className="flex items-center gap-2" data-testid="stat-total-properties">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Properties</span>
+                  <span className="font-semibold">{totalProperties.toLocaleString()}</span>
+                </div>
+                <div className="hidden sm:block w-px h-4 bg-border" />
+                <div className="flex items-center gap-2" data-testid="stat-certificates">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-muted-foreground">Certificates</span>
+                  <span className="font-semibold">{totalCertificates.toLocaleString()}</span>
+                </div>
+                <div className="hidden sm:block w-px h-4 bg-border" />
+                <div className="flex items-center gap-2" data-testid="stat-compliance">
+                  <TrendingUp className={`h-4 w-4 ${avgCompliance >= 90 ? 'text-green-500' : avgCompliance >= 70 ? 'text-amber-500' : 'text-red-500'}`} />
+                  <span className="text-sm text-muted-foreground">Compliance</span>
+                  <span className={`font-semibold ${avgCompliance >= 90 ? 'text-green-500' : avgCompliance >= 70 ? 'text-amber-500' : 'text-red-500'}`}>{avgCompliance}%</span>
+                </div>
+                <div className="hidden sm:block w-px h-4 bg-border" />
+                <div className="flex items-center gap-2" data-testid="stat-open-actions">
+                  <AlertTriangle className={`h-4 w-4 ${totalOpenActions > 100 ? 'text-red-500' : totalOpenActions > 50 ? 'text-amber-500' : 'text-muted-foreground'}`} />
+                  <span className="text-sm text-muted-foreground">Actions</span>
+                  <span className={`font-semibold ${totalOpenActions > 100 ? 'text-red-500' : ''}`}>{totalOpenActions.toLocaleString()}</span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
                   onClick={() => refetch()}
                   disabled={isRefetching}
                   data-testid="refresh-treemap"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
-                  Refresh
+                  <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
                 </Button>
-                <Button variant="outline" size="sm" data-testid="export-treemap">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
+                <Button variant="ghost" size="sm" data-testid="export-treemap">
+                  <Download className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card data-testid="stat-total-properties">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Properties</p>
-                      <p className="text-2xl font-bold">{totalProperties.toLocaleString()}</p>
-                    </div>
-                    <BarChart3 className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card data-testid="stat-certificates">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Certificates</p>
-                      <p className="text-2xl font-bold">{totalCertificates.toLocaleString()}</p>
-                    </div>
-                    <CheckCircle2 className="h-8 w-8 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card data-testid="stat-compliance">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Avg Compliance</p>
-                      <p className="text-2xl font-bold">{avgCompliance}%</p>
-                    </div>
-                    <TrendingUp className={`h-8 w-8 ${avgCompliance >= 90 ? 'text-green-500' : avgCompliance >= 70 ? 'text-amber-500' : 'text-red-500'}`} />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card data-testid="stat-open-actions">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Open Actions</p>
-                      <p className="text-2xl font-bold">{totalOpenActions.toLocaleString()}</p>
-                    </div>
-                    <AlertTriangle className={`h-8 w-8 ${totalOpenActions > 100 ? 'text-red-500' : totalOpenActions > 50 ? 'text-amber-500' : 'text-muted-foreground'}`} />
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'treemap' | 'explorer')}>
