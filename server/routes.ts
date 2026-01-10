@@ -51,7 +51,7 @@ import {
 } from "./services/password-policy";
 import * as cacheAdminService from "./services/cache-admin";
 import { queryCache, withCache } from "./services/query-cache";
-import { cacheRegions, cacheClearAudit, userFavorites } from "@shared/schema";
+import { cacheRegions, cacheClearAudit, userFavorites, organizationBranding } from "@shared/schema";
 import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from "./utils/upload-throttle";
 import observabilityRoutes from "./routes/observability.routes";
 import { apiLogger } from "./logger";
@@ -497,6 +497,77 @@ export async function registerRoutes(
       documentation: "/api/docs",
       migrationGuide: "Update API calls to use /api/v1/ prefix for future compatibility",
     });
+  });
+
+  // ===== BRANDING/ASSETS ENDPOINTS =====
+  const DEFAULT_BRANDING = {
+    appName: 'SocialComply',
+    primaryColor: '#3b82f6',
+    secondaryColor: '#1e40af',
+    accentColor: '#60a5fa',
+    fontFamily: 'Inter',
+    metaTitle: 'SocialComply - Compliance Management',
+    metaDescription: 'UK Social Housing Compliance Management Platform',
+    footerText: 'SocialComply - Keeping Homes Safe',
+  };
+
+  app.get("/api/branding", async (req, res) => {
+    try {
+      const orgId = req.query.org as string || 'default';
+      
+      try {
+        const [branding] = await db
+          .select()
+          .from(organizationBranding)
+          .where(eq(organizationBranding.organisationId, orgId))
+          .limit(1);
+        
+        if (!branding) {
+          const [defaultBranding] = await db
+            .select()
+            .from(organizationBranding)
+            .where(eq(organizationBranding.organisationId, 'default'))
+            .limit(1);
+          
+          if (defaultBranding) {
+            return res.json(defaultBranding);
+          }
+          
+          return res.json(DEFAULT_BRANDING);
+        }
+        
+        res.json(branding);
+      } catch (dbError: any) {
+        if (dbError?.message?.includes('does not exist') || dbError?.code === '42P01') {
+          return res.json(DEFAULT_BRANDING);
+        }
+        throw dbError;
+      }
+    } catch (error) {
+      console.error("Error fetching branding:", error);
+      res.json(DEFAULT_BRANDING);
+    }
+  });
+
+  app.get("/api/assets/config", async (req, res) => {
+    try {
+      const config = {
+        assetsBaseUrl: process.env.ASSETS_BASE_URL || '/assets',
+        objectStorageConfigured: !!(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID),
+        mapTiles: {
+          light: process.env.VITE_TILE_SOURCE_LIGHT || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          dark: process.env.VITE_TILE_SOURCE_DARK || 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          selfHosted: !!process.env.VITE_TILE_SOURCE_SELF_HOSTED,
+        },
+        markers: {
+          baseUrl: '/assets/leaflet',
+        },
+      };
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching assets config:", error);
+      res.status(500).json({ error: "Failed to fetch assets configuration" });
+    }
   });
   
   // ===== AI ASSISTANT CHAT ENDPOINT (Streaming) =====

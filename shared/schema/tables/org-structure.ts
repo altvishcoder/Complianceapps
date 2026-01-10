@@ -75,3 +75,26 @@ export const ingestionBatches = pgTable("ingestion_batches", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const organizationBranding = pgTable("organization_branding", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").notNull().unique(),
+  appName: text("app_name").notNull().default('SocialComply'),
+  logoUrl: text("logo_url"),
+  logoLightUrl: text("logo_light_url"),
+  logoDarkUrl: text("logo_dark_url"),
+  faviconUrl: text("favicon_url"),
+  primaryColor: text("primary_color").default('#3b82f6'),
+  secondaryColor: text("secondary_color").default('#1e40af'),
+  accentColor: text("accent_color").default('#60a5fa'),
+  fontFamily: text("font_family").default('Inter'),
+  customCss: text("custom_css"),
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  supportEmail: text("support_email"),
+  supportPhone: text("support_phone"),
+  footerText: text("footer_text"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

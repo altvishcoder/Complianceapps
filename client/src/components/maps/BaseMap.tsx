@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 import { MapContainer, TileLayer, ZoomControl, ScaleControl, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { MAP_CONFIG, getTileConfig } from '@/config/map-config';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconRetinaUrl: MAP_CONFIG.markers.iconRetinaUrl,
+  iconUrl: MAP_CONFIG.markers.iconUrl,
+  shadowUrl: MAP_CONFIG.markers.shadowUrl,
 });
 
 interface BaseMapProps {
@@ -31,24 +32,15 @@ function MapReadyHandler({ onMapReady }: { onMapReady?: (map: L.Map) => void }) 
   return null;
 }
 
-const UK_CENTER: [number, number] = [54.5, -2];
-const UK_ZOOM = 6;
-
-const LIGHT_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-
 export function BaseMap({
-  center = UK_CENTER,
-  zoom = UK_ZOOM,
+  center = MAP_CONFIG.defaults.center,
+  zoom = MAP_CONFIG.defaults.zoom,
   children,
   className = '',
   onMapReady,
   darkMode = false,
 }: BaseMapProps) {
-  const tileUrl = darkMode ? DARK_TILES : LIGHT_TILES;
-  const attribution = darkMode 
-    ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const tileConfig = getTileConfig(darkMode ? 'dark' : 'light');
 
   return (
     <MapContainer
@@ -60,8 +52,8 @@ export function BaseMap({
       data-testid="base-map"
     >
       <TileLayer
-        attribution={attribution}
-        url={tileUrl}
+        attribution={tileConfig.attribution}
+        url={tileConfig.url}
       />
       <ZoomControl position="topright" />
       <ScaleControl position="bottomleft" metric={true} imperial={false} />

@@ -125,6 +125,18 @@ Preferred communication style: Simple, everyday language.
       - `POST /api/admin/db-optimization/apply-all` - Create all indexes/views/tables
     - **View Definitions**: `shared/schema/tables/performance-indexes.ts` contains all SQL definitions and category metadata
 
+### Asset Strategy (Cloud-Agnostic)
+-   **Design Principle**: All assets bundled locally for offline/airgapped deployments across AWS, Azure, GCP, or local environments.
+-   **Icon Registry**: Centralized at `client/src/config/icons/` with typed mappings for compliance streams, navigation, status indicators, and actions.
+-   **Map Assets**: Leaflet marker icons bundled locally at `client/public/assets/leaflet/` - no CDN dependencies.
+-   **Configurable Tile Sources**: Map tiles configurable via environment variables (`VITE_TILE_SOURCE_LIGHT`, `VITE_TILE_SOURCE_DARK`) for self-hosted tile servers.
+-   **Branding/White-Label**: 
+    - `organization_branding` table stores per-tenant branding (logos, colors, favicon, custom CSS)
+    - `GET /api/branding` - Returns organization branding with fallback to default
+    - `GET /api/assets/config` - Returns asset paths and map tile configuration
+    - `useBranding()` hook with `applyBrandingToDocument()` for dynamic favicon/title/colors
+-   **Migration**: `migrations/0001_add_organization_branding.sql` creates table and seeds default branding
+
 ### Version Management
 -   **Current Version**: 0.9.0 (pre-release)
 -   **Version Source**: `shared/version.ts` exports APP_VERSION, APP_NAME, and RELEASE_NOTES
