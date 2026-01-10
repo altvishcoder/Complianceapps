@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { insertContractorSchema, insertStaffMemberSchema } from "@shared/schema";
@@ -7,12 +7,22 @@ import { requireAuth, requireRole, type AuthenticatedRequest } from "../session"
 
 export const contractorsRouter = Router();
 
-const ORG_ID = "org-001";
+// Apply requireAuth middleware to all routes in this router
+contractorsRouter.use(requireAuth as any);
+
+// Helper to get orgId with guard
+function getOrgId(req: AuthenticatedRequest): string | null {
+  return req.user?.organisationId || null;
+}
 
 // ===== CONTRACTORS =====
-contractorsRouter.get("/", async (req: Request, res: Response) => {
+contractorsRouter.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const contractors = await storage.listContractors(ORG_ID);
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    const contractors = await storage.listContractors(orgId);
     res.json(contractors);
   } catch (error) {
     console.error("Error fetching contractors:", error);
@@ -20,7 +30,7 @@ contractorsRouter.get("/", async (req: Request, res: Response) => {
   }
 });
 
-contractorsRouter.get("/:id", async (req: Request, res: Response) => {
+contractorsRouter.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const contractor = await storage.getContractor(req.params.id);
     if (!contractor) {
@@ -33,9 +43,13 @@ contractorsRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-contractorsRouter.post("/", async (req: Request, res: Response) => {
+contractorsRouter.post("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = insertContractorSchema.parse({ ...req.body, organisationId: ORG_ID });
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    const data = insertContractorSchema.parse({ ...req.body, organisationId: orgId });
     const contractor = await storage.createContractor(data);
     res.status(201).json(contractor);
   } catch (error) {
@@ -48,7 +62,7 @@ contractorsRouter.post("/", async (req: Request, res: Response) => {
   }
 });
 
-contractorsRouter.patch("/:id", async (req: Request, res: Response) => {
+contractorsRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const contractor = await storage.updateContractor(req.params.id, req.body);
     if (!contractor) {
@@ -61,12 +75,13 @@ contractorsRouter.patch("/:id", async (req: Request, res: Response) => {
   }
 });
 
-contractorsRouter.delete("/:id", async (req: Request, res: Response) => {
+contractorsRouter.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const deleted = await storage.deleteContractor(req.params.id);
-    if (!deleted) {
+    const contractor = await storage.getContractor(req.params.id);
+    if (!contractor) {
       return res.status(404).json({ error: "Contractor not found" });
     }
+    await storage.updateContractor(req.params.id, { status: 'SUSPENDED' });
     res.json({ success: true });
   } catch (error) {
     console.error("Error deleting contractor:", error);
@@ -75,9 +90,13 @@ contractorsRouter.delete("/:id", async (req: Request, res: Response) => {
 });
 
 // ===== STAFF MEMBERS =====
-contractorsRouter.get("/staff", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+contractorsRouter.get("/staff", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const staff = await storage.listStaffMembers(ORG_ID);
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    const staff = await storage.listStaffMembers(orgId);
     res.json(staff);
   } catch (error) {
     console.error("Error fetching staff members:", error);
@@ -85,7 +104,7 @@ contractorsRouter.get("/staff", requireAuth, async (req: AuthenticatedRequest, r
   }
 });
 
-contractorsRouter.get("/staff/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+contractorsRouter.get("/staff/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const staff = await storage.getStaffMember(req.params.id);
     if (!staff) {
@@ -98,9 +117,13 @@ contractorsRouter.get("/staff/:id", requireAuth, async (req: AuthenticatedReques
   }
 });
 
-contractorsRouter.post("/staff", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+contractorsRouter.post("/staff", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = insertStaffMemberSchema.parse({ ...req.body, organisationId: ORG_ID });
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    const data = insertStaffMemberSchema.parse({ ...req.body, organisationId: orgId });
     const staff = await storage.createStaffMember(data);
     res.status(201).json(staff);
   } catch (error) {
@@ -113,7 +136,7 @@ contractorsRouter.post("/staff", requireAuth, async (req: AuthenticatedRequest, 
   }
 });
 
-contractorsRouter.patch("/staff/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+contractorsRouter.patch("/staff/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const staff = await storage.updateStaffMember(req.params.id, req.body);
     if (!staff) {
@@ -126,12 +149,13 @@ contractorsRouter.patch("/staff/:id", requireAuth, async (req: AuthenticatedRequ
   }
 });
 
-contractorsRouter.delete("/staff/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+contractorsRouter.delete("/staff/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const deleted = await storage.deleteStaffMember(req.params.id);
-    if (!deleted) {
+    const staff = await storage.getStaffMember(req.params.id);
+    if (!staff) {
       return res.status(404).json({ error: "Staff member not found" });
     }
+    await storage.updateStaffMember(req.params.id, { status: 'INACTIVE' });
     res.json({ success: true });
   } catch (error) {
     console.error("Error deleting staff member:", error);

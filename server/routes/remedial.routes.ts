@@ -1,18 +1,30 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { insertRemedialActionSchema } from "@shared/schema";
 import { paginationMiddleware, type PaginationParams } from "../services/api-limits";
+import { requireAuth, type AuthenticatedRequest } from "../session";
 import { enqueueWebhookEvent } from "../webhook-worker";
 import { recordAudit, extractAuditContext, getChanges } from "../services/audit";
 
 export const remedialRouter = Router();
 
-const ORG_ID = "org-001";
+// Apply requireAuth middleware to all routes in this router
+remedialRouter.use(requireAuth as any);
+
+// Helper to get orgId with guard
+function getOrgId(req: AuthenticatedRequest): string | null {
+  return req.user?.organisationId || null;
+}
 
 // ===== REMEDIAL ACTIONS =====
-remedialRouter.get("/", paginationMiddleware(), async (req: Request, res: Response) => {
+remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
     const pagination = (req as any).pagination as PaginationParams;
     const { page, limit, offset } = pagination;
     const search = req.query.search as string | undefined;
@@ -21,7 +33,7 @@ remedialRouter.get("/", paginationMiddleware(), async (req: Request, res: Respon
     const severity = req.query.severity as string | undefined;
     const overdue = req.query.overdue as string | undefined;
     
-    const actions = await storage.listRemedialActions(ORG_ID, { propertyId, status });
+    const actions = await storage.listRemedialActions(orgId, { propertyId, status });
     
     let filteredActions = actions;
     if (severity) {
@@ -48,8 +60,8 @@ remedialRouter.get("/", paginationMiddleware(), async (req: Request, res: Respon
     const total = filteredActions.length;
     const paginatedActions = filteredActions.slice(offset, offset + limit);
     
-    const schemes = await storage.listSchemes(ORG_ID);
-    const blocks = await storage.listBlocks(ORG_ID);
+    const schemes = await storage.listSchemes(orgId);
+    const blocks = await storage.listBlocks(orgId);
     const schemeMap = new Map(schemes.map(s => [s.id, s.name]));
     const blockMap = new Map(blocks.map(b => [b.id, { name: b.name, schemeId: b.schemeId }]));
     
@@ -64,7 +76,7 @@ remedialRouter.get("/", paginationMiddleware(), async (req: Request, res: Respon
         const blockInfo = blockMap.get(property.blockId);
         if (blockInfo) {
           blockName = blockInfo.name;
-          schemeName = schemeMap.get(blockInfo.schemeId) || '';
+          schemeName = blockInfo.schemeId ? schemeMap.get(blockInfo.schemeId) || '' : '';
         }
       }
       
@@ -89,7 +101,7 @@ remedialRouter.get("/", paginationMiddleware(), async (req: Request, res: Respon
   }
 });
 
-remedialRouter.get("/:id", async (req: Request, res: Response) => {
+remedialRouter.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const action = await storage.getRemedialAction(req.params.id);
     if (!action) {
@@ -110,9 +122,14 @@ remedialRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-remedialRouter.post("/", async (req: Request, res: Response) => {
+remedialRouter.post("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = insertRemedialActionSchema.parse({ ...req.body, organisationId: ORG_ID });
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const data = insertRemedialActionSchema.parse(req.body);
     const action = await storage.createRemedialAction(data);
     
     enqueueWebhookEvent('action.created', 'remedialAction', action.id, {
@@ -123,6 +140,19 @@ remedialRouter.post("/", async (req: Request, res: Response) => {
       severity: action.severity,
       status: action.status,
       dueDate: action.dueDate
+    });
+    
+    await recordAudit({
+      organisationId: orgId,
+      eventType: 'REMEDIAL_ACTION_CREATED',
+      entityType: 'REMEDIAL_ACTION',
+      entityId: action.id,
+      entityName: action.description,
+      propertyId: action.propertyId,
+      certificateId: action.certificateId,
+      afterState: action,
+      message: `Remedial action "${action.code}" created`,
+      context: extractAuditContext(req),
     });
     
     res.status(201).json(action);
@@ -136,8 +166,13 @@ remedialRouter.post("/", async (req: Request, res: Response) => {
   }
 });
 
-remedialRouter.patch("/:id", async (req: Request, res: Response) => {
+remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
     const updates = req.body;
     const beforeAction = await storage.getRemedialAction(req.params.id);
     if (!beforeAction) {
@@ -167,7 +202,7 @@ remedialRouter.patch("/:id", async (req: Request, res: Response) => {
     
     const auditEventType = updates.status === 'COMPLETED' ? 'REMEDIAL_ACTION_COMPLETED' : 'REMEDIAL_ACTION_UPDATED';
     await recordAudit({
-      organisationId: action.organisationId,
+      organisationId: orgId,
       eventType: auditEventType,
       entityType: 'REMEDIAL_ACTION',
       entityId: action.id,
@@ -190,15 +225,15 @@ remedialRouter.patch("/:id", async (req: Request, res: Response) => {
   }
 });
 
-remedialRouter.delete("/:id", async (req: Request, res: Response) => {
+remedialRouter.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const action = await storage.getRemedialAction(req.params.id);
     if (!action) {
       return res.status(404).json({ error: "Action not found" });
     }
     
-    const deleted = await storage.deleteRemedialAction(req.params.id);
-    if (!deleted) {
+    const updated = await storage.updateRemedialAction(req.params.id, { status: 'CANCELLED' });
+    if (!updated) {
       return res.status(404).json({ error: "Action not found" });
     }
     

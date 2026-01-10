@@ -56,6 +56,10 @@ import { checkUploadThrottle, endUpload, acquireFileLock, releaseFileLock } from
 import observabilityRoutes from "./routes/observability.routes";
 import { adminRouter } from "./routes/admin.routes";
 import { reportsRouter } from "./routes/reports.routes";
+import { propertiesRouter } from "./routes/properties.routes";
+import { certificatesRouter } from "./routes/certificates.routes";
+import { contractorsRouter } from "./routes/contractors.routes";
+import { remedialRouter } from "./routes/remedial.routes";
 import { apiLogger } from "./logger";
 import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -274,6 +278,18 @@ export async function registerRoutes(
   
   // Register reports routes (compliance summary, property health, board reports, etc.)
   app.use('/api/reports', reportsRouter);
+  
+  // Register properties routes (schemes, blocks, properties, organisations)
+  app.use('/api', propertiesRouter);
+  
+  // Register certificates routes
+  app.use('/api/certificates', certificatesRouter);
+  
+  // Register contractors routes
+  app.use('/api/contractors', contractorsRouter);
+  
+  // Register remedial actions routes
+  app.use('/api/actions', remedialRouter);
   
   // NOTE: Modular route files exist in server/routes/ for future migration
   // They are not mounted here to avoid conflicts with existing routes below

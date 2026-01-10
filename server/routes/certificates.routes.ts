@@ -1,23 +1,33 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { insertCertificateSchema, ingestionBatches } from "@shared/schema";
 import { paginationMiddleware, type PaginationParams } from "../services/api-limits";
+import { requireAuth, type AuthenticatedRequest } from "../session";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
 import { processExtractionAndSave } from "../extraction";
-import { ObjectStorageService } from "../replit_integrations/object_storage";
 import { enqueueWebhookEvent } from "../webhook-worker";
 import { recordAudit, extractAuditContext, getChanges } from "../services/audit";
 
 export const certificatesRouter = Router();
 
-const ORG_ID = "org-001";
-const objectStorageService = new ObjectStorageService();
+// Apply requireAuth middleware to all routes in this router
+certificatesRouter.use(requireAuth as any);
+
+// Helper to get orgId with guard
+function getOrgId(req: AuthenticatedRequest): string | null {
+  return req.user?.organisationId || null;
+}
 
 // ===== CERTIFICATES =====
-certificatesRouter.get("/", paginationMiddleware(), async (req: Request, res: Response) => {
+certificatesRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
     const pagination = (req as any).pagination as PaginationParams;
     const { page, limit, offset } = pagination;
     const search = req.query.search as string | undefined;
@@ -27,7 +37,7 @@ certificatesRouter.get("/", paginationMiddleware(), async (req: Request, res: Re
     const PENDING_STATUSES = ['UPLOADED', 'PROCESSING', 'NEEDS_REVIEW'];
     const isPendingFilter = status === 'PENDING';
     
-    const certificates = await storage.listCertificates(ORG_ID, { 
+    const certificates = await storage.listCertificates(orgId, { 
       propertyId, 
       status: isPendingFilter ? undefined : status 
     });
@@ -65,21 +75,21 @@ certificatesRouter.get("/", paginationMiddleware(), async (req: Request, res: Re
   }
 });
 
-certificatesRouter.get("/:id", async (req: Request, res: Response) => {
+certificatesRouter.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const certificate = await storage.getCertificate(req.params.id);
     if (!certificate) {
       return res.status(404).json({ error: "Certificate not found" });
     }
     
+    const orgId = getOrgId(req);
     const property = await storage.getProperty(certificate.propertyId);
     const extraction = await storage.getExtractionByCertificate(certificate.id);
-    const actions = await storage.listRemedialActions(ORG_ID, { certificateId: certificate.id });
+    const actions = orgId ? await storage.listRemedialActions(orgId, { certificateId: certificate.id }) : [];
     
     res.json({
       ...certificate,
       property,
-      extraction,
       extractedData: extraction?.extractedData,
       actions,
     });
@@ -89,105 +99,34 @@ certificatesRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-certificatesRouter.post("/", async (req: Request, res: Response) => {
+certificatesRouter.post("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { fileBase64, mimeType, batchId, ...certificateData } = req.body;
-    
-    let finalBatchId = batchId;
-    if (!batchId) {
-      const now = new Date();
-      const batchName = `Manual Upload - ${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
-      const batch = await storage.createIngestionBatch({
-        organisationId: ORG_ID,
-        name: batchName,
-        totalFiles: 1,
-        completedFiles: 0,
-        failedFiles: 0,
-        status: 'PROCESSING',
-      });
-      finalBatchId = batch.id;
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
     }
     
-    const data = insertCertificateSchema.parse({
-      ...certificateData,
-      organisationId: ORG_ID,
-      status: "PROCESSING",
-      batchId: finalBatchId,
-    });
-    
+    const data = insertCertificateSchema.parse({ ...req.body, organisationId: orgId });
     const certificate = await storage.createCertificate(data);
     
+    enqueueWebhookEvent('certificate.created', 'certificate', certificate.id, {
+      id: certificate.id,
+      propertyId: certificate.propertyId,
+      certificateType: certificate.certificateType,
+      status: certificate.status
+    });
+    
     await recordAudit({
-      organisationId: certificate.organisationId,
+      organisationId: orgId,
       eventType: 'CERTIFICATE_UPLOADED',
       entityType: 'CERTIFICATE',
       entityId: certificate.id,
-      entityName: certificate.fileName,
+      entityName: certificate.certificateType,
       propertyId: certificate.propertyId,
       afterState: certificate,
-      message: `Certificate "${certificate.fileName}" uploaded for processing`,
+      message: `Certificate "${certificate.certificateType}" created`,
       context: extractAuditContext(req),
     });
-    
-    (async () => {
-      try {
-        let pdfBuffer: Buffer | undefined;
-        
-        if (certificate.fileType === 'application/pdf' && certificate.storageKey) {
-          try {
-            const file = await objectStorageService.getObjectEntityFile(certificate.storageKey);
-            const chunks: Buffer[] = [];
-            const stream = file.createReadStream();
-            
-            await new Promise<void>((resolve, reject) => {
-              stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-              stream.on('end', () => resolve());
-              stream.on('error', reject);
-            });
-            
-            pdfBuffer = Buffer.concat(chunks);
-          } catch (downloadErr) {
-            console.error("Failed to download PDF from storage:", downloadErr);
-          }
-        }
-        
-        await processExtractionAndSave(
-          certificate.id, 
-          certificate.certificateType,
-          fileBase64,
-          mimeType,
-          pdfBuffer
-        );
-        
-        if (data.batchId) {
-          await db.update(ingestionBatches)
-            .set({ 
-              completedFiles: sql`${ingestionBatches.completedFiles} + 1`,
-              status: 'PROCESSING'
-            })
-            .where(eq(ingestionBatches.id, data.batchId));
-          
-          const [freshBatch] = await db.select().from(ingestionBatches).where(eq(ingestionBatches.id, data.batchId));
-          
-          if (freshBatch && freshBatch.completedFiles + freshBatch.failedFiles >= freshBatch.totalFiles) {
-            await db.update(ingestionBatches)
-              .set({ status: freshBatch.failedFiles > 0 ? 'PARTIAL' : 'COMPLETED', updatedAt: new Date() })
-              .where(eq(ingestionBatches.id, data.batchId));
-          }
-        }
-      } catch (err) {
-        console.error("Error in AI extraction:", err);
-        
-        if (data.batchId) {
-          await db.update(ingestionBatches)
-            .set({ 
-              failedFiles: sql`${ingestionBatches.failedFiles} + 1`,
-              status: 'PROCESSING'
-            })
-            .where(eq(ingestionBatches.id, data.batchId));
-        }
-      }
-    })();
     
     res.status(201).json(certificate);
   } catch (error) {
@@ -200,10 +139,15 @@ certificatesRouter.post("/", async (req: Request, res: Response) => {
   }
 });
 
-certificatesRouter.patch("/:id", async (req: Request, res: Response) => {
+certificatesRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const beforeCertificate = await storage.getCertificate(req.params.id);
-    if (!beforeCertificate) {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const beforeCert = await storage.getCertificate(req.params.id);
+    if (!beforeCert) {
       return res.status(404).json({ error: "Certificate not found" });
     }
     
@@ -215,22 +159,21 @@ certificatesRouter.patch("/:id", async (req: Request, res: Response) => {
     enqueueWebhookEvent('certificate.updated', 'certificate', certificate.id, {
       id: certificate.id,
       propertyId: certificate.propertyId,
-      type: certificate.certificateType,
-      status: certificate.status,
-      outcome: certificate.outcome
+      certificateType: certificate.certificateType,
+      status: certificate.status
     });
     
     await recordAudit({
-      organisationId: certificate.organisationId,
+      organisationId: orgId,
       eventType: 'CERTIFICATE_STATUS_CHANGED',
       entityType: 'CERTIFICATE',
       entityId: certificate.id,
-      entityName: certificate.fileName,
+      entityName: certificate.certificateType,
       propertyId: certificate.propertyId,
-      beforeState: beforeCertificate,
+      beforeState: beforeCert,
       afterState: certificate,
-      changes: getChanges(beforeCertificate, certificate),
-      message: `Certificate "${certificate.fileName}" updated`,
+      changes: getChanges(beforeCert, certificate),
+      message: `Certificate "${certificate.certificateType}" updated`,
       context: extractAuditContext(req),
     });
     
@@ -241,33 +184,38 @@ certificatesRouter.patch("/:id", async (req: Request, res: Response) => {
   }
 });
 
-certificatesRouter.delete("/:id", async (req: Request, res: Response) => {
+certificatesRouter.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
     const certificate = await storage.getCertificate(req.params.id);
     if (!certificate) {
       return res.status(404).json({ error: "Certificate not found" });
     }
     
-    const deleted = await storage.deleteCertificate(req.params.id);
-    if (!deleted) {
+    const updated = await storage.updateCertificate(req.params.id, { status: 'DELETED' as any });
+    if (!updated) {
       return res.status(404).json({ error: "Certificate not found" });
     }
     
     enqueueWebhookEvent('certificate.deleted', 'certificate', req.params.id, {
       id: req.params.id,
       propertyId: certificate.propertyId,
-      type: certificate.certificateType
+      certificateType: certificate.certificateType
     });
     
     await recordAudit({
-      organisationId: certificate.organisationId,
+      organisationId: orgId,
       eventType: 'CERTIFICATE_DELETED',
       entityType: 'CERTIFICATE',
       entityId: certificate.id,
-      entityName: certificate.fileName,
+      entityName: certificate.certificateType,
       propertyId: certificate.propertyId,
       beforeState: certificate,
-      message: `Certificate "${certificate.fileName}" deleted`,
+      message: `Certificate "${certificate.certificateType}" deleted`,
       context: extractAuditContext(req),
     });
     
@@ -275,5 +223,70 @@ certificatesRouter.delete("/:id", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error deleting certificate:", error);
     res.status(500).json({ error: "Failed to delete certificate" });
+  }
+});
+
+// ===== REPROCESS CERTIFICATE =====
+certificatesRouter.post("/:id/reprocess", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const certificate = await storage.getCertificate(req.params.id);
+    if (!certificate) {
+      return res.status(404).json({ error: "Certificate not found" });
+    }
+    
+    await storage.updateCertificate(req.params.id, { status: 'PROCESSING' });
+    
+    await processExtractionAndSave(certificate.id, certificate.certificateType);
+    
+    res.json({ 
+      success: true, 
+      message: "Extraction completed"
+    });
+  } catch (error) {
+    console.error("Error reprocessing certificate:", error);
+    res.status(500).json({ error: "Failed to reprocess certificate" });
+  }
+});
+
+// ===== INGESTION BATCHES =====
+certificatesRouter.get("/ingestion/batches", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const batches = await db.select()
+      .from(ingestionBatches)
+      .where(eq(ingestionBatches.organisationId, orgId))
+      .orderBy(sql`created_at DESC`)
+      .limit(50);
+    
+    res.json(batches);
+  } catch (error) {
+    console.error("Error fetching ingestion batches:", error);
+    res.status(500).json({ error: "Failed to fetch batches" });
+  }
+});
+
+certificatesRouter.get("/ingestion/batches/:id", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const [batch] = await db.select()
+      .from(ingestionBatches)
+      .where(eq(ingestionBatches.id, req.params.id));
+    
+    if (!batch) {
+      return res.status(404).json({ error: "Batch not found" });
+    }
+    
+    res.json(batch);
+  } catch (error) {
+    console.error("Error fetching batch:", error);
+    res.status(500).json({ error: "Failed to fetch batch" });
   }
 });

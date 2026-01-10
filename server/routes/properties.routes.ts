@@ -1,19 +1,30 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { insertSchemeSchema, insertBlockSchema, insertPropertySchema, insertOrganisationSchema } from "@shared/schema";
 import { paginationMiddleware, type PaginationParams } from "../services/api-limits";
+import { requireAuth, type AuthenticatedRequest } from "../session";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 
 export const propertiesRouter = Router();
 
-const ORG_ID = "org-001";
+// Apply requireAuth middleware to all routes in this router
+propertiesRouter.use(requireAuth as any);
+
+// Helper to get orgId with guard
+function getOrgId(req: AuthenticatedRequest): string | null {
+  return req.user?.organisationId || null;
+}
 
 // ===== SCHEMES =====
-propertiesRouter.get("/schemes", async (req: Request, res: Response) => {
+propertiesRouter.get("/schemes", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const schemes = await storage.listSchemes(ORG_ID);
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    const schemes = await storage.listSchemes(orgId);
     res.json(schemes);
   } catch (error) {
     console.error("Error fetching schemes:", error);
@@ -21,9 +32,13 @@ propertiesRouter.get("/schemes", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.post("/schemes", async (req: Request, res: Response) => {
+propertiesRouter.post("/schemes", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = insertSchemeSchema.parse({ ...req.body, organisationId: ORG_ID });
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    const data = insertSchemeSchema.parse({ ...req.body, organisationId: orgId });
     const scheme = await storage.createScheme(data);
     res.status(201).json(scheme);
   } catch (error) {
@@ -36,7 +51,7 @@ propertiesRouter.post("/schemes", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.patch("/schemes/:id", async (req: Request, res: Response) => {
+propertiesRouter.patch("/schemes/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const scheme = await storage.updateScheme(req.params.id, req.body);
     if (!scheme) {
@@ -49,7 +64,7 @@ propertiesRouter.patch("/schemes/:id", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.delete("/schemes/:id", async (req: Request, res: Response) => {
+propertiesRouter.delete("/schemes/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const deleted = await storage.deleteScheme(req.params.id);
     if (!deleted) {
@@ -63,7 +78,7 @@ propertiesRouter.delete("/schemes/:id", async (req: Request, res: Response) => {
 });
 
 // ===== BLOCKS =====
-propertiesRouter.get("/blocks", async (req: Request, res: Response) => {
+propertiesRouter.get("/blocks", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const schemeId = req.query.schemeId as string | undefined;
     const blocks = await storage.listBlocks(schemeId);
@@ -74,7 +89,7 @@ propertiesRouter.get("/blocks", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.post("/blocks", async (req: Request, res: Response) => {
+propertiesRouter.post("/blocks", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = insertBlockSchema.parse(req.body);
     const block = await storage.createBlock(data);
@@ -89,7 +104,7 @@ propertiesRouter.post("/blocks", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.patch("/blocks/:id", async (req: Request, res: Response) => {
+propertiesRouter.patch("/blocks/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const block = await storage.updateBlock(req.params.id, req.body);
     if (!block) {
@@ -102,7 +117,7 @@ propertiesRouter.patch("/blocks/:id", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.delete("/blocks/:id", async (req: Request, res: Response) => {
+propertiesRouter.delete("/blocks/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const deleted = await storage.deleteBlock(req.params.id);
     if (!deleted) {
@@ -116,7 +131,7 @@ propertiesRouter.delete("/blocks/:id", async (req: Request, res: Response) => {
 });
 
 // ===== ORGANISATIONS =====
-propertiesRouter.get("/organisations", async (req: Request, res: Response) => {
+propertiesRouter.get("/organisations", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgs = await storage.listOrganisations();
     res.json(orgs);
@@ -126,20 +141,7 @@ propertiesRouter.get("/organisations", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.get("/organisations/:id", async (req: Request, res: Response) => {
-  try {
-    const org = await storage.getOrganisation(req.params.id);
-    if (!org) {
-      return res.status(404).json({ error: "Organisation not found" });
-    }
-    res.json(org);
-  } catch (error) {
-    console.error("Error fetching organisation:", error);
-    res.status(500).json({ error: "Failed to fetch organisation" });
-  }
-});
-
-propertiesRouter.post("/organisations", async (req: Request, res: Response) => {
+propertiesRouter.post("/organisations", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = insertOrganisationSchema.parse(req.body);
     const org = await storage.createOrganisation(data);
@@ -154,7 +156,20 @@ propertiesRouter.post("/organisations", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.patch("/organisations/:id", async (req: Request, res: Response) => {
+propertiesRouter.get("/organisations/:id", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const org = await storage.getOrganisation(req.params.id);
+    if (!org) {
+      return res.status(404).json({ error: "Organisation not found" });
+    }
+    res.json(org);
+  } catch (error) {
+    console.error("Error fetching organisation:", error);
+    res.status(500).json({ error: "Failed to fetch organisation" });
+  }
+});
+
+propertiesRouter.patch("/organisations/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const org = await storage.updateOrganisation(req.params.id, req.body);
     if (!org) {
@@ -167,7 +182,7 @@ propertiesRouter.patch("/organisations/:id", async (req: Request, res: Response)
   }
 });
 
-propertiesRouter.delete("/organisations/:id", async (req: Request, res: Response) => {
+propertiesRouter.delete("/organisations/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const deleted = await storage.deleteOrganisation(req.params.id);
     if (!deleted) {
@@ -181,21 +196,35 @@ propertiesRouter.delete("/organisations/:id", async (req: Request, res: Response
 });
 
 // ===== PROPERTIES =====
-propertiesRouter.get("/properties", paginationMiddleware(), async (req: Request, res: Response) => {
+propertiesRouter.get("/properties", paginationMiddleware(), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
     const pagination = (req as any).pagination as PaginationParams;
     const { page, limit, offset } = pagination;
     const search = req.query.search as string | undefined;
     const blockId = req.query.blockId as string | undefined;
     const schemeId = req.query.schemeId as string | undefined;
     
-    const properties = await storage.listProperties(ORG_ID, { blockId, search });
+    const properties = await storage.listProperties(orgId, { blockId });
     
     let filtered = properties;
     if (schemeId) {
       const blocks = await storage.listBlocks(schemeId);
       const blockIds = new Set(blocks.map(b => b.id));
       filtered = properties.filter(p => p.blockId && blockIds.has(p.blockId));
+    }
+    
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.addressLine1?.toLowerCase().includes(searchLower) ||
+        p.uprn?.toLowerCase().includes(searchLower) ||
+        p.postcode?.toLowerCase().includes(searchLower)
+      );
     }
     
     const total = filtered.length;
@@ -208,15 +237,20 @@ propertiesRouter.get("/properties", paginationMiddleware(), async (req: Request,
   }
 });
 
-propertiesRouter.get("/properties/:id", async (req: Request, res: Response) => {
+propertiesRouter.get("/properties/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
     const property = await storage.getProperty(req.params.id);
     if (!property) {
       return res.status(404).json({ error: "Property not found" });
     }
     
-    const certificates = await storage.listCertificates(ORG_ID, { propertyId: property.id });
-    const actions = await storage.listRemedialActions(ORG_ID, { propertyId: property.id });
+    const certificates = await storage.listCertificates(orgId, { propertyId: property.id });
+    const actions = await storage.listRemedialActions(orgId, { propertyId: property.id });
     
     res.json({
       ...property,
@@ -229,9 +263,14 @@ propertiesRouter.get("/properties/:id", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.post("/properties", async (req: Request, res: Response) => {
+propertiesRouter.post("/properties", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = insertPropertySchema.parse({ ...req.body, organisationId: ORG_ID });
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const data = insertPropertySchema.parse({ ...req.body, organisationId: orgId });
     const property = await storage.createProperty(data);
     res.status(201).json(property);
   } catch (error) {
@@ -244,7 +283,7 @@ propertiesRouter.post("/properties", async (req: Request, res: Response) => {
   }
 });
 
-propertiesRouter.patch("/properties/:id", async (req: Request, res: Response) => {
+propertiesRouter.patch("/properties/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const property = await storage.updateProperty(req.params.id, req.body);
     if (!property) {
@@ -257,22 +296,15 @@ propertiesRouter.patch("/properties/:id", async (req: Request, res: Response) =>
   }
 });
 
-propertiesRouter.post("/properties/bulk-delete", async (req: Request, res: Response) => {
+propertiesRouter.delete("/properties/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: "Property IDs array is required" });
+    const deleted = await storage.deleteProperty(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Property not found" });
     }
-    
-    let deleted = 0;
-    for (const id of ids) {
-      const result = await storage.deleteProperty(id);
-      if (result) deleted++;
-    }
-    
-    res.json({ success: true, deleted });
+    res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting properties:", error);
-    res.status(500).json({ error: "Failed to delete properties" });
+    console.error("Error deleting property:", error);
+    res.status(500).json({ error: "Failed to delete property" });
   }
 });
