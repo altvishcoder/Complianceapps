@@ -134,6 +134,7 @@ const ScenariosPage = lazy(() => import("@/pages/maps/scenarios"));
 const EvidencePage = lazy(() => import("@/pages/maps/evidence"));
 const ComplianceCalendar = lazy(() => import("@/pages/compliance-calendar"));
 const RiskRadarPage = lazy(() => import("@/pages/risk-radar"));
+const AssetHealthTreemapPage = lazy(() => import("@/pages/analytics/asset-health-treemap"));
 const BoardReportingPage = lazy(() => import("@/pages/reports/board"));
 const RegulatoryEvidencePage = lazy(() => import("@/pages/reports/regulatory"));
 const ReportBuilderPage = lazy(() => import("@/pages/reports/builder"));
@@ -168,6 +169,7 @@ function Router() {
       <Route path="/staff/sla">{() => <ProtectedRoute component={StaffSLAPage} />}</Route>
       <Route path="/staff/reports">{() => <ProtectedRoute component={StaffReportsPage} />}</Route>
       <Route path="/risk-radar">{() => <ProtectedRoute component={RiskRadarPage} />}</Route>
+      <Route path="/analytics/asset-health">{() => <ProtectedRoute component={AssetHealthTreemapPage} />}</Route>
       <Route path="/reports">{() => <ProtectedRoute component={Reports} />}</Route>
       <Route path="/reports/board">{() => <ProtectedRoute component={BoardReportingPage} />}</Route>
       <Route path="/reports/regulatory">{() => <ProtectedRoute component={RegulatoryEvidencePage} />}</Route>

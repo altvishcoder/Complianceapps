@@ -2289,9 +2289,10 @@ async function seedNavigation() {
     { sectionId: "sec-understand", slug: "reporting", name: "Reporting", href: "/reports", iconKey: "FileText", displayOrder: 2, isSystem: true },
     { sectionId: "sec-understand", slug: "board", name: "Board Reports", href: "/reports/board", iconKey: "Briefcase", displayOrder: 3, isSystem: true },
     { sectionId: "sec-understand", slug: "report-builder", name: "Report Builder", href: "/reports/builder", iconKey: "Settings2", displayOrder: 4, isSystem: true },
-    { sectionId: "sec-understand", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 5, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-understand", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 6, requiresFactorySettings: true, isSystem: true },
-    { sectionId: "sec-understand", slug: "model-insights", name: "Model Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 7, isSystem: true },
+    { sectionId: "sec-understand", slug: "compliance-treemap", name: "Compliance TreeMap", href: "/analytics/asset-health", iconKey: "LayoutGrid", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-understand", slug: "asset-health", name: "Asset Health", href: "/admin/asset-health", iconKey: "HeartPulse", displayOrder: 6, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-understand", slug: "ml-predictions", name: "ML Predictions", href: "/admin/ml-insights", iconKey: "TrendingUp", displayOrder: 7, requiresFactorySettings: true, isSystem: true },
+    { sectionId: "sec-understand", slug: "model-insights", name: "Model Insights", href: "/model-insights", iconKey: "Brain", displayOrder: 8, isSystem: true },
     
     // Assets - Property & component management
     { sectionId: "sec-assets", slug: "property-hierarchy", name: "Property Hierarchy", href: "/admin/hierarchy", iconKey: "TreePine", displayOrder: 1, requiresAITools: true, isSystem: true },

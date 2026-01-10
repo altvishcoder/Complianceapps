@@ -5984,7 +5984,301 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
+
+  // ===== ANALYTICS HIERARCHY API =====
+  // Provides drill-down data for treemap and hierarchy explorer visualizations
+  // Levels: stream -> scheme -> block -> property
   
+  app.get("/api/analytics/hierarchy", async (req, res) => {
+    try {
+      const { level = 'stream', parentId } = req.query;
+      
+      if (level === 'stream') {
+        // Stream-level: aggregate by compliance stream
+        const streamData = await db.execute(sql`
+          SELECT 
+            COALESCE(cs.code, 'OTHER') as id,
+            COALESCE(cs.name, 'Other') as name,
+            COALESCE(cs.color_code, '#6b7280') as color,
+            COALESCE(cs.icon_name, 'FileText') as icon,
+            COUNT(DISTINCT c.id)::int as certificate_count,
+            COUNT(DISTINCT c.property_id)::int as property_count,
+            COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+            COUNT(DISTINCT CASE WHEN c.status IN ('FAILED', 'REJECTED') THEN c.id END)::int as non_compliant_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE + INTERVAL '30 days' AND c.expiry_date::date >= CURRENT_DATE THEN c.id END)::int as expiring_soon_count,
+            COUNT(DISTINCT ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+          FROM certificates c
+          LEFT JOIN certificate_types ct ON c.certificate_type::text = ct.code
+          LEFT JOIN compliance_streams cs ON ct.compliance_stream = cs.code
+          LEFT JOIN remedial_actions ra ON ra.certificate_id = c.id AND ra.deleted_at IS NULL
+          WHERE c.deleted_at IS NULL
+          GROUP BY cs.code, cs.name, cs.color_code, cs.icon_name, cs.display_order
+          ORDER BY cs.display_order, COUNT(c.id) DESC
+        `);
+        
+        const streams = ((streamData.rows || []) as any[]).map(row => ({
+          id: row.id,
+          name: row.name,
+          color: row.color,
+          icon: row.icon,
+          value: Number(row.property_count) || 0,
+          certificateCount: Number(row.certificate_count) || 0,
+          propertyCount: Number(row.property_count) || 0,
+          compliantCount: Number(row.compliant_count) || 0,
+          nonCompliantCount: Number(row.non_compliant_count) || 0,
+          expiredCount: Number(row.expired_count) || 0,
+          expiringSoonCount: Number(row.expiring_soon_count) || 0,
+          openActions: Number(row.open_actions) || 0,
+          complianceRate: Number(row.certificate_count) > 0 
+            ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
+            : 0,
+          riskLevel: Number(row.expired_count) > 10 || Number(row.non_compliant_count) > 5 ? 'HIGH' 
+            : Number(row.expiring_soon_count) > 20 ? 'MEDIUM' : 'LOW'
+        }));
+        
+        return res.json({ level: 'stream', data: streams, parentId: null });
+      }
+      
+      if (level === 'scheme') {
+        // Scheme-level: aggregate by scheme, optionally filtered by stream
+        const schemeData = await db.execute(sql`
+          SELECT 
+            s.id,
+            s.name,
+            s.reference,
+            COUNT(DISTINCT b.id)::int as block_count,
+            COUNT(DISTINCT p.id)::int as property_count,
+            COUNT(DISTINCT c.id)::int as certificate_count,
+            COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+            COUNT(DISTINCT ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+          FROM schemes s
+          LEFT JOIN blocks b ON b.scheme_id = s.id AND b.deleted_at IS NULL
+          LEFT JOIN properties p ON p.block_id = b.id AND p.deleted_at IS NULL
+          LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
+            ${parentId ? sql`AND EXISTS (
+              SELECT 1 FROM certificate_types ct 
+              JOIN compliance_streams cs ON ct.compliance_stream = cs.code 
+              WHERE ct.code = c.certificate_type::text AND cs.code = ${parentId}
+            )` : sql``}
+          LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
+          WHERE s.deleted_at IS NULL
+          GROUP BY s.id, s.name, s.reference
+          ORDER BY COUNT(DISTINCT p.id) DESC
+        `);
+        
+        const schemes = ((schemeData.rows || []) as any[]).map(row => ({
+          id: row.id,
+          name: row.name,
+          reference: row.reference,
+          value: Number(row.property_count) || 0,
+          blockCount: Number(row.block_count) || 0,
+          propertyCount: Number(row.property_count) || 0,
+          certificateCount: Number(row.certificate_count) || 0,
+          compliantCount: Number(row.compliant_count) || 0,
+          expiredCount: Number(row.expired_count) || 0,
+          openActions: Number(row.open_actions) || 0,
+          complianceRate: Number(row.certificate_count) > 0 
+            ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
+            : 0,
+          riskLevel: Number(row.expired_count) > 5 ? 'HIGH' : Number(row.open_actions) > 10 ? 'MEDIUM' : 'LOW'
+        }));
+        
+        return res.json({ level: 'scheme', data: schemes, parentId: parentId || null });
+      }
+      
+      if (level === 'block') {
+        // Block-level: filtered by scheme
+        if (!parentId) {
+          return res.status(400).json({ error: 'parentId (scheme_id) required for block level' });
+        }
+        
+        const blockData = await db.execute(sql`
+          SELECT 
+            b.id,
+            b.name,
+            b.address_line1,
+            b.postcode,
+            COUNT(DISTINCT p.id)::int as property_count,
+            COUNT(DISTINCT c.id)::int as certificate_count,
+            COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+            COUNT(DISTINCT ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+          FROM blocks b
+          LEFT JOIN properties p ON p.block_id = b.id AND p.deleted_at IS NULL
+          LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
+          LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
+          WHERE b.scheme_id = ${parentId} AND b.deleted_at IS NULL
+          GROUP BY b.id, b.name, b.address_line1, b.postcode
+          ORDER BY COUNT(DISTINCT p.id) DESC
+        `);
+        
+        const blocks = ((blockData.rows || []) as any[]).map(row => ({
+          id: row.id,
+          name: row.name,
+          address: row.address_line1,
+          postcode: row.postcode,
+          value: Number(row.property_count) || 0,
+          propertyCount: Number(row.property_count) || 0,
+          certificateCount: Number(row.certificate_count) || 0,
+          compliantCount: Number(row.compliant_count) || 0,
+          expiredCount: Number(row.expired_count) || 0,
+          openActions: Number(row.open_actions) || 0,
+          complianceRate: Number(row.certificate_count) > 0 
+            ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
+            : 0,
+          riskLevel: Number(row.expired_count) > 2 ? 'HIGH' : Number(row.open_actions) > 5 ? 'MEDIUM' : 'LOW'
+        }));
+        
+        return res.json({ level: 'block', data: blocks, parentId });
+      }
+      
+      if (level === 'property') {
+        // Property-level: filtered by block
+        if (!parentId) {
+          return res.status(400).json({ error: 'parentId (block_id) required for property level' });
+        }
+        
+        const propertyData = await db.execute(sql`
+          SELECT 
+            p.id,
+            p.uprn,
+            p.address_line1,
+            p.postcode,
+            p.compliance_status,
+            COUNT(c.id)::int as certificate_count,
+            COUNT(CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+            COUNT(CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+            COUNT(ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+          FROM properties p
+          LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
+          LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
+          WHERE p.block_id = ${parentId} AND p.deleted_at IS NULL
+          GROUP BY p.id, p.uprn, p.address_line1, p.postcode, p.compliance_status
+          ORDER BY p.address_line1
+        `);
+        
+        const properties = ((propertyData.rows || []) as any[]).map(row => ({
+          id: row.id,
+          uprn: row.uprn,
+          name: row.address_line1 || row.uprn || 'Unknown',
+          address: row.address_line1,
+          postcode: row.postcode,
+          complianceStatus: row.compliance_status,
+          value: 1,
+          certificateCount: Number(row.certificate_count) || 0,
+          compliantCount: Number(row.compliant_count) || 0,
+          expiredCount: Number(row.expired_count) || 0,
+          openActions: Number(row.open_actions) || 0,
+          complianceRate: Number(row.certificate_count) > 0 
+            ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
+            : 0,
+          riskLevel: row.compliance_status === 'NON_COMPLIANT' ? 'HIGH' 
+            : row.compliance_status === 'EXPIRING_SOON' ? 'MEDIUM' : 'LOW'
+        }));
+        
+        return res.json({ level: 'property', data: properties, parentId });
+      }
+      
+      res.status(400).json({ error: 'Invalid level. Use: stream, scheme, block, property' });
+    } catch (error) {
+      console.error("Error fetching hierarchy data:", error);
+      res.status(500).json({ error: "Failed to fetch hierarchy data" });
+    }
+  });
+
+  // Treemap data - aggregated for visualization
+  app.get("/api/analytics/treemap", async (req, res) => {
+    try {
+      const { groupBy = 'stream' } = req.query;
+      
+      // Build treemap structure: root -> streams -> schemes (optional)
+      const streamData = await db.execute(sql`
+        SELECT 
+          COALESCE(cs.code, 'OTHER') as stream_code,
+          COALESCE(cs.name, 'Other') as stream_name,
+          COALESCE(cs.color_code, '#6b7280') as stream_color,
+          b.scheme_id,
+          s.name as scheme_name,
+          COUNT(DISTINCT c.property_id)::int as property_count,
+          COUNT(DISTINCT c.id)::int as certificate_count,
+          COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+          COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count
+        FROM certificates c
+        LEFT JOIN certificate_types ct ON c.certificate_type::text = ct.code
+        LEFT JOIN compliance_streams cs ON ct.compliance_stream = cs.code
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN blocks b ON p.block_id = b.id
+        LEFT JOIN schemes s ON b.scheme_id = s.id
+        WHERE c.deleted_at IS NULL
+        GROUP BY cs.code, cs.name, cs.color_code, cs.display_order, b.scheme_id, s.name
+        ORDER BY cs.display_order, COUNT(c.id) DESC
+      `);
+      
+      // Build nested treemap structure
+      const streamMap = new Map<string, {
+        name: string;
+        color: string;
+        children: Array<{ name: string; value: number; complianceRate: number; riskLevel: string }>;
+        totalValue: number;
+        totalCompliant: number;
+        totalExpired: number;
+      }>();
+      
+      for (const row of (streamData.rows || []) as any[]) {
+        const streamCode = row.stream_code;
+        if (!streamMap.has(streamCode)) {
+          streamMap.set(streamCode, {
+            name: row.stream_name,
+            color: row.stream_color,
+            children: [],
+            totalValue: 0,
+            totalCompliant: 0,
+            totalExpired: 0
+          });
+        }
+        const stream = streamMap.get(streamCode)!;
+        const propCount = Number(row.property_count) || 0;
+        const compliantCount = Number(row.compliant_count) || 0;
+        const certCount = Number(row.certificate_count) || 0;
+        const expiredCount = Number(row.expired_count) || 0;
+        
+        if (row.scheme_name && groupBy === 'scheme') {
+          stream.children.push({
+            name: row.scheme_name,
+            value: propCount,
+            complianceRate: certCount > 0 ? Math.round((compliantCount / certCount) * 100) : 0,
+            riskLevel: expiredCount > 5 ? 'HIGH' : expiredCount > 0 ? 'MEDIUM' : 'LOW'
+          });
+        }
+        stream.totalValue += propCount;
+        stream.totalCompliant += compliantCount;
+        stream.totalExpired += expiredCount;
+      }
+      
+      const treemapData = {
+        name: 'Portfolio',
+        children: Array.from(streamMap.entries()).map(([code, stream]) => ({
+          name: stream.name,
+          code,
+          color: stream.color,
+          value: stream.totalValue,
+          complianceRate: stream.totalValue > 0 
+            ? Math.round((stream.totalCompliant / (stream.totalValue + stream.totalCompliant)) * 100) 
+            : 0,
+          riskLevel: stream.totalExpired > 10 ? 'HIGH' : stream.totalExpired > 0 ? 'MEDIUM' : 'LOW',
+          children: groupBy === 'scheme' ? stream.children : undefined
+        }))
+      };
+      
+      res.json(treemapData);
+    } catch (error) {
+      console.error("Error fetching treemap data:", error);
+      res.status(500).json({ error: "Failed to fetch treemap data" });
+    }
+  });
+
   // ===== BOARD REPORT STATS =====
   // Cache for board report stats (120 second TTL - longer as this is an expensive query)
   let boardReportCache: { data: any; timestamp: number } | null = null;
