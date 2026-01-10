@@ -16,8 +16,8 @@ interface TreeMapNode {
 }
 
 interface TransformedNode extends TreeMapNode {
+  id?: string;
   displayValue: number;
-  sizeValue: number;
 }
 
 interface ComplianceTreeMapProps {
@@ -160,7 +160,7 @@ export function ComplianceTreeMap({
         <div style={{ height }} data-testid="treemap-chart">
           <ResponsiveTreeMap
             data={transformedData}
-            identity={(node) => (node.data as any).id || (node.data as any).code || node.data.name}
+            identity={(node: any) => node.id || node.code || node.name}
             value="value"
             tile="squarify"
             leavesOnly={true}
