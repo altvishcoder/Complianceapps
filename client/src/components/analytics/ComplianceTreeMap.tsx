@@ -10,9 +10,15 @@ interface TreeMapNode {
   code?: string;
   color?: string;
   value?: number;
+  certificateCount?: number;
   complianceRate?: number;
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
   children?: TreeMapNode[];
+}
+
+interface TransformedNode extends TreeMapNode {
+  displayValue: number;
+  sizeValue: number;
 }
 
 interface ComplianceTreeMapProps {
@@ -30,6 +36,98 @@ const riskColors = {
 const getRiskColor = (riskLevel?: string) => {
   return riskColors[riskLevel as keyof typeof riskColors] || '#6b7280';
 };
+
+const MIN_TILE_SIZE = 100;
+
+function CustomNode({ node }: { node: any }) {
+  const { x, y, width, height, color, data } = node;
+  
+  if (width < 4 || height < 4) return null;
+  
+  const displayValue = data.displayValue ?? 0;
+  const name = data.name || '';
+  
+  const showFullLabel = width > 120 && height > 40;
+  const showNameOnly = !showFullLabel && width > 80 && height > 30;
+  const showValueOnly = !showFullLabel && !showNameOnly && width > 40 && height > 20;
+  
+  const formatValue = (val: number) => {
+    if (val >= 1000) return `${(val / 1000).toFixed(0)}k`;
+    return String(val);
+  };
+  
+  const truncateName = (n: string, maxLen: number) => {
+    if (n.length <= maxLen) return n;
+    return n.substring(0, maxLen - 2) + '..';
+  };
+  
+  const maxNameChars = Math.max(6, Math.floor(width / 9));
+  
+  return (
+    <g style={{ cursor: 'pointer' }}>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={color}
+        stroke="rgba(0,0,0,0.3)"
+        strokeWidth={2}
+        rx={2}
+      />
+      {showFullLabel && (
+        <>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 - 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#ffffff"
+            fontSize={12}
+            fontWeight={600}
+          >
+            {truncateName(name, maxNameChars)}
+          </text>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 + 10}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#ffffff"
+            fontSize={11}
+          >
+            ({formatValue(displayValue)})
+          </text>
+        </>
+      )}
+      {showNameOnly && (
+        <text
+          x={x + width / 2}
+          y={y + height / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#ffffff"
+          fontSize={11}
+          fontWeight={500}
+        >
+          {truncateName(name, maxNameChars)}
+        </text>
+      )}
+      {showValueOnly && (
+        <text
+          x={x + width / 2}
+          y={y + height / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#ffffff"
+          fontSize={10}
+        >
+          {formatValue(displayValue)}
+        </text>
+      )}
+    </g>
+  );
+}
 
 export function ComplianceTreeMap({ 
   onNodeClick, 
@@ -78,15 +176,16 @@ export function ComplianceTreeMap({
     ? Math.round(data.children.reduce((sum, child) => sum + (child.complianceRate || 0), 0) / data.children.length)
     : 0;
 
-  // Apply log scale transformation to make small values visible
-  // Ensures all streams are visible regardless of size disparity
   const transformedData = {
-    ...data,
-    children: data.children?.map(child => ({
-      ...child,
-      originalValue: child.value,
-      value: Math.max(Math.log10((child.value || 1) + 1) * 1000, 300),
-    }))
+    name: 'Portfolio',
+    children: data.children?.map(child => {
+      const actualValue = child.value ?? 0;
+      return {
+        ...child,
+        displayValue: actualValue,
+        value: actualValue > 0 ? actualValue : MIN_TILE_SIZE,
+      } as TransformedNode;
+    }) || []
   };
 
   return (
@@ -137,31 +236,14 @@ export function ComplianceTreeMap({
             value="value"
             tile="squarify"
             leavesOnly={true}
-            valueFormat={() => ''}
-            margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
             innerPadding={3}
             outerPadding={3}
-            labelSkipSize={20}
-            orientLabel={false}
-            label={(node) => {
-              const width = node.width || 0;
-              const height = node.height || 0;
-              if (width < 50 || height < 25) return '';
-              const origVal = (node.data as any).originalValue || node.value;
-              const formatted = origVal >= 1000 ? `${(origVal/1000).toFixed(0)}k` : String(Math.round(origVal));
-              const maxChars = Math.max(5, Math.floor(width / 8));
-              const name = node.id.length > maxChars ? node.id.substring(0, maxChars - 2) + '..' : node.id;
-              return width < 100 ? `${formatted}` : `${name} (${formatted})`;
-            }}
-            labelTextColor="#ffffff"
             enableParentLabel={false}
+            nodeComponent={CustomNode}
             colors={(node) => {
               const riskLevel = (node.data as TreeMapNode).riskLevel;
               return getRiskColor(riskLevel);
             }}
-            borderWidth={2}
-            borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
-            nodeOpacity={0.85}
             animate={true}
             motionConfig="gentle"
             onClick={(node) => {
@@ -170,8 +252,8 @@ export function ComplianceTreeMap({
               }
             }}
             tooltip={({ node }) => {
-              const nodeData = node.data as TreeMapNode & { originalValue?: number };
-              const displayValue = nodeData.originalValue ?? nodeData.value ?? 0;
+              const nodeData = node.data as TransformedNode;
+              const displayValue = nodeData.displayValue ?? 0;
               return (
                 <div className="bg-background border rounded-lg shadow-lg p-3 text-sm" data-testid="treemap-tooltip">
                   <div className="font-semibold">{nodeData.name}</div>
