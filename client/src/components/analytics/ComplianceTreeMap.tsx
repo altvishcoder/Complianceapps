@@ -38,11 +38,12 @@ const getRiskColor = (riskLevel?: string) => {
 
 const BASE_SIZE = 100;
 
-function CustomNode({ node, onMouseEnter, onMouseLeave, onClick }: { 
+function CustomNode({ node, onMouseEnter, onMouseLeave, onClick, index = 0 }: { 
   node: any;
   onMouseEnter?: (node: any) => void;
   onMouseLeave?: (node: any) => void;
   onClick?: (node: any) => void;
+  index?: number;
 }) {
   const { x, y, width, height, color, data } = node;
   
@@ -87,9 +88,20 @@ function CustomNode({ node, onMouseEnter, onMouseLeave, onClick }: {
     onClick?.(node);
   };
   
+  const nodeIndex = node.data?.index ?? index;
+  const animationDelay = `${nodeIndex * 0.05}s`;
+  
   return (
     <g 
-      style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+      style={{ 
+        cursor: 'pointer', 
+        pointerEvents: 'auto',
+        animation: 'treemapNodeFadeIn 0.4s ease-out forwards',
+        animationDelay,
+        opacity: 0,
+        transform: 'scale(0.9)',
+        transformOrigin: `${x + width/2}px ${y + height/2}px`
+      }}
       onClick={handleClick}
       onMouseEnter={() => onMouseEnter?.(node)}
       onMouseLeave={() => onMouseLeave?.(node)}
@@ -103,6 +115,10 @@ function CustomNode({ node, onMouseEnter, onMouseLeave, onClick }: {
         stroke="rgba(0,0,0,0.3)"
         strokeWidth={2}
         rx={2}
+        style={{
+          transition: 'transform 0.2s ease, filter 0.2s ease',
+        }}
+        className="hover:brightness-110"
       />
       {labelContent && (
         <text
@@ -164,12 +180,25 @@ export function ComplianceTreeMap({
         id: child.code || `stream-${idx}`,
         displayValue: actualValue,
         value: BASE_SIZE + sizeBoost,
+        index: idx,
       } as TransformedNode;
     }) || []
   };
 
   return (
     <div data-testid="treemap-container">
+        <style>{`
+          @keyframes treemapNodeFadeIn {
+            from {
+              opacity: 0;
+              transform: scale(0.85);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+        `}</style>
         <div style={{ height }} data-testid="treemap-chart">
           <ResponsiveTreeMap
             data={transformedData}
