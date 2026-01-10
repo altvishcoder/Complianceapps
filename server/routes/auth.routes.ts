@@ -11,8 +11,31 @@ import {
   clearLoginAttempts,
   getPasswordPolicyDescription 
 } from "../services/password-policy";
+import { getConfiguredProviders } from "../auth";
 
 export const authRouter = Router();
+
+const PROVIDER_DISPLAY_INFO: Record<string, { name: string; icon: string }> = {
+  "microsoft-entra": { name: "Microsoft", icon: "microsoft" },
+  "google": { name: "Google", icon: "google" },
+  "okta": { name: "Okta", icon: "okta" },
+  "keycloak": { name: "Keycloak", icon: "keycloak" },
+  "generic-oidc": { name: "SSO", icon: "key" },
+};
+
+authRouter.get("/providers", (_req: Request, res: Response) => {
+  const providers = getConfiguredProviders();
+  const providerInfo = providers.map(id => ({
+    id,
+    ...PROVIDER_DISPLAY_INFO[id] || { name: id, icon: "key" },
+    authUrl: `/api/auth/oauth/${id}/authorize`,
+  }));
+  
+  res.json({ 
+    providers: providerInfo,
+    emailPasswordEnabled: true,
+  });
+});
 
 authRouter.post("/login", async (req: Request, res: Response) => {
   try {
@@ -34,6 +57,10 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     
     if (!user) {
       await recordFailedLogin(username);
+      return res.status(401).json({ error: "Invalid username or password" });
+    }
+    
+    if (!user.password) {
       return res.status(401).json({ error: "Invalid username or password" });
     }
     
@@ -170,6 +197,10 @@ authRouter.post("/change-password", async (req: Request, res: Response) => {
     
     if (!user) {
       return res.status(404).json({ error: "User not found" });
+    }
+    
+    if (!user.password) {
+      return res.status(401).json({ error: "Cannot change password for SSO accounts" });
     }
     
     const isValidPassword = await bcrypt.compare(currentPassword, user.password);
