@@ -1,7 +1,7 @@
 # SocialComply
 
 ## Overview
-SocialComply is a compliance management platform for UK social housing organizations. It enables property managers to track compliance certificates (gas safety, electrical, fire risk, etc.), manage properties organized by schemes and blocks, and handle remedial actions. The platform uses AI-powered document extraction to process uploaded compliance certificates, aiming to streamline compliance workflows and improve safety in social housing.
+SocialComply is a compliance management platform designed for UK social housing organizations. Its primary purpose is to streamline the tracking of compliance certificates (e.g., gas safety, electrical, fire risk) and the management of remedial actions for properties organized by schemes and blocks. The platform leverages AI for document extraction from compliance certificates, aiming to enhance compliance workflows and improve safety standards within social housing.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,151 +9,64 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
--   **Framework**: React 18 with TypeScript, using Vite.
+-   **Framework**: React 18 with TypeScript and Vite.
 -   **Routing**: Wouter.
 -   **State Management**: TanStack React Query.
--   **UI Components**: shadcn/ui built on Radix UI.
--   **Styling**: Tailwind CSS v4 with CSS variables.
+-   **UI Components**: shadcn/ui built on Radix UI, styled with Tailwind CSS v4.
 
 ### Backend
 -   **Runtime**: Node.js with Express.js.
 -   **Language**: TypeScript with ES modules.
--   **API Design**: RESTful JSON API endpoints under `/api/*`.
--   **Build Process**: esbuild for server, Vite for client.
+-   **API Design**: RESTful JSON API endpoints.
 
 ### Data Layer
--   **ORM**: Drizzle ORM with PostgreSQL dialect.
+-   **ORM**: Drizzle ORM with PostgreSQL.
 -   **Database**: PostgreSQL.
--   **Migrations**: Drizzle Kit.
--   **Schema Architecture**: Fully modular schema with 90+ tables organized in 15 domain files at `shared/schema/tables/`:
-    - **Domain Files**: base.ts, core-auth.ts, org-structure.ts, assets.ts, compliance.ts, config.ts, chatbot.ts, api.ts, contractor.ts, risk.ts, audit.ts, reporting.ts, ml.ts, cache.ts
-    - **Design Pattern**: Tables import ONLY from drizzle-orm/pg-core, relations centralized in `relations.ts`, insert schemas in `schemas/index.ts`, types in `types/index.ts`
-    - **Main Export**: `shared/schema.ts` re-exports from modular structure via barrel exports
-    - **Recent Additions**: systemLogs, riskSnapshots, cacheRegions, cacheStats, cacheClearAudit tables
--   **Data Model**: Follows UKHDS 5-level asset hierarchy with optional linking and verification status. Organisation is implicit.
-    - **UKHDS Hierarchy Terminology** (aligned with Housing Association usage):
-      - **Scheme (Site Layer)**: Portfolio, Estate, Development - `schemes` table
-      - **Block (Building Layer)**: Physical building structure - `blocks` table (what UKHDS calls "Property")
-      - **Dwelling (Property Layer)**: The lettable home (flat, house) - `properties` table. UI displays as "Dwelling (Property)"
-      - **Space (Room Layer)**: Rooms and communal areas - `spaces` table. Spaces attach to properties, blocks, or schemes.
-      - **Component (Asset Layer)**: Equipment and assets (Boiler, Smoke Alarm, Consumer Unit) - `components` table with `propertyId` or `spaceId`
-    - **Key Design Decision**: Properties ARE Dwellings (single entity). Units table was eliminated - spaces now attach directly to properties (rooms), blocks (communal areas), or schemes (estate-wide spaces).
-    - **Flexible Space Hierarchy**: Spaces can attach at three levels:
-      - **Property-level**: Rooms within a dwelling (Kitchen, Bedroom) - via `spaces.propertyId`
-      - **Block-level**: Communal areas within a building (Stairwell, Plant Room) - via `spaces.blockId`
-      - **Scheme-level**: Estate-wide communal spaces (Community Hall) - via `spaces.schemeId`
--   **Compliance Type Taxonomy**: Supports 80 compliance types across 16 compliance streams aligned with UK social housing regulations.
--   **Compliance Streams**: 16 high-level compliance categories (Gas & Heating, Electrical, Energy, Fire Safety, Asbestos, Water Safety, Lifting Equipment, Building Safety, External Areas, Security, HRB-specific, Housing Health, Accessibility, Pest Control, Waste, Communal) with system protection (isSystem streams cannot be deleted, only disabled).
--   **Configuration Data**: Comprehensive industry-standard configuration:
-    - 80 certificate types across all compliance streams
-    - 45 extraction schemas for AI document processing
-    - 64 compliance rules with UK legislation references (Gas Safety Regs 1998, BS 7671, RRO 2005, CAR 2012, LOLER 1998, BSA 2022, etc.)
-    - 46 normalisation rules for data standardisation
-    - 70 classification codes with remedial action automation settings (autoCreateAction, actionSeverity, costEstimateLow/High)
-    - 36 component types aligned with HACT standards
-    - 84 detection patterns for certificate type identification (FILENAME and TEXT_CONTENT patterns with priority-based matching)
-    - 27 outcome rules for compliance result interpretation (supports field checks, array matching for appliances/defects, and UK legislation references)
+-   **Schema Architecture**: Modular schema with 90+ tables organized into domain files, following a design pattern that centralizes relations and exports.
+-   **Data Model**: Implements the UKHDS 5-level asset hierarchy (Scheme, Block, Dwelling/Property, Space, Component) with flexible space hierarchy and optional linking.
+-   **Compliance Taxonomy**: Supports 80 compliance types across 16 system-protected compliance streams aligned with UK social housing regulations.
+-   **Configuration Data**: Comprehensive industry-standard configuration including 80 certificate types, 45 AI extraction schemas, 64 compliance rules with UK legislation references, 46 normalization rules, 70 classification codes with remedial action automation, 36 HACT-aligned component types, 84 detection patterns, and 27 outcome rules.
 
 ### Navigation Structure
--   **Overview Hub**: Overview, Analytics, Ingestion, Reporting (main dashboards)
--   **Asset Management**: Property Hierarchy (admin/manager only), Properties, Components
--   **Operations**: Certificates, Risk Radar, Remedial Actions, Calendar, Risk Maps, Asset Health (super admin), Remedial Kanban (super admin), Human Review (admin/manager)
--   **Contractor Management**: Contractors (expandable for contractor reports/analytics)
--   **Monitoring**: System Health, Ingestion Control, Chatbot Analytics, Audit Log, Test Suite, Model Insights (admin/manager access required)
--   **Administration**: User Management, Configuration, Factory Settings, Knowledge Training, Integrations, API Integration, API Documentation (admin only)
--   **Resources**: Data Import, Video Library, Help Guide
+-   Organized into key areas: Overview Hub, Asset Management, Operations, Contractor Management, Monitoring, Administration, and Resources.
 
 ### Key Features
--   **AI-powered Document Extraction**: Processes uploaded compliance certificates using AI, covering 45 extraction schemas.
--   **Configuration-Driven Remedial Actions**: Generates remedial actions based on configurable classification codes and UK legislation references.
--   **CSV Import**: Supports importing properties and components via CSV templates.
--   **Seeding & Demo Data**: Option to seed demo data for testing and development.
--   **External Ingestion API**: Machine-to-machine API for external systems to submit compliance certificates with Bearer token authentication and async processing via pg-boss job queue.
--   **AI Assistant Chatbot**: 5-layer cost-optimized architecture for compliance guidance:
-    - **Layer 0**: Intent Classification - keyword-based routing (greeting, navigation, database, faq, off_topic, complex)
-    - **Layer 1**: FAQ Cache with TF-IDF - 12+ compliance FAQs with semantic matching (gas, electrical, fire, legionella, asbestos)
-    - **Layer 2**: Database Queries - property/certificate lookups, compliance status searches
-    - **Layer 3**: LLM Handler - Claude 3.5 Haiku for complex queries (256 max tokens)
-    - **Layer 4**: Response Enhancement - context-aware follow-up suggestions
+-   **AI-powered Document Extraction**: Utilizes AI for processing compliance certificates based on 45 extraction schemas.
+-   **Configuration-Driven Remedial Actions**: Automated generation of remedial actions using configurable classification codes and UK legislation.
+-   **CSV Import**: Support for importing properties and components via CSV.
+-   **External Ingestion API**: Machine-to-machine API for external systems to submit compliance certificates.
+-   **AI Assistant Chatbot**: A 5-layer cost-optimized architecture for compliance guidance, featuring intent classification, FAQ cache, database queries, LLM handling (Claude 3.5 Haiku), and response enhancement.
 
 ### Security
--   **User Role Hierarchy**: Hierarchical RBAC system with roles like LASHAN_SUPER_USER, SUPER_ADMIN, SYSTEM_ADMIN, COMPLIANCE_MANAGER, ADMIN, MANAGER, OFFICER, and VIEWER.
--   **Authentication**: BetterAuth-only authentication at `/api/auth/*`:
-    - Email/password authentication with bcrypt (12 rounds)
-    - 7-day session expiry with daily refresh
-    - Session validation via `fromNodeHeaders` (converts Express headers to WHATWG Headers)
-    - Microsoft Entra ID SSO via Generic OAuth plugin (optional, requires AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)
-    - PostgreSQL-backed sessions, accounts, and verifications tables
-    - **Frontend Client**: `client/src/lib/auth-client.ts` for BetterAuth React integration (basePath: `/api/auth`)
-    - **Demo Credentials**: superadmin@complianceai.co.uk / SuperAdmin2025!
+-   **User Role Hierarchy**: Hierarchical Role-Based Access Control (RBAC) system with various roles.
+-   **Authentication**: BetterAuth-only authentication with email/password (bcrypt), session management, and optional Microsoft Entra ID SSO.
 -   **Admin Factory Settings Authorization**: Restricted access to critical settings with server-side validation and audit logging.
 -   **Rate Limiting**: PostgreSQL-backed rate limiting.
 
+### API Error Handling
+-   **Standardization**: Implements RFC 7807 Problem Details for all API errors, with hierarchical error classes and helper functions for consistent error responses.
+
 ### Testing Infrastructure
--   **API Documentation**: OpenAPI 3.0 spec with Swagger UI at `/api/docs`, auto-generated from Zod schemas via zod-to-openapi.
--   **Unit/Integration Tests**: Vitest with test coverage reports, testing storage and extraction logic.
--   **E2E Testing**: Playwright for cross-browser testing (Chrome, Firefox, Safari, Mobile), including visual regression and WCAG 2.1 AA accessibility tests.
--   **API Testing**: Supertest for HTTP endpoint testing with session handling.
--   **Contract Testing**: Pact for consumer-driven contract testing between frontend and API.
--   **Test Commands**:
-    - `npx vitest run` - Run unit/integration tests
-    - `npx playwright test` - Run E2E tests (requires server running)
-    - `npx playwright test e2e/visual-regression.spec.ts --update-snapshots` - Update visual baselines
-    - `npx playwright test e2e/accessibility.spec.ts` - Run accessibility tests
+-   **API Documentation**: OpenAPI 3.0 spec with Swagger UI, auto-generated from Zod schemas.
+-   **Testing Suites**: Vitest for unit/integration tests, Playwright for E2E testing (including visual regression and accessibility), Supertest for HTTP API testing, and Pact for consumer-driven contract testing.
 
 ### Production Infrastructure
--   **Logging**: Structured JSON logging using Pino.
--   **Error Tracking**: Sentry integration for error monitoring.
--   **System Health Monitoring**: Admin page to monitor database, API server, and job queue status.
--   **Database Optimization**: Migration-based approach via `server/db-optimization.ts` (NOT applied at server startup):
-    - **Performance Indexes**: ~15 indexes for high-frequency queries (certificates, remedials, properties, components, audit events)
-    - **Materialized Views**: 12 views organized into 6 categories for 50k+ scale:
-      - **Core Dashboard** (3 views): mv_dashboard_stats, mv_certificate_compliance, mv_asset_health
-      - **UKHDS 5-Level Hierarchy** (3 views): mv_scheme_rollup, mv_block_rollup, mv_property_summary - aggregates across Scheme→Block→Property→Space→Component
-      - **Risk & ML** (1 view): mv_risk_aggregates - for Predictive Compliance Radar with weighted risk scoring
-      - **Operational** (2 views): mv_certificate_expiry_calendar, mv_remedial_backlog - for expiry tracking and action aging
-      - **Regulatory Reporting** (2 views): mv_tsm_metrics (TSM BS01-BS06, RP01-RP02), mv_building_safety_coverage (BSA 2022 HRB compliance)
-      - **Contractor Performance** (1 view): mv_contractor_sla - SLA tracking, completion rates, breach counts
-    - **Optimization Tables**: risk_snapshots, asset_health_summary, certificate_expiry_tracker for cached calculations
-    - **Deployment Workflow**: Use admin UI "Apply All Optimizations" after deployment, "Refresh All Views" after bulk imports
-    - **Admin API**: 
-      - `GET /api/admin/db-optimization/status` - Current optimization status
-      - `GET /api/admin/db-optimization/categories` - View categories with descriptions
-      - `POST /api/admin/db-optimization/refresh-view` - Refresh single view
-      - `POST /api/admin/db-optimization/refresh-all` - Refresh all materialized views
-      - `POST /api/admin/db-optimization/refresh-category` - Refresh views by category
-      - `POST /api/admin/db-optimization/apply-all` - Create all indexes/views/tables
-    - **View Definitions**: `shared/schema/tables/performance-indexes.ts` contains all SQL definitions and category metadata
+-   **Logging & Monitoring**: Structured JSON logging (Pino) and Sentry integration for error tracking. System health monitoring page.
+-   **Database Optimization**: Migration-based approach for database optimization including ~15 performance indexes and 12 materialized views across 6 categories for scalability, and optimization tables for cached calculations. Admin API for managing optimizations.
 
-### Asset Strategy (Cloud-Agnostic)
--   **Design Principle**: All assets bundled locally for offline/airgapped deployments across AWS, Azure, GCP, or local environments.
--   **Icon Registry**: Centralized at `client/src/config/icons/` with typed mappings for compliance streams, navigation, status indicators, and actions.
--   **Map Assets**: Leaflet marker icons bundled locally at `client/public/assets/leaflet/` - no CDN dependencies.
--   **Configurable Tile Sources**: Map tiles configurable via environment variables (`VITE_TILE_SOURCE_LIGHT`, `VITE_TILE_SOURCE_DARK`) for self-hosted tile servers.
--   **Branding/White-Label**: 
-    - `organization_branding` table stores per-tenant branding (logos, colors, favicon, custom CSS)
-    - `GET /api/branding` - Returns organization branding with fallback to default
-    - `GET /api/assets/config` - Returns asset paths and map tile configuration
-    - `useBranding()` hook with `applyBrandingToDocument()` for dynamic favicon/title/colors
--   **Migration**: `migrations/0001_add_organization_branding.sql` creates table and seeds default branding
-
-### Version Management
--   **Current Version**: 0.9.0 (pre-release)
--   **Version Source**: `shared/version.ts` exports APP_VERSION, APP_NAME, and RELEASE_NOTES
--   **API Endpoints**:
-    - `GET /api/version` - Returns version, name, environment, build time, uptime, and release highlights
-    - `GET /api/version/releases` - Returns full release history
--   **UI Display**: Version shown in sidebar footer and System Health page header
--   **Changelog**: `CHANGELOG.md` follows Keep a Changelog format
--   **Pre-1.0 Convention**: Minor version may include breaking changes, patch for features/fixes
+### Asset Strategy
+-   **Cloud-Agnostic Design**: All assets are bundled locally for offline deployment.
+-   **Icon Registry**: Centralized icon management.
+-   **Map Assets**: Localized Leaflet marker icons and configurable tile sources.
+-   **Branding/White-Label**: Per-tenant branding support via a dedicated table and API, allowing dynamic application of logos, colors, and custom CSS.
 
 ## External Dependencies
 
 ### Database
--   **PostgreSQL**: Primary database.
+-   PostgreSQL
 
 ### AI/ML Services
--   **Anthropic Claude Vision**: Used for AI-powered certificate document extraction (Claude 3.5 Sonnet).
+-   Anthropic Claude Vision (Claude 3.5 Sonnet) for AI-powered certificate document extraction.
 
 ### Third-Party Libraries
 -   **Charts**: Recharts.

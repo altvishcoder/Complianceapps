@@ -241,12 +241,19 @@ const port = parseInt(process.env.PORT || "5000", 10);
 // Initialize Sentry (sync operation)
 initSentry(app);
 
-// Error handler for unhandled errors
+// Note: RFC 7807 error handler is registered after routes in the async init block
+// This fallback catches errors before routes are fully registered
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
   logger.error({ err, status }, "Unhandled error");
-  res.status(status).json({ message });
+  res.status(status).json({ 
+    type: 'https://api.socialcomply.io/errors/internal-error',
+    title: 'Internal Server Error',
+    status,
+    detail: message,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Start listening IMMEDIATELY
