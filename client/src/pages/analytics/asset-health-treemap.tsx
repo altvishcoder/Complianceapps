@@ -50,6 +50,7 @@ export default function AssetHealthTreemapPage() {
   const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<'treemap' | 'explorer'>('treemap');
   const [groupBy, setGroupBy] = useState<'stream' | 'scheme'>('stream');
+  const [selectedStream, setSelectedStream] = useState<any>(null);
   
   // Auto-switch to explorer on mobile for better UX
   useEffect(() => {
@@ -75,9 +76,7 @@ export default function AssetHealthTreemapPage() {
   };
 
   const handleTreemapNodeClick = (node: any) => {
-    if (node.code || node.id) {
-      setActiveView('explorer');
-    }
+    setSelectedStream(node);
   };
 
   return (
@@ -171,6 +170,52 @@ export default function AssetHealthTreemapPage() {
                   onNodeClick={handleTreemapNodeClick}
                   height={500}
                 />
+                
+                {selectedStream && (
+                  <Card className="mt-4 animate-in slide-in-from-bottom-4 duration-300" data-testid="selected-stream-card">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{selectedStream.name}</CardTitle>
+                        <Badge 
+                          variant={selectedStream.riskLevel === 'HIGH' ? 'destructive' : selectedStream.riskLevel === 'MEDIUM' ? 'secondary' : 'outline'}
+                        >
+                          {selectedStream.riskLevel || 'LOW'} Risk
+                        </Badge>
+                      </div>
+                      <CardDescription>Compliance stream details</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-2xl font-bold">{(selectedStream.displayValue ?? selectedStream.value ?? 0).toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">Properties</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-2xl font-bold">{selectedStream.certificateCount?.toLocaleString() || 0}</div>
+                          <div className="text-xs text-muted-foreground">Certificates</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className={`text-2xl font-bold ${(selectedStream.complianceRate || 0) >= 90 ? 'text-green-500' : (selectedStream.complianceRate || 0) >= 70 ? 'text-amber-500' : 'text-red-500'}`}>
+                            {selectedStream.complianceRate || 0}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">Compliance</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <Button 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => {
+                              setActiveView('explorer');
+                              setSelectedStream(null);
+                            }}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="explorer" className="mt-4">

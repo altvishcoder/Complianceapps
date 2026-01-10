@@ -38,7 +38,12 @@ const getRiskColor = (riskLevel?: string) => {
 
 const BASE_SIZE = 100;
 
-function CustomNode({ node }: { node: any }) {
+function CustomNode({ node, onMouseEnter, onMouseLeave, onClick }: { 
+  node: any;
+  onMouseEnter?: (node: any) => void;
+  onMouseLeave?: (node: any) => void;
+  onClick?: (node: any) => void;
+}) {
   const { x, y, width, height, color, data } = node;
   
   if (width < 4 || height < 4) return null;
@@ -77,8 +82,18 @@ function CustomNode({ node }: { node: any }) {
     labelContent = getInitials(name);
   }
   
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.(node);
+  };
+  
   return (
-    <g style={{ cursor: 'pointer' }}>
+    <g 
+      style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+      onClick={handleClick}
+      onMouseEnter={() => onMouseEnter?.(node)}
+      onMouseLeave={() => onMouseLeave?.(node)}
+    >
       <rect
         x={x}
         y={y}
@@ -98,6 +113,7 @@ function CustomNode({ node }: { node: any }) {
           fill="#ffffff"
           fontSize={fontSize}
           fontWeight={500}
+          style={{ pointerEvents: 'none' }}
         >
           {labelContent}
         </text>
@@ -164,7 +180,16 @@ export function ComplianceTreeMap({
             innerPadding={3}
             outerPadding={3}
             enableParentLabel={false}
-            nodeComponent={CustomNode}
+            nodeComponent={(props) => (
+              <CustomNode 
+                {...props} 
+                onClick={(node) => {
+                  if (onNodeClick && node.data) {
+                    onNodeClick(node.data as TreeMapNode);
+                  }
+                }}
+              />
+            )}
             colors={(node) => {
               const riskLevel = (node.data as TreeMapNode).riskLevel;
               return getRiskColor(riskLevel);
