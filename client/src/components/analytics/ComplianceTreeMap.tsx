@@ -1,6 +1,5 @@
 import { ResponsiveTreeMap } from '@nivo/treemap';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -145,36 +144,20 @@ export function ComplianceTreeMap({
 
   if (isLoading) {
     return (
-      <Card data-testid="treemap-loading">
-        <CardHeader>
-          <CardTitle>Compliance Overview</CardTitle>
-          <CardDescription>Loading visualization...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="w-full" style={{ height }} />
-        </CardContent>
-      </Card>
+      <div data-testid="treemap-loading" style={{ height }}>
+        <Skeleton className="w-full h-full" />
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <Card data-testid="treemap-error">
-        <CardHeader>
-          <CardTitle>Compliance Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          <span>Failed to load visualization</span>
-        </CardContent>
-      </Card>
+      <div data-testid="treemap-error" className="flex items-center justify-center gap-2 text-destructive" style={{ height }}>
+        <AlertCircle className="h-4 w-4" />
+        <span>Failed to load visualization</span>
+      </div>
     );
   }
-
-  const totalProperties = data.children?.reduce((sum, child) => sum + (child.value || 0), 0) || 0;
-  const avgCompliance = data.children?.length 
-    ? Math.round(data.children.reduce((sum, child) => sum + (child.complianceRate || 0), 0) / data.children.length)
-    : 0;
 
   const transformedData = {
     name: 'Portfolio',
@@ -192,46 +175,7 @@ export function ComplianceTreeMap({
   };
 
   return (
-    <Card data-testid="treemap-container">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Compliance Overview</CardTitle>
-            <CardDescription>
-              Click on segments to drill down into compliance streams
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="treemap-total-properties">
-                {totalProperties.toLocaleString()}
-              </div>
-              <div className="text-muted-foreground">Properties</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="treemap-avg-compliance">
-                {avgCompliance}%
-              </div>
-              <div className="text-muted-foreground">Avg Compliance</div>
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            Low Risk
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Medium Risk
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-red-500" />
-            High Risk
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <div data-testid="treemap-container">
         <div style={{ height }} data-testid="treemap-chart">
           <ResponsiveTreeMap
             data={transformedData}
@@ -288,8 +232,7 @@ export function ComplianceTreeMap({
             }}
           />
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 
