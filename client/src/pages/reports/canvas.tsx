@@ -91,14 +91,136 @@ const WIDGET_TYPES = [
   { type: 'TIMELINE' as WidgetType, label: 'Timeline', icon: Clock, color: 'bg-pink-500' },
 ];
 
-const DATA_SOURCES = [
-  { id: 'compliance-by-stream', label: 'Compliance by Stream', endpoint: '/api/analytics/hierarchy?level=stream' },
-  { id: 'compliance-by-scheme', label: 'Compliance by Scheme', endpoint: '/api/analytics/hierarchy?level=scheme' },
-  { id: 'certificates-status', label: 'Certificate Status', endpoint: '/api/dashboard/stats' },
-  { id: 'remedial-actions', label: 'Remedial Actions', endpoint: '/api/remedial-actions' },
-  { id: 'expiry-calendar', label: 'Certificate Expiry', endpoint: '/api/certificates/expiring' },
-  { id: 'contractor-performance', label: 'Contractor Performance', endpoint: '/api/contractors' },
-  { id: 'property-health', label: 'Property Health', endpoint: '/api/analytics/treemap?groupBy=stream' },
+interface DataSourceDef {
+  id: string;
+  label: string;
+  endpoint: string;
+  transform: (data: any) => { name: string; value: number; color?: string }[];
+  statExtractor?: (data: any) => { value: number | string; label: string };
+}
+
+const DATA_SOURCES: DataSourceDef[] = [
+  { 
+    id: 'compliance-by-stream', 
+    label: 'Compliance by Stream', 
+    endpoint: '/api/analytics/hierarchy?level=stream',
+    transform: (data) => {
+      const items = data?.data || data || [];
+      return items.map((item: any) => ({
+        name: item.stream || item.name || 'Unknown',
+        value: item.totalProperties || item.propertyCount || item.value || 0,
+        color: item.riskLevel === 'HIGH' ? '#ef4444' : item.riskLevel === 'MEDIUM' ? '#f59e0b' : '#22c55e'
+      }));
+    },
+    statExtractor: (data) => {
+      const items = data?.data || data || [];
+      const total = items.reduce((sum: number, item: any) => sum + (item.totalProperties || 0), 0);
+      return { value: total, label: 'Properties by Stream' };
+    }
+  },
+  { 
+    id: 'compliance-by-scheme', 
+    label: 'Compliance by Scheme', 
+    endpoint: '/api/analytics/hierarchy?level=scheme',
+    transform: (data) => {
+      const items = data?.data || data || [];
+      return items.map((item: any) => ({
+        name: item.scheme || item.name || 'Unknown',
+        value: item.totalProperties || item.propertyCount || item.value || 0,
+        color: item.riskLevel === 'HIGH' ? '#ef4444' : item.riskLevel === 'MEDIUM' ? '#f59e0b' : '#22c55e'
+      }));
+    },
+    statExtractor: (data) => {
+      const items = data?.data || data || [];
+      return { value: items.length, label: 'Total Schemes' };
+    }
+  },
+  { 
+    id: 'certificates-status', 
+    label: 'Certificate Status', 
+    endpoint: '/api/dashboard/stats',
+    transform: (data) => {
+      if (!data) return [];
+      return [
+        { name: 'Valid', value: data.validCertificates || 0, color: '#22c55e' },
+        { name: 'Expiring Soon', value: data.expiringSoon || 0, color: '#f59e0b' },
+        { name: 'Expired', value: data.expiredCertificates || 0, color: '#ef4444' },
+      ].filter(item => item.value > 0);
+    },
+    statExtractor: (data) => ({ value: data?.totalCertificates || 0, label: 'Total Certificates' })
+  },
+  { 
+    id: 'remedial-actions', 
+    label: 'Remedial Actions', 
+    endpoint: '/api/remedial-actions?limit=100',
+    transform: (data) => {
+      const items = Array.isArray(data) ? data : data?.data || [];
+      const grouped: Record<string, number> = {};
+      items.forEach((item: any) => {
+        const status = item.status || 'Unknown';
+        grouped[status] = (grouped[status] || 0) + 1;
+      });
+      return Object.entries(grouped).map(([name, value]) => ({
+        name,
+        value,
+        color: name === 'OPEN' ? '#ef4444' : name === 'IN_PROGRESS' ? '#f59e0b' : '#22c55e'
+      }));
+    },
+    statExtractor: (data) => {
+      const items = Array.isArray(data) ? data : data?.data || [];
+      const open = items.filter((i: any) => i.status === 'OPEN').length;
+      return { value: open, label: 'Open Actions' };
+    }
+  },
+  { 
+    id: 'expiry-calendar', 
+    label: 'Certificate Expiry', 
+    endpoint: '/api/certificates/expiring?days=90',
+    transform: (data) => {
+      const items = Array.isArray(data) ? data : data?.data || [];
+      const grouped: Record<string, number> = {};
+      items.forEach((item: any) => {
+        const type = item.certificateType || item.type || 'Other';
+        grouped[type] = (grouped[type] || 0) + 1;
+      });
+      return Object.entries(grouped).slice(0, 10).map(([name, value]) => ({
+        name,
+        value,
+        color: '#f59e0b'
+      }));
+    },
+    statExtractor: (data) => {
+      const items = Array.isArray(data) ? data : data?.data || [];
+      return { value: items.length, label: 'Expiring Soon' };
+    }
+  },
+  { 
+    id: 'properties-overview', 
+    label: 'Properties Overview', 
+    endpoint: '/api/dashboard/stats',
+    transform: (data) => {
+      if (!data) return [];
+      return [
+        { name: 'Total Properties', value: data.totalProperties || 0, color: '#3b82f6' },
+        { name: 'With Certificates', value: data.propertiesWithCertificates || 0, color: '#22c55e' },
+        { name: 'Needing Attention', value: data.propertiesNeedingAttention || 0, color: '#ef4444' },
+      ].filter(item => item.value > 0);
+    },
+    statExtractor: (data) => ({ value: data?.totalProperties || 0, label: 'Total Properties' })
+  },
+  { 
+    id: 'compliance-rate', 
+    label: 'Compliance Rate', 
+    endpoint: '/api/dashboard/stats',
+    transform: (data) => {
+      const rate = data?.complianceRate || 0;
+      return [
+        { name: 'Compliant', value: rate, color: '#22c55e' },
+        { name: 'Non-Compliant', value: 100 - rate, color: '#ef4444' },
+      ];
+    },
+    statExtractor: (data) => ({ value: `${data?.complianceRate || 0}%`, label: 'Compliance Rate' })
+  },
 ];
 
 const DEFAULT_CANVAS: Canvas = {
@@ -156,21 +278,34 @@ function WidgetRenderer({ widget, onRemove, onConfigure }: {
 }
 
 function StatCardWidget({ dataSource }: { dataSource: string }) {
-  const { data } = useQuery({
-    queryKey: ['/api/dashboard/stats'],
+  const dataSourceConfig = DATA_SOURCES.find(ds => ds.id === dataSource);
+  
+  const { data, isLoading } = useQuery({
+    queryKey: [dataSourceConfig?.endpoint || '/api/dashboard/stats'],
     queryFn: async () => {
-      const res = await fetch('/api/dashboard/stats');
+      const res = await fetch(dataSourceConfig?.endpoint || '/api/dashboard/stats');
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <Skeleton className="h-10 w-24 mb-2" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+    );
+  }
+
+  const stat = dataSourceConfig?.statExtractor?.(data) || { value: 0, label: 'Value' };
+
   return (
-    <div className="flex flex-col items-center justify-center h-full">
-      <p className="text-4xl font-bold">
-        {data?.totalProperties?.toLocaleString() || '0'}
+    <div className="flex flex-col items-center justify-center h-full" data-testid="stat-card-widget">
+      <p className="text-4xl font-bold text-primary">
+        {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
       </p>
-      <p className="text-sm text-muted-foreground">Total Properties</p>
+      <p className="text-sm text-muted-foreground">{stat.label}</p>
     </div>
   );
 }
@@ -178,7 +313,7 @@ function StatCardWidget({ dataSource }: { dataSource: string }) {
 function SimpleChartWidget({ widget }: { widget: WidgetConfig }) {
   const dataSourceConfig = DATA_SOURCES.find(ds => ds.id === widget.dataSource);
   
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: [dataSourceConfig?.endpoint || '/api/dashboard/stats'],
     queryFn: async () => {
       const res = await fetch(dataSourceConfig?.endpoint || '/api/dashboard/stats');
@@ -188,18 +323,27 @@ function SimpleChartWidget({ widget }: { widget: WidgetConfig }) {
     enabled: !!dataSourceConfig,
   });
 
-  const chartData = Array.isArray(data) 
-    ? data 
-    : data?.data 
-      ? data.data 
-      : [];
+  const chartData = dataSourceConfig?.transform(data) || [];
+
+  if (isLoading) {
+    return <Skeleton className="h-full w-full" />;
+  }
+
+  if (error || !chartData.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <Activity className="h-8 w-8 mb-2 opacity-50" />
+        <p className="text-xs">No data available</p>
+      </div>
+    );
+  }
 
   if (widget.type === 'TABLE') {
     return <TableWidget data={chartData} isLoading={isLoading} />;
   }
   
   if (widget.type === 'GAUGE') {
-    const value = data?.complianceRate ?? chartData[0]?.complianceRate ?? 0;
+    const value = data?.complianceRate ?? 0;
     return <GaugeWidget value={value} isLoading={isLoading} />;
   }
   
@@ -219,10 +363,10 @@ function SimpleChartWidget({ widget }: { widget: WidgetConfig }) {
     <ConfigurableChart
       config={{
         type: chartType,
-        title: widget.title,
+        title: '',
         showLegend: widget.config?.showLegend ?? true,
-        valueKey: widget.config?.valueField || 'value',
-        labelKey: widget.config?.labelField || 'name',
+        valueKey: 'value',
+        labelKey: 'name',
         height: 180,
       }}
       data={chartData}
@@ -583,11 +727,19 @@ export default function ReportCanvasPage() {
                     </div>
                   ) : (
                     <div 
-                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-[280px]"
                       data-testid="canvas-grid"
                     >
                       {canvas.widgets.map((widget) => (
-                        <div key={widget.id} className="min-h-[250px]">
+                        <div 
+                          key={widget.id} 
+                          className={cn(
+                            "h-full",
+                            widget.type === 'STAT_CARD' && "sm:col-span-1",
+                            widget.type === 'TREEMAP' && "sm:col-span-2",
+                            widget.type === 'TABLE' && "sm:col-span-2",
+                          )}
+                        >
                           <WidgetRenderer
                             widget={widget}
                             onRemove={() => handleRemoveWidget(widget.id)}
