@@ -5,8 +5,18 @@ import { logger } from "./logger";
 const SENTRY_DSN = process.env.SENTRY_DSN;
 
 export function initSentry(app: Express): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   if (!SENTRY_DSN) {
-    logger.info("Sentry DSN not configured, skipping error tracking setup");
+    if (isProduction) {
+      logger.warn(
+        "PRODUCTION WARNING: SENTRY_DSN not configured - error tracking disabled. " +
+        "Production applications should have error monitoring enabled for observability. " +
+        "Set SENTRY_DSN environment variable to enable Sentry error tracking."
+      );
+    } else {
+      logger.info("Sentry DSN not configured, skipping error tracking setup (development mode)");
+    }
     return;
   }
 

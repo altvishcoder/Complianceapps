@@ -5846,9 +5846,11 @@ export async function registerRoutes(
     }
   });
   
-  // ===== DASHBOARD STATS (OPTIMIZED FOR SPEED) =====
+  // ===== DASHBOARD STATS (OPTIMIZED FOR SPEED WITH CACHING) =====
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
+      // Cache dashboard stats for 60 seconds to reduce database load
+      const stats = await withCache('dashboard_stats', {}, async () => {
       // Use fast COUNT queries on indexed columns for core stats
       // This avoids slow materialized view scans at scale
       const [
@@ -6032,7 +6034,7 @@ export async function registerRoutes(
       const awaabsPhase2 = Math.floor(overdueTotal * 0.3);
       const awaabsPhase3 = Math.floor(overdueTotal * 0.5);
 
-      res.json({
+      return {
         overallCompliance: complianceRate,
         activeHazards,
         immediateHazards,
@@ -6052,8 +6054,11 @@ export async function registerRoutes(
         expiringCertificates,
         urgentActions,
         problemProperties,
-        _source: 'optimized_direct_queries'
-      });
+        _source: 'optimized_direct_queries_cached'
+      };
+      }, 60); // Cache for 60 seconds
+      
+      res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
