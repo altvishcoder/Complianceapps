@@ -9,8 +9,11 @@ import type { PropertyMarker } from '@/components/maps';
 import type { Scenario, ScenarioResult, ScenarioType } from '@/lib/risk/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, AlertTriangle } from 'lucide-react';
+import { getActionIcon, getStatusIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+const Download = getActionIcon('download');
+const AlertTriangle = getStatusIcon('warning');
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);

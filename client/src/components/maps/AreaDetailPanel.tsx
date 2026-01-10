@@ -5,18 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  X, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus, 
-  ExternalLink,
-  Download,
-  AlertCircle,
-  CheckCircle2,
-  AlertTriangle
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon } from '@/config/icons';
 import { Link } from 'wouter';
+
+const X = getActionIcon('close');
+const TrendingUp = getIcon('TrendingUp');
+const TrendingDown = getIcon('TrendingDown');
+const Minus = getActionIcon('remove');
+const ExternalLink = getIcon('ExternalLink');
+const Download = getActionIcon('download');
+const AlertCircle = getStatusIcon('error');
+const CheckCircle2 = getStatusIcon('compliant');
+const AlertTriangle = getStatusIcon('warning');
 
 interface AreaDetailPanelProps {
   areaId: string;

@@ -11,11 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { 
-  Settings2, Plus, Edit2, Trash2, RefreshCw, Scale,
-  AlertTriangle, CheckCircle, ArrowRightLeft, Sparkles
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon } from '@/config/icons';
 import { useToast } from '@/hooks/use-toast';
+
+const Settings2 = getIcon('Settings');
+const Plus = getActionIcon('add');
+const Edit2 = getActionIcon('edit');
+const Trash2 = getActionIcon('delete');
+const RefreshCw = getActionIcon('refresh');
+const Scale = getIcon('Shield');
+const AlertTriangle = getStatusIcon('warning');
+const CheckCircle = getStatusIcon('compliant');
+const ArrowRightLeft = getIcon('TrendingUp');
+const Sparkles = getIcon('Activity');
 
 interface ComplianceRule {
   id: string;

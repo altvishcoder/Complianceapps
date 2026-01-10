@@ -1,7 +1,14 @@
 import { RiskScore } from '@/lib/risk/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
+import { getIcon, getStatusIcon } from '@/config/icons';
+
+const TrendingUp = getIcon('TrendingUp');
+const TrendingDown = getIcon('TrendingDown');
+const Minus = getIcon('Minus');
+const CheckCircle2 = getStatusIcon('compliant');
+const AlertCircle = getStatusIcon('error');
+const AlertTriangle = getStatusIcon('warning');
 
 interface BoardModeProps {
   organisationName: string;

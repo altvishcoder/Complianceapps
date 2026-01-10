@@ -5,17 +5,17 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'wouter';
-import { 
-  X, 
-  Download, 
-  ExternalLink, 
-  Building2, 
-  Users, 
-  AlertCircle,
-  CheckCircle2,
-  AlertTriangle,
-  Clock
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon } from '@/config/icons';
+
+const X = getActionIcon('close');
+const Download = getActionIcon('download');
+const ExternalLink = getIcon('ExternalLink');
+const Building2 = getIcon('Building2');
+const Users = getIcon('Users');
+const AlertCircle = getStatusIcon('error');
+const CheckCircle2 = getStatusIcon('compliant');
+const AlertTriangle = getStatusIcon('warning');
+const Clock = getIcon('Clock');
 
 interface EvidencePanelProps {
   evidence: EvidenceData | null;

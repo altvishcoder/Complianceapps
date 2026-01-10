@@ -4,7 +4,9 @@ import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveTreeMap } from '@nivo/treemap';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle } from 'lucide-react';
+import { getStatusIcon } from '@/config/icons';
+
+const AlertCircle = getStatusIcon('error');
 
 export type ChartType = 'bar' | 'line' | 'pie' | 'treemap';
 

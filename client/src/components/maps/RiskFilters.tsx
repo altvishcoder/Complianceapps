@@ -1,7 +1,9 @@
 import { ComplianceStream, RiskFilters as RiskFiltersType } from '@/lib/risk/types';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Filter } from 'lucide-react';
+import { getActionIcon } from '@/config/icons';
+
+const Filter = getActionIcon('filter');
 
 interface RiskFiltersProps {
   filters: RiskFiltersType;

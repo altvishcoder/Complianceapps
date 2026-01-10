@@ -1,4 +1,4 @@
-import { HelpCircle } from 'lucide-react';
+import { getIcon } from '@/config/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -6,6 +6,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+
+const HelpCircle = getIcon('HelpCircle');
 
 interface HelpTooltipProps {
   content: string | React.ReactNode;

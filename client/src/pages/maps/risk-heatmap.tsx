@@ -8,8 +8,12 @@ import { AreaDetailPanel } from '@/components/maps/AreaDetailPanel';
 import type { PropertyMarker } from '@/components/maps';
 import type { RiskFilters as RiskFiltersType, RiskScore, AreaRisk } from '@/lib/risk/types';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw, Download, X } from 'lucide-react';
+import { getIcon, getActionIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+const RefreshCcw = getIcon('RefreshCcw');
+const Download = getActionIcon('download');
+const X = getActionIcon('close');
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);

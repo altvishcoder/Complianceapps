@@ -4,7 +4,12 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, AlertCircle, Building2, Clock } from 'lucide-react';
+import { getIcon, getStatusIcon } from '@/config/icons';
+
+const AlertTriangle = getStatusIcon('warning');
+const AlertCircle = getStatusIcon('error');
+const Building2 = getIcon('Building2');
+const Clock = getIcon('Clock');
 
 interface ScenarioPanelProps {
   scenarios: Scenario[];

@@ -14,13 +14,29 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { HeroStatsGrid } from '@/components/dashboard/HeroStats';
 import { CardSkeleton } from '@/components/ui/skeleton';
-import { 
-  Check, X, AlertTriangle, Eye, Edit2, FileText, Clock, Filter,
-  ChevronLeft, ChevronRight, RefreshCw, Save, Tag, Search, ExternalLink, ImageIcon,
-  CheckCircle2, XCircle, ClipboardList
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon } from '@/config/icons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+
+const Check = getActionIcon('check');
+const X = getActionIcon('close');
+const AlertTriangle = getStatusIcon('warning');
+const Eye = getActionIcon('view');
+const Edit2 = getActionIcon('edit');
+const FileText = getIcon('FileText');
+const Clock = getIcon('Clock');
+const Filter = getActionIcon('filter');
+const ChevronLeft = getActionIcon('previous');
+const ChevronRight = getActionIcon('next');
+const RefreshCw = getActionIcon('refresh');
+const Save = getIcon('Save');
+const Tag = getIcon('FileText');
+const Search = getActionIcon('search');
+const ExternalLink = getIcon('ExternalLink');
+const ImageIcon = getIcon('FileText');
+const CheckCircle2 = getStatusIcon('compliant');
+const XCircle = getStatusIcon('failed');
+const ClipboardList = getIcon('Clipboard');
 
 interface ExtractionRun {
   id: string;

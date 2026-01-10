@@ -14,9 +14,12 @@ export {
   ACTION_ICONS,
   HIERARCHY_ICONS,
   HIERARCHY_COLORS,
+  ALL_ICONS,
   getNavigationIcon,
   getStatusIcon,
   getActionIcon,
   getHierarchyIcon,
   getHierarchyColor,
+  getIcon,
+  type LucideIcon,
 } from './common';

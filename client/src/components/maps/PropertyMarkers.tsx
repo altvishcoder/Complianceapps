@@ -4,10 +4,12 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Link } from 'wouter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from 'lucide-react';
+import { getIcon } from '@/config/icons';
 import L from 'leaflet';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+const ExternalLink = getIcon('ExternalLink');
 
 export type AssetType = 'scheme' | 'block' | 'property';
 

@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Download, Building2, FileText, HelpCircle } from 'lucide-react';
+import { getIcon, getActionIcon } from '@/config/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+const Download = getActionIcon('download');
+const Building2 = getIcon('Building2');
+const FileText = getIcon('FileText');
+const HelpCircle = getIcon('HelpCircle');
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);

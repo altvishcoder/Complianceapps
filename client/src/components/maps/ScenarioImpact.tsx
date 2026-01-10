@@ -3,7 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getRiskColor } from './PropertyMarkers';
-import { TrendingDown, TrendingUp, AlertTriangle, MapPin } from 'lucide-react';
+import { getIcon, getStatusIcon } from '@/config/icons';
+
+const TrendingDown = getIcon('TrendingDown');
+const TrendingUp = getIcon('TrendingUp');
+const AlertTriangle = getStatusIcon('warning');
+const MapPin = getIcon('MapPin');
 
 interface ScenarioImpactProps {
   result: ScenarioResult | null;

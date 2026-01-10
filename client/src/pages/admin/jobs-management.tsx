@@ -4,12 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { 
-  RefreshCw, Clock, Play, CheckCircle, XCircle, 
-  Pause, AlertTriangle, Calendar, Timer, Zap
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon, getNavigationIcon } from '@/config/icons';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton, CardSkeleton } from '@/components/ui/skeleton';
+
+const RefreshCw = getActionIcon('refresh');
+const Clock = getIcon('Clock');
+const Play = getIcon('Play');
+const CheckCircle = getStatusIcon('compliant');
+const XCircle = getStatusIcon('failed');
+const Pause = getIcon('Pause');
+const AlertTriangle = getStatusIcon('warning');
+const Calendar = getNavigationIcon('calendar');
+const Timer = getIcon('Clock');
+const Zap = getIcon('Activity');
 
 interface ScheduledJobInfo {
   name: string;

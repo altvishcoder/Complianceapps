@@ -8,12 +8,25 @@ import type { PropertyMarker } from '@/components/maps';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Map, BarChart3, AlertTriangle, FileText, MapPin, Loader2, Building2, MapPinned, Home, CheckCircle, Clock, Shield } from 'lucide-react';
+import { getIcon, getStatusIcon, getNavigationIcon } from '@/config/icons';
 import { Link } from 'wouter';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+
+const Map = getNavigationIcon('maps');
+const BarChart3 = getNavigationIcon('overview');
+const AlertTriangle = getStatusIcon('warning');
+const FileText = getIcon('FileText');
+const MapPin = getIcon('MapPin');
+const Loader2 = getIcon('Loader2');
+const Building2 = getIcon('Building2');
+const MapPinned = getIcon('MapPinned');
+const Home = getIcon('Home');
+const CheckCircle = getStatusIcon('compliant');
+const Clock = getIcon('Clock');
+const Shield = getIcon('Shield');
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);

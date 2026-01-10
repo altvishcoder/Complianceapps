@@ -26,29 +26,29 @@ import {
 } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Plus,
-  Save,
-  Download,
-  Settings,
-  Trash2,
-  Move,
-  BarChart3,
-  PieChart as PieChartIcon,
-  TrendingUp,
-  Grid3X3,
-  Table,
-  Activity,
-  Gauge,
-  Clock,
-  LayoutGrid,
-  GripVertical,
-  ChevronDown,
-  RefreshCw,
-} from 'lucide-react';
+import { getIcon, getActionIcon, getNavigationIcon } from '@/config/icons';
 import { ConfigurableChart } from '@/components/charts/ConfigurableChart';
 import { ComplianceTreeMap } from '@/components/analytics/ComplianceTreeMap';
 import { cn } from '@/lib/utils';
+
+const Plus = getActionIcon('add');
+const Save = getIcon('Save');
+const Download = getActionIcon('download');
+const Settings = getIcon('Settings');
+const Trash2 = getActionIcon('delete');
+const Move = getIcon('Move');
+const BarChart3 = getNavigationIcon('overview');
+const PieChartIcon = getIcon('PieChart');
+const TrendingUp = getIcon('TrendingUp');
+const Grid3X3 = getIcon('Grid3X3');
+const Table = getIcon('List');
+const Activity = getIcon('Activity');
+const Gauge = getIcon('Activity');
+const Clock = getIcon('Clock');
+const LayoutGrid = getIcon('Grid3X3');
+const GripVertical = getIcon('Move');
+const ChevronDown = getIcon('ChevronDown');
+const RefreshCw = getActionIcon('refresh');
 
 type WidgetType = 'BAR_CHART' | 'LINE_CHART' | 'PIE_CHART' | 'TREEMAP' | 'TABLE' | 'STAT_CARD' | 'GAUGE' | 'HEATMAP' | 'TIMELINE';
 

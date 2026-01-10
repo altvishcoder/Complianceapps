@@ -9,16 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { 
-  LayoutGrid, 
-  List, 
-  RefreshCw, 
-  Download,
-  BarChart3,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle2
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon, getNavigationIcon } from '@/config/icons';
+
+const LayoutGrid = getIcon('Grid3X3');
+const List = getIcon('List');
+const RefreshCw = getActionIcon('refresh');
+const Download = getActionIcon('download');
+const BarChart3 = getNavigationIcon('overview');
+const TrendingUp = getIcon('TrendingUp');
+const AlertTriangle = getStatusIcon('warning');
+const CheckCircle2 = getStatusIcon('compliant');
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(

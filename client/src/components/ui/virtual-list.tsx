@@ -1,7 +1,9 @@
 import { useRef, ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { getIcon } from '@/config/icons';
+
+const Loader2 = getIcon('Loader2');
 
 interface VirtualListProps<T> {
   items: T[];

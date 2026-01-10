@@ -7,18 +7,35 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Progress } from '@/components/ui/progress';
-import { 
-  TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  Download, Play, RefreshCw, Target, Zap, Brain, Eye, Settings2,
-  Lightbulb, Sparkles, ArrowRight, Wrench, BookOpen, Shield,
-  X, ExternalLink, Clock
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon, getNavigationIcon } from '@/config/icons';
 import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+
+const TrendingUp = getIcon('TrendingUp');
+const TrendingDown = getIcon('TrendingDown');
+const AlertTriangle = getStatusIcon('warning');
+const CheckCircle = getStatusIcon('compliant');
+const Download = getActionIcon('download');
+const Play = getIcon('Play');
+const RefreshCw = getActionIcon('refresh');
+const Target = getIcon('Activity');
+const Zap = getIcon('Activity');
+const Brain = getIcon('Activity');
+const Eye = getActionIcon('view');
+const Settings2 = getIcon('Settings');
+const Lightbulb = getIcon('Info');
+const Sparkles = getIcon('Activity');
+const ArrowRight = getActionIcon('next');
+const Wrench = getNavigationIcon('actions');
+const BookOpen = getIcon('FileText');
+const Shield = getIcon('Shield');
+const X = getActionIcon('close');
+const ExternalLink = getIcon('ExternalLink');
+const Clock = getIcon('Clock');
 
 interface InsightsData {
   accuracy: {
