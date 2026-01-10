@@ -1,9 +1,46 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+export interface RFC7807Error {
+  type: string;
+  title: string;
+  status: number;
+  detail?: string;
+  instance?: string;
+  errors?: Array<{ path: string; message: string }>;
+  traceId?: string;
+  timestamp?: string;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly problemDetail?: RFC7807Error;
+
+  constructor(status: number, message: string, problemDetail?: RFC7807Error) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.problemDetail = problemDetail;
+  }
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let problemDetail: RFC7807Error | undefined;
+    let message = res.statusText;
+    
+    try {
+      const contentType = res.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        problemDetail = await res.json();
+        message = problemDetail?.detail || problemDetail?.title || message;
+      } else {
+        message = await res.text() || message;
+      }
+    } catch {
+      message = res.statusText;
+    }
+    
+    throw new ApiError(res.status, `${res.status}: ${message}`, problemDetail);
   }
 }
 

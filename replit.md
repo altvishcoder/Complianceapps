@@ -46,6 +46,13 @@ Preferred communication style: Simple, everyday language.
 ### API Error Handling
 -   **Standardization**: Implements RFC 7807 Problem Details for all API errors, with hierarchical error classes and helper functions for consistent error responses.
 
+### API Versioning
+-   **Current Version**: v1
+-   **Versioned Endpoints**: `/api/v1/*` (recommended) - adds `X-API-Version: v1` header
+-   **Legacy Endpoints**: `/api/*` (deprecated) - adds `X-API-Deprecation-Warning` header
+-   **Frontend Config**: `client/src/lib/api-config.ts` exports `apiUrl()` helper and `API_VERSION` constant
+-   **Error Integration**: `client/src/lib/queryClient.ts` exports `ApiError` class for RFC 7807 structured error handling
+
 ### Testing Infrastructure
 -   **API Documentation**: OpenAPI 3.0 spec with Swagger UI, auto-generated from Zod schemas.
 -   **Testing Suites**: Vitest for unit/integration tests, Playwright for E2E testing (including visual regression and accessibility), Supertest for HTTP API testing, and Pact for consumer-driven contract testing.
