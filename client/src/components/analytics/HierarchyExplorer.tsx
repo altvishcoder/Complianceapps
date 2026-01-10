@@ -16,7 +16,22 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Loader2
+  Loader2,
+  Flame,
+  Zap,
+  Droplets,
+  Shield,
+  Building2,
+  ArrowUpDown,
+  Lightbulb,
+  Accessibility,
+  HeartPulse,
+  Bug,
+  Lock,
+  Trash2,
+  Users,
+  TreePine,
+  type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +65,27 @@ type LevelType = 'stream' | 'certificateType' | 'property';
 const levelIcons = {
   stream: Layers,
   certificateType: FileText,
-  property: MapPin,
+  property: Home,
+};
+
+const streamIcons: Record<string, LucideIcon> = {
+  GAS_HEATING: Flame,
+  ELECTRICAL: Zap,
+  FIRE_SAFETY: Flame,
+  WATER_SAFETY: Droplets,
+  ASBESTOS: Shield,
+  BUILDING_SAFETY: Building2,
+  LIFT_EQUIPMENT: ArrowUpDown,
+  LIFTING: ArrowUpDown,
+  ENERGY: Lightbulb,
+  ACCESSIBILITY: Accessibility,
+  HRB_SPECIFIC: Building2,
+  HOUSING_HEALTH: HeartPulse,
+  PEST_CONTROL: Bug,
+  SECURITY: Lock,
+  WASTE: Trash2,
+  COMMUNAL: Users,
+  EXTERNAL: TreePine,
 };
 
 const levelLabels = {
@@ -84,7 +119,7 @@ function TreeNode({
   const [isOpen, setIsOpen] = useState(false);
   const [hasRendered, setHasRendered] = useState(false);
   
-  const LevelIcon = levelIcons[level];
+  const LevelIcon = level === 'stream' && item.id ? (streamIcons[item.id] || levelIcons[level]) : levelIcons[level];
   const canExpand = level !== 'property';
   const childLevel = nextLevel[level];
   
