@@ -6134,6 +6134,7 @@ export async function registerRoutes(
       
       if (level === 'certificateType') {
         // Certificate type level: filtered by compliance stream (parentId = stream code)
+        // Only show certificate types that have actual certificates
         if (!parentId) {
           return res.status(400).json({ error: 'parentId (stream_code) required for certificateType level' });
         }
@@ -6150,11 +6151,12 @@ export async function registerRoutes(
             COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE + INTERVAL '30 days' AND c.expiry_date::date >= CURRENT_DATE THEN c.id END)::int as expiring_soon_count,
             COUNT(DISTINCT ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
           FROM certificate_types ct
-          LEFT JOIN certificates c ON c.certificate_type::text = ct.code AND c.deleted_at IS NULL
+          INNER JOIN certificates c ON c.certificate_type::text = ct.code AND c.deleted_at IS NULL
           LEFT JOIN remedial_actions ra ON ra.certificate_id = c.id AND ra.deleted_at IS NULL
           WHERE ct.compliance_stream = ${parentId} AND ct.is_active = true
           GROUP BY ct.code, ct.name, ct.description, ct.display_order
-          ORDER BY ct.display_order, ct.name
+          HAVING COUNT(c.id) > 0
+          ORDER BY COUNT(c.id) DESC, ct.display_order, ct.name
         `);
         
         const certTypes = ((certTypeData.rows || []) as any[]).map(row => ({
