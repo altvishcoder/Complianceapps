@@ -88,90 +88,88 @@ export function ConfigurableChart({
   const renderChart = () => {
     switch (type) {
       case 'bar':
+        const barData = (data || []).slice(0, 8);
+        const isCompact = height < 250;
         return (
           <ResponsiveBar
-            data={data || []}
-            keys={[yKey]}
-            indexBy={xKey}
-            margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
-            padding={0.3}
-            colors={colors}
+            data={barData}
+            keys={[valueKey]}
+            indexBy={labelKey}
+            margin={isCompact 
+              ? { top: 10, right: 10, bottom: 60, left: 50 }
+              : { top: 20, right: 20, bottom: 60, left: 60 }
+            }
+            padding={0.4}
+            colors={(d) => (d.data as any).color || colors[barData.indexOf(d.data) % colors.length]}
+            borderRadius={2}
             borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
             axisBottom={{
-              tickSize: 5,
+              tickSize: 0,
               tickPadding: 5,
               tickRotation: -45,
-              legend: '',
-              legendPosition: 'middle',
-              legendOffset: 40,
+              truncateTickAt: 12,
             }}
             axisLeft={{
-              tickSize: 5,
+              tickSize: 0,
               tickPadding: 5,
               tickRotation: 0,
-              legend: '',
-              legendPosition: 'middle',
-              legendOffset: -50,
+              format: (v) => v >= 1000 ? `${(v as number / 1000).toFixed(0)}k` : String(v),
             }}
-            labelSkipWidth={12}
-            labelSkipHeight={12}
-            labelTextColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
-            legends={showLegend ? [
-              {
-                dataFrom: 'keys',
-                anchor: 'top-right',
-                direction: 'column',
-                translateX: 0,
-                translateY: -20,
-                itemWidth: 80,
-                itemHeight: 20,
-                symbolSize: 12,
-              }
-            ] : []}
+            enableLabel={!isCompact}
+            labelSkipWidth={20}
+            labelSkipHeight={20}
+            labelTextColor="#ffffff"
+            enableGridY={true}
+            gridYValues={4}
+            theme={{
+              grid: { line: { stroke: '#e5e7eb', strokeWidth: 1 } },
+              axis: { ticks: { text: { fontSize: isCompact ? 10 : 11 } } },
+            }}
             animate={animate}
             onClick={(node) => onNodeClick?.(node)}
           />
         );
 
       case 'line':
-        const lineData = Array.isArray(data) && data.length > 0 && !data[0].data
-          ? [{ id: title, data: data.map((d: any) => ({ x: d[xKey], y: d[yKey] })) }]
-          : data || [];
+        const lineRawData = (data || []).slice(0, 10);
+        const lineData = Array.isArray(lineRawData) && lineRawData.length > 0 && !lineRawData[0].data
+          ? [{ id: title || 'Series', data: lineRawData.map((d: any) => ({ x: d[labelKey], y: d[valueKey] })) }]
+          : lineRawData;
+        const isLineCompact = height < 250;
         
         return (
           <ResponsiveLine
             data={lineData}
-            margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+            margin={isLineCompact 
+              ? { top: 10, right: 10, bottom: 60, left: 50 }
+              : { top: 20, right: 20, bottom: 60, left: 60 }
+            }
             xScale={{ type: 'point' }}
             yScale={{ type: 'linear', min: 'auto', max: 'auto', stacked: false }}
             axisBottom={{
-              tickSize: 5,
+              tickSize: 0,
               tickPadding: 5,
               tickRotation: -45,
             }}
             axisLeft={{
-              tickSize: 5,
+              tickSize: 0,
               tickPadding: 5,
               tickRotation: 0,
+              format: (v) => v >= 1000 ? `${(v as number / 1000).toFixed(0)}k` : String(v),
             }}
             colors={colors}
-            pointSize={8}
+            pointSize={isLineCompact ? 6 : 8}
             pointColor={{ theme: 'background' }}
             pointBorderWidth={2}
             pointBorderColor={{ from: 'serieColor' }}
-            pointLabelYOffset={-12}
+            enableArea={true}
+            areaOpacity={0.1}
             useMesh={true}
-            legends={showLegend ? [
-              {
-                anchor: 'top-right',
-                direction: 'column',
-                translateX: 0,
-                translateY: -20,
-                itemWidth: 80,
-                itemHeight: 20,
-                symbolSize: 12,
-              }
-            ] : []}
+            enableGridX={false}
+            theme={{
+              grid: { line: { stroke: '#e5e7eb', strokeWidth: 1 } },
+              axis: { ticks: { text: { fontSize: isLineCompact ? 10 : 11 } } },
+            }}
             animate={animate}
             onClick={(point) => onNodeClick?.(point)}
           />
