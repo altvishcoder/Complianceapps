@@ -178,57 +178,6 @@ export default function AssetHealthTreemapPage() {
               </TabsContent>
             </Tabs>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Compliance Streams Summary</CardTitle>
-                <CardDescription>
-                  Overview of all compliance streams with their current status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {(dashboardStats?.complianceByType || []).map((stream: any) => {
-                    const rate = parseFloat(stream.rate || '0');
-                    const riskLevel = rate >= 90 ? 'LOW' : rate >= 70 ? 'MEDIUM' : 'HIGH';
-                    return (
-                      <div 
-                        key={stream.code}
-                        className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => {
-                          setActiveView('explorer');
-                        }}
-                        data-testid={`stream-card-${stream.code}`}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-sm">{stream.type}</span>
-                          <Badge 
-                            variant={riskLevel === 'HIGH' ? 'destructive' : riskLevel === 'MEDIUM' ? 'secondary' : 'outline'}
-                            className="ml-auto text-xs"
-                          >
-                            {riskLevel}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground text-xs">Certificates</span>
-                            <div className="font-semibold">{stream.total?.toLocaleString() || 0}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground text-xs">Compliance</span>
-                            <div className={`font-semibold ${
-                              rate >= 90 ? 'text-green-600' :
-                              rate >= 70 ? 'text-amber-600' : 'text-red-600'
-                            }`}>
-                              {rate.toFixed(0)}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </main>
       </div>
