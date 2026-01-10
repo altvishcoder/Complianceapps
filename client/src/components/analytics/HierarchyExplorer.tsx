@@ -1,39 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   ChevronRight, 
   ChevronDown, 
-  Home, 
-  FileText, 
-  Layers, 
-  MapPin,
   AlertTriangle,
-  CheckCircle2,
-  Clock,
   Loader2,
-  Flame,
-  Zap,
-  Droplets,
-  Shield,
-  Building2,
-  ArrowUpDown,
-  Lightbulb,
-  Accessibility,
-  HeartPulse,
-  Bug,
-  Lock,
-  Trash2,
-  Users,
-  TreePine,
-  type LucideIcon
+  MapPin,
+  FileText,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { 
+  getStreamIcon, 
+  getIconByName,
+  getHierarchyIcon,
+  getHierarchyColor,
+  HIERARCHY_ICONS,
+} from '@/config/icons';
 
 interface HierarchyItem {
   id: string;
@@ -62,42 +50,10 @@ interface HierarchyExplorerProps {
 
 type LevelType = 'stream' | 'certificateType' | 'property';
 
-const levelIcons = {
-  stream: Layers,
-  certificateType: FileText,
-  property: Home,
-};
-
-const streamIcons: Record<string, LucideIcon> = {
-  GAS_HEATING: Flame,
-  ELECTRICAL: Zap,
-  FIRE_SAFETY: Flame,
-  WATER_SAFETY: Droplets,
-  ASBESTOS: Shield,
-  BUILDING_SAFETY: Building2,
-  LIFT_EQUIPMENT: ArrowUpDown,
-  LIFTING: ArrowUpDown,
-  ENERGY: Lightbulb,
-  ACCESSIBILITY: Accessibility,
-  HRB_SPECIFIC: Building2,
-  HOUSING_HEALTH: HeartPulse,
-  PEST_CONTROL: Bug,
-  SECURITY: Lock,
-  WASTE: Trash2,
-  COMMUNAL: Users,
-  EXTERNAL: TreePine,
-};
-
 const levelLabels = {
   stream: 'Compliance Stream',
   certificateType: 'Certificate Type',
   property: 'Property',
-};
-
-const levelColors = {
-  stream: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
-  certificateType: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
-  property: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
 };
 
 const nextLevel: Record<string, LevelType> = {
@@ -119,7 +75,20 @@ function TreeNode({
   const [isOpen, setIsOpen] = useState(false);
   const [hasRendered, setHasRendered] = useState(false);
   
-  const LevelIcon = level === 'stream' && item.id ? (streamIcons[item.id] || levelIcons[level]) : levelIcons[level];
+  const getNodeIcon = () => {
+    if (level === 'stream') {
+      if (item.icon) {
+        return getIconByName(item.icon);
+      }
+      if (item.id) {
+        return getStreamIcon(item.id);
+      }
+    }
+    return getHierarchyIcon(level);
+  };
+  
+  const LevelIcon = getNodeIcon();
+  const levelColor = getHierarchyColor(level);
   const canExpand = level !== 'property';
   const childLevel = nextLevel[level];
   
@@ -163,7 +132,7 @@ function TreeNode({
               <div className="w-6 flex-shrink-0" />
             )}
             
-            <div className={cn("p-1.5 rounded-md flex-shrink-0", levelColors[level])}>
+            <div className={cn("p-1.5 rounded-md flex-shrink-0", levelColor)}>
               <LevelIcon className="h-4 w-4" />
             </div>
             

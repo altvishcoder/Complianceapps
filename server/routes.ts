@@ -5994,11 +5994,11 @@ export async function registerRoutes(
       const { level = 'stream', parentId } = req.query;
       
       if (level === 'stream') {
-        // Stream-level: aggregate by compliance stream
+        // Stream-level: show ALL active compliance streams from database with certificate stats
         const streamData = await db.execute(sql`
           SELECT 
-            COALESCE(cs.code, 'OTHER') as id,
-            COALESCE(cs.name, 'Other') as name,
+            cs.code as id,
+            cs.name,
             COALESCE(cs.color_code, '#6b7280') as color,
             COALESCE(cs.icon_name, 'FileText') as icon,
             COUNT(DISTINCT c.id)::int as certificate_count,
@@ -6008,11 +6008,11 @@ export async function registerRoutes(
             COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
             COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE + INTERVAL '30 days' AND c.expiry_date::date >= CURRENT_DATE THEN c.id END)::int as expiring_soon_count,
             COUNT(DISTINCT ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
-          FROM certificates c
-          LEFT JOIN certificate_types ct ON c.certificate_type::text = ct.code
-          LEFT JOIN compliance_streams cs ON ct.compliance_stream = cs.code
+          FROM compliance_streams cs
+          LEFT JOIN certificate_types ct ON ct.compliance_stream = cs.code AND ct.is_active = true
+          LEFT JOIN certificates c ON c.certificate_type::text = ct.code AND c.deleted_at IS NULL
           LEFT JOIN remedial_actions ra ON ra.certificate_id = c.id AND ra.deleted_at IS NULL
-          WHERE c.deleted_at IS NULL
+          WHERE cs.is_active = true
           GROUP BY cs.code, cs.name, cs.color_code, cs.icon_name, cs.display_order
           ORDER BY cs.display_order, COUNT(c.id) DESC
         `);
