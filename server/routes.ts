@@ -6098,8 +6098,7 @@ export async function registerRoutes(
           SELECT 
             b.id,
             b.name,
-            b.address_line1,
-            b.postcode,
+            b.reference,
             COUNT(DISTINCT p.id)::int as property_count,
             COUNT(DISTINCT c.id)::int as certificate_count,
             COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
@@ -6110,15 +6109,14 @@ export async function registerRoutes(
           LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
           LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
           WHERE b.scheme_id = ${parentId} AND b.deleted_at IS NULL
-          GROUP BY b.id, b.name, b.address_line1, b.postcode
+          GROUP BY b.id, b.name, b.reference
           ORDER BY COUNT(DISTINCT p.id) DESC
         `);
         
         const blocks = ((blockData.rows || []) as any[]).map(row => ({
           id: row.id,
           name: row.name,
-          address: row.address_line1,
-          postcode: row.postcode,
+          reference: row.reference,
           value: Number(row.property_count) || 0,
           propertyCount: Number(row.property_count) || 0,
           certificateCount: Number(row.certificate_count) || 0,
