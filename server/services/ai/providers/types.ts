@@ -7,6 +7,8 @@ export enum AIProviderType {
   LOCAL = "local",
 }
 
+export { AIProviderType as AIProviderTypeEnum };
+
 export enum AICapability {
   OCR = "ocr",
   TEXT_EXTRACTION = "text_extraction",
