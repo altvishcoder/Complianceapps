@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ComplianceTreeMap } from '@/components/analytics/ComplianceTreeMap';
@@ -20,6 +20,20 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [breakpoint]);
+  
+  return isMobile;
+}
+
 interface StreamSummary {
   id: string;
   name: string;
@@ -33,8 +47,14 @@ interface StreamSummary {
 
 export default function AssetHealthTreemapPage() {
   const [, setLocation] = useLocation();
+  const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<'treemap' | 'explorer'>('treemap');
   const [groupBy, setGroupBy] = useState<'stream' | 'scheme'>('stream');
+  
+  // Auto-switch to explorer on mobile for better UX
+  useEffect(() => {
+    if (isMobile) setActiveView('explorer');
+  }, [isMobile]);
 
   const { data: dashboardStats, refetch, isRefetching } = useQuery<any>({
     queryKey: ['/api/dashboard/stats'],

@@ -79,13 +79,13 @@ export function ComplianceTreeMap({
     : 0;
 
   // Apply log scale transformation to make small values visible
-  // Use sqrt for gentler scaling that still shows proportion
+  // Ensures all streams are visible regardless of size disparity
   const transformedData = {
     ...data,
     children: data.children?.map(child => ({
       ...child,
       originalValue: child.value,
-      value: Math.max(Math.sqrt(child.value || 1) * 100, 500), // Min size for visibility
+      value: Math.max(Math.log10((child.value || 1) + 1) * 1000, 300),
     }))
   };
 
@@ -135,12 +135,12 @@ export function ComplianceTreeMap({
             data={transformedData}
             identity="name"
             value="value"
-            valueFormat={(value) => {
-              // Display format - show original values from node data
-              return '';
-            }}
-            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            labelSkipSize={15}
+            tile="sliceDice"
+            valueFormat={() => ''}
+            margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+            innerPadding={3}
+            outerPadding={3}
+            labelSkipSize={12}
             label={(node) => {
               const origVal = (node.data as any).originalValue || node.value;
               const formatted = origVal >= 1000 ? `${(origVal/1000).toFixed(0)}k` : String(origVal);
