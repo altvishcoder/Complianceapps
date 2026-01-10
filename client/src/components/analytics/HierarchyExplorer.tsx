@@ -5,23 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  AlertTriangle,
-  Loader2,
-  MapPin,
-  FileText,
-  Layers,
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
+  getIcon,
+  getStatusIcon,
+  getActionIcon,
   getStreamIcon, 
   getIconByName,
   getHierarchyIcon,
   getHierarchyColor,
   HIERARCHY_ICONS,
 } from '@/config/icons';
+
+const ChevronRight = getActionIcon('next');
+const ChevronDown = getIcon('ChevronDown');
+const AlertTriangle = getStatusIcon('warning');
+const Loader2 = getIcon('Loader2');
+const MapPin = getIcon('MapPin');
+const FileText = getIcon('FileText');
+const Layers = getIcon('Layers');
 
 interface HierarchyItem {
   id: string;

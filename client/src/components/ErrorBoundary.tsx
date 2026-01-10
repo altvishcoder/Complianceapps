@@ -1,7 +1,10 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { getStatusIcon, getActionIcon } from '@/config/icons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+const AlertTriangle = getStatusIcon('warning');
+const RefreshCw = getActionIcon('refresh');
 
 interface Props {
   children: ReactNode;

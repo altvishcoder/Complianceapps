@@ -4,11 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { 
-  X, ChevronLeft, ChevronRight, LayoutDashboard, Building2, 
-  FileCheck, Radar, Bot, HelpCircle, Sparkles, Play
-} from 'lucide-react';
+import { getIcon, getActionIcon, getNavigationIcon } from '@/config/icons';
 import { useLocation } from 'wouter';
+
+const X = getActionIcon('close');
+const ChevronLeft = getActionIcon('previous');
+const ChevronRight = getActionIcon('next');
+const LayoutDashboard = getNavigationIcon('overview');
+const Building2 = getIcon('Building2');
+const FileCheck = getNavigationIcon('certificates');
+const Radar = getNavigationIcon('risk');
+const Bot = getIcon('Activity');
+const HelpCircle = getIcon('HelpCircle');
+const Sparkles = getIcon('Activity');
+const Play = getIcon('Play');
 
 interface TourStep {
   id: string;

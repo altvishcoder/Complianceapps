@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Command, Keyboard } from 'lucide-react';
+import { getIcon } from '@/config/icons';
 import { cn } from '@/lib/utils';
+
+const Command = getIcon('Settings');
+const Keyboard = getIcon('Settings');
 
 interface ShortcutCategory {
   name: string;

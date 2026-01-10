@@ -2,10 +2,19 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Building2, FileCheck, AlertTriangle, Map, Users, Settings, ChevronRight, 
-  ChevronLeft, CheckCircle2, Sparkles, Shield
-} from 'lucide-react';
+import { getIcon, getActionIcon, getStatusIcon, getNavigationIcon } from '@/config/icons';
+
+const Building2 = getIcon('Building2');
+const FileCheck = getNavigationIcon('certificates');
+const AlertTriangle = getStatusIcon('warning');
+const Map = getNavigationIcon('maps');
+const Users = getIcon('Users');
+const Settings = getIcon('Settings');
+const ChevronRight = getActionIcon('next');
+const ChevronLeft = getActionIcon('previous');
+const CheckCircle2 = getStatusIcon('compliant');
+const Sparkles = getIcon('Activity');
+const Shield = getIcon('Shield');
 
 interface OnboardingStep {
   id: string;

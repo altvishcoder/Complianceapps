@@ -3,9 +3,16 @@ import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
+import { getIcon, getActionIcon } from '@/config/icons';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+
+const MessageCircle = getIcon('MessageCircle');
+const X = getActionIcon('close');
+const Send = getIcon('Send');
+const Loader2 = getIcon('Loader2');
+const Bot = getIcon('Activity');
+const User = getIcon('Users');
 
 const AUTH_ROUTES = ['/login', '/register', '/mfa'];
 

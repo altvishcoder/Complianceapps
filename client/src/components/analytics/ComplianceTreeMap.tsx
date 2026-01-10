@@ -2,7 +2,12 @@ import { ResponsiveTreeMap } from '@nivo/treemap';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { getIcon, getStatusIcon, getActionIcon } from '@/config/icons';
+
+const AlertCircle = getStatusIcon('error');
+const TrendingUp = getIcon('TrendingUp');
+const TrendingDown = getIcon('TrendingDown');
+const Minus = getActionIcon('remove');
 
 interface TreeMapNode {
   name: string;
