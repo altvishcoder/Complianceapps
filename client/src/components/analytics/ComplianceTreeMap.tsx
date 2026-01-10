@@ -36,7 +36,8 @@ const getRiskColor = (riskLevel?: string) => {
   return riskColors[riskLevel as keyof typeof riskColors] || '#6b7280';
 };
 
-const MIN_TILE_SIZE = 500;
+const MIN_TILE_SIZE = 1;
+const SCALE_FACTOR = 10;
 
 function CustomNode({ node }: { node: any }) {
   const { x, y, width, height, color, data } = node;
@@ -46,10 +47,6 @@ function CustomNode({ node }: { node: any }) {
   const displayValue = data.displayValue ?? 0;
   const name = data.name || '';
   
-  const showFullLabel = width > 120 && height > 40;
-  const showNameOnly = !showFullLabel && width > 80 && height > 30;
-  const showValueOnly = !showFullLabel && !showNameOnly && width > 40 && height > 20;
-  
   const formatValue = (val: number) => {
     if (val >= 1000) return `${(val / 1000).toFixed(0)}k`;
     return String(val);
@@ -57,10 +54,29 @@ function CustomNode({ node }: { node: any }) {
   
   const truncateName = (n: string, maxLen: number) => {
     if (n.length <= maxLen) return n;
+    if (maxLen <= 3) return n.substring(0, 2);
     return n.substring(0, maxLen - 2) + '..';
   };
   
-  const maxNameChars = Math.max(6, Math.floor(width / 9));
+  const getInitials = (n: string) => {
+    return n.split(/[\s&]+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
+  };
+  
+  const fontSize = Math.max(8, Math.min(12, Math.floor(width / 10)));
+  const maxChars = Math.max(2, Math.floor(width / (fontSize * 0.7)));
+  
+  const canFitFullLabel = width > 100 && height > 35;
+  const canFitName = width > 50 && height > 18;
+  const canFitInitials = width > 20 && height > 14;
+  
+  let labelContent = '';
+  if (canFitFullLabel) {
+    labelContent = `${truncateName(name, maxChars)} (${formatValue(displayValue)})`;
+  } else if (canFitName) {
+    labelContent = truncateName(name, maxChars);
+  } else if (canFitInitials) {
+    labelContent = getInitials(name);
+  }
   
   return (
     <g style={{ cursor: 'pointer' }}>
@@ -74,54 +90,17 @@ function CustomNode({ node }: { node: any }) {
         strokeWidth={2}
         rx={2}
       />
-      {showFullLabel && (
-        <>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 - 8}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#ffffff"
-            fontSize={12}
-            fontWeight={600}
-          >
-            {truncateName(name, maxNameChars)}
-          </text>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 + 10}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#ffffff"
-            fontSize={11}
-          >
-            ({formatValue(displayValue)})
-          </text>
-        </>
-      )}
-      {showNameOnly && (
+      {labelContent && (
         <text
           x={x + width / 2}
           y={y + height / 2}
           textAnchor="middle"
           dominantBaseline="middle"
           fill="#ffffff"
-          fontSize={11}
+          fontSize={fontSize}
           fontWeight={500}
         >
-          {truncateName(name, maxNameChars)}
-        </text>
-      )}
-      {showValueOnly && (
-        <text
-          x={x + width / 2}
-          y={y + height / 2}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="#ffffff"
-          fontSize={10}
-        >
-          {formatValue(displayValue)}
+          {labelContent}
         </text>
       )}
     </g>
@@ -161,15 +140,17 @@ export function ComplianceTreeMap({
 
   const transformedData = {
     name: 'Portfolio',
-    children: data.children?.map(child => {
+    code: 'PORTFOLIO',
+    children: data.children?.map((child, idx) => {
       const actualValue = child.value ?? 0;
-      const logScaledSize = actualValue > 0 
-        ? Math.log10(actualValue + 1) * 1000 
+      const scaledSize = actualValue > 0 
+        ? Math.pow(actualValue, 0.5) * SCALE_FACTOR
         : MIN_TILE_SIZE;
       return {
         ...child,
+        id: child.code || `stream-${idx}`,
         displayValue: actualValue,
-        value: Math.max(logScaledSize, MIN_TILE_SIZE),
+        value: Math.max(scaledSize, MIN_TILE_SIZE),
       } as TransformedNode;
     }) || []
   };
@@ -179,7 +160,7 @@ export function ComplianceTreeMap({
         <div style={{ height }} data-testid="treemap-chart">
           <ResponsiveTreeMap
             data={transformedData}
-            identity="name"
+            identity={(node) => (node.data as any).id || (node.data as any).code || node.data.name}
             value="value"
             tile="squarify"
             leavesOnly={true}
