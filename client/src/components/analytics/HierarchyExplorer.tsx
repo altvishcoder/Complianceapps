@@ -9,7 +9,7 @@ import {
   ChevronRight, 
   ChevronLeft, 
   Home, 
-  Building2, 
+  FileText, 
   Layers, 
   MapPin,
   AlertTriangle,
@@ -39,7 +39,7 @@ interface HierarchyItem {
 }
 
 interface BreadcrumbItem {
-  level: 'scheme' | 'block' | 'property';
+  level: 'stream' | 'certificateType' | 'property';
   id: string | null;
   name: string;
 }
@@ -49,27 +49,27 @@ interface HierarchyExplorerProps {
 }
 
 const levelIcons = {
-  scheme: Layers,
-  block: Building2,
+  stream: Layers,
+  certificateType: FileText,
   property: MapPin,
 };
 
 const levelLabels = {
-  scheme: 'Scheme',
-  block: 'Block',
+  stream: 'Compliance Stream',
+  certificateType: 'Certificate Type',
   property: 'Property',
 };
 
-const nextLevel: Record<string, 'scheme' | 'block' | 'property'> = {
-  scheme: 'block',
-  block: 'property',
+const nextLevel: Record<string, 'stream' | 'certificateType' | 'property'> = {
+  stream: 'certificateType',
+  certificateType: 'property',
 };
 
 export function HierarchyExplorer({ 
   onPropertyClick,
 }: HierarchyExplorerProps) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
-    { level: 'scheme', id: null, name: 'All Schemes' }
+    { level: 'stream', id: null, name: 'All Streams' }
   ]);
   
   const currentLevel = breadcrumbs[breadcrumbs.length - 1];

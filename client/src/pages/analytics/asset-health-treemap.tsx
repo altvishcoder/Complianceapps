@@ -49,7 +49,6 @@ export default function AssetHealthTreemapPage() {
   const [, setLocation] = useLocation();
   const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<'treemap' | 'explorer'>('treemap');
-  const [groupBy, setGroupBy] = useState<'stream' | 'scheme'>('stream');
   const [selectedStream, setSelectedStream] = useState<any>(null);
   
   // Auto-switch to explorer on mobile for better UX
@@ -140,33 +139,11 @@ export default function AssetHealthTreemapPage() {
                     Hierarchy Explorer
                   </TabsTrigger>
                 </TabsList>
-                
-                {activeView === 'treemap' && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Group by:</span>
-                    <Button
-                      variant={groupBy === 'stream' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setGroupBy('stream')}
-                      data-testid="group-by-stream"
-                    >
-                      Stream
-                    </Button>
-                    <Button
-                      variant={groupBy === 'scheme' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setGroupBy('scheme')}
-                      data-testid="group-by-scheme"
-                    >
-                      Scheme
-                    </Button>
-                  </div>
-                )}
               </div>
 
               <TabsContent value="treemap" className="mt-4">
                 <ComplianceTreeMap 
-                  groupBy={groupBy} 
+                  groupBy="stream" 
                   onNodeClick={handleTreemapNodeClick}
                   height={500}
                 />

@@ -6132,54 +6132,147 @@ export async function registerRoutes(
         return res.json({ level: 'block', data: blocks, parentId });
       }
       
-      if (level === 'property') {
-        // Property-level: filtered by block
+      if (level === 'certificateType') {
+        // Certificate type level: filtered by compliance stream (parentId = stream code)
         if (!parentId) {
-          return res.status(400).json({ error: 'parentId (block_id) required for property level' });
+          return res.status(400).json({ error: 'parentId (stream_code) required for certificateType level' });
         }
         
-        const propertyData = await db.execute(sql`
+        const certTypeData = await db.execute(sql`
           SELECT 
-            p.id,
-            p.uprn,
-            p.address_line1,
-            p.postcode,
-            p.compliance_status,
-            COUNT(c.id)::int as certificate_count,
-            COUNT(CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
-            COUNT(CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
-            COUNT(ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
-          FROM properties p
-          LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
-          LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
-          WHERE p.block_id = ${parentId} AND p.deleted_at IS NULL
-          GROUP BY p.id, p.uprn, p.address_line1, p.postcode, p.compliance_status
-          ORDER BY p.address_line1
+            ct.code,
+            ct.name,
+            ct.description,
+            COUNT(DISTINCT c.id)::int as certificate_count,
+            COUNT(DISTINCT c.property_id)::int as property_count,
+            COUNT(DISTINCT CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+            COUNT(DISTINCT CASE WHEN c.expiry_date::date < CURRENT_DATE + INTERVAL '30 days' AND c.expiry_date::date >= CURRENT_DATE THEN c.id END)::int as expiring_soon_count,
+            COUNT(DISTINCT ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+          FROM certificate_types ct
+          LEFT JOIN certificates c ON c.certificate_type::text = ct.code AND c.deleted_at IS NULL
+          LEFT JOIN remedial_actions ra ON ra.certificate_id = c.id AND ra.deleted_at IS NULL
+          WHERE ct.compliance_stream = ${parentId} AND ct.is_active = true
+          GROUP BY ct.code, ct.name, ct.description, ct.display_order
+          ORDER BY ct.display_order, ct.name
         `);
         
-        const properties = ((propertyData.rows || []) as any[]).map(row => ({
-          id: row.id,
-          uprn: row.uprn,
-          name: row.address_line1 || row.uprn || 'Unknown',
-          address: row.address_line1,
-          postcode: row.postcode,
-          complianceStatus: row.compliance_status,
-          value: 1,
+        const certTypes = ((certTypeData.rows || []) as any[]).map(row => ({
+          id: row.code,
+          code: row.code,
+          name: row.name,
+          description: row.description,
+          value: Number(row.property_count) || 0,
+          propertyCount: Number(row.property_count) || 0,
           certificateCount: Number(row.certificate_count) || 0,
           compliantCount: Number(row.compliant_count) || 0,
           expiredCount: Number(row.expired_count) || 0,
+          expiringSoonCount: Number(row.expiring_soon_count) || 0,
           openActions: Number(row.open_actions) || 0,
           complianceRate: Number(row.certificate_count) > 0 
             ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
             : 0,
-          riskLevel: row.compliance_status === 'NON_COMPLIANT' ? 'HIGH' 
-            : row.compliance_status === 'EXPIRING_SOON' ? 'MEDIUM' : 'LOW'
+          riskLevel: Number(row.expired_count) > 5 ? 'HIGH' : Number(row.expiring_soon_count) > 10 ? 'MEDIUM' : 'LOW'
         }));
         
-        return res.json({ level: 'property', data: properties, parentId });
+        return res.json({ level: 'certificateType', data: certTypes, parentId });
       }
       
-      res.status(400).json({ error: 'Invalid level. Use: stream, scheme, block, property' });
+      if (level === 'property') {
+        // Property-level: filtered by block OR by certificate type code
+        if (!parentId) {
+          return res.status(400).json({ error: 'parentId required for property level' });
+        }
+        
+        // Check if parentId is a certificate type code or a block UUID
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentId as string);
+        
+        if (isUUID) {
+          // Filter by block
+          const propertyData = await db.execute(sql`
+            SELECT 
+              p.id,
+              p.uprn,
+              p.address_line1,
+              p.postcode,
+              p.compliance_status,
+              COUNT(c.id)::int as certificate_count,
+              COUNT(CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+              COUNT(CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+              COUNT(ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+            FROM properties p
+            LEFT JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL
+            LEFT JOIN remedial_actions ra ON ra.property_id = p.id AND ra.deleted_at IS NULL
+            WHERE p.block_id = ${parentId} AND p.deleted_at IS NULL
+            GROUP BY p.id, p.uprn, p.address_line1, p.postcode, p.compliance_status
+            ORDER BY p.address_line1
+          `);
+          
+          const properties = ((propertyData.rows || []) as any[]).map(row => ({
+            id: row.id,
+            uprn: row.uprn,
+            name: row.address_line1 || row.uprn || 'Unknown',
+            address: row.address_line1,
+            postcode: row.postcode,
+            complianceStatus: row.compliance_status,
+            value: 1,
+            certificateCount: Number(row.certificate_count) || 0,
+            compliantCount: Number(row.compliant_count) || 0,
+            expiredCount: Number(row.expired_count) || 0,
+            openActions: Number(row.open_actions) || 0,
+            complianceRate: Number(row.certificate_count) > 0 
+              ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
+              : 0,
+            riskLevel: row.compliance_status === 'NON_COMPLIANT' ? 'HIGH' 
+              : row.compliance_status === 'EXPIRING_SOON' ? 'MEDIUM' : 'LOW'
+          }));
+          
+          return res.json({ level: 'property', data: properties, parentId });
+        } else {
+          // Filter by certificate type code
+          const propertyData = await db.execute(sql`
+            SELECT 
+              p.id,
+              p.uprn,
+              p.address_line1,
+              p.postcode,
+              p.compliance_status,
+              COUNT(c.id)::int as certificate_count,
+              COUNT(CASE WHEN c.status = 'APPROVED' THEN c.id END)::int as compliant_count,
+              COUNT(CASE WHEN c.expiry_date::date < CURRENT_DATE THEN c.id END)::int as expired_count,
+              COUNT(ra.id) FILTER (WHERE ra.status NOT IN ('COMPLETED', 'CANCELLED'))::int as open_actions
+            FROM properties p
+            INNER JOIN certificates c ON c.property_id = p.id AND c.deleted_at IS NULL AND c.certificate_type::text = ${parentId}
+            LEFT JOIN remedial_actions ra ON ra.certificate_id = c.id AND ra.deleted_at IS NULL
+            WHERE p.deleted_at IS NULL
+            GROUP BY p.id, p.uprn, p.address_line1, p.postcode, p.compliance_status
+            ORDER BY p.address_line1
+          `);
+          
+          const properties = ((propertyData.rows || []) as any[]).map(row => ({
+            id: row.id,
+            uprn: row.uprn,
+            name: row.address_line1 || row.uprn || 'Unknown',
+            address: row.address_line1,
+            postcode: row.postcode,
+            complianceStatus: row.compliance_status,
+            value: 1,
+            certificateCount: Number(row.certificate_count) || 0,
+            compliantCount: Number(row.compliant_count) || 0,
+            expiredCount: Number(row.expired_count) || 0,
+            openActions: Number(row.open_actions) || 0,
+            complianceRate: Number(row.certificate_count) > 0 
+              ? Math.round((Number(row.compliant_count) / Number(row.certificate_count)) * 100) 
+              : 0,
+            riskLevel: row.compliance_status === 'NON_COMPLIANT' ? 'HIGH' 
+              : row.compliance_status === 'EXPIRING_SOON' ? 'MEDIUM' : 'LOW'
+          }));
+          
+          return res.json({ level: 'property', data: properties, parentId });
+        }
+      }
+      
+      res.status(400).json({ error: 'Invalid level. Use: stream, scheme, block, certificateType, property' });
     } catch (error) {
       console.error("Error fetching hierarchy data:", error);
       res.status(500).json({ error: "Failed to fetch hierarchy data" });
