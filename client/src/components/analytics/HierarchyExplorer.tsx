@@ -106,58 +106,55 @@ function TreeNode({
       <Collapsible open={isOpen} onOpenChange={handleToggle}>
         <div 
           className={cn(
-            "flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group",
+            "py-2 px-2 sm:px-3 rounded-lg hover:bg-muted/50 transition-colors group",
             level === 'property' && "cursor-pointer"
           )}
-          style={{ marginLeft: `${nodeLevel * 24}px` }}
+          style={{ marginLeft: `${nodeLevel * 16}px` }}
           onClick={handleClick}
           data-testid={`tree-node-${level}-${item.id}`}
         >
-          {canExpand ? (
-            <CollapsibleTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
-                {isOpen ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-          ) : (
-            <div className="w-6" />
-          )}
-          
-          <div className={cn("p-1.5 rounded-md", levelColors[level])}>
-            <LevelIcon className="h-4 w-4" />
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              {item.color && (
-                <span 
-                  className="w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: item.color }}
-                />
-              )}
-              <span className="font-medium truncate">{item.name}</span>
-              {item.riskLevel && item.riskLevel !== 'LOW' && (
-                <Badge 
-                  variant={item.riskLevel === 'HIGH' ? 'destructive' : 'secondary'}
-                  className="flex-shrink-0 text-xs"
-                >
-                  {item.riskLevel}
-                </Badge>
-              )}
+          <div className="flex items-center gap-2">
+            {canExpand ? (
+              <CollapsibleTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 flex-shrink-0">
+                  {isOpen ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            ) : (
+              <div className="w-6 flex-shrink-0" />
+            )}
+            
+            <div className={cn("p-1.5 rounded-md flex-shrink-0", levelColors[level])}>
+              <LevelIcon className="h-4 w-4" />
             </div>
-            {(item.address || item.reference) && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                {item.address || item.reference}
-                {item.postcode && `, ${item.postcode}`}
-              </p>
+            
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-2">
+                {item.color && (
+                  <span 
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                )}
+                <span className="font-medium text-sm truncate">{item.name}</span>
+              </div>
+            </div>
+            
+            {item.riskLevel && item.riskLevel !== 'LOW' && (
+              <Badge 
+                variant={item.riskLevel === 'HIGH' ? 'destructive' : 'secondary'}
+                className="flex-shrink-0 text-xs"
+              >
+                {item.riskLevel}
+              </Badge>
             )}
           </div>
           
-          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-shrink-0">
+          <div className="flex items-center gap-3 mt-1 ml-8 text-xs text-muted-foreground">
             {item.propertyCount !== undefined && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
@@ -179,11 +176,13 @@ function TreeNode({
                 {item.complianceRate}%
               </span>
             )}
+            {(item.address || item.reference) && (
+              <span className="truncate">
+                {item.address || item.reference}
+                {item.postcode && `, ${item.postcode}`}
+              </span>
+            )}
           </div>
-          
-          <Badge variant="outline" className="text-xs flex-shrink-0">
-            {levelLabels[level]}
-          </Badge>
         </div>
         
         {canExpand && hasRendered && (
