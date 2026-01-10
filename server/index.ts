@@ -21,6 +21,29 @@ console.log(`[${new Date().toISOString()}] DATABASE_URL: ${process.env.DATABASE_
 console.log(`[${new Date().toISOString()}] PORT: ${process.env.PORT || '5000'}`);
 console.log(`[${new Date().toISOString()}] Imports completed, setting up server...`);
 
+// P0 SECURITY: Validate auth secrets in production
+const isProduction = process.env.NODE_ENV === 'production';
+const authSecret = process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET;
+const INSECURE_DEFAULT = 'development-only-secret-change-in-production';
+
+if (isProduction) {
+  if (!authSecret || authSecret === INSECURE_DEFAULT) {
+    console.error(`[${new Date().toISOString()}] CRITICAL SECURITY ERROR:`);
+    console.error(`  BETTER_AUTH_SECRET or SESSION_SECRET must be set in production.`);
+    console.error(`  Generate a secure random secret (minimum 32 characters).`);
+    console.error(`  Example: openssl rand -base64 32`);
+    console.error(`  Set it in your environment: BETTER_AUTH_SECRET=your-secure-secret`);
+    process.exit(1);
+  }
+  console.log(`[${new Date().toISOString()}] Auth secrets: validated`);
+} else {
+  if (!authSecret || authSecret === INSECURE_DEFAULT) {
+    console.warn(`[${new Date().toISOString()}] WARNING: Using insecure default auth secret (development only)`);
+  } else {
+    console.log(`[${new Date().toISOString()}] Auth secrets: configured`);
+  }
+}
+
 const app = express();
 const httpServer = createServer(app);
 

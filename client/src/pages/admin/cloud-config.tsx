@@ -27,9 +27,16 @@ interface StorageProvider {
 interface AIProvider {
   type: string;
   name: string;
+  displayName: string;
+  description: string;
+  category: "cloud" | "offline";
   capabilities: string[];
   priority: number;
   configured: boolean;
+  envVars: string[];
+  envVarsConfigured: number;
+  envVarsRequired: number;
+  capabilityDetails: Record<string, string>;
   health?: {
     isHealthy: boolean;
     latencyMs?: number;
@@ -73,9 +80,15 @@ const STORAGE_ICONS: Record<string, React.ElementType> = {
 
 const AI_CAPABILITY_LABELS: Record<string, string> = {
   ocr: "OCR",
-  text_extraction: "Text Extraction",
-  vision: "Vision",
+  text_extraction: "LLM Extraction",
+  vision: "Vision Analysis",
   document_intelligence: "Document Intelligence",
+  chat: "Chat",
+};
+
+const AI_CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
+  cloud: { label: "Cloud", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+  offline: { label: "Offline/Airgapped", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
 };
 
 const SSO_ICONS: Record<string, React.ElementType> = {
@@ -361,31 +374,74 @@ export default function CloudConfigPage() {
                     .map(provider => {
                       const healthStatus = provider.health?.isHealthy ? "healthy" : 
                         provider.configured ? (provider.health ? "unhealthy" : "configured") : "unconfigured";
+                      const categoryInfo = AI_CATEGORY_LABELS[provider.category] || AI_CATEGORY_LABELS.cloud;
                       return (
-                        <ProviderCard
-                          key={provider.type}
-                          icon={Brain}
-                          name={provider.name}
-                          description={`Priority: ${provider.priority}`}
-                          status={healthStatus}
-                          statusLabel={
-                            provider.health?.isHealthy ? "Healthy" :
-                            provider.configured ? (provider.health?.error ? "Error" : "Ready") : "Not Configured"
-                          }
-                          priority={provider.priority}
-                          capabilities={provider.capabilities}
-                          details={
-                            provider.health?.error ? (
+                        <Card key={provider.type} className="relative" data-testid={`ai-provider-${provider.type}`}>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10">
+                                  <Brain className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                  <CardTitle className="text-base">{provider.displayName}</CardTitle>
+                                  <CardDescription className="text-sm">{provider.description}</CardDescription>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <StatusBadge status={healthStatus} label={
+                                  provider.health?.isHealthy ? "Healthy" :
+                                  provider.configured ? (provider.health?.error ? "Error" : "Ready") : "Not Configured"
+                                } />
+                                <Badge variant="outline" className={`text-xs ${categoryInfo.color}`}>
+                                  {categoryInfo.label}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-0 space-y-3">
+                            <div className="text-xs text-muted-foreground">
+                              Priority: {provider.priority} (lower = preferred)
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-1">
+                              {provider.capabilities.map(cap => (
+                                <Badge key={cap} variant="secondary" className="text-xs">
+                                  {AI_CAPABILITY_LABELS[cap] || cap}
+                                </Badge>
+                              ))}
+                            </div>
+                            
+                            {Object.keys(provider.capabilityDetails).length > 0 && (
+                              <div className="text-xs text-muted-foreground space-y-1 border-t pt-2">
+                                {Object.entries(provider.capabilityDetails).map(([cap, detail]) => (
+                                  <div key={cap} className="flex gap-2">
+                                    <span className="font-medium">{AI_CAPABILITY_LABELS[cap] || cap}:</span>
+                                    <span>{detail}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {provider.envVars.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {provider.envVarsConfigured}/{provider.envVarsRequired} env vars configured
+                              </div>
+                            )}
+                            
+                            {provider.health?.error && (
                               <div className="text-xs text-destructive truncate" title={provider.health.error}>
                                 {provider.health.error}
                               </div>
-                            ) : provider.health?.latencyMs ? (
+                            )}
+                            
+                            {provider.health?.latencyMs && !provider.health?.error && (
                               <div className="text-xs text-muted-foreground">
                                 Latency: {provider.health.latencyMs}ms
                               </div>
-                            ) : null
-                          }
-                        />
+                            )}
+                          </CardContent>
+                        </Card>
                       );
                     })
                 )}

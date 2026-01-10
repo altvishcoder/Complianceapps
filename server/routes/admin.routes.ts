@@ -294,6 +294,54 @@ adminRouter.get("/factory-settings/audit", requireRole('LASHAN_SUPER_USER'), asy
 
 // ===== CLOUD CONFIGURATION =====
 
+const AI_PROVIDER_INFO: Record<string, { 
+  name: string; 
+  description: string; 
+  category: "cloud" | "offline"; 
+  envVars: string[];
+  capabilityDetails: Record<string, string>;
+}> = {
+  claude: {
+    name: "Claude (Anthropic)",
+    description: "Cloud LLM with vision capabilities for document analysis",
+    category: "cloud",
+    envVars: ["ANTHROPIC_API_KEY"],
+    capabilityDetails: {
+      text_extraction: "Claude 3.5 Haiku for structured data extraction",
+      vision: "Claude 3.5 Sonnet for image/PDF analysis",
+    },
+  },
+  azure_di: {
+    name: "Azure Document Intelligence",
+    description: "Microsoft's OCR and document analysis service",
+    category: "cloud",
+    envVars: ["AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "AZURE_DOCUMENT_INTELLIGENCE_KEY"],
+    capabilityDetails: {
+      ocr: "High-accuracy text extraction from scanned documents",
+      document_intelligence: "Pre-built models for invoices, receipts, IDs",
+    },
+  },
+  tesseract: {
+    name: "Tesseract.js",
+    description: "Offline OCR engine for airgapped deployments",
+    category: "offline",
+    envVars: [],
+    capabilityDetails: {
+      ocr: "Local text extraction - no external API required",
+    },
+  },
+  ollama: {
+    name: "Ollama",
+    description: "Local LLM server for airgapped/self-hosted deployments",
+    category: "offline",
+    envVars: ["OLLAMA_BASE_URL", "OLLAMA_MODEL"],
+    capabilityDetails: {
+      text_extraction: "Local LLM for document field extraction",
+      vision: "Vision models like LLaVA for image analysis",
+    },
+  },
+};
+
 const STORAGE_PROVIDER_INFO: Record<string, { name: string; description: string; envVars: string[] }> = {
   replit: { 
     name: "Replit Object Storage", 
@@ -383,16 +431,29 @@ adminRouter.get("/cloud-config", requireRole(...ADMIN_ROLES), async (_req: Authe
       };
     });
     
+    const enhancedAIProviders = aiProviders.map(p => {
+      const providerInfo = AI_PROVIDER_INFO[p.type];
+      const envVarsSet = providerInfo?.envVars.filter(v => !!process.env[v]) || [];
+      return {
+        ...p,
+        displayName: providerInfo?.name || p.name,
+        description: providerInfo?.description || "",
+        category: providerInfo?.category || "cloud",
+        envVars: providerInfo?.envVars || [],
+        envVarsConfigured: envVarsSet.length,
+        envVarsRequired: providerInfo?.envVars.length || 0,
+        capabilityDetails: providerInfo?.capabilityDetails || {},
+        health: aiRegistry.getHealth(p.type),
+      };
+    });
+    
     res.json({
       storage: {
         activeProvider: activeStorageProvider,
         providers: storageProviders,
       },
       ai: {
-        providers: aiProviders.map(p => ({
-          ...p,
-          health: aiRegistry.getHealth(p.type),
-        })),
+        providers: enhancedAIProviders,
       },
       sso: {
         providers: ssoProviders,
