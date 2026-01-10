@@ -126,6 +126,57 @@ export const generatedReports = pgTable("generated_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const widgetTypeEnum = pgEnum('widget_type', [
+  'BAR_CHART', 'LINE_CHART', 'PIE_CHART', 'TREEMAP', 'TABLE', 'STAT_CARD', 'GAUGE', 'HEATMAP', 'TIMELINE'
+]);
+
+export const reportCanvases = pgTable("report_canvases", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id"),
+  name: text("name").notNull(),
+  description: text("description"),
+  gridCols: integer("grid_cols").notNull().default(12),
+  gridRows: integer("grid_rows").notNull().default(8),
+  refreshIntervalMs: integer("refresh_interval_ms"),
+  globalFilters: json("global_filters").$type<{
+    dateRangeType?: string;
+    complianceStreamId?: string;
+    schemeIds?: string[];
+  }>(),
+  isPublic: boolean("is_public").notNull().default(false),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdById: varchar("created_by_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const canvasWidgets = pgTable("canvas_widgets", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  canvasId: varchar("canvas_id").notNull(),
+  widgetType: widgetTypeEnum("widget_type").notNull(),
+  title: text("title").notNull(),
+  dataSource: text("data_source").notNull(),
+  gridX: integer("grid_x").notNull().default(0),
+  gridY: integer("grid_y").notNull().default(0),
+  gridW: integer("grid_w").notNull().default(4),
+  gridH: integer("grid_h").notNull().default(4),
+  config: json("config").$type<{
+    groupBy?: string;
+    colorField?: string;
+    valueField?: string;
+    labelField?: string;
+    showLegend?: boolean;
+    maxItems?: number;
+    sortOrder?: 'asc' | 'desc';
+    filters?: Record<string, unknown>;
+    chartOptions?: Record<string, unknown>;
+  }>(),
+  displayOrder: integer("display_order").notNull().default(0),
+  isVisible: boolean("is_visible").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const navigationSections = pgTable("navigation_sections", {
   id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   organisationId: varchar("organisation_id"),

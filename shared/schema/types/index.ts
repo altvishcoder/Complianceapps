@@ -67,6 +67,8 @@ import {
   scheduledReports,
   reportTemplates,
   generatedReports,
+  reportCanvases,
+  canvasWidgets,
   mlModels,
   mlPredictions,
   mlFeedback,
@@ -173,6 +175,8 @@ export type ComplianceCalendarEvent = typeof complianceCalendarEvents.$inferSele
 export type ScheduledReport = typeof scheduledReports.$inferSelect;
 export type ReportTemplate = typeof reportTemplates.$inferSelect;
 export type GeneratedReport = typeof generatedReports.$inferSelect;
+export type ReportCanvas = typeof reportCanvases.$inferSelect;
+export type CanvasWidget = typeof canvasWidgets.$inferSelect;
 export type MlModel = typeof mlModels.$inferSelect;
 export type MlPrediction = typeof mlPredictions.$inferSelect;
 export type MlFeedback = typeof mlFeedback.$inferSelect;

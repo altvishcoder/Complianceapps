@@ -138,6 +138,7 @@ const AssetHealthTreemapPage = lazy(() => import("@/pages/analytics/asset-health
 const BoardReportingPage = lazy(() => import("@/pages/reports/board"));
 const RegulatoryEvidencePage = lazy(() => import("@/pages/reports/regulatory"));
 const ReportBuilderPage = lazy(() => import("@/pages/reports/builder"));
+const ReportCanvasPage = lazy(() => import("@/pages/reports/canvas"));
 const HelpPage = lazy(() => import("@/pages/help"));
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { AIAssistant } from "@/components/AIAssistant";
@@ -174,6 +175,7 @@ function Router() {
       <Route path="/reports/board">{() => <ProtectedRoute component={BoardReportingPage} />}</Route>
       <Route path="/reports/regulatory">{() => <ProtectedRoute component={RegulatoryEvidencePage} />}</Route>
       <Route path="/reports/builder">{() => <ProtectedRoute component={ReportBuilderPage} />}</Route>
+      <Route path="/reports/canvas">{() => <ProtectedRoute component={ReportCanvasPage} />}</Route>
       <Route path="/calendar">{() => <ProtectedRoute component={ComplianceCalendar} />}</Route>
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/setup">{() => <AdminProtectedRoute component={AdminSetup} />}</Route>

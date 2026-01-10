@@ -67,6 +67,8 @@ import {
   scheduledReports,
   reportTemplates,
   generatedReports,
+  reportCanvases,
+  canvasWidgets,
   mlModels,
   mlPredictions,
   mlFeedback,
@@ -189,6 +191,8 @@ export const insertComplianceCalendarEventSchema = createInsertSchema(compliance
 export const insertScheduledReportSchema = createInsertSchema(scheduledReports).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGeneratedReportSchema = createInsertSchema(generatedReports).omit({ id: true, createdAt: true });
+export const insertReportCanvasSchema = createInsertSchema(reportCanvases).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCanvasWidgetSchema = createInsertSchema(canvasWidgets).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const insertMlModelSchema = createInsertSchema(mlModels).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMlPredictionSchema = createInsertSchema(mlPredictions).omit({ id: true, createdAt: true });
