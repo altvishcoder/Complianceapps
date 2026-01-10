@@ -36,22 +36,19 @@ export default function AssetHealthTreemapPage() {
   const [activeView, setActiveView] = useState<'treemap' | 'explorer'>('treemap');
   const [groupBy, setGroupBy] = useState<'stream' | 'scheme'>('stream');
 
-  const { data: hierarchyData, refetch, isRefetching } = useQuery<{ level: string; data: StreamSummary[] }>({
-    queryKey: ['/api/analytics/hierarchy', 'stream'],
+  const { data: dashboardStats, refetch, isRefetching } = useQuery<any>({
+    queryKey: ['/api/dashboard/stats'],
     queryFn: async () => {
-      const res = await fetch('/api/analytics/hierarchy?level=stream');
+      const res = await fetch('/api/dashboard/stats');
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
   });
 
-  const streams = hierarchyData?.data || [];
-  const totalProperties = streams.reduce((sum, s) => sum + (s.propertyCount || 0), 0);
-  const totalCertificates = streams.reduce((sum, s) => sum + (s.certificateCount || 0), 0);
-  const totalOpenActions = streams.reduce((sum, s) => sum + (s.openActions || 0), 0);
-  const avgCompliance = streams.length > 0 
-    ? Math.round(streams.reduce((sum, s) => sum + (s.complianceRate || 0), 0) / streams.length)
-    : 0;
+  const totalProperties = dashboardStats?.totalProperties || 0;
+  const totalCertificates = dashboardStats?.totalCertificates || 0;
+  const totalOpenActions = dashboardStats?.activeHazards || 0;
+  const avgCompliance = Math.round(parseFloat(dashboardStats?.overallCompliance || '0'));
 
   const handlePropertyClick = (propertyId: string) => {
     setLocation(`/properties/${propertyId}`);
@@ -201,46 +198,46 @@ export default function AssetHealthTreemapPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {streams.map((stream) => (
-                    <div 
-                      key={stream.id}
-                      className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => {
-                        setActiveView('explorer');
-                      }}
-                      data-testid={`stream-card-${stream.id}`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span 
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: stream.color }}
-                        />
-                        <span className="font-medium">{stream.name}</span>
-                        <Badge 
-                          variant={stream.riskLevel === 'HIGH' ? 'destructive' : stream.riskLevel === 'MEDIUM' ? 'secondary' : 'outline'}
-                          className="ml-auto"
-                        >
-                          {stream.riskLevel}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Properties</span>
-                          <div className="font-semibold">{stream.propertyCount?.toLocaleString() || 0}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {(dashboardStats?.complianceByType || []).map((stream: any) => {
+                    const rate = parseFloat(stream.rate || '0');
+                    const riskLevel = rate >= 90 ? 'LOW' : rate >= 70 ? 'MEDIUM' : 'HIGH';
+                    return (
+                      <div 
+                        key={stream.code}
+                        className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setActiveView('explorer');
+                        }}
+                        data-testid={`stream-card-${stream.code}`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-sm">{stream.type}</span>
+                          <Badge 
+                            variant={riskLevel === 'HIGH' ? 'destructive' : riskLevel === 'MEDIUM' ? 'secondary' : 'outline'}
+                            className="ml-auto text-xs"
+                          >
+                            {riskLevel}
+                          </Badge>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Compliance</span>
-                          <div className={`font-semibold ${
-                            stream.complianceRate >= 90 ? 'text-green-600' :
-                            stream.complianceRate >= 70 ? 'text-amber-600' : 'text-red-600'
-                          }`}>
-                            {stream.complianceRate || 0}%
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground text-xs">Certificates</span>
+                            <div className="font-semibold">{stream.total?.toLocaleString() || 0}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground text-xs">Compliance</span>
+                            <div className={`font-semibold ${
+                              rate >= 90 ? 'text-green-600' :
+                              rate >= 70 ? 'text-amber-600' : 'text-red-600'
+                            }`}>
+                              {rate.toFixed(0)}%
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

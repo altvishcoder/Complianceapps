@@ -124,19 +124,20 @@ export function ComplianceTreeMap({
             data={data}
             identity="name"
             value="value"
-            valueFormat=".0s"
+            valueFormat={(value) => value >= 1000 ? `${(value/1000).toFixed(0)}k` : String(value)}
             margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            labelSkipSize={40}
-            labelTextColor={{ from: 'color', modifiers: [['darker', 3]] }}
+            labelSkipSize={20}
+            label={(node) => `${node.id}`}
+            labelTextColor="#ffffff"
             parentLabelPosition="left"
-            parentLabelTextColor={{ from: 'color', modifiers: [['darker', 3]] }}
+            parentLabelTextColor="#ffffff"
             colors={(node) => {
               const riskLevel = (node.data as TreeMapNode).riskLevel;
               return getRiskColor(riskLevel);
             }}
             borderWidth={2}
             borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
-            nodeOpacity={0.9}
+            nodeOpacity={0.85}
             animate={true}
             motionConfig="gentle"
             onClick={(node) => {
