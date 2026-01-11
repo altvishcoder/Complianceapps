@@ -374,15 +374,15 @@ export class ApiStorage implements IApiStorage {
   async getNextPendingIngestionJob(): Promise<IngestionJob | undefined> {
     const [job] = await db.select()
       .from(ingestionJobs)
-      .where(eq(ingestionJobs.status, 'PENDING'))
+      .where(eq(ingestionJobs.status, 'QUEUED'))
       .orderBy(ingestionJobs.createdAt)
       .limit(1);
     return job || undefined;
   }
   
-  async deleteIngestionJobsByChannel(channel: string): Promise<number> {
+  async deleteIngestionJobsByChannel(channel: 'MANUAL_UPLOAD' | 'EXTERNAL_API' | 'BULK_IMPORT' | 'DEMO'): Promise<number> {
     const result = await db.delete(ingestionJobs)
-      .where(eq(ingestionJobs.channel, channel as any))
+      .where(eq(ingestionJobs.channel, channel))
       .returning();
     return result.length;
   }
@@ -404,7 +404,7 @@ export class ApiStorage implements IApiStorage {
     
     for (const job of allJobs) {
       byStatus[job.status] = (byStatus[job.status] || 0) + 1;
-      byType[job.contentType] = (byType[job.contentType] || 0) + 1;
+      byType[job.certificateType] = (byType[job.certificateType] || 0) + 1;
       byChannel[job.channel] = (byChannel[job.channel] || 0) + 1;
     }
     
@@ -413,9 +413,13 @@ export class ApiStorage implements IApiStorage {
       .slice(0, 10);
     
     const throughputByHour: Array<{ hour: string; count: number }> = [];
-    const completed = allJobs.filter(j => j.status === 'COMPLETED');
+    const completed = allJobs.filter(j => j.status === 'COMPLETE');
     const avgProcessingTime = completed.length > 0
-      ? Math.round(completed.reduce((sum, j) => sum + (j.processingTimeMs || 0), 0) / completed.length)
+      ? Math.round(completed.reduce((sum, j) => {
+          const start = j.createdAt?.getTime() || 0;
+          const end = j.completedAt?.getTime() || start;
+          return sum + (end - start);
+        }, 0) / completed.length)
       : 0;
     
     const total = allJobs.length;
@@ -429,7 +433,7 @@ export class ApiStorage implements IApiStorage {
     const windowStart = new Date(now.getTime() - windowMs);
     
     await db.delete(rateLimitEntries)
-      .where(lte(rateLimitEntries.expiresAt, now));
+      .where(lte(rateLimitEntries.windowResetAt, now));
     
     const [existing] = await db.select()
       .from(rateLimitEntries)
@@ -451,28 +455,28 @@ export class ApiStorage implements IApiStorage {
       return {
         allowed,
         remaining: Math.max(0, limit - newCount),
-        resetAt: existing.expiresAt
+        resetAt: existing.windowResetAt
       };
     }
     
-    const expiresAt = new Date(now.getTime() + windowMs);
+    const windowResetAt = new Date(now.getTime() + windowMs);
     await db.insert(rateLimitEntries).values({
       clientId,
       windowStart: now,
       requestCount: 1,
-      expiresAt
+      windowResetAt
     });
     
     return {
       allowed: true,
       remaining: limit - 1,
-      resetAt: expiresAt
+      resetAt: windowResetAt
     };
   }
   
   async cleanupExpiredRateLimits(): Promise<number> {
     const result = await db.delete(rateLimitEntries)
-      .where(lte(rateLimitEntries.expiresAt, new Date()))
+      .where(lte(rateLimitEntries.windowResetAt, new Date()))
       .returning();
     return result.length;
   }
