@@ -239,15 +239,23 @@ systemHealthRouter.get("/stats", async (req: Request, res: Response) => {
         (SELECT COUNT(*) FROM users) as user_count
     `);
     
-    const row = result.rows[0] as any;
+    interface StatsRow {
+      scheme_count: string | number;
+      block_count: string | number;
+      property_count: string | number;
+      certificate_count: string | number;
+      action_count: string | number;
+      user_count: string | number;
+    }
+    const row = result.rows[0] as StatsRow | undefined;
     
     res.json({
-      schemes: parseInt(row?.scheme_count || '0'),
-      blocks: parseInt(row?.block_count || '0'),
-      properties: parseInt(row?.property_count || '0'),
-      certificates: parseInt(row?.certificate_count || '0'),
-      actions: parseInt(row?.action_count || '0'),
-      users: parseInt(row?.user_count || '0'),
+      schemes: parseInt(String(row?.scheme_count || '0')),
+      blocks: parseInt(String(row?.block_count || '0')),
+      properties: parseInt(String(row?.property_count || '0')),
+      certificates: parseInt(String(row?.certificate_count || '0')),
+      actions: parseInt(String(row?.action_count || '0')),
+      users: parseInt(String(row?.user_count || '0')),
     });
   } catch (error) {
     console.error("Error fetching system stats:", error);

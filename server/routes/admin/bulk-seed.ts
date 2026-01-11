@@ -310,20 +310,22 @@ adminBulkSeedRouter.post("/bulk-seed", requireRole(...SUPER_ADMIN_ROLES), async 
         
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`Bulk seed ${tier} completed in ${duration}s`);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         await updateJobProgress(orgId, {
           status: "failed",
-          error: error?.message || "Unknown error",
+          error: errorMessage,
         });
         console.error("Bulk seed failed:", error);
       }
     })();
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to start bulk seed:", error);
+    const errorMessage = error instanceof Error ? error.message : undefined;
     res.status(500).json({ 
       error: "Failed to start bulk seed", 
-      details: error?.message 
+      details: errorMessage 
     });
   }
 });

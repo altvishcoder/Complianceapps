@@ -114,13 +114,14 @@ integrationsOutboundRouter.post("/admin/webhooks/:id/test", requireRole(...SUPER
         duration,
         responsePreview: responseText.substring(0, 500)
       });
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       const duration = Date.now() - startTime;
+      const errorMessage = fetchError instanceof Error ? fetchError.message : 'Connection failed';
       res.json({
         success: false,
         status: 0,
         duration,
-        error: fetchError.message || 'Connection failed'
+        error: errorMessage
       });
     }
   } catch (error) {
@@ -257,7 +258,7 @@ integrationsOutboundRouter.patch("/admin/api-clients/:id", async (req, res) => {
     
     const { isActive, name, description, scopes } = req.body;
     
-    const updates: any = {};
+    const updates: Partial<{ name: string; description: string; scopes: string[]; status: 'ACTIVE' | 'SUSPENDED' }> = {};
     if (name !== undefined) updates.name = name;
     if (description !== undefined) updates.description = description;
     if (scopes !== undefined) updates.scopes = scopes;

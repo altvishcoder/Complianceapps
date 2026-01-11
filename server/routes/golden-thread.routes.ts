@@ -178,7 +178,15 @@ goldenThreadRouter.get("/golden-thread/exports/:id/download", async (req, res) =
 });
 
 // ===== COMPLIANCE CALENDAR EVENTS =====
-let calendarEventsCache: { data: any; timestamp: number; orgId: string; filterKey: string } | null = null;
+interface CalendarEvent {
+  id: string;
+  title: string;
+  startDate: Date;
+  endDate?: Date | null;
+  eventType?: string;
+  [key: string]: unknown;
+}
+let calendarEventsCache: { data: CalendarEvent[]; timestamp: number; orgId: string; filterKey: string } | null = null;
 const CALENDAR_CACHE_TTL = 60000;
 
 goldenThreadRouter.get("/calendar/events", async (req, res) => {

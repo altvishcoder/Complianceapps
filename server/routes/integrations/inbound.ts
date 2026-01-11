@@ -126,7 +126,7 @@ integrationsInboundRouter.post("/integrations/hms/actions", async (req, res) => 
       return res.status(404).json({ error: "Remedial action not found" });
     }
     
-    const updates: any = {};
+    const updates: Partial<{ status: string; resolvedAt: Date; costEstimate: string }> = {};
     if (status) updates.status = status;
     if (completedAt) updates.resolvedAt = new Date(completedAt);
     if (costActual) updates.costEstimate = costActual.toString();
@@ -165,7 +165,7 @@ integrationsInboundRouter.post("/integrations/hms/work-orders", async (req, res)
       return res.status(400).json({ error: "actionId is required" });
     }
     
-    const updates: any = {};
+    const updates: Partial<{ status: string; resolvedAt: Date; dueDate: string }> = {};
     if (status === 'scheduled' || status === 'in_progress') {
       updates.status = 'IN_PROGRESS';
     } else if (status === 'completed') {

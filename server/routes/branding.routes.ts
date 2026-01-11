@@ -42,8 +42,9 @@ brandingRouter.get("/branding", async (req: Request, res: Response) => {
       }
       
       res.json(branding);
-    } catch (dbError: any) {
-      if (dbError?.message?.includes('does not exist') || dbError?.code === '42P01') {
+    } catch (dbError: unknown) {
+      const error = dbError as { message?: string; code?: string };
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') {
         return res.json(DEFAULT_BRANDING);
       }
       throw dbError;

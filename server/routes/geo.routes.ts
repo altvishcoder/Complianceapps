@@ -275,7 +275,16 @@ geoRouter.get("/properties/geo", async (req, res) => {
   }
 });
 
-let mapStatsCache: { data: any; timestamp: number } | null = null;
+interface MapStats {
+  total: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  avgScore: number;
+  _source?: string;
+}
+let mapStatsCache: { data: MapStats; timestamp: number } | null = null;
 const MAP_STATS_TTL = 60000;
 
 geoRouter.get("/maps/stats", async (req, res) => {
@@ -296,8 +305,16 @@ geoRouter.get("/maps/stats", async (req, res) => {
         FROM mv_risk_aggregates
       `);
       
+      interface RiskAggregateRow {
+        total: string | number;
+        total_score: string | number;
+        critical: string | number;
+        high: string | number;
+        medium: string | number;
+        low: string | number;
+      }
       if (mvResult.rows && mvResult.rows.length > 0) {
-        const row = mvResult.rows[0] as any;
+        const row = mvResult.rows[0] as RiskAggregateRow;
         const total = Number(row.total) || 0;
         if (total > 0) {
           const totalScore = Number(row.total_score) || 0;

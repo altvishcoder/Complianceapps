@@ -128,7 +128,13 @@ systemComplianceRouter.get("/certificates/:id/audit", async (req, res) => {
   }
 });
 
-let portfolioSummaryCache: { data: any; timestamp: number; orgId: string } | null = null;
+interface PortfolioRiskSummary {
+  totalProperties: number;
+  riskDistribution: Record<string, number>;
+  averageScore: number;
+  [key: string]: unknown;
+}
+let portfolioSummaryCache: { data: PortfolioRiskSummary; timestamp: number; orgId: string } | null = null;
 const PORTFOLIO_CACHE_TTL = 60000;
 
 systemComplianceRouter.get("/risk/portfolio-summary", async (req, res) => {
@@ -395,7 +401,9 @@ systemComplianceRouter.get("/risk/alerts", async (req, res) => {
     .innerJoin(properties, eq(riskAlerts.propertyId, properties.id))
     .where(and(
       eq(riskAlerts.organisationId, user.organisationId),
+      // TODO: 'as any' needed for Drizzle ORM enum type compatibility - status is a valid enum value at runtime
       status ? eq(riskAlerts.status, status as any) : undefined,
+      // TODO: 'as any' needed for Drizzle ORM enum type compatibility - tier is a valid enum value at runtime
       tier ? eq(riskAlerts.riskTier, tier as any) : undefined
     ))
     .orderBy(desc(riskAlerts.createdAt))
@@ -423,7 +431,7 @@ systemComplianceRouter.patch("/risk/alerts/:alertId", async (req, res) => {
     const { alertId } = req.params;
     const { status, resolutionNotes } = req.body;
 
-    const updates: any = { updatedAt: new Date() };
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
 
     if (status === 'ACKNOWLEDGED') {
       updates.status = 'ACKNOWLEDGED';
@@ -766,7 +774,28 @@ systemComplianceRouter.get("/reports/certificate-expiry", async (req, res) => {
   }
 });
 
-const boardSummaryCache = new Map<string, { data: any; timestamp: number }>();
+interface BoardSummaryData {
+  overview: {
+    overallCompliance: number;
+    totalProperties: number;
+    totalCertificates: number;
+    openActions: number;
+  };
+  certificates: {
+    total: number;
+    compliant: number;
+    nonCompliant: number;
+    pending: number;
+  };
+  actions: {
+    critical: number;
+    major: number;
+    minor: number;
+  };
+  generatedAt: string;
+  [key: string]: unknown;
+}
+const boardSummaryCache = new Map<string, { data: BoardSummaryData; timestamp: number }>();
 const BOARD_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 systemComplianceRouter.get("/reports/board-summary", async (req, res) => {
@@ -909,7 +938,28 @@ systemComplianceRouter.post("/evidence-packs", async (req, res) => {
       return res.status(400).json({ error: "Pack type is required" });
     }
 
-    const evidenceData: any = {
+    interface EvidencePackData {
+      packId: string;
+      packType: string;
+      generatedAt: string;
+      generatedBy: string;
+      organisation: string;
+      certificates?: {
+        total: number;
+        byStatus: { compliant: number; pending: number; failed: number };
+        items: unknown[];
+      };
+      remedialActions?: {
+        total: number;
+        bySeverity: Record<string, number>;
+        items: Array<{ status: string; severity: string; [key: string]: unknown }>;
+      };
+      contractors?: { total: number; items: unknown[] };
+      properties?: { total: number; items: unknown[] };
+      summary?: Record<string, unknown>;
+    }
+
+    const evidenceData: EvidencePackData = {
       packId: `EP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       packType,
       generatedAt: new Date().toISOString(),
@@ -1015,7 +1065,7 @@ systemComplianceRouter.post("/evidence-packs", async (req, res) => {
       complianceRate,
       riskLevel: complianceRate >= 95 ? 'LOW' : complianceRate >= 85 ? 'MEDIUM' : complianceRate >= 70 ? 'HIGH' : 'CRITICAL',
       totalCertificates: evidenceData.certificates.total,
-      openRemedialActions: evidenceData.remedialActions?.items?.filter((a: any) => a.status !== 'COMPLETED' && a.status !== 'CANCELLED').length || 0,
+      openRemedialActions: evidenceData.remedialActions?.items?.filter((a) => a.status !== 'COMPLETED' && a.status !== 'CANCELLED').length || 0,
       generationDate: new Date().toISOString(),
     };
 
@@ -1147,7 +1197,21 @@ systemComplianceRouter.post("/reports/scheduled", async (req, res) => {
       RETURNING *
     `);
     
-    const scheduledReport = result.rows[0] as any;
+    interface ScheduledReportRow {
+      id: string;
+      organisation_id: string;
+      name: string;
+      template_name: string;
+      frequency: string;
+      format: string;
+      recipients: string[] | null;
+      filters: Record<string, unknown>;
+      is_active: boolean;
+      next_run_at: Date;
+      last_run_at?: Date;
+      [key: string]: unknown;
+    }
+    const scheduledReport = result.rows[0] as ScheduledReportRow;
     
     if (isActive !== false) {
       try {
@@ -1256,8 +1320,16 @@ systemComplianceRouter.post("/reports/generated", async (req, res) => {
 systemComplianceRouter.post("/reports/scheduled/:id/run", async (req, res) => {
   try {
     const { id } = req.params;
+    interface ScheduleRow {
+      id: string;
+      organisation_id: string;
+      name: string;
+      format: string;
+      filters: Record<string, unknown> | null;
+      [key: string]: unknown;
+    }
     const scheduleResult = await db.execute(sql`SELECT * FROM scheduled_reports WHERE id = ${id}`);
-    const schedule = scheduleResult.rows[0] as any;
+    const schedule = scheduleResult.rows[0] as ScheduleRow | undefined;
     
     if (!schedule) {
       return res.status(404).json({ error: "Scheduled report not found" });

@@ -123,9 +123,10 @@ adminUsersRouter.patch("/users/:id/role", requireRole(...SUPER_ADMIN_ROLES), asy
     
     const { password, ...safeUser } = updatedUser;
     res.json(safeUser);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating user role:", error);
-    res.status(400).json({ error: error.message || "Failed to update user role" });
+    const message = error instanceof Error ? error.message : "Failed to update user role";
+    res.status(400).json({ error: message });
   }
 });
 

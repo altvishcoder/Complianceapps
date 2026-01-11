@@ -61,7 +61,7 @@ configurationRouter.patch("/config/compliance-streams/:id", requireRole(...CONFI
     
     const updateData = insertComplianceStreamSchema.partial().parse(req.body);
     if (existingStream.isSystem) {
-      const allowedUpdates: any = {};
+      const allowedUpdates: Partial<{ isActive: boolean }> = {};
       if (updateData.isActive !== undefined) {
         allowedUpdates.isActive = updateData.isActive;
       }
@@ -72,7 +72,7 @@ configurationRouter.patch("/config/compliance-streams/:id", requireRole(...CONFI
       return res.json(updated);
     }
     
-    const { isSystem: _, ...safeUpdateData } = updateData as any;
+    const { isSystem: _, ...safeUpdateData } = updateData as Omit<typeof updateData, 'isSystem'>;
     const updated = await storage.updateComplianceStream(req.params.id, safeUpdateData);
     res.json(updated);
   } catch (error) {

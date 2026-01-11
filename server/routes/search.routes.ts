@@ -187,15 +187,25 @@ searchRouter.get("/asset-health/summary", async (req: Request, res: Response) =>
       ORDER BY scheme_name
     `);
 
-    const schemes = result.rows.map((row: any) => ({
+    interface SchemeRow {
+      scheme_id: string;
+      scheme_name: string;
+      total_properties: string | number;
+      compliant_properties: string | number;
+      at_risk_properties: string | number;
+      expired_properties: string | number;
+      blocks_count: string | number;
+      compliance_rate: string | number;
+    }
+    const schemes = (result.rows as SchemeRow[]).map((row) => ({
       id: row.scheme_id,
       name: row.scheme_name,
-      totalProperties: parseInt(row.total_properties) || 0,
-      compliantProperties: parseInt(row.compliant_properties) || 0,
-      atRiskProperties: parseInt(row.at_risk_properties) || 0,
-      expiredProperties: parseInt(row.expired_properties) || 0,
-      blocksCount: parseInt(row.blocks_count) || 0,
-      complianceRate: parseFloat(row.compliance_rate) || 100,
+      totalProperties: parseInt(String(row.total_properties)) || 0,
+      compliantProperties: parseInt(String(row.compliant_properties)) || 0,
+      atRiskProperties: parseInt(String(row.at_risk_properties)) || 0,
+      expiredProperties: parseInt(String(row.expired_properties)) || 0,
+      blocksCount: parseInt(String(row.blocks_count)) || 0,
+      complianceRate: parseFloat(String(row.compliance_rate)) || 100,
     }));
 
     const totals = schemes.reduce((acc, s) => ({
@@ -279,14 +289,23 @@ searchRouter.get("/asset-health/schemes/:schemeId/blocks", async (req: Request, 
       ORDER BY b.name
     `);
 
-    const blocks = result.rows.map((row: any) => ({
+    interface BlockRow {
+      block_id: string;
+      block_name: string;
+      total_properties: string | number;
+      compliant_properties: string | number;
+      at_risk_properties: string | number;
+      expired_properties: string | number;
+      compliance_rate: string | number;
+    }
+    const blocks = (result.rows as BlockRow[]).map((row) => ({
       id: row.block_id,
       name: row.block_name,
-      totalProperties: parseInt(row.total_properties) || 0,
-      compliantProperties: parseInt(row.compliant_properties) || 0,
-      atRiskProperties: parseInt(row.at_risk_properties) || 0,
-      expiredProperties: parseInt(row.expired_properties) || 0,
-      complianceRate: parseFloat(row.compliance_rate) || 100,
+      totalProperties: parseInt(String(row.total_properties)) || 0,
+      compliantProperties: parseInt(String(row.compliant_properties)) || 0,
+      atRiskProperties: parseInt(String(row.at_risk_properties)) || 0,
+      expiredProperties: parseInt(String(row.expired_properties)) || 0,
+      complianceRate: parseFloat(String(row.compliance_rate)) || 100,
     }));
 
     const totals = blocks.reduce((acc, b) => ({
@@ -360,13 +379,22 @@ searchRouter.get("/asset-health/blocks/:blockId/properties", async (req: Request
       LIMIT 200
     `);
 
-    const properties = result.rows.map((row: any) => ({
+    interface PropertyRow {
+      property_id: string;
+      property_name: string;
+      uprn: string;
+      compliant_certs: string | number;
+      expired_certs: string | number;
+      expiring_certs: string | number;
+      compliance_status: string;
+    }
+    const properties = (result.rows as PropertyRow[]).map((row) => ({
       id: row.property_id,
       name: row.property_name,
       uprn: row.uprn,
-      compliantCerts: parseInt(row.compliant_certs) || 0,
-      expiredCerts: parseInt(row.expired_certs) || 0,
-      expiringCerts: parseInt(row.expiring_certs) || 0,
+      compliantCerts: parseInt(String(row.compliant_certs)) || 0,
+      expiredCerts: parseInt(String(row.expired_certs)) || 0,
+      expiringCerts: parseInt(String(row.expiring_certs)) || 0,
       complianceStatus: row.compliance_status,
     }));
 
