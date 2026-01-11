@@ -108,7 +108,7 @@ systemOperationsRouter.post("/admin/create-test-queue-jobs", async (req, res) =>
       const job = await storage.createIngestionJob({
         organisationId: ORG_ID,
         propertyId: property.id,
-        certificateType: certType,
+        certificateType: certType as "GAS_SAFETY" | "EICR" | "EPC" | "FIRE_RISK_ASSESSMENT" | "LEGIONELLA_ASSESSMENT" | "ASBESTOS_SURVEY" | "LIFT_LOLER" | "OTHER",
         channel: 'DEMO',
         fileName: `test_${certType.toLowerCase()}_${Date.now()}_${i}.pdf`,
         objectPath: null,
@@ -125,7 +125,7 @@ systemOperationsRouter.post("/admin/create-test-queue-jobs", async (req, res) =>
       };
       
       await storage.updateIngestionJob(job.id, {
-        status,
+        status: status as "QUEUED" | "UPLOADING" | "EXTRACTING" | "PROCESSING" | "COMPLETE" | "FAILED" | "CANCELLED",
         progress: progressByStatus[status] || 0,
         statusMessage: status === 'COMPLETE' ? 'Demo: completed successfully' : 
                       status === 'FAILED' ? 'Demo: no file content (test job)' :
@@ -136,7 +136,7 @@ systemOperationsRouter.post("/admin/create-test-queue-jobs", async (req, res) =>
         attemptCount: status === 'COMPLETE' ? 1 : status === 'FAILED' ? 3 : status === 'PROCESSING' ? 1 : 0,
       });
       
-      createdJobs.push({ id: job.id, type: certType, status, property: property.address });
+      createdJobs.push({ id: job.id, type: certType, status, property: property.addressLine1 });
     }
     
     res.json({ 

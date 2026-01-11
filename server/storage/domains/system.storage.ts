@@ -68,7 +68,7 @@ export class SystemStorage implements ISystemStorage {
       conditions.push(eq(systemLogs.level, filters.level as any));
     }
     if (filters.source) {
-      conditions.push(eq(systemLogs.source, filters.source));
+      conditions.push(eq(systemLogs.source, filters.source as typeof systemLogs.source.enumValues[number]));
     }
     if (filters.search) {
       const searchPattern = `%${filters.search}%`;
