@@ -162,7 +162,7 @@ export default function MapsIndexPage() {
                   <SelectTrigger className="w-[120px]" data-testid="select-aggregation-level">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" sideOffset={4} className="z-[2000]">
                     <SelectItem value="property">
                       <div className="flex items-center gap-2">
                         <Home className="h-4 w-4" />
