@@ -1,21 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet.heat';
-
-declare module 'leaflet' {
-  function heatLayer(
-    latlngs: Array<[number, number, number]>,
-    options?: {
-      minOpacity?: number;
-      maxZoom?: number;
-      max?: number;
-      radius?: number;
-      blur?: number;
-      gradient?: Record<number, string>;
-    }
-  ): L.Layer;
-}
+import { useMemo } from 'react';
+import { CircleMarker } from 'react-leaflet';
 
 export interface HeatmapPoint {
   lat: number;
@@ -30,60 +14,43 @@ interface HeatmapLayerProps {
   maxIntensity?: number;
 }
 
+function getRiskColor(score: number): string {
+  if (score <= 20) return '#22c55e';
+  if (score <= 40) return '#84cc16';
+  if (score <= 60) return '#eab308';
+  if (score <= 80) return '#f97316';
+  return '#ef4444';
+}
+
 export function HeatmapLayer({ 
   points, 
-  radius = 25, 
-  blur = 15,
-  maxIntensity = 100
+  radius = 12,
 }: HeatmapLayerProps) {
-  const map = useMap();
-  const layerRef = useRef<L.Layer | null>(null);
+  const validPoints = useMemo(() => 
+    points.filter(p => 
+      typeof p.lat === 'number' && !isNaN(p.lat) && 
+      typeof p.lng === 'number' && !isNaN(p.lng)
+    ),
+    [points]
+  );
 
-  useEffect(() => {
-    if (!map) return;
+  if (validPoints.length === 0) return null;
 
-    if (layerRef.current) {
-      map.removeLayer(layerRef.current);
-      layerRef.current = null;
-    }
-
-    if (points.length === 0) return;
-
-    const heatData: Array<[number, number, number]> = points
-      .filter(p => typeof p.lat === 'number' && !isNaN(p.lat) && typeof p.lng === 'number' && !isNaN(p.lng))
-      .map(p => {
-        const normalizedIntensity = Math.max(0, Math.min(1, (100 - p.intensity) / 100));
-        return [p.lat, p.lng, normalizedIntensity];
-      });
-
-    if (heatData.length === 0) return;
-
-    const heatLayer = L.heatLayer(heatData, {
-      radius,
-      blur,
-      maxZoom: 17,
-      max: 1,
-      minOpacity: 0.4,
-      gradient: {
-        0.0: '#22c55e',
-        0.3: '#84cc16',
-        0.5: '#eab308',
-        0.7: '#f97316',
-        0.85: '#ef4444',
-        1.0: '#dc2626'
-      }
-    });
-
-    heatLayer.addTo(map);
-    layerRef.current = heatLayer;
-
-    return () => {
-      if (layerRef.current) {
-        map.removeLayer(layerRef.current);
-        layerRef.current = null;
-      }
-    };
-  }, [map, points, radius, blur, maxIntensity]);
-
-  return null;
+  return (
+    <>
+      {validPoints.map((point, index) => (
+        <CircleMarker
+          key={`heat-${index}-${point.lat}-${point.lng}`}
+          center={[point.lat, point.lng]}
+          radius={radius}
+          pathOptions={{
+            fillColor: getRiskColor(point.intensity),
+            fillOpacity: 0.6,
+            color: getRiskColor(point.intensity),
+            weight: 0,
+          }}
+        />
+      ))}
+    </>
+  );
 }
