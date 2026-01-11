@@ -22,7 +22,9 @@ contractorsRouter.get("/", async (req: AuthenticatedRequest, res: Response) => {
     if (!orgId) {
       return res.status(403).json({ error: "No organisation access" });
     }
-    const contractors = await storage.listContractors(orgId);
+    const isInternalParam = req.query.isInternal;
+    const isInternal = isInternalParam === 'true' ? true : isInternalParam === 'false' ? false : undefined;
+    const contractors = await storage.listContractors(orgId, isInternal);
     res.json(contractors);
   } catch (error) {
     console.error("Error fetching contractors:", error);
@@ -86,6 +88,51 @@ contractorsRouter.delete("/:id", async (req: AuthenticatedRequest, res: Response
   } catch (error) {
     console.error("Error deleting contractor:", error);
     res.status(500).json({ error: "Failed to delete contractor" });
+  }
+});
+
+contractorsRouter.post("/:id/status", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { status } = req.body;
+    if (!['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+    const contractor = await storage.updateContractorStatus(req.params.id, status);
+    if (!contractor) {
+      return res.status(404).json({ error: "Contractor not found" });
+    }
+    res.json(contractor);
+  } catch (error) {
+    console.error("Error updating contractor status:", error);
+    res.status(500).json({ error: "Failed to update contractor status" });
+  }
+});
+
+contractorsRouter.post("/bulk-approve", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "No contractor IDs provided" });
+    }
+    const approved = await storage.bulkApproveContractors(ids);
+    res.json({ success: true, approved });
+  } catch (error) {
+    console.error("Error bulk approving contractors:", error);
+    res.status(500).json({ error: "Failed to approve contractors" });
+  }
+});
+
+contractorsRouter.post("/bulk-reject", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "No contractor IDs provided" });
+    }
+    const rejected = await storage.bulkRejectContractors(ids);
+    res.json({ success: true, rejected });
+  } catch (error) {
+    console.error("Error bulk rejecting contractors:", error);
+    res.status(500).json({ error: "Failed to reject contractors" });
   }
 });
 

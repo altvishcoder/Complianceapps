@@ -73,6 +73,9 @@ import { systemRouter } from "./routes/system.routes";
 import { geoRouter } from "./routes/geo.routes";
 import { analyticsRouter } from "./routes/analytics.routes";
 import { staffRouter } from "./routes/staff.routes";
+import { hierarchyRouter } from "./routes/hierarchy.routes";
+import { authEndpointsRouter } from "./routes/auth-endpoints.routes";
+import { brandingRouter } from "./routes/branding.routes";
 import { apiLogger } from "./logger";
 import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -346,9 +349,14 @@ export async function registerRoutes(
   // Register staff and contractor sub-routes (staff members, contractor certifications, verification history, alerts, assignments, SLA profiles, performance, ratings)
   app.use('/api', staffRouter);
   
-  // NOTE: Modular route files exist in server/routes/ for future migration
-  // They are not mounted here to avoid conflicts with existing routes below
-  // When ready to migrate, mount routers here and comment out corresponding routes
+  // Register hierarchy routes (schemes, blocks, organisations, hierarchy stats)
+  app.use('/api', hierarchyRouter);
+  
+  // Register authentication endpoints (change-password, password-policy, BetterAuth handler)
+  app.use('/api', authEndpointsRouter);
+  
+  // Register branding/assets endpoints (organization branding, assets config)
+  app.use('/api', brandingRouter);
 
   // OpenAPI/Swagger documentation - generate fresh on each request for live updates
   let cachedOpenApiSpec = generateOpenAPIDocument();
@@ -395,79 +403,10 @@ export async function registerRoutes(
     });
   });
 
-  // ===== AUTHENTICATION ENDPOINTS =====
-  // Legacy login/logout/me endpoints removed - now handled by BetterAuth
-  // BetterAuth handles: /api/auth/sign-in/email, /api/auth/sign-out, /api/auth/session
-  
-  // Change password endpoint with role-based restrictions
-  app.post("/api/auth/change-password", async (req, res) => {
-    try {
-      const { userId, currentPassword, newPassword, requestingUserId } = req.body;
-      
-      if (!userId || !newPassword || !requestingUserId) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-      
-      // Get the user whose password is being changed
-      const [targetUser] = await db.select().from(users).where(eq(users.id, userId));
-      if (!targetUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      
-      // Get the requesting user
-      const [requestingUser] = await db.select().from(users).where(eq(users.id, requestingUserId));
-      if (!requestingUser) {
-        return res.status(404).json({ error: "Requesting user not found" });
-      }
-      
-      // LASHAN_SUPER_USER password can only be changed by themselves
-      if (targetUser.role === 'LASHAN_SUPER_USER') {
-        if (requestingUser.id !== targetUser.id) {
-          return res.status(403).json({ error: "Only Lashan can change this password" });
-        }
-      }
-      
-      // Verify current password if changing own password
-      if (userId === requestingUserId) {
-        if (!currentPassword) {
-          return res.status(401).json({ error: "Current password is required" });
-        }
-        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, targetUser.password);
-        if (!isCurrentPasswordValid) {
-          return res.status(401).json({ error: "Current password is incorrect" });
-        }
-      }
-      
-      // Validate new password against policy
-      const passwordValidation = validatePassword(newPassword);
-      if (!passwordValidation.isValid) {
-        return res.status(400).json({ 
-          error: "Password does not meet security requirements",
-          requirements: passwordValidation.errors
-        });
-      }
-      
-      // Hash and update password
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
-      
-      res.json({ success: true, message: "Password changed successfully" });
-    } catch (error) {
-      console.error("Password change error:", error);
-      res.status(500).json({ error: "Failed to change password" });
-    }
-  });
-  
-  // Password policy endpoint
-  app.get("/api/auth/password-policy", (req, res) => {
-    res.json({
-      requirements: getPasswordPolicyDescription(),
-    });
-  });
-  
-  // Modern authentication handler (session management, OAuth providers)
-  // Handles: /api/auth/session, /api/auth/sign-in/*, /api/auth/sign-up/*, /api/auth/sign-out, /api/auth/callback/*
-  app.all("/api/auth/*", toNodeHandler(auth));
+  // ===== AUTHENTICATION ENDPOINTS REMOVED =====
+  // Authentication endpoints (change-password, password-policy, BetterAuth handler)
+  // have been extracted to server/routes/auth-endpoints.routes.ts
+  // Mounted above via: app.use('/api', authEndpointsRouter)
   
   // Hard-coded organisation ID for demo (in production this would come from auth)
   const ORG_ID = "default-org";
@@ -578,76 +517,9 @@ export async function registerRoutes(
     });
   });
 
-  // ===== BRANDING/ASSETS ENDPOINTS =====
-  const DEFAULT_BRANDING = {
-    appName: 'SocialComply',
-    primaryColor: '#3b82f6',
-    secondaryColor: '#1e40af',
-    accentColor: '#60a5fa',
-    fontFamily: 'Inter',
-    metaTitle: 'SocialComply - Compliance Management',
-    metaDescription: 'UK Social Housing Compliance Management Platform',
-    footerText: 'SocialComply - Keeping Homes Safe',
-  };
-
-  app.get("/api/branding", async (req, res) => {
-    try {
-      const orgId = req.query.org as string || 'default';
-      
-      try {
-        const [branding] = await db
-          .select()
-          .from(organizationBranding)
-          .where(eq(organizationBranding.organisationId, orgId))
-          .limit(1);
-        
-        if (!branding) {
-          const [defaultBranding] = await db
-            .select()
-            .from(organizationBranding)
-            .where(eq(organizationBranding.organisationId, 'default'))
-            .limit(1);
-          
-          if (defaultBranding) {
-            return res.json(defaultBranding);
-          }
-          
-          return res.json(DEFAULT_BRANDING);
-        }
-        
-        res.json(branding);
-      } catch (dbError: any) {
-        if (dbError?.message?.includes('does not exist') || dbError?.code === '42P01') {
-          return res.json(DEFAULT_BRANDING);
-        }
-        throw dbError;
-      }
-    } catch (error) {
-      console.error("Error fetching branding:", error);
-      res.json(DEFAULT_BRANDING);
-    }
-  });
-
-  app.get("/api/assets/config", async (req, res) => {
-    try {
-      const config = {
-        assetsBaseUrl: process.env.ASSETS_BASE_URL || '/assets',
-        objectStorageConfigured: !!(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID),
-        mapTiles: {
-          light: process.env.VITE_TILE_SOURCE_LIGHT || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          dark: process.env.VITE_TILE_SOURCE_DARK || 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-          selfHosted: !!process.env.VITE_TILE_SOURCE_SELF_HOSTED,
-        },
-        markers: {
-          baseUrl: '/assets/leaflet',
-        },
-      };
-      res.json(config);
-    } catch (error) {
-      console.error("Error fetching assets config:", error);
-      res.status(500).json({ error: "Failed to fetch assets configuration" });
-    }
-  });
+  // ===== BRANDING/ASSETS ENDPOINTS REMOVED =====
+  // Branding and assets config endpoints have been extracted to server/routes/branding.routes.ts
+  // Mounted above via: app.use('/api', brandingRouter)
   
   // ===== AI ASSISTANT ROUTES REMOVED =====
   // AI Assistant Chat, Analytics, and Knowledge Document Management routes
@@ -660,194 +532,11 @@ export async function registerRoutes(
   // have been extracted to server/routes/search.routes.ts
   // Mounted above via: app.use('/api', searchRouter)
 
-  // ===============================================================================
-  // DEPRECATED: Routes below are now handled by modular routers mounted above.
-  // These legacy routes remain for backwards compatibility but will be removed.
-  // New routes mounted: propertiesRouter, certificatesRouter, contractorsRouter, remedialRouter
-  // ===============================================================================
+  // ===== HIERARCHY ROUTES REMOVED =====
+  // Schemes, Blocks, Organisations, and Hierarchy Stats routes
+  // have been extracted to server/routes/hierarchy.routes.ts
+  // Mounted above via: app.use('/api', hierarchyRouter)
 
-  // ===== SCHEMES ===== [DEPRECATED - see propertiesRouter]
-  app.get("/api/schemes", async (req, res) => {
-    try {
-      const schemes = await storage.listSchemes(ORG_ID);
-      res.json(schemes);
-    } catch (error) {
-      console.error("Error fetching schemes:", error);
-      res.status(500).json({ error: "Failed to fetch schemes" });
-    }
-  });
-  
-  app.post("/api/schemes", async (req, res) => {
-    try {
-      const data = insertSchemeSchema.parse({ ...req.body, organisationId: ORG_ID });
-      const scheme = await storage.createScheme(data);
-      res.status(201).json(scheme);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Validation failed", details: error.errors });
-      } else {
-        console.error("Error creating scheme:", error);
-        res.status(500).json({ error: "Failed to create scheme" });
-      }
-    }
-  });
-  
-  // ===== BLOCKS =====
-  app.get("/api/blocks", async (req, res) => {
-    try {
-      const schemeId = req.query.schemeId as string | undefined;
-      const blocks = await storage.listBlocks(schemeId);
-      res.json(blocks);
-    } catch (error) {
-      console.error("Error fetching blocks:", error);
-      res.status(500).json({ error: "Failed to fetch blocks" });
-    }
-  });
-  
-  app.post("/api/blocks", async (req, res) => {
-    try {
-      const data = insertBlockSchema.parse(req.body);
-      const block = await storage.createBlock(data);
-      res.status(201).json(block);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Validation failed", details: error.errors });
-      } else {
-        console.error("Error creating block:", error);
-        res.status(500).json({ error: "Failed to create block" });
-      }
-    }
-  });
-
-  app.patch("/api/blocks/:id", async (req, res) => {
-    try {
-      const block = await storage.updateBlock(req.params.id, req.body);
-      if (!block) {
-        return res.status(404).json({ error: "Block not found" });
-      }
-      res.json(block);
-    } catch (error) {
-      console.error("Error updating block:", error);
-      res.status(500).json({ error: "Failed to update block" });
-    }
-  });
-
-  app.delete("/api/blocks/:id", async (req, res) => {
-    try {
-      const deleted = await storage.deleteBlock(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "Block not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting block:", error);
-      res.status(500).json({ error: "Failed to delete block" });
-    }
-  });
-
-  // ===== HIERARCHY STATS =====
-  app.get("/api/hierarchy/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      const stats = await storage.getHierarchyStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching hierarchy stats:", error);
-      res.status(500).json({ error: "Failed to fetch hierarchy stats" });
-    }
-  });
-
-  // ===== ORGANISATIONS =====
-  app.get("/api/organisations", async (req, res) => {
-    try {
-      const orgs = await storage.listOrganisations();
-      res.json(orgs);
-    } catch (error) {
-      console.error("Error fetching organisations:", error);
-      res.status(500).json({ error: "Failed to fetch organisations" });
-    }
-  });
-
-  app.get("/api/organisations/:id", async (req, res) => {
-    try {
-      const org = await storage.getOrganisation(req.params.id);
-      if (!org) {
-        return res.status(404).json({ error: "Organisation not found" });
-      }
-      res.json(org);
-    } catch (error) {
-      console.error("Error fetching organisation:", error);
-      res.status(500).json({ error: "Failed to fetch organisation" });
-    }
-  });
-
-  app.post("/api/organisations", async (req, res) => {
-    try {
-      const data = insertOrganisationSchema.parse(req.body);
-      const org = await storage.createOrganisation(data);
-      res.status(201).json(org);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Validation failed", details: error.errors });
-      } else {
-        console.error("Error creating organisation:", error);
-        res.status(500).json({ error: "Failed to create organisation" });
-      }
-    }
-  });
-
-  app.patch("/api/organisations/:id", async (req, res) => {
-    try {
-      const org = await storage.updateOrganisation(req.params.id, req.body);
-      if (!org) {
-        return res.status(404).json({ error: "Organisation not found" });
-      }
-      res.json(org);
-    } catch (error) {
-      console.error("Error updating organisation:", error);
-      res.status(500).json({ error: "Failed to update organisation" });
-    }
-  });
-
-  app.delete("/api/organisations/:id", async (req, res) => {
-    try {
-      const deleted = await storage.deleteOrganisation(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "Organisation not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting organisation:", error);
-      res.status(500).json({ error: "Failed to delete organisation" });
-    }
-  });
-
-  // ===== SCHEME UPDATES =====
-  app.patch("/api/schemes/:id", async (req, res) => {
-    try {
-      const scheme = await storage.updateScheme(req.params.id, req.body);
-      if (!scheme) {
-        return res.status(404).json({ error: "Scheme not found" });
-      }
-      res.json(scheme);
-    } catch (error) {
-      console.error("Error updating scheme:", error);
-      res.status(500).json({ error: "Failed to update scheme" });
-    }
-  });
-
-  app.delete("/api/schemes/:id", async (req, res) => {
-    try {
-      const deleted = await storage.deleteScheme(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "Scheme not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting scheme:", error);
-      res.status(500).json({ error: "Failed to delete scheme" });
-    }
-  });
-  
   // ===== API LIMITS CONFIG (for frontend) =====
   app.get("/api/config/limits", async (req, res) => {
     try {
@@ -1098,107 +787,10 @@ export async function registerRoutes(
     }
   });
   
-  // ===== CONTRACTORS & STAFF =====
-  app.get("/api/contractors", async (req, res) => {
-    try {
-      const isInternalParam = req.query.isInternal;
-      const isInternal = isInternalParam === 'true' ? true : isInternalParam === 'false' ? false : undefined;
-      const contractors = await storage.listContractors(ORG_ID, isInternal);
-      res.json(contractors);
-    } catch (error) {
-      console.error("Error fetching contractors:", error);
-      res.status(500).json({ error: "Failed to fetch contractors" });
-    }
-  });
-  
-  app.get("/api/contractors/:id", async (req, res) => {
-    try {
-      const contractor = await storage.getContractor(req.params.id);
-      if (!contractor) {
-        return res.status(404).json({ error: "Contractor not found" });
-      }
-      res.json(contractor);
-    } catch (error) {
-      console.error("Error fetching contractor:", error);
-      res.status(500).json({ error: "Failed to fetch contractor" });
-    }
-  });
-  
-  app.post("/api/contractors", async (req, res) => {
-    try {
-      const data = insertContractorSchema.parse({ ...req.body, organisationId: ORG_ID });
-      const contractor = await storage.createContractor(data);
-      res.status(201).json(contractor);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      console.error("Error creating contractor:", error);
-      res.status(500).json({ error: "Failed to create contractor" });
-    }
-  });
-  
-  app.patch("/api/contractors/:id", async (req, res) => {
-    try {
-      const updateData = insertContractorSchema.partial().parse(req.body);
-      const contractor = await storage.updateContractor(req.params.id, updateData);
-      if (!contractor) {
-        return res.status(404).json({ error: "Contractor not found" });
-      }
-      res.json(contractor);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      console.error("Error updating contractor:", error);
-      res.status(500).json({ error: "Failed to update contractor" });
-    }
-  });
-  
-  app.post("/api/contractors/:id/status", async (req, res) => {
-    try {
-      const { status } = req.body;
-      if (!['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
-        return res.status(400).json({ error: "Invalid status" });
-      }
-      const contractor = await storage.updateContractorStatus(req.params.id, status);
-      if (!contractor) {
-        return res.status(404).json({ error: "Contractor not found" });
-      }
-      res.json(contractor);
-    } catch (error) {
-      console.error("Error updating contractor status:", error);
-      res.status(500).json({ error: "Failed to update contractor status" });
-    }
-  });
-  
-  app.post("/api/contractors/bulk-approve", async (req, res) => {
-    try {
-      const { ids } = req.body;
-      if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: "No contractor IDs provided" });
-      }
-      const approved = await storage.bulkApproveContractors(ids);
-      res.json({ success: true, approved });
-    } catch (error) {
-      console.error("Error bulk approving contractors:", error);
-      res.status(500).json({ error: "Failed to approve contractors" });
-    }
-  });
-  
-  app.post("/api/contractors/bulk-reject", async (req, res) => {
-    try {
-      const { ids } = req.body;
-      if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: "No contractor IDs provided" });
-      }
-      const rejected = await storage.bulkRejectContractors(ids);
-      res.json({ success: true, rejected });
-    } catch (error) {
-      console.error("Error bulk rejecting contractors:", error);
-      res.status(500).json({ error: "Failed to reject contractors" });
-    }
-  });
+  // ===== CONTRACTORS & STAFF ROUTES REMOVED =====
+  // All contractor endpoints (list, get, create, update, status, bulk-approve, bulk-reject)
+  // and staff member endpoints have been extracted to server/routes/contractors.routes.ts
+  // Mounted above via: app.use('/api/contractors', contractorsRouter)
   
   // ===== STAFF AND CONTRACTOR ROUTES REMOVED =====
   // Staff Members, Contractor Certifications, Contractor Verification History,

@@ -107,7 +107,7 @@ remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest
         const blockInfo = blockMap.get(property.blockId);
         if (blockInfo) {
           blockName = blockInfo.name;
-          schemeName = schemeMap.get(blockInfo.schemeId) || '';
+          schemeName = blockInfo.schemeId ? schemeMap.get(blockInfo.schemeId) || '' : '';
         }
       }
       
@@ -269,7 +269,7 @@ remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) =>
     // Record audit event
     const auditEventType = updates.status === 'COMPLETED' ? 'REMEDIAL_ACTION_COMPLETED' : 'REMEDIAL_ACTION_UPDATED';
     await recordAudit({
-      organisationId: action.organisationId,
+      organisationId: orgId,
       eventType: auditEventType,
       entityType: 'REMEDIAL_ACTION',
       entityId: action.id,
