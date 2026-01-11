@@ -48,7 +48,13 @@ export async function createStorageProvider(
 }
 
 export function getStorageConfigFromEnv(): AnyStorageConfig {
-  const providerType = (process.env.STORAGE_PROVIDER || "replit").toLowerCase();
+  // Cloud-agnostic storage configuration
+  // STORAGE_PROVIDER options: replit, s3, azure, gcs, local
+  // Default: "replit" when on Replit platform (REPL_SLUG exists), "local" otherwise
+  const isReplit = process.env.REPL_SLUG !== undefined;
+  const hasReplitStorage = process.env.PUBLIC_OBJECT_SEARCH_PATHS || process.env.PRIVATE_OBJECT_DIR;
+  const defaultProvider = (isReplit && hasReplitStorage) ? "replit" : "local";
+  const providerType = (process.env.STORAGE_PROVIDER || defaultProvider).toLowerCase();
   
   switch (providerType) {
     case "replit":

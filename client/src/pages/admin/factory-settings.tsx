@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, ChevronDown, Globe, Search, FileText, Scale, Plus, Edit, X, Check, Menu, Rocket, XCircle } from "lucide-react";
+import { Shield, Upload, Zap, Webhook, Cpu, Lock, AlertTriangle, Save, RotateCcw, Loader2, Database, Play, Trash2, RefreshCw, Settings, ChevronRight, ChevronDown, Globe, Search, FileText, Scale, Plus, Edit, X, Check, Menu, Rocket, XCircle, ArrowUpCircle, CheckCircle2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -426,6 +426,277 @@ function InitializeSystemSection({ isDemoLoading, isSeeding, userRole }: {
               data-testid="button-clear-progress"
             >
               Clear
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface MigrationPreview {
+  complianceStreams: { code: string; name: string; status: 'new' | 'updated' }[];
+  certificateTypes: { code: string; name: string; status: 'new' | 'updated' }[];
+  classificationCodes: { code: string; name: string; status: 'new' | 'updated' }[];
+  componentTypes: { code: string; name: string; status: 'new' | 'updated' }[];
+  totalPending: number;
+}
+
+function UpdateSystemConfigurationSection({ isDemoLoading, isSeeding }: { 
+  isDemoLoading: boolean; 
+  isSeeding: boolean;
+}) {
+  const [preview, setPreview] = useState<MigrationPreview | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [applyResult, setApplyResult] = useState<{ success: boolean; message: string; totalApplied?: number } | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const checkForUpdates = async () => {
+    setIsChecking(true);
+    setApplyResult(null);
+    try {
+      const res = await fetch("/api/admin/demo-data/migrate/preview", {
+        method: "GET",
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to check for updates");
+      }
+      const data = await res.json();
+      setPreview(data);
+      if (data.totalPending === 0) {
+        toast({ title: "Up to Date", description: "No pending configuration updates found." });
+      } else {
+        toast({ title: "Updates Available", description: `Found ${data.totalPending} pending configuration updates.` });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const applyUpdates = async () => {
+    setIsApplying(true);
+    try {
+      const res = await fetch("/api/admin/demo-data/migrate/apply", {
+        method: "POST",
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to apply updates");
+      }
+      setApplyResult({ success: true, message: data.message, totalApplied: data.totalApplied });
+      setPreview(null);
+      toast({ title: "Updates Applied", description: data.message, duration: 10000 });
+      queryClient.invalidateQueries();
+    } catch (error: any) {
+      setApplyResult({ success: false, message: error.message });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  return (
+    <Card className="border-2 border-cyan-200 dark:border-cyan-800 mt-4">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ArrowUpCircle className="h-4 w-4 text-cyan-600" />
+          Update System Configuration
+          <Badge variant="outline" className="text-xs ml-2">Non-Destructive</Badge>
+        </CardTitle>
+        <CardDescription>
+          Check for and apply new configuration updates (compliance streams, certificate types, component types) without affecting existing data.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 p-4 rounded-lg">
+          <div className="flex gap-2 items-start">
+            <CheckCircle2 className="h-5 w-5 text-cyan-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-cyan-800 dark:text-cyan-200">Safe Update Process</p>
+              <p className="text-sm text-cyan-700 dark:text-cyan-300">
+                This operation only adds new configuration items. Existing data, properties, certificates, and user records will NOT be modified or deleted.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {!preview && !applyResult && (
+          <Button 
+            className="w-full"
+            variant="outline"
+            onClick={checkForUpdates}
+            disabled={isDemoLoading || isSeeding || isChecking}
+            data-testid="button-check-updates"
+          >
+            {isChecking ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Checking for Updates...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Check for Configuration Updates
+              </>
+            )}
+          </Button>
+        )}
+
+        {preview && preview.totalPending > 0 && (
+          <div className="space-y-4 border border-cyan-200 dark:border-cyan-700 rounded-lg p-4 bg-cyan-50/50 dark:bg-cyan-950/20">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-cyan-800 dark:text-cyan-200">
+                {preview.totalPending} Pending Updates Found
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreview(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {preview.complianceStreams.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300 mb-1">
+                    Compliance Streams ({preview.complianceStreams.length})
+                  </p>
+                  <div className="space-y-1">
+                    {preview.complianceStreams.map(item => (
+                      <div key={item.code} className="flex items-center gap-2 text-sm">
+                        <Badge variant="secondary" className="text-xs">{item.status}</Badge>
+                        <code className="text-xs bg-background px-1.5 py-0.5 rounded">{item.code}</code>
+                        <span className="text-muted-foreground">{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {preview.certificateTypes.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300 mb-1">
+                    Certificate Types ({preview.certificateTypes.length})
+                  </p>
+                  <div className="space-y-1">
+                    {preview.certificateTypes.map(item => (
+                      <div key={item.code} className="flex items-center gap-2 text-sm">
+                        <Badge variant="secondary" className="text-xs">{item.status}</Badge>
+                        <code className="text-xs bg-background px-1.5 py-0.5 rounded">{item.code}</code>
+                        <span className="text-muted-foreground">{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {preview.componentTypes.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300 mb-1">
+                    Component Types ({preview.componentTypes.length})
+                  </p>
+                  <div className="space-y-1">
+                    {preview.componentTypes.map(item => (
+                      <div key={item.code} className="flex items-center gap-2 text-sm">
+                        <Badge variant="secondary" className="text-xs">{item.status}</Badge>
+                        <code className="text-xs bg-background px-1.5 py-0.5 rounded">{item.code}</code>
+                        <span className="text-muted-foreground">{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                className="flex-1"
+                onClick={() => setPreview(null)}
+                disabled={isApplying}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={applyUpdates}
+                disabled={isApplying}
+                data-testid="button-apply-updates"
+              >
+                {isApplying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Applying Updates...
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpCircle className="mr-2 h-4 w-4" />
+                    Apply {preview.totalPending} Updates
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {preview && preview.totalPending === 0 && (
+          <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="font-medium text-green-800 dark:text-green-200">System is Up to Date</p>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  All configuration items are already present in the database.
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline"
+              className="w-full mt-3"
+              onClick={() => setPreview(null)}
+            >
+              Close
+            </Button>
+          </div>
+        )}
+
+        {applyResult && (
+          <div className={`p-4 rounded-lg border ${
+            applyResult.success 
+              ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" 
+              : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
+          }`}>
+            <div className="flex items-center gap-2">
+              {applyResult.success ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
+              <div>
+                <p className={`font-medium ${applyResult.success ? "text-green-800 dark:text-green-200" : "text-red-800 dark:text-red-200"}`}>
+                  {applyResult.success ? "Updates Applied Successfully" : "Update Failed"}
+                </p>
+                <p className={`text-sm ${applyResult.success ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
+                  {applyResult.message}
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline"
+              className="w-full mt-3"
+              onClick={() => setApplyResult(null)}
+            >
+              {applyResult.success ? "Check for More Updates" : "Try Again"}
             </Button>
           </div>
         )}
@@ -1272,6 +1543,11 @@ export default function FactorySettings() {
                 </Button>
               </CardContent>
             </Card>
+            
+            <UpdateSystemConfigurationSection 
+              isDemoLoading={isDemoLoading} 
+              isSeeding={isSeeding}
+            />
             
             <InitializeSystemSection 
               isDemoLoading={isDemoLoading} 

@@ -2347,3 +2347,182 @@ async function seedNavigation() {
     console.error("Error seeding navigation items:", error);
   }
 }
+
+export interface MigrationPreview {
+  complianceStreams: { code: string; name: string; status: 'new' | 'updated' }[];
+  certificateTypes: { code: string; name: string; status: 'new' | 'updated' }[];
+  classificationCodes: { code: string; name: string; status: 'new' | 'updated' }[];
+  componentTypes: { code: string; name: string; status: 'new' | 'updated' }[];
+  totalPending: number;
+}
+
+export interface MigrationResult {
+  applied: {
+    complianceStreams: number;
+    certificateTypes: number;
+    classificationCodes: number;
+    componentTypes: number;
+  };
+  totalApplied: number;
+}
+
+const COMPLIANCE_STREAMS_DATA = [
+  { code: "GAS_HEATING", name: "Gas & Heating Safety", description: "Gas safety, boilers, oil, LPG, solid fuel, heat pumps per Gas Safety Regulations 1998", colorCode: "#EF4444", iconName: "Flame", isSystem: true, isActive: true, displayOrder: 1 },
+  { code: "ELECTRICAL", name: "Electrical Safety", description: "Electrical installations, testing, PAT per Electrical Safety Standards Regulations 2020", colorCode: "#F59E0B", iconName: "Zap", isSystem: true, isActive: true, displayOrder: 2 },
+  { code: "ENERGY", name: "Energy & Efficiency", description: "EPC, SAP assessments, energy efficiency per MEES Regulations", colorCode: "#22C55E", iconName: "Leaf", isSystem: true, isActive: true, displayOrder: 3 },
+  { code: "FIRE_SAFETY", name: "Fire Safety", description: "Fire risk assessments, alarms, doors, extinguishers per RRO 2005 & FSA 2022", colorCode: "#DC2626", iconName: "FireExtinguisher", isSystem: true, isActive: true, displayOrder: 4 },
+  { code: "ASBESTOS", name: "Asbestos Management", description: "Asbestos surveys, register, R&D per Control of Asbestos Regulations 2012", colorCode: "#7C3AED", iconName: "AlertTriangle", isSystem: true, isActive: true, displayOrder: 5 },
+  { code: "WATER_SAFETY", name: "Water Safety & Legionella", description: "Legionella risk assessments, water testing per HSE ACOP L8", colorCode: "#0EA5E9", iconName: "Droplets", isSystem: true, isActive: true, displayOrder: 6 },
+  { code: "LIFTING", name: "Lifting Equipment", description: "Passenger lifts, hoists, stairlifts per LOLER 1998 & PUWER 1998", colorCode: "#6366F1", iconName: "ArrowUpDown", isSystem: true, isActive: true, displayOrder: 7 },
+  { code: "BUILDING_SAFETY", name: "Building & Structural Safety", description: "Structure, roof, cladding, facades per Building Safety Act 2022", colorCode: "#78716C", iconName: "Building2", isSystem: true, isActive: true, displayOrder: 8 },
+  { code: "EXTERNAL", name: "External Areas & Grounds", description: "Playgrounds, trees, fencing, grounds per BS EN 1176 & BS 5837", colorCode: "#84CC16", iconName: "TreePine", isSystem: true, isActive: true, displayOrder: 9 },
+  { code: "SECURITY", name: "Security & Access", description: "Door entry, CCTV, access control, communal security", colorCode: "#0F172A", iconName: "ShieldCheck", isSystem: true, isActive: true, displayOrder: 10 },
+  { code: "HRB_SPECIFIC", name: "Higher-Risk Buildings (HRB)", description: "Specific requirements for buildings 18m+ per Building Safety Act 2022", colorCode: "#B91C1C", iconName: "Building", isSystem: true, isActive: true, displayOrder: 11 },
+  { code: "HOUSING_HEALTH", name: "Housing Health & Safety", description: "HHSRS hazard assessments, damp & mould per Housing Act 2004", colorCode: "#0D9488", iconName: "Home", isSystem: true, isActive: true, displayOrder: 12 },
+  { code: "ACCESSIBILITY", name: "Accessibility & Adaptations", description: "DDA compliance, adaptations, accessible features", colorCode: "#8B5CF6", iconName: "Accessibility", isSystem: true, isActive: true, displayOrder: 13 },
+  { code: "PEST_CONTROL", name: "Pest Control", description: "Pest inspections and treatment records", colorCode: "#A3A3A3", iconName: "Bug", isSystem: true, isActive: true, displayOrder: 14 },
+  { code: "WASTE", name: "Waste Management", description: "Bin stores, recycling, waste disposal compliance", colorCode: "#65A30D", iconName: "Trash2", isSystem: true, isActive: true, displayOrder: 15 },
+  { code: "COMMUNAL", name: "Communal Areas", description: "Communal cleaning, lighting, general maintenance", colorCode: "#EC4899", iconName: "Users", isSystem: true, isActive: true, displayOrder: 16 },
+];
+
+const CERTIFICATE_TYPES_DATA = [
+  { code: "GAS", name: "Gas Safety Certificate (CP12/LGSR)", shortName: "Gas Safety", complianceStream: "GAS_HEATING", validityMonths: 12, warningDays: 60, displayOrder: 1, isActive: true },
+  { code: "GAS_SVC", name: "Gas Servicing Certificate", shortName: "Gas Service", complianceStream: "GAS_HEATING", validityMonths: 12, warningDays: 30, displayOrder: 2, isActive: true },
+  { code: "OIL", name: "Oil Heating Certificate (OFTEC)", shortName: "Oil Heating", complianceStream: "GAS_HEATING", validityMonths: 12, warningDays: 60, displayOrder: 3, isActive: true },
+  { code: "EICR", name: "Electrical Installation Condition Report", shortName: "EICR", complianceStream: "ELECTRICAL", validityMonths: 60, warningDays: 90, displayOrder: 21, isActive: true },
+  { code: "EIC", name: "Electrical Installation Certificate", shortName: "EIC", complianceStream: "ELECTRICAL", validityMonths: 60, warningDays: 90, displayOrder: 22, isActive: true },
+  { code: "PAT", name: "Portable Appliance Testing", shortName: "PAT", complianceStream: "ELECTRICAL", validityMonths: 12, warningDays: 30, displayOrder: 24, isActive: true },
+  { code: "EPC", name: "Energy Performance Certificate", shortName: "EPC", complianceStream: "ENERGY", validityMonths: 120, warningDays: 180, displayOrder: 31, isActive: true },
+  { code: "FRA", name: "Fire Risk Assessment", shortName: "Fire Risk", complianceStream: "FIRE_SAFETY", validityMonths: 12, warningDays: 60, displayOrder: 41, isActive: true },
+  { code: "FA", name: "Fire Alarm System Certificate", shortName: "Fire Alarm", complianceStream: "FIRE_SAFETY", validityMonths: 12, warningDays: 30, displayOrder: 45, isActive: true },
+  { code: "ASB", name: "Asbestos Management Survey", shortName: "Asbestos Survey", complianceStream: "ASBESTOS", validityMonths: 0, warningDays: 0, displayOrder: 61, isActive: true },
+  { code: "LEG", name: "Legionella Risk Assessment", shortName: "Legionella", complianceStream: "WATER_SAFETY", validityMonths: 24, warningDays: 90, displayOrder: 71, isActive: true },
+  { code: "LIFT", name: "Lift LOLER Certificate", shortName: "Lift LOLER", complianceStream: "LIFTING", validityMonths: 6, warningDays: 30, displayOrder: 81, isActive: true },
+  { code: "HHSRS", name: "HHSRS Assessment", shortName: "HHSRS", complianceStream: "BUILDING_SAFETY", validityMonths: 0, warningDays: 0, displayOrder: 91, isActive: true },
+  { code: "STRUCT", name: "Structural Survey", shortName: "Structural", complianceStream: "BUILDING_SAFETY", validityMonths: 60, warningDays: 180, displayOrder: 93, isActive: true },
+];
+
+const COMPONENT_TYPES_DATA = [
+  { code: "GAS_BOILER", name: "Gas Boiler", category: "HEATING", complianceStream: "GAS_HEATING", requiresCertification: true, certificationTypes: ["GAS", "GAS_SVC"], defaultLifespanYears: 15, isActive: true },
+  { code: "GAS_METER", name: "Gas Meter", category: "HEATING", complianceStream: "GAS_HEATING", requiresCertification: true, certificationTypes: ["GAS"], defaultLifespanYears: 20, isActive: true },
+  { code: "ELEC_CONSUMER_UNIT", name: "Consumer Unit", category: "ELECTRICAL", complianceStream: "ELECTRICAL", requiresCertification: true, certificationTypes: ["EICR", "EIC"], defaultLifespanYears: 20, isActive: true },
+  { code: "FIRE_DOOR_FLAT", name: "Fire Door (Flat Entrance)", category: "FIRE_SAFETY", complianceStream: "FIRE_SAFETY", requiresCertification: true, certificationTypes: ["FD", "FD_Q"], defaultLifespanYears: 25, isActive: true },
+  { code: "FIRE_ALARM_PANEL", name: "Fire Alarm Panel", category: "FIRE_SAFETY", complianceStream: "FIRE_SAFETY", requiresCertification: true, certificationTypes: ["FA"], defaultLifespanYears: 15, isActive: true },
+  { code: "SMOKE_DETECTOR", name: "Smoke Detector", category: "FIRE_SAFETY", complianceStream: "FIRE_SAFETY", requiresCertification: true, certificationTypes: ["SD"], defaultLifespanYears: 10, isActive: true },
+  { code: "PASSENGER_LIFT", name: "Passenger Lift", category: "LIFTING", complianceStream: "LIFTING", requiresCertification: true, certificationTypes: ["LIFT", "LIFT_M"], defaultLifespanYears: 25, isActive: true },
+  { code: "HOT_WATER_CYLINDER", name: "Hot Water Cylinder", category: "WATER", complianceStream: "WATER_SAFETY", requiresCertification: true, certificationTypes: ["LEG"], defaultLifespanYears: 15, isActive: true },
+];
+
+export async function getMigrationPreview(): Promise<MigrationPreview> {
+  const existingStreams = await db.select().from(complianceStreams);
+  const existingCertTypes = await db.select().from(certificateTypes);
+  const existingComponents = await db.select().from(componentTypes);
+  
+  const existingStreamCodes = new Set(existingStreams.map(s => s.code));
+  const existingCertCodes = new Set(existingCertTypes.map(c => c.code));
+  const existingComponentCodes = new Set(existingComponents.map(c => c.code));
+  
+  const pendingStreams: MigrationPreview['complianceStreams'] = [];
+  for (const stream of COMPLIANCE_STREAMS_DATA) {
+    if (!existingStreamCodes.has(stream.code)) {
+      pendingStreams.push({ code: stream.code, name: stream.name, status: 'new' });
+    }
+  }
+  
+  const pendingCertTypes: MigrationPreview['certificateTypes'] = [];
+  for (const certType of CERTIFICATE_TYPES_DATA) {
+    if (!existingCertCodes.has(certType.code)) {
+      pendingCertTypes.push({ code: certType.code, name: certType.name, status: 'new' });
+    }
+  }
+  
+  const pendingComponents: MigrationPreview['componentTypes'] = [];
+  for (const comp of COMPONENT_TYPES_DATA) {
+    if (!existingComponentCodes.has(comp.code)) {
+      pendingComponents.push({ code: comp.code, name: comp.name, status: 'new' });
+    }
+  }
+  
+  return {
+    complianceStreams: pendingStreams,
+    certificateTypes: pendingCertTypes,
+    classificationCodes: [],
+    componentTypes: pendingComponents,
+    totalPending: pendingStreams.length + pendingCertTypes.length + pendingComponents.length
+  };
+}
+
+export async function applyMigration(): Promise<MigrationResult> {
+  const existingStreams = await db.select().from(complianceStreams);
+  const existingCertTypes = await db.select().from(certificateTypes);
+  const existingComponents = await db.select().from(componentTypes);
+  
+  const existingStreamCodes = new Set(existingStreams.map(s => s.code));
+  const existingCertCodes = new Set(existingCertTypes.map(c => c.code));
+  const existingComponentCodes = new Set(existingComponents.map(c => c.code));
+  
+  let streamsAdded = 0;
+  let certTypesAdded = 0;
+  let componentsAdded = 0;
+  
+  for (const stream of COMPLIANCE_STREAMS_DATA) {
+    if (!existingStreamCodes.has(stream.code)) {
+      await db.insert(complianceStreams).values(stream);
+      streamsAdded++;
+      console.log(`[MIGRATE] Added compliance stream: ${stream.code}`);
+    }
+  }
+  
+  const allStreams = await db.select().from(complianceStreams);
+  const streamCodeToId: Record<string, string> = {};
+  for (const stream of allStreams) {
+    streamCodeToId[stream.code] = stream.id;
+  }
+  
+  for (const certType of CERTIFICATE_TYPES_DATA) {
+    if (!existingCertCodes.has(certType.code)) {
+      const streamId = streamCodeToId[certType.complianceStream];
+      await db.insert(certificateTypes).values({
+        code: certType.code,
+        name: certType.name,
+        shortName: certType.shortName,
+        complianceStreamId: streamId || null,
+        validityMonths: certType.validityMonths,
+        warningDays: certType.warningDays,
+        displayOrder: certType.displayOrder,
+        isActive: certType.isActive,
+        requiredFields: [],
+      });
+      certTypesAdded++;
+      console.log(`[MIGRATE] Added certificate type: ${certType.code}`);
+    }
+  }
+  
+  for (const comp of COMPONENT_TYPES_DATA) {
+    if (!existingComponentCodes.has(comp.code)) {
+      const streamId = streamCodeToId[comp.complianceStream];
+      await db.insert(componentTypes).values({
+        code: comp.code,
+        name: comp.name,
+        category: comp.category,
+        complianceStreamId: streamId || null,
+        requiresCertification: comp.requiresCertification,
+        certificationTypes: comp.certificationTypes,
+        defaultLifespanYears: comp.defaultLifespanYears,
+        isActive: comp.isActive,
+      });
+      componentsAdded++;
+      console.log(`[MIGRATE] Added component type: ${comp.code}`);
+    }
+  }
+  
+  return {
+    applied: {
+      complianceStreams: streamsAdded,
+      certificateTypes: certTypesAdded,
+      classificationCodes: 0,
+      componentTypes: componentsAdded,
+    },
+    totalApplied: streamsAdded + certTypesAdded + componentsAdded,
+  };
+}

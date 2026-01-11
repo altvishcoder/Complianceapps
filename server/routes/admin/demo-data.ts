@@ -2,10 +2,10 @@ import { Router, Response } from "express";
 import { requireRole, type AuthenticatedRequest } from "../../session";
 import { storage } from "../../storage";
 import { generateFullDemoData } from "../../demo-data-generator";
-import { SUPER_ADMIN_ROLES, getOrgId } from "./utils";
+import { SUPER_ADMIN_ROLES, ADMIN_ROLES, getOrgId } from "./utils";
 import { db } from "../../db";
-import { auditEvents } from "@shared/schema";
-import { seedDatabase } from "../../seed";
+import { auditEvents, complianceStreams, certificateTypes, classificationCodes, componentTypes, extractionSchemas, complianceRules, normalisationRules } from "@shared/schema";
+import { seedDatabase, getMigrationPreview, applyMigration } from "../../seed";
 
 export const adminDemoDataRouter = Router();
 
@@ -441,5 +441,93 @@ adminDemoDataRouter.post("/reclassify-certificates", requireRole(...SUPER_ADMIN_
   } catch (error) {
     console.error("Error reclassifying certificates:", error);
     res.status(500).json({ error: "Failed to reclassify certificates" });
+  }
+});
+
+adminDemoDataRouter.get("/migrate/preview", requireRole(...ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    console.log(`[MIGRATE] Preview requested by ${req.user?.email}`);
+    const preview = await getMigrationPreview();
+    res.json(preview);
+  } catch (error: any) {
+    console.error("Failed to get migration preview:", error);
+    res.status(500).json({ error: "Failed to get migration preview", details: error?.message });
+  }
+});
+
+adminDemoDataRouter.post("/migrate/apply", requireRole(...ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const userEmail = req.user!.email || 'unknown';
+    const userName = req.user!.name || req.user!.username || 'Unknown';
+    const orgId = getOrgId(req);
+    
+    console.log(`[MIGRATE] Apply requested by ${userEmail} (${userId})`);
+    
+    const preview = await getMigrationPreview();
+    
+    if (preview.totalPending === 0) {
+      return res.json({ 
+        success: true, 
+        message: "No pending updates to apply",
+        applied: { complianceStreams: 0, certificateTypes: 0, classificationCodes: 0, componentTypes: 0 }
+      });
+    }
+    
+    try {
+      await db.insert(auditEvents).values({
+        organisationId: orgId,
+        eventType: 'SETTINGS_CHANGED',
+        entityType: 'SETTINGS',
+        entityId: 'system-migration',
+        entityName: 'System Configuration Migration',
+        actorId: userId,
+        actorName: userName,
+        actorType: 'USER',
+        message: `Configuration migration started by ${userName} (${userEmail})`,
+        metadata: { 
+          action: 'MIGRATION_STARTED',
+          pendingChanges: preview,
+          startedAt: new Date().toISOString()
+        },
+      });
+    } catch (auditError) {
+      console.error("Failed to create pre-migration audit log:", auditError);
+    }
+    
+    const result = await applyMigration();
+    
+    try {
+      await db.insert(auditEvents).values({
+        organisationId: orgId,
+        eventType: 'SETTINGS_CHANGED',
+        entityType: 'SETTINGS',
+        entityId: 'system-migration',
+        entityName: 'System Configuration Migration',
+        actorId: userId,
+        actorName: userName,
+        actorType: 'USER',
+        message: `Configuration migration completed by ${userName} (${userEmail}): ${result.totalApplied} items updated`,
+        metadata: { 
+          action: 'MIGRATION_COMPLETED',
+          applied: result.applied,
+          totalApplied: result.totalApplied,
+          completedAt: new Date().toISOString()
+        },
+      });
+    } catch (auditError) {
+      console.error("Failed to create post-migration audit log:", auditError);
+    }
+    
+    console.log(`[MIGRATE] Migration completed: ${result.totalApplied} items applied`);
+    
+    res.json({
+      success: true,
+      message: `Successfully applied ${result.totalApplied} configuration updates`,
+      ...result
+    });
+  } catch (error: any) {
+    console.error("Failed to apply migration:", error);
+    res.status(500).json({ error: "Failed to apply migration", details: error?.message });
   }
 });

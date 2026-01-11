@@ -53,8 +53,23 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 let isInitialized = false;
 let frontendReady = false;
 
-// Trust proxy for proper rate limiting behind Replit's load balancer
-app.set('trust proxy', 1);
+// Cloud-agnostic trust proxy configuration
+// TRUST_PROXY env var: "true", "false", number (hop count), or comma-separated IPs
+// Default: true when on Replit (REPL_SLUG exists), false otherwise for local development
+const isReplit = process.env.REPL_SLUG !== undefined;
+const trustProxySetting = process.env.TRUST_PROXY;
+if (trustProxySetting === 'true') {
+  app.set('trust proxy', true);
+} else if (trustProxySetting === 'false') {
+  app.set('trust proxy', false);
+} else if (trustProxySetting && !isNaN(parseInt(trustProxySetting, 10))) {
+  app.set('trust proxy', parseInt(trustProxySetting, 10));
+} else if (trustProxySetting) {
+  app.set('trust proxy', trustProxySetting);
+} else {
+  // Default based on platform detection: trust proxy on Replit, disable for local dev
+  app.set('trust proxy', isReplit ? 1 : false);
+}
 
 // Health check endpoint - MUST respond immediately for deployment health checks
 app.get('/health', (_req: Request, res: Response) => {
