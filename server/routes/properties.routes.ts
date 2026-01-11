@@ -109,6 +109,43 @@ propertiesRouter.get("/properties/stats", async (req: AuthenticatedRequest, res:
   }
 });
 
+// ===== PROPERTY GEO DATA (must be before /:id route) =====
+propertiesRouter.get("/properties/geo", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const riskData = await storage.getPropertyRiskData(orgId);
+    
+    const geoProperties = riskData
+      .filter(r => r.property.latitude && r.property.longitude)
+      .map(r => {
+        const prop = r.property;
+        const { calculatePropertyRiskScore } = require('../risk');
+        const riskScore = calculatePropertyRiskScore(r.certificates, r.actions, prop.id);
+        
+        return {
+          id: prop.id,
+          name: prop.addressLine1,
+          address: `${prop.addressLine1}, ${prop.city}, ${prop.postcode}`,
+          lat: prop.latitude!,
+          lng: prop.longitude!,
+          riskScore,
+          propertyCount: 1,
+          unitCount: 1,
+          ward: prop.ward,
+          lsoa: prop.lsoa
+        };
+      });
+    
+    res.json(geoProperties);
+  } catch (error) {
+    handleRouteError(error, req, res, "Property Geodata");
+  }
+});
+
 propertiesRouter.get("/properties/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgId = getOrgId(req);
