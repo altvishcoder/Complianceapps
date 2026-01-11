@@ -60,6 +60,7 @@ import { propertiesRouter } from "./routes/properties.routes";
 import { certificatesRouter } from "./routes/certificates.routes";
 import { contractorsRouter } from "./routes/contractors.routes";
 import { remedialRouter } from "./routes/remedial.routes";
+import { mlRouter } from "./routes/ml.routes";
 import { apiLogger } from "./logger";
 import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -290,6 +291,9 @@ export async function registerRoutes(
   
   // Register remedial actions routes
   app.use('/api/actions', remedialRouter);
+  
+  // Register ML and model-insights routes
+  app.use('/api', mlRouter);
   
   // NOTE: Modular route files exist in server/routes/ for future migration
   // They are not mounted here to avoid conflicts with existing routes below
@@ -1232,7 +1236,13 @@ export async function registerRoutes(
     }
   });
 
-  // ===== SCHEMES =====
+  // ===============================================================================
+  // DEPRECATED: Routes below are now handled by modular routers mounted above.
+  // These legacy routes remain for backwards compatibility but will be removed.
+  // New routes mounted: propertiesRouter, certificatesRouter, contractorsRouter, remedialRouter
+  // ===============================================================================
+
+  // ===== SCHEMES ===== [DEPRECATED - see propertiesRouter]
   app.get("/api/schemes", async (req, res) => {
     try {
       const schemes = await storage.listSchemes(ORG_ID);
