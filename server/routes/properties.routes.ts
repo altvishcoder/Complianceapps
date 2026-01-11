@@ -157,6 +157,131 @@ propertiesRouter.get("/properties/geo", async (req: AuthenticatedRequest, res: R
   }
 });
 
+// ===== PROPERTY GEO HEATMAP (grid-aggregated for performance) =====
+propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const rawGridSize = parseInt(req.query.gridSize as string) || 50;
+    const gridSize = Math.max(5, Math.min(200, rawGridSize));
+    
+    const result = await db.execute(sql`
+      WITH bounds AS (
+        SELECT 
+          MIN(p.latitude) as min_lat,
+          MAX(p.latitude) as max_lat,
+          MIN(p.longitude) as min_lng,
+          MAX(p.longitude) as max_lng,
+          COUNT(*) as total_count
+        FROM properties p
+        INNER JOIN blocks b ON p.block_id = b.id
+        INNER JOIN schemes s ON b.scheme_id = s.id
+        WHERE s.organisation_id = ${orgId}
+          AND p.latitude IS NOT NULL 
+          AND p.longitude IS NOT NULL
+      ),
+      grid_params AS (
+        SELECT 
+          min_lat,
+          max_lat,
+          min_lng,
+          max_lng,
+          total_count,
+          CASE 
+            WHEN max_lat = min_lat THEN 0.01
+            ELSE GREATEST((max_lat - min_lat) / ${gridSize}, 0.0001)
+          END as lat_step,
+          CASE 
+            WHEN max_lng = min_lng THEN 0.01
+            ELSE GREATEST((max_lng - min_lng) / ${gridSize}, 0.0001)
+          END as lng_step
+        FROM bounds
+        WHERE total_count > 0
+      ),
+      property_data AS (
+        SELECT 
+          p.latitude,
+          p.longitude,
+          COALESCE(rs.overall_score, 75) as risk_score
+        FROM properties p
+        LEFT JOIN property_risk_snapshots rs ON rs.property_id = p.id AND rs.is_latest = true
+        INNER JOIN blocks b ON p.block_id = b.id
+        INNER JOIN schemes s ON b.scheme_id = s.id
+        WHERE s.organisation_id = ${orgId}
+          AND p.latitude IS NOT NULL 
+          AND p.longitude IS NOT NULL
+      ),
+      grid_cells AS (
+        SELECT 
+          FLOOR((pd.latitude - gp.min_lat) / gp.lat_step) as grid_row,
+          FLOOR((pd.longitude - gp.min_lng) / gp.lng_step) as grid_col,
+          gp.min_lat + (FLOOR((pd.latitude - gp.min_lat) / gp.lat_step) + 0.5) * gp.lat_step as cell_lat,
+          gp.min_lng + (FLOOR((pd.longitude - gp.min_lng) / gp.lng_step) + 0.5) * gp.lng_step as cell_lng,
+          pd.risk_score,
+          gp.lat_step,
+          gp.lng_step
+        FROM property_data pd
+        CROSS JOIN grid_params gp
+      )
+      SELECT 
+        cell_lat as lat,
+        cell_lng as lng,
+        ROUND(AVG(risk_score)::numeric, 1) as avg_risk,
+        MIN(risk_score) as min_risk,
+        MAX(risk_score) as max_risk,
+        COUNT(*) as property_count,
+        lat_step,
+        lng_step
+      FROM grid_cells
+      WHERE grid_row IS NOT NULL AND grid_col IS NOT NULL
+      GROUP BY grid_row, grid_col, cell_lat, cell_lng, lat_step, lng_step
+      ORDER BY avg_risk DESC
+    `);
+    
+    const rows = result.rows as any[];
+    
+    if (rows.length === 0) {
+      return res.json({ 
+        cells: [], 
+        bounds: null,
+        cellSize: { latStep: 0, lngStep: 0 },
+        stats: { totalCells: 0, totalProperties: 0, avgRisk: 0 }
+      });
+    }
+    
+    const cells = rows.map(row => ({
+      lat: parseFloat(row.lat),
+      lng: parseFloat(row.lng),
+      avgRisk: parseFloat(row.avg_risk),
+      minRisk: parseFloat(row.min_risk),
+      maxRisk: parseFloat(row.max_risk),
+      count: parseInt(row.property_count)
+    }));
+    
+    const firstRow = rows[0];
+    const totalProperties = cells.reduce((sum, c) => sum + c.count, 0);
+    const weightedAvg = cells.reduce((sum, c) => sum + c.avgRisk * c.count, 0) / totalProperties;
+    
+    res.json({
+      cells,
+      cellSize: {
+        latStep: parseFloat(firstRow.lat_step),
+        lngStep: parseFloat(firstRow.lng_step)
+      },
+      stats: {
+        totalCells: cells.length,
+        totalProperties,
+        avgRisk: Math.round(weightedAvg * 10) / 10
+      }
+    });
+  } catch (error) {
+    handleRouteError(error, req, res, "Property Heatmap");
+  }
+});
+
 propertiesRouter.get("/properties/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgId = getOrgId(req);

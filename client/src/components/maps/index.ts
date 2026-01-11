@@ -5,4 +5,4 @@ export { PropertyMarkers, getRiskColor, getRiskLabel } from './PropertyMarkers';
 export type { PropertyMarker } from './PropertyMarkers';
 export { RiskLegend } from './RiskLegend';
 export { HeatmapLayer } from './HeatmapLayer';
-export type { HeatmapPoint } from './HeatmapLayer';
+export type { HeatmapPoint, HeatmapCell } from './HeatmapLayer';

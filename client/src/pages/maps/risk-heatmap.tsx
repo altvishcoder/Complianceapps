@@ -3,13 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MapWrapper, BaseMap, HeatmapLayer, MapSkeleton } from '@/components/maps';
-import type { HeatmapPoint } from '@/components/maps';
+import type { HeatmapCell } from '@/components/maps';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { getIcon, getActionIcon } from '@/config/icons';
+import { getIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
 
 const RefreshCcw = getIcon('RefreshCcw');
@@ -20,66 +19,52 @@ function hasUrlFilters(): boolean {
   return params.has('from') || params.has('stream') || params.has('level');
 }
 
-type HeatmapIntensity = 'low' | 'medium' | 'high';
+type GridResolution = 'coarse' | 'medium' | 'fine';
+
+interface HeatmapResponse {
+  cells: HeatmapCell[];
+  cellSize: { latStep: number; lngStep: number };
+  stats: { totalCells: number; totalProperties: number; avgRisk: number };
+}
 
 export default function RiskHeatmapPage() {
-  const [intensity, setIntensity] = useState<HeatmapIntensity>('medium');
-  const [showOnlyHighRisk, setShowOnlyHighRisk] = useState(false);
+  const [resolution, setResolution] = useState<GridResolution>('medium');
   const showBackButton = useMemo(() => hasUrlFilters(), []);
 
-  const radiusMap = { low: 15, medium: 25, high: 40 };
-  const blurMap = { low: 10, medium: 15, high: 25 };
+  const gridSizeMap = { coarse: 30, medium: 50, fine: 80 };
   
-  const { data: properties = [], isLoading, refetch } = useQuery({
-    queryKey: ['heatmap-properties'],
+  const { data, isLoading, refetch } = useQuery<HeatmapResponse>({
+    queryKey: ['heatmap-data', resolution],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
-      const res = await fetch('/api/properties/geo', {
+      const res = await fetch(`/api/properties/geo/heatmap?gridSize=${gridSizeMap[resolution]}`, {
         headers: { 'X-User-Id': userId || '' },
         cache: 'no-store'
       });
-      if (!res.ok) return [];
+      if (!res.ok) return { cells: [], cellSize: { latStep: 0, lngStep: 0 }, stats: { totalCells: 0, totalProperties: 0, avgRisk: 0 } };
       return res.json();
     },
     staleTime: 30000,
   });
 
-  const heatmapPoints: HeatmapPoint[] = useMemo(() => {
-    let filtered = properties;
-    if (showOnlyHighRisk) {
-      filtered = properties.filter((p: any) => p.riskScore < 70);
-    }
-    return filtered
-      .filter((p: any) => typeof p.lat === 'number' && !isNaN(p.lat) && typeof p.lng === 'number' && !isNaN(p.lng))
-      .map((p: any) => ({
-        lat: p.lat,
-        lng: p.lng,
-        intensity: p.riskScore || 75
-      }));
-  }, [properties, showOnlyHighRisk]);
+  const cells = data?.cells || [];
+  const cellSize = data?.cellSize || { latStep: 0, lngStep: 0 };
+  const stats = data?.stats || { totalCells: 0, totalProperties: 0, avgRisk: 0 };
 
-  const riskStats = useMemo(() => {
-    const total = properties.length;
-    const highRisk = properties.filter((p: any) => p.riskScore < 60).length;
-    const mediumRisk = properties.filter((p: any) => p.riskScore >= 60 && p.riskScore < 85).length;
-    const lowRisk = properties.filter((p: any) => p.riskScore >= 85).length;
-    const avgScore = total > 0 
-      ? Math.round(properties.reduce((sum: number, p: any) => sum + (p.riskScore || 75), 0) / total)
-      : 0;
-    return { total, highRisk, mediumRisk, lowRisk, avgScore };
-  }, [properties]);
+  const riskBreakdown = useMemo(() => {
+    const highRisk = cells.filter(c => c.avgRisk < 60).reduce((sum, c) => sum + c.count, 0);
+    const mediumRisk = cells.filter(c => c.avgRisk >= 60 && c.avgRisk < 85).reduce((sum, c) => sum + c.count, 0);
+    const lowRisk = cells.filter(c => c.avgRisk >= 85).reduce((sum, c) => sum + c.count, 0);
+    return { highRisk, mediumRisk, lowRisk };
+  }, [cells]);
 
   const mapCenter = useMemo(() => {
-    const validPoints = heatmapPoints.filter(p => 
-      typeof p.lat === 'number' && !isNaN(p.lat) &&
-      typeof p.lng === 'number' && !isNaN(p.lng)
-    );
-    if (validPoints.length === 0) return [52.5, -1.5] as [number, number];
+    if (cells.length === 0) return [52.5, -1.5] as [number, number];
     return [
-      validPoints.reduce((sum, p) => sum + p.lat, 0) / validPoints.length,
-      validPoints.reduce((sum, p) => sum + p.lng, 0) / validPoints.length
+      cells.reduce((sum, c) => sum + c.lat, 0) / cells.length,
+      cells.reduce((sum, c) => sum + c.lng, 0) / cells.length
     ] as [number, number];
-  }, [heatmapPoints]);
+  }, [cells]);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -101,26 +86,17 @@ export default function RiskHeatmapPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Label htmlFor="intensity" className="text-sm">Intensity:</Label>
-              <Select value={intensity} onValueChange={(v) => setIntensity(v as HeatmapIntensity)}>
-                <SelectTrigger className="w-[100px]" id="intensity">
+              <Label htmlFor="resolution" className="text-sm">Detail level:</Label>
+              <Select value={resolution} onValueChange={(v) => setResolution(v as GridResolution)}>
+                <SelectTrigger className="w-[110px]" id="resolution">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="coarse">Overview</SelectItem>
+                  <SelectItem value="medium">Standard</SelectItem>
+                  <SelectItem value="fine">Detailed</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Switch
-                id="high-risk-only"
-                checked={showOnlyHighRisk}
-                onCheckedChange={setShowOnlyHighRisk}
-              />
-              <Label htmlFor="high-risk-only" className="text-sm">High risk only</Label>
             </div>
             
             <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-auto">
@@ -131,15 +107,14 @@ export default function RiskHeatmapPage() {
           
           <div className="flex-1 flex min-h-[75vh] md:min-h-[600px]">
             <div className="flex-1 relative min-h-[75vh] md:min-h-[600px]">
-              {isLoading && properties.length === 0 ? (
+              {isLoading && cells.length === 0 ? (
                 <MapSkeleton />
               ) : (
                 <MapWrapper>
-                  <BaseMap center={mapCenter} zoom={heatmapPoints.length > 0 ? 10 : 6}>
+                  <BaseMap center={mapCenter} zoom={cells.length > 0 ? 10 : 6}>
                     <HeatmapLayer 
-                      points={heatmapPoints}
-                      radius={radiusMap[intensity]}
-                      blur={blurMap[intensity]}
+                      cells={cells}
+                      cellSize={cellSize}
                     />
                   </BaseMap>
                 </MapWrapper>
@@ -158,19 +133,27 @@ export default function RiskHeatmapPage() {
                     </div>
                     <div className="pt-2 border-t text-xs space-y-1">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Properties shown:</span>
-                        <span className="font-medium">{heatmapPoints.length.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Grid cells:</span>
+                        <span className="font-medium">{stats.totalCells.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Properties covered:</span>
+                        <span className="font-medium">{stats.totalProperties.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Avg risk score:</span>
+                        <span className="font-medium">{stats.avgRisk}%</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">High risk areas:</span>
-                        <span className="font-medium text-destructive">{riskStats.highRisk.toLocaleString()}</span>
+                        <span className="font-medium text-destructive">{riskBreakdown.highRisk.toLocaleString()}</span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
               
-              {!isLoading && heatmapPoints.length === 0 && (
+              {!isLoading && cells.length === 0 && (
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none">
                   <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 text-sm text-center max-w-xs">
                     <p className="font-medium text-foreground">No data to display</p>
