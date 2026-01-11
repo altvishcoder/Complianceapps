@@ -91,7 +91,7 @@ export default function RiskHeatmapPage() {
                 <SelectTrigger className="w-[110px]" id="resolution">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={4} className="z-[2000]">
                   <SelectItem value="coarse">Overview</SelectItem>
                   <SelectItem value="medium">Standard</SelectItem>
                   <SelectItem value="fine">Detailed</SelectItem>

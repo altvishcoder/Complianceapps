@@ -21,18 +21,18 @@ interface HeatmapLayerProps {
   opacity?: number;
 }
 
-function getRiskColor(score: number): string {
-  if (score <= 30) return '#22c55e';
-  if (score <= 50) return '#84cc16';
-  if (score <= 70) return '#eab308';
-  if (score <= 85) return '#f97316';
-  return '#ef4444';
+function getDynamicRiskColor(score: number, minRisk: number, maxRisk: number): string {
+  const range = maxRisk - minRisk;
+  const normalized = range > 0.1 ? (score - minRisk) / range : 0.5;
+  const hue = 120 - (normalized * 120);
+  return `hsl(${hue}, 70%, 50%)`;
 }
 
-function getRiskOpacity(score: number, count: number, maxCount: number): number {
+function getRiskOpacity(score: number, count: number, maxCount: number, minRisk: number, maxRisk: number): number {
   const countFactor = Math.min(1, count / Math.max(maxCount * 0.3, 1));
-  const riskFactor = (100 - score) / 100;
-  return 0.3 + (countFactor * 0.4) + (riskFactor * 0.2);
+  const range = maxRisk - minRisk;
+  const normalizedRisk = range > 0.1 ? (score - minRisk) / range : 0.5;
+  return 0.4 + (countFactor * 0.35) + (normalizedRisk * 0.2);
 }
 
 export function HeatmapLayer({ 
@@ -54,6 +54,8 @@ export function HeatmapLayer({
     if (cells.length === 0 || cellSize.latStep === 0 || cellSize.lngStep === 0) return;
 
     const maxCount = Math.max(...cells.map(c => c.count));
+    const minRisk = Math.min(...cells.map(c => c.avgRisk));
+    const maxRisk = Math.max(...cells.map(c => c.avgRisk));
     const layerGroup = L.layerGroup();
 
     cells.forEach(cell => {
@@ -65,12 +67,13 @@ export function HeatmapLayer({
         [cell.lat + halfLat, cell.lng + halfLng]
       ];
 
-      const cellOpacity = getRiskOpacity(cell.avgRisk, cell.count, maxCount) * opacity;
+      const color = getDynamicRiskColor(cell.avgRisk, minRisk, maxRisk);
+      const cellOpacity = getRiskOpacity(cell.avgRisk, cell.count, maxCount, minRisk, maxRisk) * opacity;
       
       const rect = L.rectangle(bounds, {
-        color: getRiskColor(cell.avgRisk),
+        color: color,
         weight: 0,
-        fillColor: getRiskColor(cell.avgRisk),
+        fillColor: color,
         fillOpacity: cellOpacity,
         interactive: true
       });
