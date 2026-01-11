@@ -65,7 +65,8 @@ describe('API Integration Tests', () => {
         .expect('Content-Type', /json/);
       
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it('GET /api/properties - should return 401 without auth', async () => {
@@ -80,8 +81,9 @@ describe('API Integration Tests', () => {
         .get('/api/properties')
         .set('Cookie', sessionCookie);
       
-      if (listResponse.body.length > 0) {
-        const propertyId = listResponse.body[0].id;
+      const properties = listResponse.body.data || listResponse.body;
+      if (properties.length > 0) {
+        const propertyId = properties[0].id;
         const response = await request(BASE_URL)
           .get(`/api/properties/${propertyId}`)
           .set('Cookie', sessionCookie)
@@ -111,7 +113,8 @@ describe('API Integration Tests', () => {
         .expect('Content-Type', /json/);
       
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it('GET /api/certificates - should filter by type', async () => {
@@ -372,8 +375,9 @@ describe('API Mutation Tests', () => {
         .get('/api/blocks')
         .set('Cookie', sessionCookie);
       
-      if (blocksResponse.body.length > 0) {
-        testBlockId = blocksResponse.body[0].id;
+      const blocks = blocksResponse.body.data || blocksResponse.body;
+      if (blocks.length > 0) {
+        testBlockId = blocks[0].id;
       }
     });
 
@@ -436,16 +440,18 @@ describe('API Mutation Tests', () => {
         .get('/api/properties')
         .set('Cookie', sessionCookie);
       
-      if (propertiesResponse.body.length > 0) {
-        testPropertyId = propertiesResponse.body[0].id;
+      const properties = propertiesResponse.body.data || propertiesResponse.body;
+      if (properties.length > 0) {
+        testPropertyId = properties[0].id;
       }
 
       const certsResponse = await request(BASE_URL)
         .get('/api/certificates')
         .set('Cookie', sessionCookie);
       
-      if (certsResponse.body.length > 0) {
-        testCertificateId = certsResponse.body[0].id;
+      const certs = certsResponse.body.data || certsResponse.body;
+      if (certs.length > 0) {
+        testCertificateId = certs[0].id;
       }
     });
 
@@ -509,8 +515,9 @@ describe('API Mutation Tests', () => {
         .get('/api/certificates')
         .set('Cookie', sessionCookie);
       
-      if (certsResponse.body.length > 0) {
-        testCertificateId = certsResponse.body[0].id;
+      const certs = certsResponse.body.data || certsResponse.body;
+      if (certs.length > 0) {
+        testCertificateId = certs[0].id;
       }
     });
 
