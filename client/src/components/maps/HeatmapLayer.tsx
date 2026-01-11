@@ -21,18 +21,14 @@ interface HeatmapLayerProps {
   opacity?: number;
 }
 
-function getDynamicRiskColor(score: number, minRisk: number, maxRisk: number): string {
-  const range = maxRisk - minRisk;
-  const normalized = range > 0.1 ? (score - minRisk) / range : 0.5;
-  const hue = 120 - (normalized * 120);
-  return `hsl(${hue}, 70%, 50%)`;
+function getRiskColor(score: number): string {
+  const hue = Math.max(0, Math.min(120, (score / 100) * 120));
+  return `hsl(${hue}, 75%, 45%)`;
 }
 
-function getRiskOpacity(score: number, count: number, maxCount: number, minRisk: number, maxRisk: number): number {
+function getRiskOpacity(count: number, maxCount: number): number {
   const countFactor = Math.min(1, count / Math.max(maxCount * 0.3, 1));
-  const range = maxRisk - minRisk;
-  const normalizedRisk = range > 0.1 ? (score - minRisk) / range : 0.5;
-  return 0.4 + (countFactor * 0.35) + (normalizedRisk * 0.2);
+  return 0.5 + (countFactor * 0.4);
 }
 
 export function HeatmapLayer({ 
@@ -54,8 +50,6 @@ export function HeatmapLayer({
     if (cells.length === 0 || cellSize.latStep === 0 || cellSize.lngStep === 0) return;
 
     const maxCount = Math.max(...cells.map(c => c.count));
-    const minRisk = Math.min(...cells.map(c => c.avgRisk));
-    const maxRisk = Math.max(...cells.map(c => c.avgRisk));
     const layerGroup = L.layerGroup();
 
     cells.forEach(cell => {
@@ -67,8 +61,8 @@ export function HeatmapLayer({
         [cell.lat + halfLat, cell.lng + halfLng]
       ];
 
-      const color = getDynamicRiskColor(cell.avgRisk, minRisk, maxRisk);
-      const cellOpacity = getRiskOpacity(cell.avgRisk, cell.count, maxCount, minRisk, maxRisk) * opacity;
+      const color = getRiskColor(cell.avgRisk);
+      const cellOpacity = getRiskOpacity(cell.count, maxCount) * opacity;
       
       const rect = L.rectangle(bounds, {
         color: color,
