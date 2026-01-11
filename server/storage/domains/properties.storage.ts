@@ -334,8 +334,8 @@ export class PropertiesStorage implements IPropertiesStorage {
   async updatePropertyGeodata(propertyId: string, geodata: { latitude: number; longitude: number; ward?: string; wardCode?: string; lsoa?: string; msoa?: string }): Promise<Property | undefined> {
     const [updated] = await db.update(properties)
       .set({
-        latitude: String(geodata.latitude),
-        longitude: String(geodata.longitude),
+        latitude: geodata.latitude,
+        longitude: geodata.longitude,
         ward: geodata.ward,
         wardCode: geodata.wardCode,
         lsoa: geodata.lsoa,
@@ -352,6 +352,7 @@ export class PropertiesStorage implements IPropertiesStorage {
     certificates: Array<{ type: string; status: string; expiryDate: string | null }>;
     actions: Array<{ severity: string; status: string }>;
   }>> {
+    // Step 1: Fetch all properties in one query
     const props = await db.select()
       .from(properties)
       .innerJoin(blocks, eq(properties.blockId, blocks.id))
@@ -359,31 +360,53 @@ export class PropertiesStorage implements IPropertiesStorage {
       .where(eq(schemes.organisationId, organisationId))
       .then(results => results.map(r => r.properties));
     
-    const results = [];
-    for (const prop of props) {
-      const certs = await db.select()
-        .from(certificates)
-        .where(eq(certificates.propertyId, prop.id));
-      
-      const actions = await db.select()
-        .from(remedialActions)
-        .where(eq(remedialActions.propertyId, prop.id));
-      
-      results.push({
-        property: prop,
-        certificates: certs.map(c => ({
-          type: c.type,
-          status: c.status,
-          expiryDate: c.expiryDate ? c.expiryDate.toISOString() : null
-        })),
-        actions: actions.map(a => ({
-          severity: a.severity,
-          status: a.status
-        }))
-      });
+    if (props.length === 0) {
+      return [];
     }
     
-    return results;
+    // Get all property IDs for batch queries
+    const propertyIds = props.map(p => p.id);
+    
+    // Step 2: Batch fetch ALL certificates for these properties (single query)
+    const allCerts = await db.select()
+      .from(certificates)
+      .where(sql`${certificates.propertyId} = ANY(${propertyIds})`);
+    
+    // Step 3: Batch fetch ALL remedial actions for these properties (single query)
+    const allActions = await db.select()
+      .from(remedialActions)
+      .where(sql`${remedialActions.propertyId} = ANY(${propertyIds})`);
+    
+    // Step 4: Group certificates and actions by propertyId in memory
+    const certsByPropertyId = new Map<string, typeof allCerts>();
+    for (const cert of allCerts) {
+      if (!certsByPropertyId.has(cert.propertyId)) {
+        certsByPropertyId.set(cert.propertyId, []);
+      }
+      certsByPropertyId.get(cert.propertyId)!.push(cert);
+    }
+    
+    const actionsByPropertyId = new Map<string, typeof allActions>();
+    for (const action of allActions) {
+      if (!actionsByPropertyId.has(action.propertyId)) {
+        actionsByPropertyId.set(action.propertyId, []);
+      }
+      actionsByPropertyId.get(action.propertyId)!.push(action);
+    }
+    
+    // Step 5: Build results array
+    return props.map(prop => ({
+      property: prop,
+      certificates: (certsByPropertyId.get(prop.id) || []).map(c => ({
+        type: c.certificateType,
+        status: c.status,
+        expiryDate: c.expiryDate || null
+      })),
+      actions: (actionsByPropertyId.get(prop.id) || []).map(a => ({
+        severity: a.severity,
+        status: a.status
+      }))
+    }));
   }
 }
 

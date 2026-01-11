@@ -2402,14 +2402,14 @@ const CERTIFICATE_TYPES_DATA = [
   { code: "STRUCT", name: "Structural Survey", shortName: "Structural", complianceStream: "BUILDING_SAFETY", validityMonths: 60, warningDays: 180, displayOrder: 93, isActive: true },
 ];
 
-const COMPONENT_TYPES_DATA = [
+const COMPONENT_TYPES_DATA: Array<{ code: string; name: string; category: "HEATING" | "ELECTRICAL" | "FIRE_SAFETY" | "WATER" | "VENTILATION" | "STRUCTURE" | "ACCESS" | "SECURITY" | "EXTERNAL" | "OTHER"; complianceStream: string; requiresCertification: boolean; certificationTypes: string[]; defaultLifespanYears: number; isActive: boolean }> = [
   { code: "GAS_BOILER", name: "Gas Boiler", category: "HEATING", complianceStream: "GAS_HEATING", requiresCertification: true, certificationTypes: ["GAS", "GAS_SVC"], defaultLifespanYears: 15, isActive: true },
   { code: "GAS_METER", name: "Gas Meter", category: "HEATING", complianceStream: "GAS_HEATING", requiresCertification: true, certificationTypes: ["GAS"], defaultLifespanYears: 20, isActive: true },
   { code: "ELEC_CONSUMER_UNIT", name: "Consumer Unit", category: "ELECTRICAL", complianceStream: "ELECTRICAL", requiresCertification: true, certificationTypes: ["EICR", "EIC"], defaultLifespanYears: 20, isActive: true },
   { code: "FIRE_DOOR_FLAT", name: "Fire Door (Flat Entrance)", category: "FIRE_SAFETY", complianceStream: "FIRE_SAFETY", requiresCertification: true, certificationTypes: ["FD", "FD_Q"], defaultLifespanYears: 25, isActive: true },
   { code: "FIRE_ALARM_PANEL", name: "Fire Alarm Panel", category: "FIRE_SAFETY", complianceStream: "FIRE_SAFETY", requiresCertification: true, certificationTypes: ["FA"], defaultLifespanYears: 15, isActive: true },
   { code: "SMOKE_DETECTOR", name: "Smoke Detector", category: "FIRE_SAFETY", complianceStream: "FIRE_SAFETY", requiresCertification: true, certificationTypes: ["SD"], defaultLifespanYears: 10, isActive: true },
-  { code: "PASSENGER_LIFT", name: "Passenger Lift", category: "LIFTING", complianceStream: "LIFTING", requiresCertification: true, certificationTypes: ["LIFT", "LIFT_M"], defaultLifespanYears: 25, isActive: true },
+  { code: "PASSENGER_LIFT", name: "Passenger Lift", category: "ACCESS", complianceStream: "LIFTING", requiresCertification: true, certificationTypes: ["LIFT", "LIFT_M"], defaultLifespanYears: 25, isActive: true },
   { code: "HOT_WATER_CYLINDER", name: "Hot Water Cylinder", category: "WATER", complianceStream: "WATER_SAFETY", requiresCertification: true, certificationTypes: ["LEG"], defaultLifespanYears: 15, isActive: true },
 ];
 
@@ -2486,7 +2486,8 @@ export async function applyMigration(): Promise<MigrationResult> {
         code: certType.code,
         name: certType.name,
         shortName: certType.shortName,
-        complianceStreamId: streamId || null,
+        complianceStream: certType.complianceStream,
+        streamId: streamId || null,
         validityMonths: certType.validityMonths,
         warningDays: certType.warningDays,
         displayOrder: certType.displayOrder,
@@ -2500,15 +2501,12 @@ export async function applyMigration(): Promise<MigrationResult> {
   
   for (const comp of COMPONENT_TYPES_DATA) {
     if (!existingComponentCodes.has(comp.code)) {
-      const streamId = streamCodeToId[comp.complianceStream];
       await db.insert(componentTypes).values({
         code: comp.code,
         name: comp.name,
-        category: comp.category,
-        complianceStreamId: streamId || null,
-        requiresCertification: comp.requiresCertification,
-        certificationTypes: comp.certificationTypes,
-        defaultLifespanYears: comp.defaultLifespanYears,
+        category: comp.category as "HEATING" | "ELECTRICAL" | "FIRE" | "GAS" | "LIFTS" | "WATER" | "VENTILATION" | "STRUCTURE" | "ACCESS" | "SECURITY" | "EXTERNAL" | "OTHER",
+        expectedLifespanYears: comp.defaultLifespanYears || null,
+        relatedCertificateTypes: comp.certificationTypes || [],
         isActive: comp.isActive,
       });
       componentsAdded++;

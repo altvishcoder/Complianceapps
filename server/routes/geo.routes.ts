@@ -167,17 +167,36 @@ geoRouter.post("/geocoding/import", async (req, res) => {
 geoRouter.get("/geocoding/status", async (req, res) => {
   try {
     const orgId = getOrgId(req);
-    const allProperties = await storage.listProperties(orgId);
-    const geocoded = allProperties.filter(p => p.latitude && p.longitude);
-    const notGeocoded = allProperties.filter(p => !p.latitude || !p.longitude);
-    const withValidPostcode = notGeocoded.filter(p => p.postcode && p.postcode !== 'UNKNOWN' && p.postcode.length >= 5);
     
-    res.json({
-      total: allProperties.length,
-      geocoded: geocoded.length,
-      notGeocoded: notGeocoded.length,
-      canAutoGeocode: withValidPostcode.length
-    });
+    // Use SQL aggregation instead of loading all properties into memory
+    const result = await db.execute(sql`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE p.latitude IS NOT NULL AND p.longitude IS NOT NULL) as geocoded,
+        COUNT(*) FILTER (WHERE p.latitude IS NULL OR p.longitude IS NULL) as not_geocoded,
+        COUNT(*) FILTER (
+          WHERE (p.latitude IS NULL OR p.longitude IS NULL)
+          AND p.postcode IS NOT NULL 
+          AND p.postcode != 'UNKNOWN' 
+          AND LENGTH(p.postcode) >= 5
+        ) as can_auto_geocode
+      FROM properties p
+      INNER JOIN blocks b ON p.block_id = b.id
+      INNER JOIN schemes s ON b.scheme_id = s.id
+      WHERE s.organisation_id = ${orgId}
+    `);
+    
+    if (result.rows && result.rows.length > 0) {
+      const row = result.rows[0] as { total: string; geocoded: string; not_geocoded: string; can_auto_geocode: string };
+      res.json({
+        total: Number(row.total) || 0,
+        geocoded: Number(row.geocoded) || 0,
+        notGeocoded: Number(row.not_geocoded) || 0,
+        canAutoGeocode: Number(row.can_auto_geocode) || 0
+      });
+    } else {
+      res.json({ total: 0, geocoded: 0, notGeocoded: 0, canAutoGeocode: 0 });
+    }
   } catch (error) {
     console.error("Error fetching geocoding status:", error);
     res.status(500).json({ error: "Failed to fetch geocoding status" });
@@ -305,16 +324,15 @@ geoRouter.get("/maps/stats", async (req, res) => {
         FROM mv_risk_aggregates
       `);
       
-      interface RiskAggregateRow {
-        total: string | number;
-        total_score: string | number;
-        critical: string | number;
-        high: string | number;
-        medium: string | number;
-        low: string | number;
-      }
       if (mvResult.rows && mvResult.rows.length > 0) {
-        const row = mvResult.rows[0] as RiskAggregateRow;
+        const row = mvResult.rows[0] as unknown as {
+          total: string | number;
+          total_score: string | number;
+          critical: string | number;
+          high: string | number;
+          medium: string | number;
+          low: string | number;
+        };
         const total = Number(row.total) || 0;
         if (total > 0) {
           const totalScore = Number(row.total_score) || 0;
