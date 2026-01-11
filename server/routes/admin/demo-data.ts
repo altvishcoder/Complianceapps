@@ -6,6 +6,8 @@ import { SUPER_ADMIN_ROLES, ADMIN_ROLES, getOrgId } from "./utils";
 import { db } from "../../db";
 import { auditEvents, complianceStreams, certificateTypes, classificationCodes, componentTypes, extractionSchemas, complianceRules, normalisationRules } from "@shared/schema";
 import { seedDatabase, getMigrationPreview, applyMigration } from "../../seed";
+import { clearApiLimitsCache } from "../../services/api-limits";
+import { clearTierThresholdsCache } from "../../services/risk-scoring";
 
 export const adminDemoDataRouter = Router();
 
@@ -529,5 +531,97 @@ adminDemoDataRouter.post("/migrate/apply", requireRole(...ADMIN_ROLES), async (r
   } catch (error: any) {
     console.error("Failed to apply migration:", error);
     res.status(500).json({ error: "Failed to apply migration", details: error?.message });
+  }
+});
+
+adminDemoDataRouter.get("/factory-settings", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const settings = await storage.listFactorySettings();
+    const grouped = settings.reduce((acc, setting) => {
+      const category = setting.category || 'GENERAL';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(setting);
+      return acc;
+    }, {} as Record<string, typeof settings>);
+    res.json({ settings, grouped });
+  } catch (error) {
+    console.error("Error listing factory settings:", error);
+    res.status(500).json({ error: "Failed to list factory settings" });
+  }
+});
+
+adminDemoDataRouter.get("/factory-settings/:key", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const setting = await storage.getFactorySetting(req.params.key);
+    if (!setting) {
+      return res.status(404).json({ error: "Setting not found" });
+    }
+    res.json(setting);
+  } catch (error) {
+    console.error("Error getting factory setting:", error);
+    res.status(500).json({ error: "Failed to get factory setting" });
+  }
+});
+
+adminDemoDataRouter.patch("/factory-settings/:key", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { value } = req.body;
+    const userId = req.user?.id || 'system';
+    
+    if (value === undefined || value === null) {
+      return res.status(400).json({ error: "Value is required" });
+    }
+    
+    const existing = await storage.getFactorySetting(req.params.key);
+    if (!existing) {
+      return res.status(404).json({ error: "Setting not found" });
+    }
+    
+    if (!existing.isEditable) {
+      return res.status(403).json({ error: "This setting cannot be modified" });
+    }
+    
+    if (existing.valueType === 'number') {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue)) {
+        return res.status(400).json({ error: "Value must be a valid number" });
+      }
+      if (existing.validationRules) {
+        const rules = existing.validationRules as { min?: number; max?: number };
+        if (rules.min !== undefined && numValue < rules.min) {
+          return res.status(400).json({ error: `Value must be at least ${rules.min}` });
+        }
+        if (rules.max !== undefined && numValue > rules.max) {
+          return res.status(400).json({ error: `Value must be at most ${rules.max}` });
+        }
+      }
+    } else if (existing.valueType === 'boolean') {
+      if (value !== 'true' && value !== 'false') {
+        return res.status(400).json({ error: "Value must be 'true' or 'false'" });
+      }
+    }
+    
+    await storage.createFactorySettingsAudit({
+      settingId: existing.id,
+      key: req.params.key,
+      oldValue: existing.value,
+      newValue: value,
+      changedById: userId
+    });
+    
+    const updated = await storage.updateFactorySetting(req.params.key, value, userId);
+    
+    if (existing.category === 'api_limits' || req.params.key.startsWith('api.')) {
+      clearApiLimitsCache();
+    }
+    
+    if (existing.category === 'risk_scoring' || req.params.key.startsWith('risk_tier_')) {
+      clearTierThresholdsCache();
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating factory setting:", error);
+    res.status(500).json({ error: "Failed to update factory setting" });
   }
 });
