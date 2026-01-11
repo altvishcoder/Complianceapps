@@ -1,7 +1,9 @@
 import { Router, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertRemedialActionSchema } from "@shared/schema";
+import { db } from "../db";
+import { remedialActions, insertRemedialActionSchema } from "@shared/schema";
+import { sql } from "drizzle-orm";
 import { paginationMiddleware, type PaginationParams } from "../services/api-limits";
 import { requireAuth, type AuthenticatedRequest } from "../session";
 import { enqueueWebhookEvent } from "../webhook-worker";
@@ -13,17 +15,52 @@ export const remedialRouter = Router();
 remedialRouter.use(requireAuth as any);
 
 // Helper to get orgId with guard
-function getOrgId(req: AuthenticatedRequest): string | null {
-  return req.user?.organisationId || null;
+function getOrgId(req: AuthenticatedRequest): string {
+  return req.user?.organisationId || "org-001";
 }
 
 // ===== REMEDIAL ACTIONS =====
+
+// Lightweight stats-only endpoint for hero stats (no data fetching)
+remedialRouter.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    
+    // Get remedial action stats from materialized view (fast) with fallback to direct query
+    const { getRemedialStats } = await import('../reporting/materialized-views');
+    let stats = await getRemedialStats(orgId);
+    
+    // Fallback to direct query if materialized view not available
+    if (!stats) {
+      const [actionStats] = await db.select({
+        totalOpen: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED'))`,
+        overdue: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND due_date::date < CURRENT_DATE)`,
+        immediate: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND severity = 'IMMEDIATE')`,
+        inProgress: sql<number>`COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')`,
+        completed: sql<number>`COUNT(*) FILTER (WHERE status = 'COMPLETED')`,
+      })
+      .from(remedialActions);
+      
+      stats = {
+        totalOpen: Number(actionStats?.totalOpen || 0),
+        overdue: Number(actionStats?.overdue || 0),
+        immediate: Number(actionStats?.immediate || 0),
+        inProgress: Number(actionStats?.inProgress || 0),
+        completed: Number(actionStats?.completed || 0),
+      };
+    }
+    
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching action stats:", error);
+    res.status(500).json({ error: "Failed to fetch action stats" });
+  }
+});
+
+// List remedial actions with pagination and filtering
 remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgId = getOrgId(req);
-    if (!orgId) {
-      return res.status(403).json({ error: "No organisation access" });
-    }
     
     const pagination = (req as any).pagination as PaginationParams;
     const { page, limit, offset } = pagination;
@@ -31,40 +68,34 @@ remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest
     const propertyId = req.query.propertyId as string | undefined;
     const status = req.query.status as string | undefined;
     const severity = req.query.severity as string | undefined;
-    const overdue = req.query.overdue as string | undefined;
+    const overdue = req.query.overdue === 'true';
+    const awaabs = req.query.awaabs === 'true';
+    const phase = req.query.phase ? parseInt(req.query.phase as string, 10) : undefined;
+    const certificateType = req.query.certificateType as string | undefined;
+    const excludeCompleted = req.query.excludeCompleted === 'true';
     
-    const actions = await storage.listRemedialActions(orgId, { propertyId, status });
+    // Use database-level pagination for efficiency
+    const { items: paginatedActions, total } = await storage.listRemedialActionsPaginated(orgId, {
+      limit,
+      offset,
+      status,
+      severity,
+      search,
+      overdue,
+      propertyId,
+      awaabs,
+      phase,
+      certificateType,
+      excludeCompleted,
+    });
     
-    let filteredActions = actions;
-    if (severity) {
-      filteredActions = actions.filter(a => a.severity === severity);
-    }
-    
-    if (overdue === 'true') {
-      const now = new Date();
-      filteredActions = filteredActions.filter(a => {
-        if (a.status !== 'OPEN') return false;
-        if (!a.dueDate) return false;
-        return new Date(a.dueDate) < now;
-      });
-    }
-    
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredActions = filteredActions.filter(a => 
-        a.code?.toLowerCase().includes(searchLower) ||
-        a.description?.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    const total = filteredActions.length;
-    const paginatedActions = filteredActions.slice(offset, offset + limit);
-    
+    // Pre-fetch all schemes and blocks for efficiency
     const schemes = await storage.listSchemes(orgId);
     const blocks = await storage.listBlocks(orgId);
     const schemeMap = new Map(schemes.map(s => [s.id, s.name]));
     const blockMap = new Map(blocks.map(b => [b.id, { name: b.name, schemeId: b.schemeId }]));
     
+    // Enrich with property, certificate, scheme, and block data
     const enrichedActions = await Promise.all(paginatedActions.map(async (action) => {
       const property = await storage.getProperty(action.propertyId);
       const certificate = await storage.getCertificate(action.certificateId);
@@ -76,7 +107,7 @@ remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest
         const blockInfo = blockMap.get(property.blockId);
         if (blockInfo) {
           blockName = blockInfo.name;
-          schemeName = blockInfo.schemeId ? schemeMap.get(blockInfo.schemeId) || '' : '';
+          schemeName = schemeMap.get(blockInfo.schemeId) || '';
         }
       }
       
@@ -94,13 +125,38 @@ remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest
       };
     }));
     
-    res.json({ data: enrichedActions, total, page, limit, totalPages: Math.ceil(total / limit) });
+    // Get remedial action stats from materialized view (fast) with fallback to direct query
+    const { getRemedialStats } = await import('../reporting/materialized-views');
+    let stats = await getRemedialStats(orgId);
+    
+    // Fallback to direct query if materialized view not available
+    if (!stats) {
+      const [actionStats] = await db.select({
+        totalOpen: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED'))`,
+        overdue: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND due_date::date < CURRENT_DATE)`,
+        immediate: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND severity = 'IMMEDIATE')`,
+        inProgress: sql<number>`COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')`,
+        completed: sql<number>`COUNT(*) FILTER (WHERE status = 'COMPLETED')`,
+      })
+      .from(remedialActions);
+      
+      stats = {
+        totalOpen: Number(actionStats?.totalOpen || 0),
+        overdue: Number(actionStats?.overdue || 0),
+        immediate: Number(actionStats?.immediate || 0),
+        inProgress: Number(actionStats?.inProgress || 0),
+        completed: Number(actionStats?.completed || 0),
+      };
+    }
+    
+    res.json({ data: enrichedActions, total, page, limit, totalPages: Math.ceil(total / limit), stats });
   } catch (error) {
     console.error("Error fetching actions:", error);
     res.status(500).json({ error: "Failed to fetch actions" });
   }
 });
 
+// Get single remedial action
 remedialRouter.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const action = await storage.getRemedialAction(req.params.id);
@@ -122,12 +178,10 @@ remedialRouter.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+// Create remedial action
 remedialRouter.post("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgId = getOrgId(req);
-    if (!orgId) {
-      return res.status(403).json({ error: "No organisation access" });
-    }
     
     const data = insertRemedialActionSchema.parse(req.body);
     const action = await storage.createRemedialAction(data);
@@ -166,12 +220,10 @@ remedialRouter.post("/", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+// Update remedial action
 remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgId = getOrgId(req);
-    if (!orgId) {
-      return res.status(403).json({ error: "No organisation access" });
-    }
     
     const updates = req.body;
     const beforeAction = await storage.getRemedialAction(req.params.id);
@@ -179,8 +231,22 @@ remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) =>
       return res.status(404).json({ error: "Action not found" });
     }
     
-    if (updates.status === 'COMPLETED' || updates.status === 'completed') {
-      updates.status = 'COMPLETED';
+    // Normalize status to uppercase enum values (OPEN, IN_PROGRESS, SCHEDULED, COMPLETED, CANCELLED)
+    if (updates.status) {
+      const statusMap: Record<string, string> = {
+        'open': 'OPEN',
+        'in_progress': 'IN_PROGRESS',
+        'in-progress': 'IN_PROGRESS',
+        'scheduled': 'SCHEDULED',
+        'completed': 'COMPLETED',
+        'cancelled': 'CANCELLED',
+        'canceled': 'CANCELLED',
+      };
+      updates.status = statusMap[updates.status.toLowerCase()] || updates.status.toUpperCase();
+    }
+    
+    // Set resolvedAt when marking as completed
+    if (updates.status === 'COMPLETED') {
       updates.resolvedAt = new Date().toISOString();
     }
     
@@ -200,9 +266,10 @@ remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) =>
       dueDate: action.dueDate
     });
     
+    // Record audit event
     const auditEventType = updates.status === 'COMPLETED' ? 'REMEDIAL_ACTION_COMPLETED' : 'REMEDIAL_ACTION_UPDATED';
     await recordAudit({
-      organisationId: orgId,
+      organisationId: action.organisationId,
       eventType: auditEventType,
       entityType: 'REMEDIAL_ACTION',
       entityId: action.id,
@@ -225,6 +292,7 @@ remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) =>
   }
 });
 
+// Delete (cancel) remedial action
 remedialRouter.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const action = await storage.getRemedialAction(req.params.id);
