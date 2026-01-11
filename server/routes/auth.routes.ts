@@ -12,6 +12,7 @@ import {
   getPasswordPolicyDescription 
 } from "../services/password-policy";
 import { getConfiguredProviders } from "../auth";
+import { handleRouteError } from "../errors";
 
 export const authRouter = Router();
 
@@ -110,8 +111,7 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ error: "Failed to process login" });
+    handleRouteError(error, req, res, "Login");
   }
 });
 
@@ -148,8 +148,7 @@ authRouter.post("/logout", async (req: Request, res: Response) => {
       res.json({ message: "Logged out successfully" });
     });
   } catch (error) {
-    console.error("Logout error:", error);
-    res.status(500).json({ error: "Failed to process logout" });
+    handleRouteError(error, req, res, "Logout");
   }
 });
 
@@ -176,8 +175,7 @@ authRouter.get("/me", async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error("Get user error:", error);
-    res.status(500).json({ error: "Failed to get user" });
+    handleRouteError(error, req, res, "Get User");
   }
 });
 
@@ -237,8 +235,7 @@ authRouter.post("/change-password", async (req: Request, res: Response) => {
     
     res.json({ message: "Password changed successfully" });
   } catch (error) {
-    console.error("Change password error:", error);
-    res.status(500).json({ error: "Failed to change password" });
+    handleRouteError(error, req, res, "Change Password");
   }
 });
 

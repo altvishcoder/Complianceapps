@@ -8,6 +8,7 @@ import { paginationMiddleware, type PaginationParams } from "../services/api-lim
 import { requireAuth, type AuthenticatedRequest } from "../session";
 import { enqueueWebhookEvent } from "../webhook-worker";
 import { recordAudit, extractAuditContext, getChanges } from "../services/audit";
+import { handleRouteError } from "../errors";
 
 export const remedialRouter = Router();
 
@@ -52,8 +53,7 @@ remedialRouter.get("/stats", async (req: AuthenticatedRequest, res: Response) =>
     
     res.json(stats);
   } catch (error) {
-    console.error("Error fetching action stats:", error);
-    res.status(500).json({ error: "Failed to fetch action stats" });
+    handleRouteError(error, req, res, "Remedial Action Statistics");
   }
 });
 
@@ -151,8 +151,7 @@ remedialRouter.get("/", paginationMiddleware(), async (req: AuthenticatedRequest
     
     res.json({ data: enrichedActions, total, page, limit, totalPages: Math.ceil(total / limit), stats });
   } catch (error) {
-    console.error("Error fetching actions:", error);
-    res.status(500).json({ error: "Failed to fetch actions" });
+    handleRouteError(error, req, res, "Remedial Actions");
   }
 });
 
@@ -173,8 +172,7 @@ remedialRouter.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       certificate,
     });
   } catch (error) {
-    console.error("Error fetching action:", error);
-    res.status(500).json({ error: "Failed to fetch action" });
+    handleRouteError(error, req, res, "Remedial Action");
   }
 });
 
@@ -211,12 +209,7 @@ remedialRouter.post("/", async (req: AuthenticatedRequest, res: Response) => {
     
     res.status(201).json(action);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation failed", details: error.errors });
-    } else {
-      console.error("Error creating action:", error);
-      res.status(500).json({ error: "Failed to create action" });
-    }
+    handleRouteError(error, req, res, "Remedial Action");
   }
 });
 
@@ -287,8 +280,7 @@ remedialRouter.patch("/:id", async (req: AuthenticatedRequest, res: Response) =>
     
     res.json(action);
   } catch (error) {
-    console.error("Error updating action:", error);
-    res.status(500).json({ error: "Failed to update action" });
+    handleRouteError(error, req, res, "Remedial Action");
   }
 });
 
@@ -313,7 +305,6 @@ remedialRouter.delete("/:id", async (req: AuthenticatedRequest, res: Response) =
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting action:", error);
-    res.status(500).json({ error: "Failed to delete action" });
+    handleRouteError(error, req, res, "Remedial Action");
   }
 });

@@ -10,6 +10,7 @@ import {
   processPropertyImport, 
   processComponentImport 
 } from "../import-parser";
+import { handleRouteError } from "../errors";
 
 export const importsRouter = Router();
 
@@ -27,8 +28,7 @@ importsRouter.get("/imports", async (req: AuthenticatedRequest, res: Response) =
     const imports = await storage.listDataImports(orgId);
     res.json(imports);
   } catch (error) {
-    console.error("Error fetching imports:", error);
-    res.status(500).json({ error: "Failed to fetch imports" });
+    handleRouteError(error, req, res, "Imports");
   }
 });
 
@@ -44,8 +44,7 @@ importsRouter.get("/imports/:id", async (req: AuthenticatedRequest, res: Respons
     const counts = await storage.getDataImportRowCounts(req.params.id);
     res.json({ ...dataImport, ...counts });
   } catch (error) {
-    console.error("Error fetching import:", error);
-    res.status(500).json({ error: "Failed to fetch import" });
+    handleRouteError(error, req, res, "Import");
   }
 });
 
@@ -62,8 +61,7 @@ importsRouter.get("/imports/:id/rows", async (req: AuthenticatedRequest, res: Re
     const rows = await storage.listDataImportRows(req.params.id);
     res.json(rows);
   } catch (error) {
-    console.error("Error fetching import rows:", error);
-    res.status(500).json({ error: "Failed to fetch import rows" });
+    handleRouteError(error, req, res, "Import Rows");
   }
 });
 
@@ -81,12 +79,7 @@ importsRouter.post("/imports", async (req: AuthenticatedRequest, res: Response) 
     const dataImport = await storage.createDataImport(data);
     res.status(201).json(dataImport);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation failed", details: error.errors });
-    } else {
-      console.error("Error creating import:", error);
-      res.status(500).json({ error: "Failed to create import" });
-    }
+    handleRouteError(error, req, res, "Import");
   }
 });
 
@@ -107,12 +100,7 @@ importsRouter.patch("/imports/:id", async (req: AuthenticatedRequest, res: Respo
     }
     res.json(updated);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation failed", details: error.errors });
-    } else {
-      console.error("Error updating import:", error);
-      res.status(500).json({ error: "Failed to update import" });
-    }
+    handleRouteError(error, req, res, "Import");
   }
 });
 
@@ -132,8 +120,7 @@ importsRouter.delete("/imports/:id", async (req: AuthenticatedRequest, res: Resp
     }
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting import:", error);
-    res.status(500).json({ error: "Failed to delete import" });
+    handleRouteError(error, req, res, "Import");
   }
 });
 
@@ -201,8 +188,7 @@ importsRouter.get("/imports/templates/:type", async (req: AuthenticatedRequest, 
     
     res.json(template);
   } catch (error) {
-    console.error("Error fetching import template:", error);
-    res.status(500).json({ error: "Failed to fetch import template" });
+    handleRouteError(error, req, res, "Import Template");
   }
 });
 
@@ -219,8 +205,7 @@ importsRouter.get("/imports/templates/:type/download", async (req: Authenticated
     res.setHeader('Content-Disposition', `attachment; filename=${type}-template.csv`);
     res.send(csvContent);
   } catch (error) {
-    console.error("Error generating CSV template:", error);
-    res.status(500).json({ error: "Failed to generate CSV template" });
+    handleRouteError(error, req, res, "CSV Template");
   }
 });
 
@@ -251,8 +236,7 @@ importsRouter.get("/imports/samples/:type/download", async (req: AuthenticatedRe
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
     res.sendFile(filePath);
   } catch (error) {
-    console.error("Error downloading sample CSV:", error);
-    res.status(500).json({ error: "Failed to download sample CSV" });
+    handleRouteError(error, req, res, "Sample CSV");
   }
 });
 
@@ -306,8 +290,7 @@ importsRouter.post("/imports/:id/validate", async (req: AuthenticatedRequest, re
       }))
     });
   } catch (error) {
-    console.error("Error validating import:", error);
-    res.status(500).json({ error: "Failed to validate import" });
+    handleRouteError(error, req, res, "Import Validation");
   }
 });
 
@@ -358,7 +341,6 @@ importsRouter.post("/imports/:id/execute", async (req: AuthenticatedRequest, res
     
     res.json(result);
   } catch (error) {
-    console.error("Error executing import:", error);
-    res.status(500).json({ error: "Failed to execute import" });
+    handleRouteError(error, req, res, "Import Execution");
   }
 });

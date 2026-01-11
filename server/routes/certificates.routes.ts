@@ -10,6 +10,7 @@ import { processExtractionAndSave } from "../extraction";
 import { enqueueWebhookEvent } from "../webhook-worker";
 import { recordAudit, extractAuditContext, getChanges } from "../services/audit";
 import { ObjectStorageService } from "../replit_integrations/object_storage";
+import { handleRouteError } from "../errors";
 
 export const certificatesRouter = Router();
 
@@ -47,8 +48,7 @@ certificatesRouter.get("/stats", async (req, res: Response) => {
       approved: Number(certStats?.approved || 0),
     });
   } catch (error) {
-    console.error("Error fetching certificate stats:", error);
-    res.status(500).json({ error: "Failed to fetch stats" });
+    handleRouteError(error, req, res, "Certificate Statistics");
   }
 });
 
@@ -129,8 +129,7 @@ certificatesRouter.get("/", paginationMiddleware(), async (req, res: Response) =
     
     res.json({ data: enrichedCertificates, total, page, limit, totalPages: Math.ceil(total / limit), stats });
   } catch (error) {
-    console.error("Error fetching certificates:", error);
-    res.status(500).json({ error: "Failed to fetch certificates" });
+    handleRouteError(error, req, res, "Certificates");
   }
 });
 
@@ -166,8 +165,7 @@ certificatesRouter.get("/cursor", async (req, res: Response) => {
       limit,
     });
   } catch (error) {
-    console.error("Error fetching certificates (cursor):", error);
-    res.status(500).json({ error: "Failed to fetch certificates" });
+    handleRouteError(error, req, res, "Certificates");
   }
 });
 
@@ -191,8 +189,7 @@ certificatesRouter.get("/:id", async (req, res: Response) => {
       actions,
     });
   } catch (error) {
-    console.error("Error fetching certificate:", error);
-    res.status(500).json({ error: "Failed to fetch certificate" });
+    handleRouteError(error, req, res, "Certificate");
   }
 });
 
@@ -297,12 +294,7 @@ certificatesRouter.post("/", async (req, res: Response) => {
     
     res.status(201).json(certificate);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation failed", details: error.errors });
-    } else {
-      console.error("Error creating certificate:", error);
-      res.status(500).json({ error: "Failed to create certificate" });
-    }
+    handleRouteError(error, req, res, "Certificate");
   }
 });
 
@@ -349,8 +341,7 @@ certificatesRouter.patch("/:id", async (req, res: Response) => {
     
     res.json(certificate);
   } catch (error) {
-    console.error("Error updating certificate:", error);
-    res.status(500).json({ error: "Failed to update certificate" });
+    handleRouteError(error, req, res, "Certificate");
   }
 });
 
@@ -387,8 +378,7 @@ certificatesRouter.delete("/:id", async (req, res: Response) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting certificate:", error);
-    res.status(500).json({ error: "Failed to delete certificate" });
+    handleRouteError(error, req, res, "Certificate");
   }
 });
 
@@ -405,8 +395,7 @@ certificatesRouter.get("/:id/extraction-audit", async (req, res: Response) => {
       totalProcessingTimeMs: audits.reduce((sum, a) => sum + (a.processingTimeMs || 0), 0),
     });
   } catch (error) {
-    console.error("Error fetching extraction audit:", error);
-    res.status(500).json({ error: "Failed to fetch extraction audit" });
+    handleRouteError(error, req, res, "Extraction Audit");
   }
 });
 
@@ -488,8 +477,7 @@ certificatesRouter.post("/:id/reprocess", async (req, res: Response) => {
       certificateId: certificate.id
     });
   } catch (error) {
-    console.error("Error reprocessing certificate:", error);
-    res.status(500).json({ error: "Failed to start certificate reprocessing" });
+    handleRouteError(error, req, res, "Certificate Reprocessing");
   }
 });
 
@@ -505,8 +493,7 @@ certificatesRouter.get("/ingestion/batches", async (req, res: Response) => {
     
     res.json(batches);
   } catch (error) {
-    console.error("Error fetching ingestion batches:", error);
-    res.status(500).json({ error: "Failed to fetch batches" });
+    handleRouteError(error, req, res, "Ingestion Batches");
   }
 });
 
@@ -522,7 +509,6 @@ certificatesRouter.get("/ingestion/batches/:id", async (req, res: Response) => {
     
     res.json(batch);
   } catch (error) {
-    console.error("Error fetching batch:", error);
-    res.status(500).json({ error: "Failed to fetch batch" });
+    handleRouteError(error, req, res, "Ingestion Batch");
   }
 });

@@ -259,6 +259,365 @@ describe('API Integration Tests', () => {
   });
 });
 
+describe('API Mutation Tests', () => {
+  let sessionCookie: string;
+  let testSchemeId: string;
+  let testBlockId: string;
+  let testPropertyId: string;
+
+  beforeAll(async () => {
+    const loginResponse = await request(BASE_URL)
+      .post('/api/auth/login')
+      .send({ username: 'admin', password: 'admin123' });
+    
+    sessionCookie = loginResponse.headers['set-cookie']?.[0] || '';
+  });
+
+  describe('Schemes CRUD', () => {
+    it('POST /api/schemes - should create a new scheme', async () => {
+      const response = await request(BASE_URL)
+        .post('/api/schemes')
+        .set('Cookie', sessionCookie)
+        .send({
+          name: 'Test Scheme ' + Date.now(),
+          code: 'TEST-' + Date.now(),
+          address: '123 Test Street',
+          postcode: 'SW1A 1AA'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 201]).toContain(response.status);
+      if (response.status === 200 || response.status === 201) {
+        testSchemeId = response.body.id;
+        expect(response.body).toHaveProperty('id');
+        expect(response.body).toHaveProperty('name');
+      }
+    });
+
+    it('PUT /api/schemes/:id - should update a scheme', async () => {
+      if (!testSchemeId) return;
+      
+      const response = await request(BASE_URL)
+        .put(`/api/schemes/${testSchemeId}`)
+        .set('Cookie', sessionCookie)
+        .send({
+          name: 'Updated Test Scheme'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 204]).toContain(response.status);
+    });
+
+    it('DELETE /api/schemes/:id - should return appropriate response', async () => {
+      if (!testSchemeId) return;
+      
+      const response = await request(BASE_URL)
+        .delete(`/api/schemes/${testSchemeId}`)
+        .set('Cookie', sessionCookie);
+      
+      expect([200, 204, 400, 404]).toContain(response.status);
+    });
+  });
+
+  describe('Blocks CRUD', () => {
+    beforeAll(async () => {
+      const schemesResponse = await request(BASE_URL)
+        .get('/api/schemes')
+        .set('Cookie', sessionCookie);
+      
+      if (schemesResponse.body.length > 0) {
+        testSchemeId = schemesResponse.body[0].id;
+      }
+    });
+
+    it('POST /api/blocks - should create a new block', async () => {
+      if (!testSchemeId) return;
+      
+      const response = await request(BASE_URL)
+        .post('/api/blocks')
+        .set('Cookie', sessionCookie)
+        .send({
+          schemeId: testSchemeId,
+          name: 'Test Block ' + Date.now(),
+          code: 'BLOCK-' + Date.now(),
+          address: '456 Test Avenue'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 201]).toContain(response.status);
+      if (response.status === 200 || response.status === 201) {
+        testBlockId = response.body.id;
+        expect(response.body).toHaveProperty('id');
+      }
+    });
+
+    it('PUT /api/blocks/:id - should update a block', async () => {
+      if (!testBlockId) return;
+      
+      const response = await request(BASE_URL)
+        .put(`/api/blocks/${testBlockId}`)
+        .set('Cookie', sessionCookie)
+        .send({
+          name: 'Updated Test Block'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 204]).toContain(response.status);
+    });
+  });
+
+  describe('Properties CRUD', () => {
+    beforeAll(async () => {
+      const blocksResponse = await request(BASE_URL)
+        .get('/api/blocks')
+        .set('Cookie', sessionCookie);
+      
+      if (blocksResponse.body.length > 0) {
+        testBlockId = blocksResponse.body[0].id;
+      }
+    });
+
+    it('POST /api/properties - should create a new property', async () => {
+      const response = await request(BASE_URL)
+        .post('/api/properties')
+        .set('Cookie', sessionCookie)
+        .send({
+          blockId: testBlockId,
+          uprn: 'UPRN-TEST-' + Date.now(),
+          addressLine1: '789 Test Lane',
+          addressLine2: 'Flat 1',
+          city: 'London',
+          postcode: 'E1 6AN',
+          propertyType: 'FLAT'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 201]).toContain(response.status);
+      if (response.status === 200 || response.status === 201) {
+        testPropertyId = response.body.id;
+        expect(response.body).toHaveProperty('id');
+      }
+    });
+
+    it('PUT /api/properties/:id - should update a property', async () => {
+      if (!testPropertyId) return;
+      
+      const response = await request(BASE_URL)
+        .put(`/api/properties/${testPropertyId}`)
+        .set('Cookie', sessionCookie)
+        .send({
+          addressLine1: 'Updated Test Lane'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 204]).toContain(response.status);
+    });
+
+    it('PATCH /api/properties/:id - should partially update a property', async () => {
+      if (!testPropertyId) return;
+      
+      const response = await request(BASE_URL)
+        .patch(`/api/properties/${testPropertyId}`)
+        .set('Cookie', sessionCookie)
+        .send({
+          city: 'Manchester'
+        });
+      
+      expect([200, 204, 404]).toContain(response.status);
+    });
+  });
+
+  describe('Remedial Actions CRUD', () => {
+    let testRemedialId: string;
+    let testCertificateId: string;
+
+    beforeAll(async () => {
+      const propertiesResponse = await request(BASE_URL)
+        .get('/api/properties')
+        .set('Cookie', sessionCookie);
+      
+      if (propertiesResponse.body.length > 0) {
+        testPropertyId = propertiesResponse.body[0].id;
+      }
+
+      const certsResponse = await request(BASE_URL)
+        .get('/api/certificates')
+        .set('Cookie', sessionCookie);
+      
+      if (certsResponse.body.length > 0) {
+        testCertificateId = certsResponse.body[0].id;
+      }
+    });
+
+    it('POST /api/remedial-actions - should create a new remedial action', async () => {
+      if (!testPropertyId || !testCertificateId) return;
+      
+      const response = await request(BASE_URL)
+        .post('/api/remedial-actions')
+        .set('Cookie', sessionCookie)
+        .send({
+          propertyId: testPropertyId,
+          certificateId: testCertificateId,
+          description: 'Test remedial action - gas leak repair',
+          severity: 'HIGH',
+          status: 'OPEN',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 201]).toContain(response.status);
+      if (response.status === 200 || response.status === 201) {
+        testRemedialId = response.body.id;
+        expect(response.body).toHaveProperty('id');
+      }
+    });
+
+    it('PUT /api/remedial-actions/:id - should update a remedial action', async () => {
+      if (!testRemedialId) return;
+      
+      const response = await request(BASE_URL)
+        .put(`/api/remedial-actions/${testRemedialId}`)
+        .set('Cookie', sessionCookie)
+        .send({
+          status: 'IN_PROGRESS',
+          description: 'Updated description'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([200, 204]).toContain(response.status);
+    });
+
+    it('PATCH /api/remedial-actions/:id/status - should update status', async () => {
+      if (!testRemedialId) return;
+      
+      const response = await request(BASE_URL)
+        .patch(`/api/remedial-actions/${testRemedialId}/status`)
+        .set('Cookie', sessionCookie)
+        .send({
+          status: 'COMPLETED'
+        });
+      
+      expect([200, 204, 404]).toContain(response.status);
+    });
+  });
+
+  describe('Certificates Status Updates', () => {
+    let testCertificateId: string;
+
+    beforeAll(async () => {
+      const certsResponse = await request(BASE_URL)
+        .get('/api/certificates')
+        .set('Cookie', sessionCookie);
+      
+      if (certsResponse.body.length > 0) {
+        testCertificateId = certsResponse.body[0].id;
+      }
+    });
+
+    it('PATCH /api/certificates/:id/status - should update certificate status', async () => {
+      if (!testCertificateId) return;
+      
+      const response = await request(BASE_URL)
+        .patch(`/api/certificates/${testCertificateId}/status`)
+        .set('Cookie', sessionCookie)
+        .send({
+          status: 'APPROVED'
+        });
+      
+      expect([200, 204, 400, 404]).toContain(response.status);
+    });
+
+    it('POST /api/certificates/:id/approve - should approve certificate', async () => {
+      if (!testCertificateId) return;
+      
+      const response = await request(BASE_URL)
+        .post(`/api/certificates/${testCertificateId}/approve`)
+        .set('Cookie', sessionCookie);
+      
+      expect([200, 204, 400, 404]).toContain(response.status);
+    });
+
+    it('POST /api/certificates/:id/reject - should reject certificate', async () => {
+      if (!testCertificateId) return;
+      
+      const response = await request(BASE_URL)
+        .post(`/api/certificates/${testCertificateId}/reject`)
+        .set('Cookie', sessionCookie)
+        .send({
+          reason: 'Test rejection reason'
+        });
+      
+      expect([200, 204, 400, 404]).toContain(response.status);
+    });
+  });
+
+  describe('Validation Tests', () => {
+    it('POST /api/properties - should reject invalid data', async () => {
+      const response = await request(BASE_URL)
+        .post('/api/properties')
+        .set('Cookie', sessionCookie)
+        .send({
+          addressLine1: ''
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/remedial-actions - should reject missing required fields', async () => {
+      const response = await request(BASE_URL)
+        .post('/api/remedial-actions')
+        .set('Cookie', sessionCookie)
+        .send({
+          description: 'Missing required fields'
+        })
+        .expect('Content-Type', /json/);
+      
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('PUT /api/properties/:id - should reject invalid property ID', async () => {
+      const response = await request(BASE_URL)
+        .put('/api/properties/invalid-uuid-format')
+        .set('Cookie', sessionCookie)
+        .send({
+          addressLine1: 'Test'
+        });
+      
+      expect([400, 404]).toContain(response.status);
+    });
+  });
+
+  describe('Authorization Tests', () => {
+    it('POST /api/schemes - should reject without authentication', async () => {
+      const response = await request(BASE_URL)
+        .post('/api/schemes')
+        .send({
+          name: 'Unauthorized Scheme'
+        });
+      
+      expect(response.status).toBe(401);
+    });
+
+    it('PUT /api/properties/:id - should reject without authentication', async () => {
+      const response = await request(BASE_URL)
+        .put('/api/properties/some-id')
+        .send({
+          addressLine1: 'Unauthorized Update'
+        });
+      
+      expect(response.status).toBe(401);
+    });
+
+    it('DELETE /api/blocks/:id - should reject without authentication', async () => {
+      const response = await request(BASE_URL)
+        .delete('/api/blocks/some-id');
+      
+      expect(response.status).toBe(401);
+    });
+  });
+});
+
 describe('API Error Handling', () => {
   it('should return 404 for non-existent endpoint', async () => {
     const response = await request(BASE_URL)
@@ -274,5 +633,22 @@ describe('API Error Handling', () => {
       .expect('Content-Type', /json/);
     
     expect([400, 401]).toContain(response.status);
+  });
+
+  it('should return proper error structure for validation errors', async () => {
+    const loginResponse = await request(BASE_URL)
+      .post('/api/auth/login')
+      .send({ username: 'admin', password: 'admin123' });
+    
+    const sessionCookie = loginResponse.headers['set-cookie']?.[0] || '';
+    
+    const response = await request(BASE_URL)
+      .post('/api/properties')
+      .set('Cookie', sessionCookie)
+      .send({})
+      .expect('Content-Type', /json/);
+    
+    expect([400, 422]).toContain(response.status);
+    expect(response.body).toHaveProperty('message');
   });
 });

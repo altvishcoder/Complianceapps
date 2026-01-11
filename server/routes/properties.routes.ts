@@ -6,6 +6,7 @@ import { paginationMiddleware, type PaginationParams } from "../services/api-lim
 import { requireAuth, type AuthenticatedRequest } from "../session";
 import { db } from "../db";
 import { sql, eq } from "drizzle-orm";
+import { handleRouteError } from "../errors";
 
 export const propertiesRouter = Router();
 
@@ -50,8 +51,7 @@ propertiesRouter.get("/properties", paginationMiddleware(), async (req: Authenti
     
     res.json({ data: enrichedProperties, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (error) {
-    console.error("Error fetching properties:", error);
-    res.status(500).json({ error: "Failed to fetch properties" });
+    handleRouteError(error, req, res, "Properties");
   }
 });
 
@@ -105,8 +105,7 @@ propertiesRouter.get("/properties/stats", async (req: AuthenticatedRequest, res:
       });
     }
   } catch (error) {
-    console.error("Error fetching property stats:", error);
-    res.status(500).json({ error: "Failed to fetch property statistics" });
+    handleRouteError(error, req, res, "Property Statistics");
   }
 });
 
@@ -142,8 +141,7 @@ propertiesRouter.get("/properties/:id", async (req: AuthenticatedRequest, res: R
       components,
     });
   } catch (error) {
-    console.error("Error fetching property:", error);
-    res.status(500).json({ error: "Failed to fetch property" });
+    handleRouteError(error, req, res, "Property");
   }
 });
 
@@ -158,12 +156,7 @@ propertiesRouter.post("/properties", async (req: AuthenticatedRequest, res: Resp
     const property = await storage.createProperty(data);
     res.status(201).json(property);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation failed", details: error.errors });
-    } else {
-      console.error("Error creating property:", error);
-      res.status(500).json({ error: "Failed to create property" });
-    }
+    handleRouteError(error, req, res, "Property");
   }
 });
 
@@ -175,8 +168,7 @@ propertiesRouter.patch("/properties/:id", async (req: AuthenticatedRequest, res:
     }
     res.json(property);
   } catch (error) {
-    console.error("Error updating property:", error);
-    res.status(500).json({ error: "Failed to update property" });
+    handleRouteError(error, req, res, "Property");
   }
 });
 
@@ -188,8 +180,7 @@ propertiesRouter.delete("/properties/:id", async (req: AuthenticatedRequest, res
     }
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting property:", error);
-    res.status(500).json({ error: "Failed to delete property" });
+    handleRouteError(error, req, res, "Property");
   }
 });
 
@@ -202,8 +193,7 @@ propertiesRouter.post("/properties/bulk-delete", async (req: AuthenticatedReques
     const deleted = await storage.bulkDeleteProperties(ids);
     res.json({ success: true, deleted });
   } catch (error) {
-    console.error("Error bulk deleting properties:", error);
-    res.status(500).json({ error: "Failed to delete properties" });
+    handleRouteError(error, req, res, "Properties");
   }
 });
 
@@ -220,8 +210,7 @@ propertiesRouter.post("/properties/:id/verify", async (req: AuthenticatedRequest
     }
     res.json({ success: true, verified });
   } catch (error) {
-    console.error("Error verifying property:", error);
-    res.status(500).json({ error: "Failed to verify property" });
+    handleRouteError(error, req, res, "Property");
   }
 });
 
@@ -234,8 +223,7 @@ propertiesRouter.post("/properties/bulk-verify", async (req: AuthenticatedReques
     const verified = await storage.bulkVerifyProperties(ids);
     res.json({ success: true, verified });
   } catch (error) {
-    console.error("Error bulk verifying properties:", error);
-    res.status(500).json({ error: "Failed to verify properties" });
+    handleRouteError(error, req, res, "Properties");
   }
 });
 
@@ -248,8 +236,7 @@ propertiesRouter.post("/properties/bulk-reject", async (req: AuthenticatedReques
     const rejected = await storage.bulkRejectProperties(ids);
     res.json({ success: true, rejected });
   } catch (error) {
-    console.error("Error bulk rejecting properties:", error);
-    res.status(500).json({ error: "Failed to reject properties" });
+    handleRouteError(error, req, res, "Properties");
   }
 });
 
@@ -267,7 +254,6 @@ propertiesRouter.post("/properties/auto-create", async (req: AuthenticatedReques
     const property = await storage.getOrCreateAutoProperty(orgId, { addressLine1, city, postcode });
     res.json(property);
   } catch (error) {
-    console.error("Error auto-creating property:", error);
-    res.status(500).json({ error: "Failed to create property" });
+    handleRouteError(error, req, res, "Property");
   }
 });

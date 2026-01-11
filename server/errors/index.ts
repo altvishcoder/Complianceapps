@@ -256,3 +256,82 @@ export function notFoundHandler(req: Request, res: Response): void {
   };
   res.status(404).json(problemDetail);
 }
+
+export function handleRouteError(error: unknown, req: Request, res: Response, context: string): void {
+  const requestId = (req as { id?: string | number }).id || req.headers['x-request-id'] || req.headers['x-correlation-id'];
+  
+  if (error instanceof APIError) {
+    const problemDetail = error.toRFC7807(req);
+    if (error.status >= 500) {
+      logger.error({ err: error, requestId, path: req.path, context }, error.message);
+    } else {
+      logger.warn({ err: error, requestId, path: req.path, context }, error.message);
+    }
+    res.status(error.status).json(problemDetail);
+    return;
+  }
+
+  if (error instanceof ZodError) {
+    const validationError = ValidationError.fromZodError(error);
+    const problemDetail = validationError.toRFC7807(req);
+    logger.warn({ err: error, requestId, path: req.path, context }, 'Validation error');
+    res.status(400).json(problemDetail);
+    return;
+  }
+
+  const err = error instanceof Error ? error : new Error(String(error));
+  
+  if (err.message.includes('not found') || err.message.includes('Not found') || err.message.includes('NOT_FOUND')) {
+    const notFoundError = new NotFoundError(context);
+    res.status(404).json(notFoundError.toRFC7807(req));
+    return;
+  }
+  
+  if (err.message.includes('duplicate') || err.message.includes('already exists') || err.message.includes('UNIQUE')) {
+    const conflictError = new ConflictError(`${context} already exists or conflicts with existing data`);
+    res.status(409).json(conflictError.toRFC7807(req));
+    return;
+  }
+  
+  if (err.message.includes('foreign key') || err.message.includes('FOREIGN KEY') || err.message.includes('violates')) {
+    const badRequestError = new BadRequestError(`Invalid reference in ${context.toLowerCase()}`);
+    res.status(400).json(badRequestError.toRFC7807(req));
+    return;
+  }
+
+  logger.error({ err, requestId, path: req.path, context, stack: err.stack }, `Error in ${context}`);
+  
+  const problemDetail: RFC7807ProblemDetail = {
+    type: 'https://api.socialcomply.io/errors/internal-error',
+    title: 'Internal Server Error',
+    status: 500,
+    detail: process.env.NODE_ENV === 'development' ? err.message : `Failed to process ${context.toLowerCase()}`,
+    instance: req.originalUrl,
+    traceId: requestId ? String(requestId) : undefined,
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.status(500).json(problemDetail);
+}
+
+export function mapDatabaseError(error: unknown, resource: string): APIError {
+  const err = error instanceof Error ? error : new Error(String(error));
+  
+  if (err.message.includes('not found') || err.message.includes('NOT_FOUND')) {
+    return new NotFoundError(resource);
+  }
+  
+  if (err.message.includes('duplicate') || err.message.includes('UNIQUE') || err.message.includes('already exists')) {
+    return new ConflictError(`${resource} already exists`);
+  }
+  
+  if (err.message.includes('foreign key') || err.message.includes('FOREIGN KEY')) {
+    return new BadRequestError(`Invalid reference for ${resource}`);
+  }
+  
+  if (err.message.includes('null value') || err.message.includes('NOT NULL')) {
+    return new BadRequestError(`Missing required field for ${resource}`);
+  }
+  
+  return new InternalServerError(`Failed to process ${resource}`);
+}
