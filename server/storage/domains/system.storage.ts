@@ -261,6 +261,34 @@ export class SystemStorage implements ISystemStorage {
     }));
   }
 
+  async listNavigationItemsWithRoles(sectionId?: string): Promise<Array<NavigationItem & { roles: string[] }>> {
+    const items = await this.listNavigationItems(sectionId);
+    const allRoles = await db.select().from(navigationItemRoles);
+    
+    return items.map(item => ({
+      ...item,
+      roles: allRoles.filter(r => r.navigationItemId === item.id).map(r => r.role)
+    }));
+  }
+
+  async getNavigationItemRoles(itemId: string): Promise<string[]> {
+    const roles = await db.select()
+      .from(navigationItemRoles)
+      .where(eq(navigationItemRoles.navigationItemId, itemId));
+    return roles.map(r => r.role);
+  }
+
+  async setNavigationItemRoles(itemId: string, roles: string[]): Promise<void> {
+    await db.delete(navigationItemRoles)
+      .where(eq(navigationItemRoles.navigationItemId, itemId));
+    
+    if (roles.length > 0) {
+      await db.insert(navigationItemRoles).values(
+        roles.map(role => ({ navigationItemId: itemId, role }))
+      );
+    }
+  }
+
   async listIconRegistry(): Promise<IconRegistry[]> {
     return db.select()
       .from(iconRegistry)

@@ -459,6 +459,9 @@ export interface ISystemStorage {
   deleteNavigationItem(id: string): Promise<boolean>;
   
   getNavigationWithItems(organisationId?: string): Promise<Array<NavigationSection & { items: NavigationItem[] }>>;
+  listNavigationItemsWithRoles(sectionId?: string): Promise<Array<NavigationItem & { roles: string[] }>>;
+  getNavigationItemRoles(itemId: string): Promise<string[]>;
+  setNavigationItemRoles(itemId: string, roles: string[]): Promise<void>;
   
   listIconRegistry(): Promise<IconRegistry[]>;
   createIconRegistryEntry(entry: InsertIconRegistry): Promise<IconRegistry>;

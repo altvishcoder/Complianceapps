@@ -492,7 +492,7 @@ systemOperationsRouter.get("/sidebar/counts", async (req, res) => {
 systemOperationsRouter.get("/navigation", async (req, res) => {
   try {
     const navigation = await withCache('navigation', {}, async () => {
-      return await storage.getNavigationWithItemsAndRoles();
+      return await storage.getNavigationWithItems();
     }, 600);
     res.json(navigation);
   } catch (error) {

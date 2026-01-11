@@ -302,6 +302,9 @@ export class DatabaseStorage implements IStorage {
   updateNavigationItem = this.system.updateNavigationItem.bind(this.system);
   deleteNavigationItem = this.system.deleteNavigationItem.bind(this.system);
   getNavigationWithItems = this.system.getNavigationWithItems.bind(this.system);
+  listNavigationItemsWithRoles = this.system.listNavigationItemsWithRoles.bind(this.system);
+  getNavigationItemRoles = this.system.getNavigationItemRoles.bind(this.system);
+  setNavigationItemRoles = this.system.setNavigationItemRoles.bind(this.system);
   listIconRegistry = this.system.listIconRegistry.bind(this.system);
   createIconRegistryEntry = this.system.createIconRegistryEntry.bind(this.system);
   listHazardCases = this.system.listHazardCases.bind(this.system);
