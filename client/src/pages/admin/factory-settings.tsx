@@ -132,6 +132,308 @@ interface OutcomeRule {
   isSystem: boolean;
 }
 
+interface InitializationProgress {
+  step: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  message?: string;
+}
+
+function InitializeSystemSection({ isDemoLoading, isSeeding, userRole }: { 
+  isDemoLoading: boolean; 
+  isSeeding: boolean;
+  userRole: string;
+}) {
+  const [initPhrase, setInitPhrase] = useState<string | null>(null);
+  const [initExpiresAt, setInitExpiresAt] = useState<number | null>(null);
+  const [typedPhrase, setTypedPhrase] = useState("");
+  const [countdown, setCountdown] = useState(30);
+  const [countdownActive, setCountdownActive] = useState(false);
+  const [progress, setProgress] = useState<InitializationProgress[] | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const isLashanSuperUser = userRole.toUpperCase() === 'LASHAN_SUPER_USER';
+  
+  useEffect(() => {
+    if (!countdownActive) return;
+    if (countdown <= 0) return;
+    
+    const timer = setInterval(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [countdownActive, countdown]);
+  
+  useEffect(() => {
+    if (!initExpiresAt) return;
+    
+    const checkExpiry = setInterval(() => {
+      if (Date.now() > initExpiresAt) {
+        setInitPhrase(null);
+        setInitExpiresAt(null);
+        setTypedPhrase("");
+        setCountdown(30);
+        setCountdownActive(false);
+        toast({ 
+          title: "Expired", 
+          description: "Initialization request has expired. Please request a new one.",
+          variant: "destructive"
+        });
+      }
+    }, 1000);
+    
+    return () => clearInterval(checkExpiry);
+  }, [initExpiresAt, toast]);
+
+  const requestInitMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/initialize-system/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to request initialization");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setInitPhrase(data.phrase);
+      setInitExpiresAt(data.expiresAt);
+      setTypedPhrase("");
+      setCountdown(30);
+      setCountdownActive(true);
+      setProgress(null);
+      setInitError(null);
+      toast({ title: "Initialization Requested", description: "Please carefully read and follow the instructions below." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const confirmInitMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/initialize-system/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+        body: JSON.stringify({ phrase: typedPhrase, confirmed: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to confirm initialization");
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      setProgress(data.progress || null);
+      setInitPhrase(null);
+      setInitExpiresAt(null);
+      setTypedPhrase("");
+      setCountdown(30);
+      setCountdownActive(false);
+      toast({ 
+        title: "System Initialized", 
+        description: data.message,
+        duration: 10000
+      });
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      setInitError(error.message);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const cancelInitMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/initialize-system/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error("Failed to cancel");
+      return res.json();
+    },
+    onSuccess: () => {
+      setInitPhrase(null);
+      setInitExpiresAt(null);
+      setTypedPhrase("");
+      setCountdown(30);
+      setCountdownActive(false);
+      setProgress(null);
+      setInitError(null);
+    },
+  });
+  
+  const phraseMatches = typedPhrase.toUpperCase().trim() === initPhrase?.toUpperCase();
+  const canConfirm = countdown <= 0 && phraseMatches && !confirmInitMutation.isPending;
+  const timeRemaining = initExpiresAt ? Math.max(0, Math.floor((initExpiresAt - Date.now()) / 1000)) : 0;
+  
+  if (!isLashanSuperUser) {
+    return null;
+  }
+
+  return (
+    <Card className="border-2 border-red-300 dark:border-red-800 mt-4">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          Initialize System
+          <Badge variant="destructive" className="text-xs ml-2">LASHAN SUPER USER ONLY</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4 rounded-lg">
+          <div className="flex gap-2 items-start">
+            <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-red-800 dark:text-red-200">CRITICAL WARNING</p>
+              <p className="text-sm text-red-700 dark:text-red-300">
+                This operation will <strong>completely wipe ALL data</strong> from the system including:
+              </p>
+              <ul className="text-sm text-red-700 dark:text-red-300 list-disc list-inside mt-2 space-y-1">
+                <li>All properties, blocks, and schemes</li>
+                <li>All certificates and compliance records</li>
+                <li>All users and audit logs</li>
+                <li>All contractors and staff records</li>
+                <li>All ML predictions and extraction data</li>
+              </ul>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-2 font-medium">
+                Only mandatory configuration data will be restored. This action CANNOT be undone.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {!initPhrase && !progress && (
+          <Button 
+            className="w-full"
+            variant="destructive"
+            onClick={() => requestInitMutation.mutate()}
+            disabled={isDemoLoading || isSeeding || requestInitMutation.isPending}
+            data-testid="button-request-init"
+          >
+            {requestInitMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Requesting...
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Request System Initialization
+              </>
+            )}
+          </Button>
+        )}
+        
+        {initPhrase && (
+          <div className="space-y-4 border border-amber-200 dark:border-amber-800 rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Confirmation Required</p>
+              <Badge variant="outline" className="text-xs">
+                Expires in {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
+              </Badge>
+            </div>
+            
+            <div className="bg-background rounded border p-4 text-center">
+              <p className="text-sm text-muted-foreground mb-2">Type this phrase to confirm:</p>
+              <code className="text-2xl font-bold tracking-wider text-foreground">{initPhrase}</code>
+            </div>
+            
+            <Input
+              value={typedPhrase}
+              onChange={(e) => setTypedPhrase(e.target.value)}
+              placeholder="Type the confirmation phrase..."
+              className="font-mono text-center text-lg"
+              data-testid="input-init-phrase"
+            />
+            
+            {countdown > 0 && (
+              <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Please wait {countdown} seconds before confirming...</span>
+              </div>
+            )}
+            
+            {initError && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{initError}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                className="flex-1"
+                onClick={() => cancelInitMutation.mutate()}
+                disabled={confirmInitMutation.isPending}
+                data-testid="button-cancel-init"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                className="flex-1"
+                onClick={() => confirmInitMutation.mutate()}
+                disabled={!canConfirm}
+                data-testid="button-confirm-init"
+              >
+                {confirmInitMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Initializing...
+                  </>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Confirm Initialization
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {progress && (
+          <div className="space-y-3 border border-green-200 dark:border-green-800 rounded-lg p-4 bg-green-50/50 dark:bg-green-950/20">
+            <p className="font-medium text-green-800 dark:text-green-200">Initialization Complete</p>
+            <div className="space-y-2">
+              {progress.map((step, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-sm">
+                  {step.status === 'completed' && <Check className="h-4 w-4 text-green-600" />}
+                  {step.status === 'failed' && <XCircle className="h-4 w-4 text-red-600" />}
+                  {step.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
+                  {step.status === 'pending' && <div className="h-4 w-4 rounded-full border-2 border-muted" />}
+                  <span className={step.status === 'completed' ? 'text-green-700 dark:text-green-300' : 
+                                   step.status === 'failed' ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'}>
+                    {step.step.replace(/_/g, ' ')}: {step.message || step.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <Button 
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => setProgress(null)}
+              data-testid="button-clear-progress"
+            >
+              Clear
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function FactorySettings() {
   useEffect(() => {
     document.title = "Factory Settings - ComplianceAI";
@@ -970,6 +1272,12 @@ export default function FactorySettings() {
                 </Button>
               </CardContent>
             </Card>
+            
+            <InitializeSystemSection 
+              isDemoLoading={isDemoLoading} 
+              isSeeding={isSeeding}
+              userRole={userRole}
+            />
           </CardContent>
         </Card>
       );

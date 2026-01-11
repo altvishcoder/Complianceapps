@@ -647,6 +647,10 @@ export async function stopJobQueue(): Promise<void> {
   }
 }
 
+export function getJobQueue(): PgBoss | null {
+  return boss;
+}
+
 // Trigger the certificate watchdog to run immediately on demand
 export async function triggerWatchdogNow(): Promise<string | null> {
   if (!boss) {

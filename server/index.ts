@@ -12,7 +12,7 @@ import { initSentry, setupSentryErrorHandler } from "./sentry";
 import { startLogRotationScheduler } from "./services/log-rotation";
 import { createGlobalRateLimiter, seedApiLimitSettings } from "./services/api-limits";
 import { loadSecurityConfig, loadCompressionConfig } from "./services/middleware-config";
-import { isDatabaseAvailable } from "./db";
+import { isDatabaseAvailable, pool } from "./db";
 
 // Immediate startup logging
 console.log(`[${new Date().toISOString()}] Starting server...`);
@@ -64,6 +64,153 @@ app.get('/health', (_req: Request, res: Response) => {
     database: isDatabaseAvailable() ? 'available' : 'unavailable',
     timestamp: new Date().toISOString()
   });
+});
+
+// Kubernetes/Load Balancer readiness check endpoint - unauthenticated for external health checks
+app.get('/api/ready', async (_req: Request, res: Response) => {
+  const CHECK_TIMEOUT_MS = 5000;
+  
+  interface ReadinessCheck {
+    status: "ok" | "error" | "skipped";
+    latencyMs?: number;
+    error?: string;
+  }
+  
+  const withTimeout = <T>(operation: () => Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+      operation()
+        .then((result) => { clearTimeout(timer); resolve(result); })
+        .catch((error) => { clearTimeout(timer); reject(error); });
+    });
+  };
+  
+  const checkDatabase = async (): Promise<ReadinessCheck> => {
+    const start = Date.now();
+    try {
+      if (!isDatabaseAvailable()) {
+        return { status: "error", error: "Database not configured" };
+      }
+      const { db } = await import("./db");
+      const { sql } = await import("drizzle-orm");
+      await withTimeout(
+        () => db.execute(sql`SELECT 1`),
+        CHECK_TIMEOUT_MS,
+        "Database check timed out"
+      );
+      return { status: "ok", latencyMs: Date.now() - start };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { status: "error", latencyMs: Date.now() - start, error: message };
+    }
+  };
+  
+  const checkJobQueue = async (): Promise<ReadinessCheck> => {
+    const start = Date.now();
+    try {
+      const { getJobQueue, getQueueStats } = await import("./job-queue");
+      const boss = getJobQueue();
+      if (!boss) {
+        return { status: "skipped", error: "Job queue not initialized" };
+      }
+      await withTimeout(
+        async () => getQueueStats(),
+        CHECK_TIMEOUT_MS,
+        "Job queue check timed out"
+      );
+      return { status: "ok", latencyMs: Date.now() - start };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { status: "error", latencyMs: Date.now() - start, error: message };
+    }
+  };
+  
+  const checkStorage = async (): Promise<ReadinessCheck> => {
+    const start = Date.now();
+    try {
+      const privateDir = process.env.PRIVATE_OBJECT_DIR;
+      const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS;
+      
+      if (!privateDir && !publicPaths) {
+        return { status: "skipped", error: "Object storage not configured" };
+      }
+      return { status: "ok", latencyMs: Date.now() - start };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { status: "error", latencyMs: Date.now() - start, error: message };
+    }
+  };
+  
+  const checkAIProviders = async (): Promise<ReadinessCheck> => {
+    const start = Date.now();
+    try {
+      const anthropicKey = process.env.ANTHROPIC_API_KEY;
+      const openaiKey = process.env.OPENAI_API_KEY;
+      const azureKey = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY;
+      
+      if (!anthropicKey && !openaiKey && !azureKey) {
+        return { status: "skipped", error: "No AI providers configured" };
+      }
+      return { status: "ok", latencyMs: Date.now() - start };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { status: "error", latencyMs: Date.now() - start, error: message };
+    }
+  };
+  
+  try {
+    const [database, jobQueue, storage, ai] = await Promise.all([
+      checkDatabase(),
+      checkJobQueue(),
+      checkStorage(),
+      checkAIProviders(),
+    ]);
+    
+    const checks = { database, jobQueue, storage, ai };
+    const failed: string[] = [];
+    
+    if (database.status === "error") failed.push("database");
+    if (jobQueue.status === "error") failed.push("jobQueue");
+    if (storage.status === "error") failed.push("storage");
+    
+    const ready = failed.length === 0;
+    const { APP_VERSION } = await import("@shared/version");
+    
+    const response: {
+      ready: boolean;
+      timestamp: string;
+      version: string;
+      checks: typeof checks;
+      failed?: string[];
+    } = {
+      ready,
+      timestamp: new Date().toISOString(),
+      version: APP_VERSION,
+      checks,
+    };
+    
+    if (!ready) {
+      response.failed = failed;
+    }
+    
+    res.status(ready ? 200 : 503).json(response);
+  } catch (error) {
+    console.error("Readiness check failed:", error);
+    res.status(503).json({
+      ready: false,
+      timestamp: new Date().toISOString(),
+      version: "unknown",
+      checks: {
+        database: { status: "error", error: "Check failed" },
+        jobQueue: { status: "error", error: "Check failed" },
+        storage: { status: "error", error: "Check failed" },
+      },
+      failed: ["database", "jobQueue", "storage"],
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 });
 
 // Correlation ID middleware for request tracing
@@ -334,4 +481,80 @@ httpServer.on('error', (error: NodeJS.ErrnoException) => {
     console.error(`Port ${port} is already in use`);
   }
   process.exit(1);
+});
+
+// Graceful shutdown handling
+let isShuttingDown = false;
+const SHUTDOWN_TIMEOUT_MS = 30000;
+
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) {
+    console.log(`[${new Date().toISOString()}] Shutdown already in progress, ignoring ${signal}`);
+    return;
+  }
+  
+  isShuttingDown = true;
+  console.log(`[${new Date().toISOString()}] Received ${signal}, starting graceful shutdown...`);
+
+  // Set a forced exit timeout
+  const forceExitTimeout = setTimeout(() => {
+    console.error(`[${new Date().toISOString()}] Graceful shutdown timed out after ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit`);
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+
+  try {
+    // Step 1: Stop accepting new HTTP requests
+    console.log(`[${new Date().toISOString()}] Stopping HTTP server (no new connections)...`);
+    await new Promise<void>((resolve, reject) => {
+      httpServer.close((err) => {
+        if (err) {
+          console.error(`[${new Date().toISOString()}] Error closing HTTP server:`, err);
+          reject(err);
+        } else {
+          console.log(`[${new Date().toISOString()}] HTTP server closed, all in-flight requests completed`);
+          resolve();
+        }
+      });
+    });
+
+    // Step 2: Stop the pg-boss job queue
+    console.log(`[${new Date().toISOString()}] Stopping job queue...`);
+    try {
+      await stopJobQueue();
+      console.log(`[${new Date().toISOString()}] Job queue stopped`);
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] Error stopping job queue:`, err);
+    }
+
+    // Step 3: Close the database connection pool
+    console.log(`[${new Date().toISOString()}] Closing database connection pool...`);
+    try {
+      if (pool) {
+        await pool.end();
+        console.log(`[${new Date().toISOString()}] Database connection pool closed`);
+      } else {
+        console.log(`[${new Date().toISOString()}] No database pool to close`);
+      }
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] Error closing database pool:`, err);
+    }
+
+    clearTimeout(forceExitTimeout);
+    console.log(`[${new Date().toISOString()}] Graceful shutdown completed successfully`);
+    process.exit(0);
+  } catch (error) {
+    clearTimeout(forceExitTimeout);
+    console.error(`[${new Date().toISOString()}] Error during graceful shutdown:`, error);
+    process.exit(1);
+  }
+}
+
+// Handle SIGTERM (from orchestrators like Kubernetes, Docker, systemd)
+process.on('SIGTERM', () => {
+  gracefulShutdown('SIGTERM');
+});
+
+// Handle SIGINT (Ctrl+C in terminal)
+process.on('SIGINT', () => {
+  gracefulShutdown('SIGINT');
 });

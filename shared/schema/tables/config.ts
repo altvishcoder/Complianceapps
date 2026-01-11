@@ -157,3 +157,24 @@ export const factorySettingsAudit = pgTable("factory_settings_audit", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
 });
+
+export const bulkSeedJobStatusEnum = pgEnum('bulk_seed_job_status', ['idle', 'running', 'completed', 'failed', 'cancelled']);
+
+export const bulkSeedJobs = pgTable("bulk_seed_jobs", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organisationId: varchar("organisation_id").notNull(),
+  status: bulkSeedJobStatusEnum("status").notNull().default('idle'),
+  tier: text("tier"),
+  currentEntity: text("current_entity").default(''),
+  currentCount: integer("current_count").default(0),
+  totalCount: integer("total_count").default(0),
+  percentage: integer("percentage").default(0),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  estimatedTimeRemaining: integer("estimated_time_remaining"),
+  error: text("error"),
+  entityProgress: json("entity_progress").$type<Record<string, { done: number; total: number }>>(),
+  startedById: varchar("started_by_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
