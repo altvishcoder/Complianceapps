@@ -2184,6 +2184,19 @@ async function seedFactorySettings() {
 }
 
 async function seedNavigation() {
+  console.log("🧭 Checking navigation configuration...");
+  
+  // Check if navigation is already seeded - skip if expected sections exist
+  const existingSections = await db.select().from(navigationSections);
+  const expectedSectionSlugs = ["operate", "assure", "understand", "assets", "people-suppliers", "monitoring", "administration", "resources"];
+  const existingSlugs = new Set(existingSections.map(s => s.slug));
+  const allExpectedExist = expectedSectionSlugs.every(slug => existingSlugs.has(slug));
+  
+  if (allExpectedExist && existingSections.length >= expectedSectionSlugs.length) {
+    console.log("✓ Navigation already configured - skipping");
+    return;
+  }
+  
   console.log("🧭 Seeding navigation configuration...");
   
   // Seed icon registry first
@@ -2523,4 +2536,68 @@ export async function applyMigration(): Promise<MigrationResult> {
     },
     totalApplied: streamsAdded + certTypesAdded + componentsAdded,
   };
+}
+
+/**
+ * Force reseed navigation configuration by deleting existing data first.
+ * This is used by the admin API to force refresh configuration.
+ * Should only be called with proper authorization and audit logging.
+ */
+export async function forceReseedNavigation(): Promise<{ sectionsSeeded: number; itemsSeeded: number }> {
+  console.log("🔄 Force reseeding navigation configuration...");
+  
+  // Delete existing navigation data
+  await db.delete(navigationItems);
+  await db.delete(navigationSections);
+  
+  // Re-seed by calling the internal function
+  // We need to seed icon registry and navigation
+  const iconsData = [
+    { iconKey: "LayoutDashboard", lucideName: "LayoutDashboard", category: "navigation" },
+    { iconKey: "BarChart3", lucideName: "BarChart3", category: "navigation" },
+    { iconKey: "UploadCloud", lucideName: "UploadCloud", category: "navigation" },
+    { iconKey: "Cloud", lucideName: "Cloud", category: "navigation" },
+    { iconKey: "FileText", lucideName: "FileText", category: "navigation" },
+    { iconKey: "Briefcase", lucideName: "Briefcase", category: "navigation" },
+    { iconKey: "Settings2", lucideName: "Settings2", category: "navigation" },
+    { iconKey: "Shield", lucideName: "Shield", category: "navigation" },
+  ];
+  
+  await db.insert(iconRegistry).values(iconsData).onConflictDoNothing();
+  
+  const sectionsData = [
+    { id: "sec-operate", slug: "operate", title: "Operate", iconKey: "Gauge", displayOrder: 1, defaultOpen: true, isSystem: true },
+    { id: "sec-assure", slug: "assure", title: "Assure", iconKey: "ShieldCheck", displayOrder: 2, defaultOpen: false, isSystem: true },
+    { id: "sec-understand", slug: "understand", title: "Understand", iconKey: "BarChart3", displayOrder: 3, defaultOpen: false, isSystem: true },
+    { id: "sec-assets", slug: "assets", title: "Assets", iconKey: "Building2", displayOrder: 4, defaultOpen: false, isSystem: true },
+    { id: "sec-people", slug: "people-suppliers", title: "People & Suppliers", iconKey: "Users", displayOrder: 5, defaultOpen: false, isSystem: true },
+    { id: "sec-monitor", slug: "monitoring", title: "Monitoring", iconKey: "MonitorCheck", displayOrder: 6, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-manage", slug: "administration", title: "Administration", iconKey: "Settings2", displayOrder: 7, defaultOpen: false, requiresRole: "admin", isSystem: true },
+    { id: "sec-resources", slug: "resources", title: "Resources", iconKey: "Library", displayOrder: 8, defaultOpen: false, isSystem: true },
+  ];
+  
+  await db.insert(navigationSections).values(sectionsData);
+  
+  const itemsData = [
+    { sectionId: "sec-operate", slug: "overview", name: "Overview", href: "/dashboard", iconKey: "LayoutDashboard", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-operate", slug: "ingestion-hub", name: "Ingestion Hub", href: "/ingestion", iconKey: "UploadCloud", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-operate", slug: "certificates", name: "Certificates", href: "/certificates", iconKey: "Files", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-operate", slug: "remedial-actions", name: "Remedial Actions", href: "/actions", iconKey: "Wrench", displayOrder: 4, isSystem: true },
+    { sectionId: "sec-assure", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-assure", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-understand", slug: "analytics", name: "Analytics", href: "/compliance", iconKey: "BarChart3", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-understand", slug: "reporting", name: "Reporting", href: "/reports", iconKey: "FileText", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-assets", slug: "properties", name: "Properties", href: "/properties", iconKey: "Building2", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-assets", slug: "components", name: "Components", href: "/components", iconKey: "Package", displayOrder: 2, isSystem: true },
+    { sectionId: "sec-people", slug: "contractors", name: "Contractors", href: "/contractors", iconKey: "Users", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-monitor", slug: "system-health", name: "System Health", href: "/admin/system-health", iconKey: "Activity", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-manage", slug: "user-management", name: "User Management", href: "/admin/users", iconKey: "UserCog", displayOrder: 1, isSystem: true },
+    { sectionId: "sec-resources", slug: "help-guide", name: "Help Guide", href: "/help", iconKey: "HelpCircle", displayOrder: 1, isSystem: true },
+  ];
+  
+  await db.insert(navigationItems).values(itemsData);
+  
+  console.log(`✓ Force reseeded ${sectionsData.length} sections and ${itemsData.length} items`);
+  
+  return { sectionsSeeded: sectionsData.length, itemsSeeded: itemsData.length };
 }

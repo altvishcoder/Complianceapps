@@ -3,7 +3,7 @@ import {
   schemes, blocks, properties, components, componentTypes,
   certificates, remedialActions, extractions, extractionRuns,
   complianceStreams, certificateTypes as certTypesTable,
-  riskSnapshots, spaces, propertyRiskSnapshots
+  riskSnapshots, spaces, propertyRiskSnapshots, auditEvents
 } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -249,6 +249,7 @@ export interface SeedResult {
   components: number;
   certificates: number;
   remedialActions: number;
+  auditEvents?: number;
   cancelled?: boolean;
 }
 
@@ -644,6 +645,21 @@ export async function generateComprehensiveDemoData(config: SeedConfig): Promise
     return { ...stats, cancelled: true };
   }
   
+  // Seed audit events for demo data (only once per seeding)
+  console.log("Generating audit events for demo data...");
+  const propertyIds = await db.select({ id: properties.id }).from(properties)
+    .innerJoin(blocks, eq(properties.blockId, blocks.id))
+    .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+    .where(eq(schemes.organisationId, organisationId))
+    .then(rows => rows.map(r => r.id));
+  
+  const certificateIds = await db.select({ id: certificates.id }).from(certificates)
+    .where(sql`${certificates.propertyId} IN (${sql.join(propertyIds.slice(0, 1000).map(id => sql`${id}`), sql`, `)})`)
+    .limit(1000)
+    .then(rows => rows.map(r => r.id));
+  
+  await seedAuditEvents(organisationId, propertyIds, certificateIds);
+  
   const finalCounts = await getDemoDataCounts(organisationId);
   console.log("Final verification counts:", finalCounts);
   
@@ -850,6 +866,10 @@ async function getDemoDataCounts(organisationId: string): Promise<SeedResult> {
     .where(sql`${certificates.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
   const [actionCount] = await db.select({ count: sql<number>`count(*)` }).from(remedialActions)
     .where(sql`${remedialActions.propertyId} IN (${sql.join(propertyIds.map(id => sql`${id}`), sql`, `)})`);
+  
+  // Count existing audit events (pure counting, no side effects)
+  const [auditCount] = await db.select({ count: sql<number>`count(*)` }).from(auditEvents)
+    .where(sql`${auditEvents.organisationId} = ${organisationId} AND ${auditEvents.metadata}->>'demoData' = 'true'`);
 
   return {
     schemes: demoSchemes.length,
@@ -859,6 +879,7 @@ async function getDemoDataCounts(organisationId: string): Promise<SeedResult> {
     components: Number(componentCount.count),
     certificates: Number(certificateCount.count),
     remedialActions: Number(actionCount.count),
+    auditEvents: Number(auditCount.count),
   };
 }
 
@@ -951,6 +972,164 @@ export async function generateFullDemoData(organisationId: string): Promise<{
  * - Medium: 25,000 properties (50 schemes × 10 blocks × 50 properties)  
  * - Large: 50,000 properties (100 schemes × 10 blocks × 50 properties)
  */
+const AUDIT_EVENT_TYPES = [
+  'CERTIFICATE_UPLOADED',
+  'CERTIFICATE_PROCESSED',
+  'CERTIFICATE_STATUS_CHANGED',
+  'CERTIFICATE_APPROVED',
+  'REMEDIAL_ACTION_CREATED',
+  'REMEDIAL_ACTION_UPDATED',
+  'REMEDIAL_ACTION_COMPLETED',
+  'PROPERTY_UPDATED',
+  'COMPONENT_CREATED',
+  'USER_LOGIN',
+  'SETTINGS_CHANGED',
+] as const;
+
+const AUDIT_ENTITY_TYPES = [
+  'CERTIFICATE', 'PROPERTY', 'COMPONENT', 'REMEDIAL_ACTION', 'USER', 'SETTINGS'
+] as const;
+
+const AUDIT_ACTORS = [
+  { id: "demo-user-1", name: "Sarah Johnson", type: "USER" as const },
+  { id: "demo-user-2", name: "James Wilson", type: "USER" as const },
+  { id: "demo-user-3", name: "Emma Thompson", type: "USER" as const },
+  { id: "system", name: "System", type: "SYSTEM" as const },
+  { id: "api-key-1", name: "Integration API", type: "API" as const },
+];
+
+const AUDIT_MESSAGES = [
+  "Uploaded gas safety certificate for property",
+  "Processed electrical certificate automatically",
+  "Approved fire safety assessment",
+  "Created remedial action for defect",
+  "Completed remedial action - gas valve replaced",
+  "Updated property details",
+  "Added new smoke detector component",
+  "User logged in from dashboard",
+  "Changed compliance settings",
+  "Marked certificate as expiring soon",
+  "Assigned remedial action to contractor",
+  "Bulk imported property data",
+];
+
+interface EntityRecord {
+  id: string;
+  propertyId: string | null;
+  name?: string;
+}
+
+async function seedAuditEvents(organisationId: string, propertyIds: string[], certificateIdsInput: string[]): Promise<number> {
+  if (propertyIds.length === 0) return 0;
+  
+  console.log("Seeding audit events with proper entity relationships...");
+  
+  // Load actual certificates with their propertyIds to maintain relationships
+  const certRecords = await db.select({ 
+    id: certificates.id, 
+    propertyId: certificates.propertyId,
+    name: certificates.certificateNumber
+  }).from(certificates)
+    .where(sql`${certificates.propertyId} IN (${sql.join(propertyIds.slice(0, 500).map(id => sql`${id}`), sql`, `)})`)
+    .limit(500);
+  
+  // Load actual remedial actions with their IDs and propertyIds
+  const remedialRecords = await db.select({ 
+    id: remedialActions.id, 
+    propertyId: remedialActions.propertyId,
+    name: remedialActions.description
+  }).from(remedialActions)
+    .where(sql`${remedialActions.propertyId} IN (${sql.join(propertyIds.slice(0, 500).map(id => sql`${id}`), sql`, `)})`)
+    .limit(500);
+  
+  // Load actual components with their IDs and propertyIds
+  const componentRecords = await db.select({ 
+    id: components.id, 
+    propertyId: components.propertyId,
+    name: components.model
+  }).from(components)
+    .where(sql`${components.propertyId} IN (${sql.join(propertyIds.slice(0, 500).map(id => sql`${id}`), sql`, `)})`)
+    .limit(500);
+  
+  const auditEventsBatch = [];
+  const eventCount = Math.min(500, propertyIds.length * 2);
+  const now = Date.now();
+  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+  
+  for (let i = 0; i < eventCount; i++) {
+    const eventType = randomChoice(AUDIT_EVENT_TYPES);
+    const actor = randomChoice(AUDIT_ACTORS);
+    const message = randomChoice(AUDIT_MESSAGES);
+    
+    let entityType: typeof AUDIT_ENTITY_TYPES[number] = 'PROPERTY';
+    let entityId: string;
+    let entityName: string;
+    let propertyId: string | null = null;
+    let certificateId: string | null = null;
+    
+    if (eventType.includes('CERTIFICATE') && certRecords.length > 0) {
+      const cert = randomChoice(certRecords);
+      entityType = 'CERTIFICATE';
+      entityId = cert.id;
+      entityName = cert.name || `Certificate ${cert.id.slice(0, 8)}`;
+      propertyId = cert.propertyId;
+      certificateId = cert.id;
+    } else if (eventType.includes('REMEDIAL') && remedialRecords.length > 0) {
+      const remedial = randomChoice(remedialRecords);
+      entityType = 'REMEDIAL_ACTION';
+      entityId = remedial.id;
+      entityName = remedial.name || `Remedial Action ${remedial.id.slice(0, 8)}`;
+      propertyId = remedial.propertyId;
+    } else if (eventType.includes('COMPONENT') && componentRecords.length > 0) {
+      const component = randomChoice(componentRecords);
+      entityType = 'COMPONENT';
+      entityId = component.id;
+      entityName = component.name || `Component ${component.id.slice(0, 8)}`;
+      propertyId = component.propertyId;
+    } else if (eventType.includes('USER') || eventType.includes('SETTINGS')) {
+      entityType = eventType.includes('USER') ? 'USER' : 'SETTINGS';
+      entityId = actor.id;
+      entityName = actor.name;
+    } else {
+      entityType = 'PROPERTY';
+      entityId = randomChoice(propertyIds);
+      entityName = `Property ${entityId.slice(0, 8)}`;
+      propertyId = entityId;
+    }
+    
+    const randomOffset = Math.floor(Math.random() * ninetyDaysMs);
+    const createdAt = new Date(now - randomOffset);
+    
+    auditEventsBatch.push({
+      organisationId,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorType: actor.type,
+      eventType,
+      entityType,
+      entityId,
+      entityName,
+      message: `${message} - Event #${i + 1}`,
+      propertyId,
+      certificateId,
+      metadata: { demoData: true, eventIndex: i },
+      createdAt,
+    });
+    
+    if (auditEventsBatch.length >= BATCH_SIZE) {
+      await db.insert(auditEvents).values(auditEventsBatch);
+      auditEventsBatch.length = 0;
+    }
+  }
+  
+  if (auditEventsBatch.length > 0) {
+    await db.insert(auditEvents).values(auditEventsBatch);
+  }
+  
+  console.log(`✓ Seeded ${eventCount} audit events with proper entity relationships`);
+  return eventCount;
+}
+
 export async function generateBulkDemoData(
   organisationId: string, 
   targetProperties: number = 25000,

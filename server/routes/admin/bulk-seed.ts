@@ -2,10 +2,11 @@ import { Router, Response } from "express";
 import { requireRole, type AuthenticatedRequest } from "../../session";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { bulkSeedJobs } from "@shared/schema";
+import { bulkSeedJobs, auditEvents } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { VOLUME_CONFIGS, calculateTotals } from "../../demo-data/bulk-seeder";
 import { generateBulkDemoData } from "../../demo-data-generator";
+import { forceReseedNavigation } from "../../seed";
 import { SUPER_ADMIN_ROLES, getOrgId } from "./utils";
 
 export const adminBulkSeedRouter = Router();
@@ -325,6 +326,43 @@ adminBulkSeedRouter.post("/bulk-seed", requireRole(...SUPER_ADMIN_ROLES), async 
     const errorMessage = error instanceof Error ? error.message : undefined;
     res.status(500).json({ 
       error: "Failed to start bulk seed", 
+      details: errorMessage 
+    });
+  }
+});
+
+// Force reseed navigation configuration
+adminBulkSeedRouter.post("/reseed-navigation", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const orgId = getOrgId(req);
+    
+    // Audit log the action
+    await db.insert(auditEvents).values({
+      organisationId: orgId,
+      actorId: userId || "system",
+      actorName: req.user?.email || "system",
+      actorType: "USER",
+      eventType: "SETTINGS_CHANGED",
+      entityType: "SETTINGS",
+      entityId: "navigation-config",
+      entityName: "Navigation Configuration",
+      message: "Force reseed navigation configuration via admin API",
+      metadata: { triggeredBy: req.user?.email || "unknown", orgId },
+    });
+    
+    const result = await forceReseedNavigation();
+    
+    res.json({
+      success: true,
+      message: `Reseeded ${result.sectionsSeeded} sections and ${result.itemsSeeded} items`,
+      ...result
+    });
+  } catch (error: unknown) {
+    console.error("Failed to reseed navigation:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ 
+      error: "Failed to reseed navigation", 
       details: errorMessage 
     });
   }
