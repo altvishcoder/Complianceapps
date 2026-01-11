@@ -38,7 +38,7 @@ const DEFAULT_REGIONS: RegionConfig[] = [
 ];
 
 class QueryCache {
-  private cache: Map<string, Map<string, CacheEntry<any>>> = new Map();
+  private cache: Map<string, Map<string, CacheEntry<unknown>>> = new Map();
   private stats: Map<string, CacheStats> = new Map();
   private regionConfigs: Map<string, RegionConfig> = new Map();
   private globalStats = { hits: 0, misses: 0, evictions: 0, startedAt: Date.now() };
@@ -62,12 +62,12 @@ class QueryCache {
     }
   }
 
-  private generateKey(region: string, params: Record<string, any>): string {
+  private generateKey(region: string, params: Record<string, unknown>): string {
     const sortedParams = Object.keys(params).sort().map(k => `${k}:${JSON.stringify(params[k])}`).join('|');
     return `${region}::${sortedParams}`;
   }
 
-  private estimateSize(data: any): number {
+  private estimateSize(data: unknown): number {
     try {
       return JSON.stringify(data).length * 2;
     } catch {
@@ -75,7 +75,7 @@ class QueryCache {
     }
   }
 
-  get<T>(region: string, params: Record<string, any> = {}): T | null {
+  get<T>(region: string, params: Record<string, unknown> = {}): T | null {
     const regionCache = this.cache.get(region);
     const regionStats = this.stats.get(region);
     
@@ -114,7 +114,7 @@ class QueryCache {
     return entry.data as T;
   }
 
-  set<T>(region: string, params: Record<string, any>, data: T, ttlOverrideSeconds?: number): void {
+  set<T>(region: string, params: Record<string, unknown>, data: T, ttlOverrideSeconds?: number): void {
     const config = this.regionConfigs.get(region);
     let regionCache = this.cache.get(region);
     let regionStats = this.stats.get(region);

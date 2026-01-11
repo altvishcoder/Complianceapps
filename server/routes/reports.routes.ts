@@ -14,16 +14,25 @@ import {
 
 export const reportsRouter = Router();
 
-// Apply requireAuth middleware to all routes in this router
-reportsRouter.use(requireAuth as any);
+reportsRouter.use(requireAuth);
 
-// In-memory cache for TSM report (5-minute TTL)
-let tsmReportCache: { data: any; timestamp: number } | null = null;
+interface ReportCache<T = unknown> {
+  data: T;
+  timestamp: number;
+}
+
+let tsmReportCache: ReportCache | null = null;
 const TSM_CACHE_TTL_MS = 5 * 60 * 1000;
 
-// Board summary cache
-const boardSummaryCache = new Map<string, { data: any; timestamp: number }>();
+const boardSummaryCache = new Map<string, ReportCache>();
 const BOARD_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface BS01Row { buildings_with_compliance?: string | number }
+interface BS02Row { total_fra?: string | number; up_to_date_fra?: string | number }
+interface BS03Row { total_outstanding?: string | number; immediate?: string | number; urgent?: string | number; priority?: string | number; routine?: string | number }
+interface BS04Row { certificate_type?: string; count?: string | number }
+interface BS06Row { id: string; description?: string; property_id?: string; due_date?: string | Date }
+interface SummaryRow { unique_buildings?: string | number; total_components?: string | number; total_certificates?: string | number; total_remedial?: string | number; valid_certificates?: string | number }
 
 // ===== TSM BUILDING SAFETY REPORTS =====
 reportsRouter.get("/tsm-building-safety", async (req: AuthenticatedRequest, res: Response) => {
@@ -89,12 +98,12 @@ reportsRouter.get("/tsm-building-safety", async (req: AuthenticatedRequest, res:
       `)
     ]);
 
-    const bs01Row = (bs01Result.rows as any[])[0] || { buildings_with_compliance: 0 };
-    const bs02Row = (bs02Result.rows as any[])[0] || { total_fra: 0, up_to_date_fra: 0 };
-    const bs03Row = (bs03Result.rows as any[])[0] || { total_outstanding: 0, immediate: 0, urgent: 0, priority: 0, routine: 0 };
-    const bs04Rows = (bs04Result.rows as any[]) || [];
-    const bs06Rows = (bs06Result.rows as any[]) || [];
-    const summaryRow = (summaryResult.rows as any[])[0] || { unique_buildings: 0, total_components: 0, total_certificates: 0, total_remedial: 0, valid_certificates: 0 };
+    const bs01Row = (bs01Result.rows as BS01Row[])[0] || { buildings_with_compliance: 0 };
+    const bs02Row = (bs02Result.rows as BS02Row[])[0] || { total_fra: 0, up_to_date_fra: 0 };
+    const bs03Row = (bs03Result.rows as BS03Row[])[0] || { total_outstanding: 0, immediate: 0, urgent: 0, priority: 0, routine: 0 };
+    const bs04Rows = (bs04Result.rows as BS04Row[]) || [];
+    const bs06Rows = (bs06Result.rows as BS06Row[]) || [];
+    const summaryRow = (summaryResult.rows as SummaryRow[])[0] || { unique_buildings: 0, total_components: 0, total_certificates: 0, total_remedial: 0, valid_certificates: 0 };
 
     const totalFRA = Number(bs02Row.total_fra) || 0;
     const upToDateFRA = Number(bs02Row.up_to_date_fra) || 0;
@@ -138,11 +147,13 @@ reportsRouter.get("/tsm-building-safety", async (req: AuthenticatedRequest, res:
         BS04: {
           name: "Overdue Inspections",
           description: "Inspections past their due date by type",
-          value: bs04Rows.reduce((sum: number, row: any) => sum + Number(row.count || 0), 0),
-          byType: bs04Rows.reduce((acc: any, row: any) => {
-            acc[row.certificate_type] = Number(row.count) || 0;
+          value: bs04Rows.reduce((sum: number, row: BS04Row) => sum + Number(row.count || 0), 0),
+          byType: bs04Rows.reduce((acc: Record<string, number>, row: BS04Row) => {
+            if (row.certificate_type) {
+              acc[row.certificate_type] = Number(row.count) || 0;
+            }
             return acc;
-          }, {}),
+          }, {} as Record<string, number>),
           unit: "inspections"
         },
         BS06: {
@@ -596,7 +607,8 @@ reportsRouter.post("/scheduled", async (req: AuthenticatedRequest, res: Response
       RETURNING *
     `);
     
-    const scheduledReport = result.rows[0] as any;
+    interface ScheduledReportRow { id: string; frequency?: string; is_active?: boolean }
+    const scheduledReport = result.rows[0] as ScheduledReportRow;
     
     if (isActive !== false) {
       try {
@@ -707,7 +719,14 @@ reportsRouter.post("/scheduled/:id/run", async (req: AuthenticatedRequest, res: 
   try {
     const { id } = req.params;
     const scheduleResult = await db.execute(sql`SELECT * FROM scheduled_reports WHERE id = ${id}`);
-    const schedule = scheduleResult.rows[0] as any;
+    interface ScheduleRow { 
+      id: string;
+      organisation_id?: string;
+      name?: string;
+      format?: string;
+      filters?: Record<string, unknown>;
+    }
+    const schedule = scheduleResult.rows[0] as ScheduleRow;
     
     if (!schedule) {
       return res.status(404).json({ error: "Scheduled report not found" });

@@ -1,7 +1,15 @@
 import { db } from '../db';
-import { certificates, users, properties } from '@shared/schema';
-import { sql, and, eq, lte, gte, isNotNull } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { logger } from '../logger';
+
+interface ExpiryAlertRow {
+  certificate_id: string;
+  certificate_type: string;
+  expiry_date: string | Date;
+  organisation_id: string;
+  property_id: string;
+  property_address: string | null;
+}
 
 interface ExpiryAlert {
   certificateId: string;
@@ -42,12 +50,12 @@ export async function getCertificatesExpiringSoon(daysAhead: number = 30, organi
       ORDER BY c.expiry_date ASC
     `);
     
-    return (results.rows as any[]).map(row => ({
+    return (results.rows as ExpiryAlertRow[]).map(row => ({
       certificateId: row.certificate_id,
       certificateType: row.certificate_type,
       propertyAddress: row.property_address || 'Unknown',
       propertyId: row.property_id,
-      expiryDate: row.expiry_date?.toISOString?.() || row.expiry_date,
+      expiryDate: row.expiry_date instanceof Date ? row.expiry_date.toISOString() : String(row.expiry_date),
       daysUntilExpiry: Math.ceil((new Date(row.expiry_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
       organisationId: row.organisation_id,
     }));
@@ -111,10 +119,10 @@ export async function getExpiryStats(organisationId?: string): Promise<{
     ]);
     
     return {
-      expiringIn7Days: Number((in7Result.rows[0] as any)?.count || 0),
-      expiringIn30Days: Number((in30Result.rows[0] as any)?.count || 0),
-      expiringIn90Days: Number((in90Result.rows[0] as any)?.count || 0),
-      expiredCount: Number((expiredResult.rows[0] as any)?.count || 0),
+      expiringIn7Days: Number((in7Result.rows[0] as { count?: number | string })?.count || 0),
+      expiringIn30Days: Number((in30Result.rows[0] as { count?: number | string })?.count || 0),
+      expiringIn90Days: Number((in90Result.rows[0] as { count?: number | string })?.count || 0),
+      expiredCount: Number((expiredResult.rows[0] as { count?: number | string })?.count || 0),
     };
   } catch (error) {
     logger.error({ error }, 'Failed to get expiry stats');

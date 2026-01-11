@@ -8,13 +8,134 @@ import { normalizeCertificateTypeCode } from "@shared/certificate-type-mapping";
 
 export const analyticsRouter = Router();
 
-function getOrgId(req: Request): string {
-  return (req as any).user?.organisationId || "default-org";
+interface CoreCountsRow {
+  total_properties?: string | number;
+  total_certificates?: string | number;
+  total_components?: string | number;
 }
 
-analyticsRouter.use(requireAuth as any);
+interface StatusCountRow {
+  status?: string;
+  severity?: string;
+  count?: string | number;
+  overdue_count?: string | number;
+}
 
-let boardReportCache: { data: any; timestamp: number } | null = null;
+interface ExpiringCertRow {
+  certificate_id: string;
+  certificate_type: string;
+  expiry_date: string | Date;
+  property_id: string;
+  uprn?: string;
+  address_line1?: string;
+  postcode?: string;
+  days_until_expiry?: number;
+}
+
+interface UrgentActionRow {
+  action_id: string;
+  description?: string;
+  severity?: string;
+  status?: string;
+  due_date?: string | Date;
+  address_line1?: string;
+  postcode?: string;
+}
+
+interface StreamStatsRow {
+  stream_code?: string;
+  stream_name?: string;
+  total?: string | number;
+  approved?: string | number;
+  rejected?: string | number;
+}
+
+interface ProblemPropertyRow {
+  property_id: string;
+  address_line1?: string;
+  postcode?: string;
+  open_actions?: string | number;
+  urgent_actions?: string | number;
+}
+
+interface HierarchyRow {
+  id: string;
+  name?: string;
+  code?: string;
+  reference?: string;
+  color?: string;
+  icon?: string;
+  block_count?: string | number;
+  property_count?: string | number;
+  certificate_count?: string | number;
+  compliant_count?: string | number;
+  non_compliant_count?: string | number;
+  expired_count?: string | number;
+  expiring_soon_count?: string | number;
+  open_actions?: string | number;
+}
+
+interface CertTypeRow {
+  code: string;
+  name: string;
+  description?: string;
+  property_count?: string | number;
+  certificate_count?: string | number;
+  compliant_count?: string | number;
+  expired_count?: string | number;
+  expiring_soon_count?: string | number;
+  open_actions?: string | number;
+}
+
+interface TreemapRow {
+  stream_code: string;
+  stream_name: string;
+  stream_color: string;
+  display_order?: number;
+  property_count?: string | number;
+  certificate_count?: string | number;
+  compliant_count?: string | number;
+  expired_count?: string | number;
+}
+
+interface BoardReportMvRow {
+  organisation_id?: string;
+  total_properties?: string | number;
+  compliant_properties?: string | number;
+  non_compliant_properties?: string | number;
+  total_certificates?: string | number;
+  valid_certificates?: string | number;
+  open_remedials?: string | number;
+  completed_remedials?: string | number;
+  total_remedials?: string | number;
+  overdue_certificates?: string | number;
+  expiring_soon?: string | number;
+  compliance_rate?: string | number;
+}
+
+interface PropertyRow {
+  id: string;
+  uprn?: string;
+  address_line1?: string;
+  postcode?: string;
+  compliance_status?: string;
+  certificate_count?: string | number;
+  compliant_count?: string | number;
+  expired_count?: string | number;
+  open_actions?: string | number;
+}
+
+function getOrgId(req: Request): string {
+  return (req as AuthenticatedRequest).user?.organisationId || "default-org";
+}
+
+analyticsRouter.use(requireAuth);
+
+interface BoardReportCache {
+  data: unknown;
+  timestamp: number;
+}
+let boardReportCache: BoardReportCache | null = null;
 const BOARD_REPORT_CACHE_TTL = 120000;
 
 analyticsRouter.get("/dashboard/stats", async (req: AuthenticatedRequest, res: Response) => {
@@ -73,11 +194,11 @@ analyticsRouter.get("/dashboard/stats", async (req: AuthenticatedRequest, res: R
         `)
       ]);
 
-      const coreCounts = (coreCountsRaw.rows?.[0] as any) || {};
+      const coreCounts = (coreCountsRaw.rows?.[0] as CoreCountsRow) || {};
       const totalProperties = Number(coreCounts.total_properties || 0);
       const totalCerts = Number(coreCounts.total_certificates || 0);
       
-      const certStatusRows = (certStatusCountsRaw.rows || []) as any[];
+      const certStatusRows = (certStatusCountsRaw.rows || []) as StatusCountRow[];
       let validCerts = 0;
       let pendingCerts = 0;
       for (const row of certStatusRows) {
@@ -85,7 +206,7 @@ analyticsRouter.get("/dashboard/stats", async (req: AuthenticatedRequest, res: R
         else if (row.status === 'PENDING' || row.status === 'PROCESSING') pendingCerts += Number(row.count);
       }
       
-      const remedialRows = (remedialStatusCountsRaw.rows || []) as any[];
+      const remedialRows = (remedialStatusCountsRaw.rows || []) as StatusCountRow[];
       let activeHazards = 0;
       let immediateHazards = 0;
       let overdueTotal = 0;
@@ -113,14 +234,14 @@ analyticsRouter.get("/dashboard/stats", async (req: AuthenticatedRequest, res: R
         severity
       }));
 
-      const expiringCertificates = ((expiringCertsRaw.rows || []) as any[]).map(c => ({
+      const expiringCertificates = ((expiringCertsRaw.rows || []) as ExpiringCertRow[]).map(c => ({
         id: c.certificate_id,
         propertyAddress: c.address_line1 && c.postcode ? `${c.address_line1}, ${c.postcode}` : 'Unknown Property',
         type: c.certificate_type?.replace(/_/g, ' ') || 'Unknown',
         expiryDate: c.expiry_date
       }));
 
-      const urgentActions = ((urgentActionsRaw.rows || []) as any[]).map(a => ({
+      const urgentActions = ((urgentActionsRaw.rows || []) as UrgentActionRow[]).map(a => ({
         id: a.action_id,
         description: a.description || 'No description',
         severity: a.severity,
@@ -142,7 +263,7 @@ analyticsRouter.get("/dashboard/stats", async (req: AuthenticatedRequest, res: R
         ORDER BY COUNT(c.id) DESC
       `);
       
-      const complianceByType = ((streamStatsRaw.rows || []) as any[]).map(row => {
+      const complianceByType = ((streamStatsRaw.rows || []) as StreamStatsRow[]).map(row => {
         const total = Number(row.total || 0);
         const approved = Number(row.approved || 0);
         const compliant = total > 0 ? Math.round((approved / total) * 100) : 0;
@@ -172,7 +293,7 @@ analyticsRouter.get("/dashboard/stats", async (req: AuthenticatedRequest, res: R
         LIMIT 10
       `);
       
-      const problemProperties = ((problemPropsRaw.rows || []) as any[]).map(p => ({
+      const problemProperties = ((problemPropsRaw.rows || []) as ProblemPropertyRow[]).map(p => ({
         id: p.property_id,
         address: `${p.address_line1 || 'Unknown'}, ${p.postcode || ''}`,
         issueCount: Number(p.open_actions),
@@ -241,7 +362,7 @@ analyticsRouter.get("/analytics/hierarchy", async (req: AuthenticatedRequest, re
         ORDER BY cs.display_order, COUNT(c.id) DESC
       `);
       
-      const streams = ((streamData.rows || []) as any[]).map(row => ({
+      const streams = ((streamData.rows || []) as StreamStatsRow[]).map(row => ({
         id: row.id,
         name: row.name,
         color: row.color,
@@ -291,7 +412,7 @@ analyticsRouter.get("/analytics/hierarchy", async (req: AuthenticatedRequest, re
         ORDER BY COUNT(DISTINCT p.id) DESC
       `);
       
-      const schemes = ((schemeData.rows || []) as any[]).map(row => ({
+      const schemes = ((schemeData.rows || []) as HierarchyRow[]).map(row => ({
         id: row.id,
         name: row.name,
         reference: row.reference,
@@ -335,7 +456,7 @@ analyticsRouter.get("/analytics/hierarchy", async (req: AuthenticatedRequest, re
         ORDER BY COUNT(DISTINCT p.id) DESC
       `);
       
-      const blocks = ((blockData.rows || []) as any[]).map(row => ({
+      const blocks = ((blockData.rows || []) as HierarchyRow[]).map(row => ({
         id: row.id,
         name: row.name,
         reference: row.reference,
@@ -379,7 +500,7 @@ analyticsRouter.get("/analytics/hierarchy", async (req: AuthenticatedRequest, re
         ORDER BY COUNT(c.id) DESC, ct.display_order, ct.name
       `);
       
-      const certTypes = ((certTypeData.rows || []) as any[]).map(row => ({
+      const certTypes = ((certTypeData.rows || []) as CertTypeRow[]).map(row => ({
         id: row.code,
         code: row.code,
         name: row.name,
@@ -427,7 +548,7 @@ analyticsRouter.get("/analytics/hierarchy", async (req: AuthenticatedRequest, re
           ORDER BY p.address_line1
         `);
         
-        const properties = ((propertyData.rows || []) as any[]).map(row => ({
+        const properties = ((propertyData.rows || []) as PropertyRow[]).map(row => ({
           id: row.id,
           uprn: row.uprn,
           name: row.address_line1 || row.uprn || 'Unknown',
@@ -467,7 +588,7 @@ analyticsRouter.get("/analytics/hierarchy", async (req: AuthenticatedRequest, re
           ORDER BY p.address_line1
         `);
         
-        const properties = ((propertyData.rows || []) as any[]).map(row => ({
+        const properties = ((propertyData.rows || []) as PropertyRow[]).map(row => ({
           id: row.id,
           uprn: row.uprn,
           name: row.address_line1 || row.uprn || 'Unknown',
@@ -528,7 +649,7 @@ analyticsRouter.get("/analytics/treemap", async (req: AuthenticatedRequest, res:
       ORDER BY cs.display_order, cs.name
     `);
     
-    const children = ((streamData.rows || []) as any[]).map(row => {
+    const children = ((streamData.rows || []) as TreemapRow[]).map(row => {
       const propCount = Number(row.property_count) || 0;
       const certCount = Number(row.certificate_count) || 0;
       const compliantCount = Number(row.compliant_count) || 0;
@@ -565,7 +686,7 @@ analyticsRouter.get("/board-report/stats", async (req: AuthenticatedRequest, res
       return res.json(boardReportCache.data);
     }
 
-    let mvData: any = null;
+    let mvData: BoardReportMvRow | null = null;
     try {
       const mvResult = await db.execute(sql`
         SELECT * FROM mv_board_report_summary WHERE organisation_id = ${orgId}

@@ -80,9 +80,10 @@ adminDemoDataRouter.post("/initialize-system/request", requireRole('LASHAN_SUPER
       expiresAt,
       message: "Initialization request created. This phrase expires in 10 minutes."
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to create initialization request:", error);
-    res.status(500).json({ error: "Failed to create initialization request", details: error?.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to create initialization request", details: errorMessage });
   }
 });
 
@@ -165,9 +166,9 @@ adminDemoDataRouter.post("/initialize-system/confirm", requireRole('LASHAN_SUPER
       progress[0].status = 'completed';
       progress[0].message = 'All data wiped successfully';
       console.log(`[SYSTEM INIT] Step 1 completed: Data wiped`);
-    } catch (error: any) {
+    } catch (error) {
       progress[0].status = 'failed';
-      progress[0].message = error?.message || 'Failed to wipe data';
+      progress[0].message = error instanceof Error ? error.message : 'Failed to wipe data';
       console.error(`[SYSTEM INIT] Step 1 failed:`, error);
       return res.status(500).json({ 
         error: "System initialization failed at wipe_data step", 
@@ -183,9 +184,9 @@ adminDemoDataRouter.post("/initialize-system/confirm", requireRole('LASHAN_SUPER
       progress[1].status = 'completed';
       progress[1].message = 'Mandatory configuration seeded successfully';
       console.log(`[SYSTEM INIT] Step 2 completed: Config seeded`);
-    } catch (error: any) {
+    } catch (error) {
       progress[1].status = 'failed';
-      progress[1].message = error?.message || 'Failed to seed configuration';
+      progress[1].message = error instanceof Error ? error.message : 'Failed to seed configuration';
       console.error(`[SYSTEM INIT] Step 2 failed:`, error);
       return res.status(500).json({ 
         error: "System initialization failed at seed_config step", 
@@ -217,9 +218,9 @@ adminDemoDataRouter.post("/initialize-system/confirm", requireRole('LASHAN_SUPER
       progress[2].status = 'completed';
       progress[2].message = 'Audit log created';
       console.log(`[SYSTEM INIT] Step 3 completed: Audit log created`);
-    } catch (error: any) {
+    } catch (error) {
       progress[2].status = 'failed';
-      progress[2].message = error?.message || 'Failed to create audit log';
+      progress[2].message = error instanceof Error ? error.message : 'Failed to create audit log';
       console.error(`[SYSTEM INIT] Step 3 failed (non-critical):`, error);
     }
     
@@ -232,11 +233,12 @@ adminDemoDataRouter.post("/initialize-system/confirm", requireRole('LASHAN_SUPER
       message: "System initialization completed successfully. All data has been wiped and mandatory configuration has been restored.",
       progress
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("System initialization failed:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     res.status(500).json({ 
       error: "System initialization failed", 
-      details: error?.message 
+      details: errorMessage 
     });
   }
 });
@@ -250,9 +252,10 @@ adminDemoDataRouter.post("/initialize-system/cancel", requireRole('LASHAN_SUPER_
       success: true,
       message: deleted ? "Initialization request cancelled" : "No active initialization request found"
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to cancel initialization request:", error);
-    res.status(500).json({ error: "Failed to cancel initialization request", details: error?.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to cancel initialization request", details: errorMessage });
   }
 });
 
@@ -261,9 +264,10 @@ adminDemoDataRouter.post("/wipe-data", requireRole(...SUPER_ADMIN_ROLES), async 
     const { includeProperties } = req.body || {};
     await storage.wipeData(includeProperties === true);
     res.json({ success: true, message: includeProperties ? "All data wiped including properties" : "Certificates and actions wiped" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to wipe data:", error);
-    res.status(500).json({ error: "Failed to wipe data", details: error?.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to wipe data", details: errorMessage });
   }
 });
 
@@ -289,10 +293,10 @@ adminDemoDataRouter.post("/reset-demo", requireRole(...SUPER_ADMIN_ROLES), async
       message: "Demo data regenerated successfully",
       stats
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to regenerate demo data:", error);
-    const errorMessage = error?.message || "Unknown error";
-    const errorDetail = error?.detail || error?.code || "";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorDetail = (error as { detail?: string; code?: string })?.detail || (error as { code?: string })?.code || "";
     res.status(500).json({ 
       error: "Failed to regenerate demo data", 
       details: `${errorMessage}${errorDetail ? ` (${errorDetail})` : ""}` 
@@ -383,9 +387,10 @@ adminDemoDataRouter.post("/seed-spaces", requireRole(...SUPER_ADMIN_ROLES), asyn
         properties: propertySpacePropertyIds.size,
       }
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to seed spaces:", error);
-    res.status(500).json({ error: "Failed to seed spaces", details: error?.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to seed spaces", details: errorMessage });
   }
 });
 
@@ -403,8 +408,9 @@ adminDemoDataRouter.post("/reclassify-certificates", requireRole(...SUPER_ADMIN_
       }
       
       const property = await storage.getProperty(cert.propertyId);
-      const docType = (property?.extractedMetadata as any)?.documentType || 
-                      (cert as any).extractedData?.documentType;
+      const extractedMeta = property?.extractedMetadata as { documentType?: string } | undefined;
+      const certData = cert as { extractedData?: { documentType?: string } };
+      const docType = extractedMeta?.documentType || certData.extractedData?.documentType;
       
       if (!docType) {
         skipped++;
@@ -451,9 +457,10 @@ adminDemoDataRouter.get("/migrate/preview", requireRole(...ADMIN_ROLES), async (
     console.log(`[MIGRATE] Preview requested by ${req.user?.email}`);
     const preview = await getMigrationPreview();
     res.json(preview);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to get migration preview:", error);
-    res.status(500).json({ error: "Failed to get migration preview", details: error?.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to get migration preview", details: errorMessage });
   }
 });
 
@@ -528,9 +535,10 @@ adminDemoDataRouter.post("/migrate/apply", requireRole(...ADMIN_ROLES), async (r
       message: `Successfully applied ${result.totalApplied} configuration updates`,
       ...result
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to apply migration:", error);
-    res.status(500).json({ error: "Failed to apply migration", details: error?.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to apply migration", details: errorMessage });
   }
 });
 

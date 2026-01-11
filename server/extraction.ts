@@ -15,11 +15,13 @@ async function getCertificateTypeIdByCode(code: string) {
   return storage.getCertificateTypeByCode(code);
 }
 
-// Dynamic import pdfjs-dist for PDF processing
-let pdfjs: any = null;
-async function getPdfjs() {
+interface PdfjsModule {
+  getDocument: (params: { data: Uint8Array; standardFontDataUrl?: string }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: unknown[] }> }> }> };
+}
+let pdfjs: PdfjsModule | null = null;
+async function getPdfjs(): Promise<PdfjsModule> {
   if (!pdfjs) {
-    pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as PdfjsModule;
   }
   return pdfjs;
 }
@@ -174,8 +176,33 @@ function mapCertificateTypeToCode(certType: string | undefined | null): Certific
   return 'UNKNOWN';
 }
 
-// Normalize address from various Claude response formats
-function normalizeExtractedAddress(rawAddress: any): { addressLine1: string; city: string; postcode: string } {
+interface RawAddressObject {
+  street?: string;
+  streetAddress?: string;
+  name?: string;
+  addressLine1?: string;
+  address_line_1?: string;
+  fullAddress?: string;
+  property?: string;
+  line1?: string;
+  address1?: string;
+  tenantUnit?: string;
+  unit?: string;
+  buildingName?: string;
+  buildingNumber?: string;
+  city?: string;
+  town?: string;
+  locality?: string;
+  district?: string;
+  area?: string;
+  postcode?: string;
+  postalCode?: string;
+  zipCode?: string;
+  zip?: string;
+  [key: string]: unknown;
+}
+
+function normalizeExtractedAddress(rawAddress: string | RawAddressObject | null | undefined): { addressLine1: string; city: string; postcode: string } {
   const result = { addressLine1: '', city: '', postcode: '' };
   
   if (!rawAddress) return result;
@@ -844,7 +871,67 @@ export async function extractCertificateWithClaude(
   }
 }
 
-export function determineOutcome(data: Record<string, any>, certificateType: string): ExtractionResult["outcome"] {
+interface ApplianceData {
+  applianceSafe?: boolean;
+  safe?: boolean;
+  safeToUse?: boolean;
+  outcome?: string;
+  status?: string;
+  safetyStatus?: string;
+}
+
+interface DefectData {
+  classification?: string;
+  category?: string;
+  code?: string;
+  severity?: string;
+}
+
+interface ObservationData {
+  code?: string;
+  classification?: string;
+}
+
+interface FindingData {
+  priority?: string;
+  risk?: string;
+}
+
+interface MaterialData {
+  condition?: string;
+  riskCategory?: string;
+  priority?: string;
+}
+
+interface RecommendationData {
+  priority?: string;
+  timeframe?: string;
+}
+
+interface ExtractedDataMap {
+  overallOutcome?: string;
+  overallAssessment?: string;
+  appliances?: ApplianceData[];
+  defects?: DefectData[];
+  safeToOperate?: boolean;
+  c1Count?: number;
+  c2Count?: number;
+  C1Count?: number;
+  C2Count?: number;
+  fiCount?: number;
+  FICount?: number;
+  observations?: ObservationData[];
+  riskLevel?: string;
+  overallRisk?: string;
+  findings?: FindingData[];
+  asbestosPresent?: boolean;
+  condition?: string;
+  materials?: MaterialData[];
+  recommendations?: RecommendationData[];
+  [key: string]: unknown;
+}
+
+export function determineOutcome(data: ExtractedDataMap, certificateType: string): ExtractionResult["outcome"] {
   // 1. Check explicit overall outcome/assessment fields first
   if (data.overallOutcome) {
     const outcome = data.overallOutcome.toUpperCase();
@@ -866,7 +953,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
   if (certificateType === "GAS_SAFETY" || certificateType === "GAS") {
     // Check for unsafe appliances
     if (data.appliances && Array.isArray(data.appliances)) {
-      const hasUnsafe = data.appliances.some((a: any) => {
+      const hasUnsafe = data.appliances.some((a: ApplianceData) => {
         // Boolean safety fields
         if (a.applianceSafe === false || a.safe === false || a.safeToUse === false) return true;
         
@@ -896,7 +983,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
     }
     // Check for defects with dangerous classifications
     if (data.defects && Array.isArray(data.defects)) {
-      const hasDangerous = data.defects.some((d: any) => {
+      const hasDangerous = data.defects.some((d: DefectData) => {
         const classification = (d.classification || d.category || '').toUpperCase();
         return classification.includes("ID") || 
                classification.includes("IMMEDIATELY DANGEROUS") ||
@@ -921,7 +1008,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
     
     // Check observations array
     if (data.observations && Array.isArray(data.observations)) {
-      const hasCritical = data.observations.some((o: any) => {
+      const hasCritical = data.observations.some((o: ObservationData) => {
         const code = (o.code || o.classification || '').toUpperCase();
         return code === 'C1' || code === 'C2' || code === 'FI';
       });
@@ -930,7 +1017,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
     
     // Check defects array
     if (data.defects && Array.isArray(data.defects)) {
-      const hasCritical = data.defects.some((d: any) => {
+      const hasCritical = data.defects.some((d: DefectData) => {
         const code = (d.code || d.severity || d.category || '').toUpperCase();
         return code === 'C1' || code === 'C2' || code === 'FI';
       });
@@ -946,7 +1033,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
     }
     // Check for high priority findings
     if (data.findings && Array.isArray(data.findings)) {
-      const hasHighPriority = data.findings.some((f: any) => {
+      const hasHighPriority = data.findings.some((f: FindingData) => {
         const priority = (f.priority || f.risk || '').toUpperCase();
         return priority === 'HIGH' || priority === 'IMMEDIATE' || priority === 'INTOLERABLE';
       });
@@ -958,7 +1045,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
   if (certificateType === "ASBESTOS_SURVEY" || certificateType === "ASBESTOS") {
     if (data.asbestosPresent === true && data.condition === "POOR") return "UNSATISFACTORY";
     if (data.materials && Array.isArray(data.materials)) {
-      const hasHighRisk = data.materials.some((m: any) => {
+      const hasHighRisk = data.materials.some((m: MaterialData) => {
         const condition = (m.condition || '').toUpperCase();
         const risk = (m.risk || m.riskLevel || '').toUpperCase();
         return condition === 'POOR' || condition === 'DAMAGED' || risk === 'HIGH';
@@ -972,7 +1059,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
     const riskLevel = (data.riskLevel || data.overallRisk || '').toUpperCase();
     if (["HIGH", "IMMEDIATE"].includes(riskLevel)) return "UNSATISFACTORY";
     if (data.recommendations && Array.isArray(data.recommendations)) {
-      const hasImmediate = data.recommendations.some((r: any) => {
+      const hasImmediate = data.recommendations.some((r: RecommendationData) => {
         const priority = (r.priority || '').toUpperCase();
         return priority === 'IMMEDIATE' || priority === 'HIGH';
       });
@@ -985,7 +1072,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
     if (data.safeToOperate === false || data.safeForUse === false) return "UNSATISFACTORY";
     if (data.categoryA_Count > 0 || data.categorA_Count > 0) return "UNSATISFACTORY";
     if (data.defects && Array.isArray(data.defects)) {
-      const hasCatA = data.defects.some((d: any) => {
+      const hasCatA = data.defects.some((d: DefectData) => {
         const category = (d.category || '').toUpperCase();
         return category === 'A' || category === 'CATEGORY A' || category === 'CAT A';
       });
@@ -1003,7 +1090,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
   
   // Check generic defects array
   if (data.defects && Array.isArray(data.defects)) {
-    const hasCritical = data.defects.some((d: any) => {
+    const hasCritical = data.defects.some((d: DefectData) => {
       const classification = (d.classification || d.category || d.severity || '').toUpperCase();
       return classification.includes("IMMEDIATELY DANGEROUS") || 
              classification.includes("ID") ||
@@ -1017,7 +1104,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
   
   // Check generic appliances array
   if (data.appliances && Array.isArray(data.appliances)) {
-    const hasUnsafe = data.appliances.some((a: any) => 
+    const hasUnsafe = data.appliances.some((a: ApplianceData) => 
       a.applianceSafe === false || a.safe === false || a.safeToUse === false
     );
     if (hasUnsafe) return "UNSATISFACTORY";
@@ -1027,7 +1114,7 @@ export function determineOutcome(data: Record<string, any>, certificateType: str
 }
 
 export function generateRemedialActions(
-  data: Record<string, any>, 
+  data: ExtractedDataMap, 
   certificateType: string,
   propertyId: string
 ): ExtractionResult["remedialActions"] {
@@ -1629,12 +1716,12 @@ export function normalizeExtractionOutput(rawOutput: Record<string, any>): Recor
       registration_type: rawEngineer.qualifications || '',
     },
     findings: {
-      observations: Array.isArray(rawFindings) ? rawFindings.map((f: any) => ({
+      observations: Array.isArray(rawFindings) ? rawFindings.map((f: { description?: string; finding?: string; code?: string; classification?: string; priority?: string; location?: string }) => ({
         description: f.description || f.finding || JSON.stringify(f),
         code: f.code || f.classification || f.priority || '',
         location: f.location || '',
       })) : [],
-      remedial_actions: Array.isArray(rawRemedialActions) ? rawRemedialActions.map((a: any) => ({
+      remedial_actions: Array.isArray(rawRemedialActions) ? rawRemedialActions.map((a: { description?: string; recommendation?: string; priority?: string; severity?: string }) => ({
         description: a.description || a.recommendation || JSON.stringify(a),
         priority: a.priority || a.severity || '',
       })) : [],
@@ -1661,7 +1748,7 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
       const page = await pdfDocument.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items
-        .map((item: any) => item.str)
+        .map((item: { str?: string }) => (item as { str: string }).str)
         .join(' ');
       textParts.push(pageText);
     }
@@ -1686,10 +1773,16 @@ const CERT_TYPE_TO_COMPONENT_CATEGORY: Record<string, string> = {
   'LIFT_LOLER': 'ACCESS',
 };
 
+interface CertificateForComponent {
+  propertyId: string;
+  organisationId?: string;
+  id?: string;
+}
+
 async function autoCreateComponentFromCertificate(
-  certificate: any,
+  certificate: CertificateForComponent,
   certificateType: string,
-  extractedData: Record<string, any>
+  extractedData: Record<string, unknown> | null | undefined
 ): Promise<void> {
   console.log(`[Component Auto-Create] Starting for cert type: ${certificateType}, propertyId: ${certificate.propertyId}`);
   try {
@@ -1702,7 +1795,7 @@ async function autoCreateComponentFromCertificate(
     
     // Find matching component type
     const matchingTypes = await db.select().from(componentTypes)
-      .where(eq(componentTypes.category, category as any));
+      .where(eq(componentTypes.category, category as 'HEATING' | 'ELECTRICAL' | 'FIRE_SAFETY' | 'WATER' | 'ACCESS' | 'STRUCTURE' | 'OTHER'));
     
     if (matchingTypes.length === 0) {
       console.log(`[Component Auto-Create] No component types found for category: ${category}. Skipping.`);
@@ -1736,7 +1829,8 @@ async function autoCreateComponentFromCertificate(
     
     for (const item of items) {
       // Check if component already exists to avoid duplicates
-      let existing: any[] = [];
+      type ComponentRow = { id: string; propertyId?: string; componentTypeId?: string };
+      let existing: ComponentRow[] = [];
       if (item.serialNumber) {
         existing = await db.select().from(components)
           .where(and(
@@ -2027,11 +2121,16 @@ export async function processExtractionAndSave(
     // Update property with extracted metadata and address
     const property = await storage.getProperty(certificate.propertyId);
     if (property) {
-      const extractedAddress = (extractedDataForStorage as any).installationAddress || 
+      interface StorageExtractedData {
+        installationAddress?: string | RawAddressObject;
+        premisesAddress?: string | RawAddressObject;
+      }
+      const storageData = extractedDataForStorage as StorageExtractedData;
+      const extractedAddress = storageData.installationAddress || 
                                result.extractedData?.propertyAddress ||
-                               (extractedDataForStorage as any).premisesAddress;
+                               storageData.premisesAddress;
       
-      const updates: Record<string, any> = { 
+      const updates: Record<string, unknown> = { 
         extractedMetadata: result.extractedData 
       };
       
@@ -2079,21 +2178,50 @@ export async function processExtractionAndSave(
     console.log(`[DEBUG] Remedial actions created, now linking to classification codes`);
 
     const mappedCertTypeCode = mapCertificateTypeToCode(detectedCertType || certificateType);
-    const anyData = extractedDataForStorage as any;
+    interface ClassificationExtractedData {
+      installationAddress?: string;
+      nextServiceDate?: string;
+      engineer?: { name?: string; gasRegNo?: string };
+      contractor?: { name?: string; registrationNumber?: string };
+    }
+    const classificationData = extractedDataForStorage as ClassificationExtractedData;
+    
+    interface ExtractedAppliance {
+      type?: string;
+      make?: string;
+      model?: string;
+      serialNumber?: string;
+      location?: string;
+      result?: string;
+      outcome?: string;
+      defects?: unknown[];
+    }
+    
+    interface ExtractedDefect {
+      code?: string;
+      description?: string;
+      text?: string;
+      location?: string;
+      priority?: string;
+      severity?: string;
+      recommendation?: string;
+      action?: string;
+    }
+    
     const extractedDataForClassification: OrchestratorExtractedData = {
       certificateType: mappedCertTypeCode as OrchestratorExtractedData['certificateType'],
       certificateNumber: result.certificateNumber || null,
-      propertyAddress: anyData.installationAddress || result.extractedData?.propertyAddress || null,
+      propertyAddress: classificationData.installationAddress || result.extractedData?.propertyAddress || null,
       uprn: result.extractedData?.uprn || null,
       inspectionDate: result.issueDate || null,
       expiryDate: result.expiryDate || null,
-      nextInspectionDate: anyData.nextServiceDate || result.extractedData?.nextInspectionDate || null,
+      nextInspectionDate: classificationData.nextServiceDate || result.extractedData?.nextInspectionDate || null,
       outcome: (result.outcome === 'N/A' ? null : result.outcome) as OrchestratorExtractedData['outcome'],
-      engineerName: anyData.engineer?.name || result.extractedData?.engineerName || null,
-      engineerRegistration: anyData.engineer?.gasRegNo || result.extractedData?.engineerRegistration || null,
-      contractorName: anyData.contractor?.name || result.extractedData?.contractorName || null,
-      contractorRegistration: anyData.contractor?.registrationNumber || result.extractedData?.contractorRegistration || null,
-      appliances: (result.extractedData?.appliances || []).map((a: any) => ({
+      engineerName: classificationData.engineer?.name || result.extractedData?.engineerName || null,
+      engineerRegistration: classificationData.engineer?.gasRegNo || result.extractedData?.engineerRegistration || null,
+      contractorName: classificationData.contractor?.name || result.extractedData?.contractorName || null,
+      contractorRegistration: classificationData.contractor?.registrationNumber || result.extractedData?.contractorRegistration || null,
+      appliances: (result.extractedData?.appliances || []).map((a: ExtractedAppliance) => ({
         type: a.type || 'Unknown',
         make: a.make || null,
         model: a.model || null,
@@ -2102,7 +2230,7 @@ export async function processExtractionAndSave(
         outcome: mapApplianceOutcome(a.result || a.outcome),
         defects: a.defects || [],
       })),
-      defects: (result.extractedData?.defects || []).map((d: any) => ({
+      defects: (result.extractedData?.defects || []).map((d: ExtractedDefect) => ({
         code: d.code || null,
         description: d.description || d.text || 'Unknown defect',
         location: d.location || null,

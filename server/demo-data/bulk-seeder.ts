@@ -523,7 +523,16 @@ async function seedSpacesBulk(
   config: VolumeConfig
 ): Promise<string[]> {
   const spaceIds: string[] = [];
-  const values: any[] = [];
+  const values: Array<{
+    schemeId: string | null;
+    propertyId: string | null;
+    blockId: string | null;
+    name: string;
+    spaceType: string;
+    description?: string;
+    floor?: string;
+    areaSqMeters: number;
+  }> = [];
   
   // 1. Scheme-level spaces (estate-wide communal areas) - 2 per scheme
   for (const schemeId of schemeIds) {
@@ -589,10 +598,16 @@ async function seedSpacesBulk(
   return spaceIds;
 }
 
+interface ComponentTypeRecord {
+  id: string;
+  code?: string;
+  name?: string;
+}
+
 async function seedComponentsBulk(
   propertyIds: string[], 
   spaceIds: string[], 
-  allComponentTypes: any[],
+  allComponentTypes: ComponentTypeRecord[],
   config: VolumeConfig
 ): Promise<string[]> {
   const componentIds: string[] = [];
@@ -708,7 +723,7 @@ async function seedCertificatesBulk(
   propertyIds: string[],
   componentIds: string[],
   streamCodeToId: Record<string, string>,
-  allCertTypes: any[],
+  allCertTypes: Array<{ code: string; name?: string }>,
   config: VolumeConfig
 ): Promise<string[]> {
   const certIds: string[] = [];
@@ -816,7 +831,17 @@ async function seedRemedialsBulk(
   contractorIds: string[],
   config: VolumeConfig
 ): Promise<void> {
-  const values: any[] = [];
+  const values: Array<{
+    certificateId: string;
+    propertyId: string;
+    description: string;
+    severity: 'IMMEDIATE' | 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+    status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    dueDate: string;
+    costEstimate?: string;
+    contractorId?: string;
+    resolvedAt?: string;
+  }> = [];
   let idx = 0;
 
   // Phase 1 breaches (damp/mould - 24 hour deadline BREACHED)

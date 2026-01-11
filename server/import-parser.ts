@@ -3,8 +3,8 @@ import type { InsertProperty, InsertComponent, InsertDataImportRow } from "@shar
 
 interface ParsedRow {
   rowNumber: number;
-  data: Record<string, any>;
-  errors: Array<{ field: string; error: string; value: any }>;
+  data: Record<string, string>;
+  errors: Array<{ field: string; error: string; value: string | undefined }>;
   isValid: boolean;
 }
 
@@ -70,8 +70,8 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-export function validatePropertyRow(row: Record<string, any>, rowNumber: number): ParsedRow {
-  const errors: Array<{ field: string; error: string; value: any }> = [];
+export function validatePropertyRow(row: Record<string, string>, rowNumber: number): ParsedRow {
+  const errors: Array<{ field: string; error: string; value: string | undefined }> = [];
   
   if (!row.uprn || row.uprn.trim() === '') {
     errors.push({ field: 'uprn', error: 'UPRN is required', value: row.uprn });
@@ -121,8 +121,8 @@ export function validatePropertyRow(row: Record<string, any>, rowNumber: number)
   };
 }
 
-export function validateUnitRow(row: Record<string, any>, rowNumber: number): ParsedRow {
-  const errors: Array<{ field: string; error: string; value: any }> = [];
+export function validateUnitRow(row: Record<string, string>, rowNumber: number): ParsedRow {
+  const errors: Array<{ field: string; error: string; value: string | undefined }> = [];
   
   if (!row.propertyUprn || row.propertyUprn.trim() === '') {
     errors.push({ field: 'propertyUprn', error: 'Property UPRN is required', value: row.propertyUprn });
@@ -148,8 +148,8 @@ export function validateUnitRow(row: Record<string, any>, rowNumber: number): Pa
   };
 }
 
-export function validateComponentRow(row: Record<string, any>, rowNumber: number): ParsedRow {
-  const errors: Array<{ field: string; error: string; value: any }> = [];
+export function validateComponentRow(row: Record<string, string>, rowNumber: number): ParsedRow {
+  const errors: Array<{ field: string; error: string; value: string | undefined }> = [];
   
   if (!row.propertyUprn && !row.unitReference) {
     errors.push({ 
@@ -193,12 +193,12 @@ function isValidDate(dateStr: string): boolean {
 export async function validateImportData(
   importId: string,
   importType: string,
-  rows: Record<string, any>[]
+  rows: Record<string, string>[]
 ): Promise<{ validRows: ParsedRow[]; invalidRows: ParsedRow[] }> {
   const validRows: ParsedRow[] = [];
   const invalidRows: ParsedRow[] = [];
   
-  let validator: (row: Record<string, any>, rowNumber: number) => ParsedRow;
+  let validator: (row: Record<string, string>, rowNumber: number) => ParsedRow;
   
   switch (importType.toUpperCase()) {
     case 'PROPERTIES':

@@ -9,8 +9,8 @@ type ChangeScope = 'PROPERTY' | 'COMPONENT' | 'BUILDING_FABRIC' | 'CERTIFICATE' 
 interface FieldChange {
   fieldName: string;
   fieldLabel?: string;
-  previousValue: any;
-  newValue: any;
+  previousValue: unknown;
+  newValue: unknown;
   isSignificant?: boolean;
 }
 
@@ -111,8 +111,8 @@ function getChangeScope(tableName: string): ChangeScope {
 
 function detectFieldChanges(
   tableName: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): FieldChange[] {
   const changes: FieldChange[] = [];
   const significantFields = SIGNIFICANT_FIELDS[tableName] || [];
@@ -148,10 +148,10 @@ export async function recordFieldLevelAudit(
   recordId: string,
   entityName: string,
   eventType: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>,
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>,
   message?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<string | null> {
   try {
     const changes = detectFieldChanges(tableName, beforeState, afterState);
@@ -176,8 +176,8 @@ export async function recordFieldLevelAudit(
       actorId: context.actorId,
       actorName: context.actorName,
       actorType: context.actorType || 'USER',
-      eventType: eventType as any,
-      entityType: entityType as any,
+      eventType: eventType as typeof auditEvents.$inferInsert['eventType'],
+      entityType: entityType as typeof auditEvents.$inferInsert['entityType'],
       entityId: recordId,
       entityName: entityName,
       beforeState: beforeState,
@@ -218,8 +218,8 @@ export async function recordPropertyUpdate(
   context: AuditContext,
   propertyId: string,
   propertyName: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): Promise<string | null> {
   return recordFieldLevelAudit(
     context,
@@ -236,8 +236,8 @@ export async function recordComponentUpdate(
   context: AuditContext,
   componentId: string,
   componentName: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): Promise<string | null> {
   return recordFieldLevelAudit(
     context,
@@ -254,8 +254,8 @@ export async function recordBlockUpdate(
   context: AuditContext,
   blockId: string,
   blockName: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): Promise<string | null> {
   return recordFieldLevelAudit(
     context,
@@ -273,8 +273,8 @@ export async function recordSchemeUpdate(
   context: AuditContext,
   schemeId: string,
   schemeName: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): Promise<string | null> {
   return recordFieldLevelAudit(
     context,
@@ -292,8 +292,8 @@ export async function recordCertificateUpdate(
   context: AuditContext,
   certificateId: string,
   certificateName: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): Promise<string | null> {
   return recordFieldLevelAudit(
     context,
@@ -310,8 +310,8 @@ export async function recordRemedialActionUpdate(
   context: AuditContext,
   actionId: string,
   actionDescription: string,
-  beforeState: Record<string, any>,
-  afterState: Record<string, any>
+  beforeState: Record<string, unknown>,
+  afterState: Record<string, unknown>
 ): Promise<string | null> {
   return recordFieldLevelAudit(
     context,
@@ -335,7 +335,7 @@ export async function auditLog(
   entityId: string,
   entityName: string,
   message: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<string | null> {
   try {
     const auditEvent: InsertAuditEvent = {
@@ -343,8 +343,8 @@ export async function auditLog(
       actorId: context.actorId,
       actorName: context.actorName,
       actorType: context.actorType || 'USER',
-      eventType: eventType as any,
-      entityType: entityType as any,
+      eventType: eventType as typeof auditEvents.$inferInsert['eventType'],
+      entityType: entityType as typeof auditEvents.$inferInsert['entityType'],
       entityId,
       entityName,
       message,
@@ -361,11 +361,32 @@ export async function auditLog(
   }
 }
 
+interface EnrichedAuditEvent {
+  id: string;
+  organisationId: string;
+  actorId: string | null;
+  actorName: string | null;
+  actorType: string | null;
+  eventType: string | null;
+  entityType: string | null;
+  entityId: string;
+  entityName: string | null;
+  beforeState: unknown;
+  afterState: unknown;
+  changes: unknown;
+  message: string | null;
+  metadata: unknown;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: Date | null;
+  fieldChanges: unknown[];
+}
+
 export async function getAuditTrailForEntity(
   organisationId: string,
   entityType: string,
   entityId: string
-): Promise<any[]> {
+): Promise<EnrichedAuditEvent[]> {
   const events = await db.select()
     .from(auditEvents)
     .where(

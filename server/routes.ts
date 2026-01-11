@@ -64,7 +64,7 @@ async function seedDefaultComponentTypes() {
       await db.insert(componentTypes).values({
         code: type.code,
         name: type.name,
-        category: type.category as any,
+        category: type.category as 'HEATING' | 'ELECTRICAL' | 'FIRE_SAFETY' | 'WATER' | 'ACCESS' | 'STRUCTURE' | 'OTHER',
         description: type.description,
         isHighRisk: type.isHighRisk,
         buildingSafetyRelevant: type.buildingSafetyRelevant,
@@ -160,7 +160,7 @@ export async function registerRoutes(
   
   // Health check endpoint
   app.get("/api/health", async (_req, res) => {
-    const checks: Record<string, { status: string; latency?: number; details?: any }> = {};
+    const checks: Record<string, { status: string; latency?: number; details?: Record<string, unknown> | string }> = {};
     const startTime = Date.now();
     
     try {
@@ -385,13 +385,14 @@ export async function registerRoutes(
           duration,
           responsePreview: responseText.substring(0, 500)
         });
-      } catch (fetchError: any) {
+      } catch (fetchError) {
         const duration = Date.now() - startTime;
+        const errorMessage = fetchError instanceof Error ? fetchError.message : 'Connection failed';
         res.json({
           success: false,
           status: 0,
           duration,
-          error: fetchError.message || 'Connection failed'
+          error: errorMessage
         });
       }
     } catch (error) {
@@ -498,7 +499,7 @@ export async function registerRoutes(
         source: 'HMS',
         eventType: req.body.eventType || 'action_update',
         payload: req.body,
-        headers: req.headers as any
+        headers: req.headers as Record<string, string | string[] | undefined>
       });
       
       const { actionId, status, completedAt, costActual } = req.body;
@@ -522,7 +523,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Remedial action not found" });
       }
       
-      const updates: any = {};
+      const updates: Partial<{ status: string; resolvedAt: Date; costEstimate: string }> = {};
       if (status) updates.status = status;
       if (completedAt) updates.resolvedAt = new Date(completedAt);
       if (costActual) updates.costEstimate = costActual.toString();
@@ -547,7 +548,7 @@ export async function registerRoutes(
         source: 'HMS',
         eventType: 'work_order_update',
         payload: req.body,
-        headers: req.headers as any
+        headers: req.headers as Record<string, string | string[] | undefined>
       });
       
       const { workOrderId, actionId, status, scheduledDate } = req.body;
@@ -561,7 +562,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "actionId is required" });
       }
       
-      const updates: any = {};
+      const updates: Partial<{ status: string; resolvedAt: Date; dueDate: string }> = {};
       if (status === 'scheduled' || status === 'in_progress') {
         updates.status = 'IN_PROGRESS';
       } else if (status === 'completed') {

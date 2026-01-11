@@ -1,5 +1,6 @@
 import { storage } from '../storage';
 import type { InsertAuditEvent, AuditEvent } from '@shared/schema';
+import type { Request } from 'express';
 
 type AuditActorType = 'USER' | 'SYSTEM' | 'API';
 type AuditEventType = 
@@ -29,10 +30,10 @@ export async function recordAudit(params: {
   message: string;
   propertyId?: string;
   certificateId?: string;
-  beforeState?: any;
-  afterState?: any;
-  changes?: any;
-  metadata?: any;
+  beforeState?: Record<string, unknown>;
+  afterState?: Record<string, unknown>;
+  changes?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   context?: AuditContext;
 }): Promise<AuditEvent | null> {
   try {
@@ -63,10 +64,13 @@ export async function recordAudit(params: {
   }
 }
 
-export function getChanges(before: any, after: any): Record<string, { from: any; to: any }> | null {
+export function getChanges(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): Record<string, { from: unknown; to: unknown }> | null {
   if (!before || !after) return null;
   
-  const changes: Record<string, { from: any; to: any }> = {};
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
   const allKeys = Array.from(new Set([...Object.keys(before || {}), ...Object.keys(after || {})]));
   
   for (const key of allKeys) {
@@ -78,13 +82,19 @@ export function getChanges(before: any, after: any): Record<string, { from: any;
   return Object.keys(changes).length > 0 ? changes : null;
 }
 
-export function extractAuditContext(req: any): AuditContext {
-  // Session-based authentication - use session data instead of headers
+interface RequestWithSession extends Request {
+  session?: {
+    userId?: string;
+    username?: string;
+  };
+}
+
+export function extractAuditContext(req: RequestWithSession): AuditContext {
   return {
     actorId: req.session?.userId || undefined,
     actorName: req.session?.username || undefined,
     actorType: 'USER',
-    ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+    ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
     userAgent: req.headers['user-agent'] as string,
   };
 }

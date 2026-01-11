@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction, Express } from 'express';
+import type { Request, Response, NextFunction, Express, RequestHandler } from 'express';
 import { logger } from './logger';
 
 export const CURRENT_API_VERSION = 'v1';
@@ -20,30 +20,28 @@ export function setupApiVersioning(app: Express) {
 }
 
 export function createVersionedRouter(app: Express) {
-  const v1Routes: Array<{ method: string; path: string; handler: any }> = [];
-
   return {
-    get: (path: string, ...handlers: any[]) => {
+    get: (path: string, ...handlers: RequestHandler[]) => {
       app.get(`/api/v1${path}`, ...handlers);
       app.get(`/api${path}`, ...handlers);
     },
-    post: (path: string, ...handlers: any[]) => {
+    post: (path: string, ...handlers: RequestHandler[]) => {
       app.post(`/api/v1${path}`, ...handlers);
       app.post(`/api${path}`, ...handlers);
     },
-    put: (path: string, ...handlers: any[]) => {
+    put: (path: string, ...handlers: RequestHandler[]) => {
       app.put(`/api/v1${path}`, ...handlers);
       app.put(`/api${path}`, ...handlers);
     },
-    patch: (path: string, ...handlers: any[]) => {
+    patch: (path: string, ...handlers: RequestHandler[]) => {
       app.patch(`/api/v1${path}`, ...handlers);
       app.patch(`/api${path}`, ...handlers);
     },
-    delete: (path: string, ...handlers: any[]) => {
+    delete: (path: string, ...handlers: RequestHandler[]) => {
       app.delete(`/api/v1${path}`, ...handlers);
       app.delete(`/api${path}`, ...handlers);
     },
-    all: (path: string, ...handlers: any[]) => {
+    all: (path: string, ...handlers: RequestHandler[]) => {
       app.all(`/api/v1${path}`, ...handlers);
       app.all(`/api${path}`, ...handlers);
     },

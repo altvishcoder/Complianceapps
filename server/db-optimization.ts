@@ -15,16 +15,47 @@ import {
 import { mvRefreshHistory, mvRefreshSchedule } from "@shared/schema/tables/cache";
 
 const optimizationLogger = {
-  info: (msg: string, data?: any) => console.log(`[DB-OPT] ${msg}`, data || ''),
-  error: (msg: string, error?: any) => console.error(`[DB-OPT ERROR] ${msg}`, error || ''),
+  info: (msg: string, data?: unknown) => console.log(`[DB-OPT] ${msg}`, data || ''),
+  error: (msg: string, error?: unknown) => console.error(`[DB-OPT ERROR] ${msg}`, error || ''),
 };
+
+interface DbRowResult {
+  [key: string]: unknown;
+}
+
+interface CountRow {
+  count?: string;
+  cnt?: string;
+}
+
+interface IndexRow {
+  name: string;
+  table_name: string;
+  size?: string;
+}
+
+interface ViewRow {
+  name: string;
+}
+
+interface TableRow {
+  name: string;
+  row_count: string;
+}
+
+interface RefreshHistoryRow {
+  view_name: string;
+  completed_at: string;
+  duration_ms: number;
+  row_count_after?: string;
+}
 
 type RefreshTrigger = 'MANUAL' | 'SCHEDULED' | 'POST_INGESTION' | 'SYSTEM';
 
 async function getViewRowCount(viewName: string): Promise<number> {
   try {
     const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM ${viewName}`));
-    return parseInt((result.rows?.[0] as any)?.count || '0');
+    return parseInt((result.rows?.[0] as CountRow)?.count || '0');
   } catch {
     return 0;
   }
@@ -282,17 +313,17 @@ export async function getOptimizationStatus(): Promise<{
     `);
     
     const lastRefreshMap = new Map<string, { completedAt: string; durationMs: number; rowCount: number }>();
-    for (const row of (lastRefreshResult.rows || []) as any[]) {
+    for (const row of (lastRefreshResult.rows || []) as RefreshHistoryRow[]) {
       lastRefreshMap.set(row.view_name, {
         completedAt: row.completed_at,
         durationMs: row.duration_ms,
-        rowCount: parseInt(row.row_count_after) || 0
+        rowCount: parseInt(row.row_count_after || '0') || 0
       });
     }
     
     // Get actual row counts for each materialized view
     const viewsWithCounts: { name: string; rowCount: number; lastRefresh: string | null; lastDurationMs: number | null }[] = [];
-    for (const row of (viewResult.rows || []) as any[]) {
+    for (const row of (viewResult.rows || []) as ViewRow[]) {
       const viewName = row.name;
       const refreshInfo = lastRefreshMap.get(viewName);
       let rowCount = refreshInfo?.rowCount || 0;
@@ -301,7 +332,7 @@ export async function getOptimizationStatus(): Promise<{
       if (rowCount === 0) {
         try {
           const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${viewName}`));
-          rowCount = parseInt((countResult.rows?.[0] as any)?.cnt || '0');
+          rowCount = parseInt((countResult.rows?.[0] as CountRow)?.cnt || '0');
         } catch {
           rowCount = 0;
         }
@@ -316,16 +347,22 @@ export async function getOptimizationStatus(): Promise<{
     }
     
     return {
-      indexes: (indexResult.rows || []).map((r: any) => ({
-        name: r.name,
-        tableName: r.table_name,
-        size: r.size || '0 bytes'
-      })),
+      indexes: (indexResult.rows || []).map((r) => {
+        const row = r as IndexRow;
+        return {
+          name: row.name,
+          tableName: row.table_name,
+          size: row.size || '0 bytes'
+        };
+      }),
       materializedViews: viewsWithCounts,
-      optimizationTables: (tableResult.rows || []).map((r: any) => ({
-        name: r.name,
-        rowCount: parseInt(r.row_count) || 0
-      }))
+      optimizationTables: (tableResult.rows || []).map((r) => {
+        const row = r as TableRow;
+        return {
+          name: row.name,
+          rowCount: parseInt(row.row_count) || 0
+        };
+      })
     };
   } catch (error) {
     optimizationLogger.error("Failed to get optimization status", error);
@@ -511,7 +548,7 @@ export async function getRefreshHistory(limit: number = 50): Promise<{
 }> {
   try {
     const history = await db.select().from(mvRefreshHistory).orderBy(desc(mvRefreshHistory.createdAt)).limit(limit);
-    return { history: history as any };
+    return { history };
   } catch (error) {
     optimizationLogger.error('Failed to get refresh history', error);
     return { history: [] };
@@ -532,7 +569,7 @@ export async function getLastRefreshTimes(): Promise<Map<string, { timestamp: Da
       ORDER BY view_name, completed_at DESC
     `);
     
-    for (const row of (lastRefreshResult.rows || []) as any[]) {
+    for (const row of (lastRefreshResult.rows || []) as RefreshHistoryRow[]) {
       result.set(row.view_name, {
         timestamp: new Date(row.completed_at),
         durationMs: row.duration_ms
@@ -619,7 +656,7 @@ export async function archiveOldAuditEvents(
       SELECT COUNT(*) as count FROM audit_events 
       WHERE created_at < NOW() - INTERVAL '${sql.raw(daysOld.toString())} days'
     `);
-    const toArchiveCount = parseInt((countResult.rows?.[0] as any)?.count || '0');
+    const toArchiveCount = parseInt((countResult.rows?.[0] as CountRow)?.count || '0');
     
     if (toArchiveCount === 0) {
       optimizationLogger.info('No audit events to archive');
@@ -685,10 +722,10 @@ export async function getAuditEventStats(): Promise<{
     ]);
     
     return {
-      mainTableCount: parseInt((mainCount.rows?.[0] as any)?.count || '0'),
-      archiveTableCount: parseInt((archiveCount.rows?.[0] as any)?.count || '0'),
-      oldestMainEvent: (oldestMain.rows?.[0] as any)?.oldest || null,
-      oldestArchiveEvent: (oldestArchive.rows?.[0] as any)?.oldest || null,
+      mainTableCount: parseInt((mainCount.rows?.[0] as CountRow)?.count || '0'),
+      archiveTableCount: parseInt((archiveCount.rows?.[0] as CountRow)?.count || '0'),
+      oldestMainEvent: (oldestMain.rows?.[0] as { oldest?: Date | null })?.oldest || null,
+      oldestArchiveEvent: (oldestArchive.rows?.[0] as { oldest?: Date | null })?.oldest || null,
     };
   } catch (error) {
     optimizationLogger.error('Failed to get audit event stats', error);
