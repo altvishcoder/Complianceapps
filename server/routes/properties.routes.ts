@@ -124,7 +124,7 @@ propertiesRouter.get("/properties/geo", async (req: AuthenticatedRequest, res: R
         CONCAT(p.address_line1, ', ', COALESCE(p.city, ''), ', ', p.postcode) as address,
         p.latitude as lat,
         p.longitude as lng,
-        COALESCE(rs.risk_score, 75) as "riskScore",
+        COALESCE(rs.overall_score, 75) as "riskScore",
         1 as "propertyCount",
         1 as "unitCount",
         p.ward,
