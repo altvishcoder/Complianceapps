@@ -117,28 +117,39 @@ propertiesRouter.get("/properties/geo", async (req: AuthenticatedRequest, res: R
       return res.status(403).json({ error: "No organisation access" });
     }
     
-    const riskData = await storage.getPropertyRiskData(orgId);
+    const result = await db.execute(sql`
+      SELECT 
+        p.id,
+        p.address_line1 as name,
+        CONCAT(p.address_line1, ', ', COALESCE(p.city, ''), ', ', p.postcode) as address,
+        p.latitude as lat,
+        p.longitude as lng,
+        COALESCE(rs.risk_score, 75) as "riskScore",
+        1 as "propertyCount",
+        1 as "unitCount",
+        p.ward,
+        p.lsoa
+      FROM properties p
+      LEFT JOIN property_risk_snapshots rs ON rs.property_id = p.id AND rs.is_latest = true
+      INNER JOIN blocks b ON p.block_id = b.id
+      INNER JOIN schemes s ON b.scheme_id = s.id
+      WHERE s.organisation_id = ${orgId}
+        AND p.latitude IS NOT NULL 
+        AND p.longitude IS NOT NULL
+    `);
     
-    const geoProperties = riskData
-      .filter(r => r.property.latitude && r.property.longitude)
-      .map(r => {
-        const prop = r.property;
-        const { calculatePropertyRiskScore } = require('../risk');
-        const riskScore = calculatePropertyRiskScore(r.certificates, r.actions, prop.id);
-        
-        return {
-          id: prop.id,
-          name: prop.addressLine1,
-          address: `${prop.addressLine1}, ${prop.city}, ${prop.postcode}`,
-          lat: prop.latitude!,
-          lng: prop.longitude!,
-          riskScore,
-          propertyCount: 1,
-          unitCount: 1,
-          ward: prop.ward,
-          lsoa: prop.lsoa
-        };
-      });
+    const geoProperties = (result.rows as any[]).map(row => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      lat: parseFloat(row.lat),
+      lng: parseFloat(row.lng),
+      riskScore: Number(row.riskScore),
+      propertyCount: 1,
+      unitCount: 1,
+      ward: row.ward,
+      lsoa: row.lsoa
+    }));
     
     res.json(geoProperties);
   } catch (error) {
