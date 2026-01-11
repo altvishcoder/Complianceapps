@@ -7,4 +7,7 @@ export { adminRouter } from './admin.routes';
 export { systemRouter } from './system.routes';
 export { configRouter } from './config.routes';
 export { reportsRouter } from './reports.routes';
+export { extractionRouter } from './extraction.routes';
+export { geoRouter } from './geo.routes';
+export { analyticsRouter } from './analytics.routes';
 export { default as observabilityRoutes } from './observability.routes';
