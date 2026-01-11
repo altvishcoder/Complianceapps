@@ -9,7 +9,7 @@ import type {
   Property, InsertProperty,
   IngestionBatch, InsertIngestionBatch
 } from "@shared/schema";
-import { db, eq, and, or, desc, sql, count, ilike, isNotNull } from "../base";
+import { db, eq, and, or, desc, sql, count, ilike, isNotNull, inArray } from "../base";
 import type { IPropertiesStorage } from "../interfaces";
 
 export class PropertiesStorage implements IPropertiesStorage {
@@ -367,15 +367,28 @@ export class PropertiesStorage implements IPropertiesStorage {
     // Get all property IDs for batch queries
     const propertyIds = props.map(p => p.id);
     
-    // Step 2: Batch fetch ALL certificates for these properties (single query)
-    const allCerts = await db.select()
-      .from(certificates)
-      .where(sql`${certificates.propertyId} = ANY(${propertyIds})`);
+    // PostgreSQL limits ROW expressions to 1664 entries, so chunk the queries
+    const CHUNK_SIZE = 1000;
+    const allCerts: Array<typeof certificates.$inferSelect> = [];
+    const allActions: Array<typeof remedialActions.$inferSelect> = [];
     
-    // Step 3: Batch fetch ALL remedial actions for these properties (single query)
-    const allActions = await db.select()
-      .from(remedialActions)
-      .where(sql`${remedialActions.propertyId} = ANY(${propertyIds})`);
+    // Step 2: Batch fetch certificates in chunks
+    for (let i = 0; i < propertyIds.length; i += CHUNK_SIZE) {
+      const chunk = propertyIds.slice(i, i + CHUNK_SIZE);
+      const chunkCerts = await db.select()
+        .from(certificates)
+        .where(inArray(certificates.propertyId, chunk));
+      allCerts.push(...chunkCerts);
+    }
+    
+    // Step 3: Batch fetch remedial actions in chunks
+    for (let i = 0; i < propertyIds.length; i += CHUNK_SIZE) {
+      const chunk = propertyIds.slice(i, i + CHUNK_SIZE);
+      const chunkActions = await db.select()
+        .from(remedialActions)
+        .where(inArray(remedialActions.propertyId, chunk));
+      allActions.push(...chunkActions);
+    }
     
     // Step 4: Group certificates and actions by propertyId in memory
     const certsByPropertyId = new Map<string, typeof allCerts>();

@@ -2,8 +2,8 @@ import { Router, Response } from "express";
 import { requireRole, type AuthenticatedRequest } from "../../session";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { bulkSeedJobs, auditEvents } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { bulkSeedJobs, auditEvents, properties, blocks, schemes, propertyRiskSnapshots } from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { VOLUME_CONFIGS, calculateTotals } from "../../demo-data/bulk-seeder";
 import { generateBulkDemoData } from "../../demo-data-generator";
 import { forceReseedNavigation } from "../../seed";
@@ -363,6 +363,158 @@ adminBulkSeedRouter.post("/reseed-navigation", requireRole(...SUPER_ADMIN_ROLES)
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     res.status(500).json({ 
       error: "Failed to reseed navigation", 
+      details: errorMessage 
+    });
+  }
+});
+
+// Backfill risk snapshots for all properties
+adminBulkSeedRouter.post("/backfill-risk-snapshots", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    const userId = req.user?.id;
+    
+    // First count existing snapshots and properties
+    const [existingCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(propertyRiskSnapshots)
+      .where(eq(propertyRiskSnapshots.organisationId, orgId));
+    
+    const allProperties = await db.select({
+      id: properties.id,
+    }).from(properties)
+    .innerJoin(blocks, eq(properties.blockId, blocks.id))
+    .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+    .where(eq(schemes.organisationId, orgId));
+    
+    const existingSnapshots = Number(existingCount?.count || 0);
+    const totalProperties = allProperties.length;
+    
+    if (existingSnapshots >= totalProperties) {
+      return res.json({
+        success: true,
+        message: "Risk snapshots already exist for all properties",
+        existingSnapshots,
+        totalProperties,
+        inserted: 0
+      });
+    }
+    
+    // Get existing property IDs with snapshots
+    const existingPropertyIds = await db.select({ propertyId: propertyRiskSnapshots.propertyId })
+      .from(propertyRiskSnapshots)
+      .where(eq(propertyRiskSnapshots.organisationId, orgId))
+      .then(rows => new Set(rows.map(r => r.propertyId)));
+    
+    // Filter to only properties needing snapshots
+    const propertiesNeedingSnapshots = allProperties.filter(p => !existingPropertyIds.has(p.id));
+    
+    console.log(`[backfill] ${propertiesNeedingSnapshots.length} properties need risk snapshots`);
+    
+    const riskTiers: ('CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW')[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const tierWeights = [0.08, 0.17, 0.35, 0.40];
+    const BATCH_SIZE = 500;
+    let inserted = 0;
+    
+    for (let i = 0; i < propertiesNeedingSnapshots.length; i += BATCH_SIZE) {
+      const batch = propertiesNeedingSnapshots.slice(i, i + BATCH_SIZE);
+      const snapshots = batch.map((prop, idx) => {
+        const tierRoll = Math.random();
+        let cumulative = 0;
+        let selectedTier: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+        for (let t = 0; t < tierWeights.length; t++) {
+          cumulative += tierWeights[t];
+          if (tierRoll < cumulative) {
+            selectedTier = riskTiers[t];
+            break;
+          }
+        }
+        
+        const scoreRanges = {
+          CRITICAL: [75, 100],
+          HIGH: [55, 74],
+          MEDIUM: [35, 54],
+          LOW: [10, 34],
+        };
+        const range = scoreRanges[selectedTier];
+        const overallScore = range[0] + Math.floor(Math.random() * (range[1] - range[0] + 1));
+        
+        const trendOptions = ['UP', 'DOWN', 'STABLE'] as const;
+        const trendDirection = trendOptions[(i + idx) % 3];
+        const scoreChange = trendDirection === 'UP' ? Math.floor(Math.random() * 10) + 1 
+          : trendDirection === 'DOWN' ? -(Math.floor(Math.random() * 10) + 1) 
+          : 0;
+        
+        return {
+          organisationId: orgId,
+          propertyId: prop.id,
+          overallScore,
+          riskTier: selectedTier,
+          expiryRiskScore: Math.floor(Math.random() * 100),
+          defectRiskScore: Math.floor(Math.random() * 100),
+          assetProfileRiskScore: Math.floor(Math.random() * 100),
+          coverageGapRiskScore: Math.floor(Math.random() * 100),
+          externalFactorRiskScore: Math.floor(Math.random() * 100),
+          factorBreakdown: {
+            expiringCertificates: selectedTier === 'CRITICAL' ? Math.floor(Math.random() * 4) + 2 : Math.floor(Math.random() * 2),
+            overdueCertificates: selectedTier === 'CRITICAL' ? Math.floor(Math.random() * 3) + 1 : Math.floor(Math.random() * 2),
+            openDefects: Math.floor(Math.random() * 6),
+            criticalDefects: selectedTier === 'CRITICAL' ? Math.floor(Math.random() * 3) + 1 : Math.floor(Math.random() * 2),
+            missingStreams: selectedTier === 'CRITICAL' ? ['FIRE_SAFETY'] : [],
+            assetAge: Math.floor(Math.random() * 30) + 5,
+            isHRB: Math.random() < 0.15,
+            hasVulnerableOccupants: Math.random() < 0.25,
+            epcRating: ['A', 'B', 'C', 'D', 'E', 'F', 'G'][Math.floor(Math.random() * 7)],
+          },
+          triggeringFactors: selectedTier === 'CRITICAL' 
+            ? ["Gas Safety Certificate expiring", "Multiple open defects"] 
+            : selectedTier === 'HIGH' 
+            ? ["EICR overdue"] 
+            : [],
+          recommendedActions: ["Schedule inspection", "Update compliance calendar"],
+          legislationReferences: ["Gas Safety Regulations 1998"],
+          previousScore: overallScore - scoreChange,
+          scoreChange,
+          trendDirection,
+          isLatest: true,
+        };
+      });
+      
+      await db.insert(propertyRiskSnapshots).values(snapshots);
+      inserted += batch.length;
+      
+      if ((i / BATCH_SIZE) % 10 === 0) {
+        console.log(`[backfill] Progress: ${inserted}/${propertiesNeedingSnapshots.length}`);
+      }
+    }
+    
+    // Audit log
+    await db.insert(auditEvents).values({
+      organisationId: orgId,
+      actorId: userId || "system",
+      actorName: req.user?.email || "system",
+      actorType: "USER",
+      eventType: "DATA_CREATED",
+      entityType: "SETTINGS",
+      entityId: "risk-snapshot-backfill",
+      entityName: "Risk Snapshot Backfill",
+      message: `Backfilled ${inserted} risk snapshots`,
+      metadata: { triggeredBy: req.user?.email || "unknown", inserted },
+    });
+    
+    console.log(`[backfill] Completed: ${inserted} risk snapshots created`);
+    
+    res.json({
+      success: true,
+      message: `Created ${inserted} risk snapshots`,
+      existingSnapshots,
+      totalProperties,
+      inserted
+    });
+  } catch (error: unknown) {
+    console.error("Failed to backfill risk snapshots:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ 
+      error: "Failed to backfill risk snapshots", 
       details: errorMessage 
     });
   }
