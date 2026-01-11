@@ -34,8 +34,20 @@ function getOrgId(req: AuthenticatedRequest): string | null {
 
 mlRouter.get("/model-insights", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const allRuns = await db.select().from(extractionRuns).orderBy(desc(extractionRuns.createdAt));
-    const allReviews = await db.select().from(humanReviews).orderBy(desc(humanReviews.reviewedAt));
+    const orgId = getOrgId(req);
+    if (!orgId) return res.status(403).json({ error: "No organisation access" });
+    
+    // Join through certificates to scope by organisation
+    const allRunsRaw = await db.select({ run: extractionRuns })
+      .from(extractionRuns)
+      .innerJoin(certificates, eq(extractionRuns.certificateId, certificates.id))
+      .where(eq(certificates.organisationId, orgId))
+      .orderBy(desc(extractionRuns.createdAt));
+    const allRuns = allRunsRaw.map(r => r.run);
+    
+    const allReviews = await db.select().from(humanReviews)
+      .where(eq(humanReviews.organisationId, orgId))
+      .orderBy(desc(humanReviews.reviewedAt));
     
     const totalRuns = allRuns.length;
     const approvedRuns = allRuns.filter(r => r.status === 'APPROVED').length;
@@ -144,7 +156,16 @@ mlRouter.get("/model-insights", async (req: AuthenticatedRequest, res: Response)
 
 mlRouter.get("/model-insights/tier-stats", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const allAudits = await db.select().from(extractionTierAudits).orderBy(extractionTierAudits.attemptedAt);
+    const orgId = getOrgId(req);
+    if (!orgId) return res.status(403).json({ error: "No organisation access" });
+    
+    // Join through certificates to scope by organisation
+    const allAuditsRaw = await db.select({ audit: extractionTierAudits })
+      .from(extractionTierAudits)
+      .innerJoin(certificates, eq(extractionTierAudits.certificateId, certificates.id))
+      .where(eq(certificates.organisationId, orgId))
+      .orderBy(extractionTierAudits.attemptedAt);
+    const allAudits = allAuditsRaw.map(a => a.audit);
     
     if (allAudits.length === 0) {
       return res.json({
@@ -208,11 +229,15 @@ mlRouter.get("/model-insights/ai-suggestions", async (req: AuthenticatedRequest,
 
 mlRouter.post("/model-insights/ai-suggestions/:id/dismiss", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) return res.status(403).json({ error: "No organisation access" });
+    
     const [updated] = await db.update(aiSuggestions)
       .set({ status: 'DISMISSED', updatedAt: new Date() })
-      .where(eq(aiSuggestions.id, req.params.id))
+      .where(and(eq(aiSuggestions.id, req.params.id), eq(aiSuggestions.organisationId, orgId)))
       .returning();
-    res.json(updated || { error: "Not found" });
+    if (!updated) return res.status(404).json({ error: "Suggestion not found" });
+    res.json(updated);
   } catch (error) {
     console.error("Error dismissing suggestion:", error);
     res.status(500).json({ error: "Failed to dismiss suggestion" });
@@ -221,11 +246,15 @@ mlRouter.post("/model-insights/ai-suggestions/:id/dismiss", async (req: Authenti
 
 mlRouter.post("/model-insights/ai-suggestions/:id/start", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) return res.status(403).json({ error: "No organisation access" });
+    
     const [updated] = await db.update(aiSuggestions)
       .set({ status: 'IN_PROGRESS', updatedAt: new Date() })
-      .where(eq(aiSuggestions.id, req.params.id))
+      .where(and(eq(aiSuggestions.id, req.params.id), eq(aiSuggestions.organisationId, orgId)))
       .returning();
-    res.json(updated || { error: "Not found" });
+    if (!updated) return res.status(404).json({ error: "Suggestion not found" });
+    res.json(updated);
   } catch (error) {
     console.error("Error starting suggestion:", error);
     res.status(500).json({ error: "Failed to start suggestion" });
@@ -234,11 +263,15 @@ mlRouter.post("/model-insights/ai-suggestions/:id/start", async (req: Authentica
 
 mlRouter.post("/model-insights/ai-suggestions/:id/resolve", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const orgId = getOrgId(req);
+    if (!orgId) return res.status(403).json({ error: "No organisation access" });
+    
     const [updated] = await db.update(aiSuggestions)
       .set({ status: 'RESOLVED', resolvedAt: new Date(), updatedAt: new Date() })
-      .where(eq(aiSuggestions.id, req.params.id))
+      .where(and(eq(aiSuggestions.id, req.params.id), eq(aiSuggestions.organisationId, orgId)))
       .returning();
-    res.json(updated || { error: "Not found" });
+    if (!updated) return res.status(404).json({ error: "Suggestion not found" });
+    res.json(updated);
   } catch (error) {
     console.error("Error resolving suggestion:", error);
     res.status(500).json({ error: "Failed to resolve suggestion" });
@@ -607,7 +640,15 @@ mlRouter.post("/ml/corrections", async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ error: "certificateId and corrections array required" });
     }
     
-    const cert = await db.select().from(certificates).where(eq(certificates.id, certificateId)).limit(1);
+    // Verify certificate exists AND belongs to the caller's organisation
+    const cert = await db.select().from(certificates)
+      .where(and(eq(certificates.id, certificateId), eq(certificates.organisationId, orgId)))
+      .limit(1);
+    
+    if (!cert[0]) {
+      return res.status(404).json({ error: "Certificate not found" });
+    }
+    
     const insertedCorrections = [];
     
     for (const correction of corrections) {
