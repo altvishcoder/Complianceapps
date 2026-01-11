@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { getIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+import L from 'leaflet';
 
 const RefreshCcw = getIcon('RefreshCcw');
 const Flame = getIcon('Flame');
@@ -30,6 +31,7 @@ interface HeatmapResponse {
 export default function RiskHeatmapPage() {
   const [resolution, setResolution] = useState<GridResolution>('medium');
   const showBackButton = useMemo(() => hasUrlFilters(), []);
+  const mapRef = useRef<L.Map | null>(null);
 
   const gridSizeMap = { coarse: 30, medium: 50, fine: 80 };
   
@@ -58,13 +60,25 @@ export default function RiskHeatmapPage() {
     return { highRisk, mediumRisk, lowRisk };
   }, [cells]);
 
-  const mapCenter = useMemo(() => {
-    if (cells.length === 0) return [52.5, -1.5] as [number, number];
-    return [
-      cells.reduce((sum, c) => sum + c.lat, 0) / cells.length,
-      cells.reduce((sum, c) => sum + c.lng, 0) / cells.length
-    ] as [number, number];
-  }, [cells]);
+  const handleMapReady = useCallback((map: L.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || cells.length === 0) return;
+    
+    const minLat = Math.min(...cells.map(c => c.lat));
+    const maxLat = Math.max(...cells.map(c => c.lat));
+    const minLng = Math.min(...cells.map(c => c.lng));
+    const maxLng = Math.max(...cells.map(c => c.lng));
+    
+    const bounds = L.latLngBounds(
+      [minLat - cellSize.latStep, minLng - cellSize.lngStep],
+      [maxLat + cellSize.latStep, maxLng + cellSize.lngStep]
+    );
+    
+    mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: [20, 20] });
+  }, [cells, cellSize]);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -111,7 +125,7 @@ export default function RiskHeatmapPage() {
                 <MapSkeleton />
               ) : (
                 <MapWrapper>
-                  <BaseMap center={mapCenter} zoom={cells.length > 0 ? 10 : 6}>
+                  <BaseMap center={[52.5, -1.5]} zoom={6} onMapReady={handleMapReady}>
                     <HeatmapLayer 
                       cells={cells}
                       cellSize={cellSize}
