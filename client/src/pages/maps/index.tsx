@@ -142,7 +142,7 @@ export default function MapsIndexPage() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Risk Maps" />
+        <Header title="Property Risk Map" />
         <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" role="main" aria-label="Risk maps content">
           {showBackButton && (
             <div className="mb-4">
@@ -152,9 +152,9 @@ export default function MapsIndexPage() {
           <div className="flex flex-col space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display">Geographic Risk View</h2>
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight font-display">Property Risk Map</h2>
                 <p className="text-sm text-muted-foreground hidden sm:block">
-                  Visualize compliance risk across your property portfolio
+                  Explore individual properties and their compliance risk status
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 items-center">
@@ -184,7 +184,7 @@ export default function MapsIndexPage() {
                   </SelectContent>
                 </Select>
                 <Link href="/maps/risk-heatmap?from=/maps">
-                  <Button variant="outline" size="icon" data-testid="button-heatmap" title="Risk Heatmap">
+                  <Button variant="outline" size="icon" data-testid="button-heatmap" title="Risk Hotspot Heatmap">
                     <BarChart3 className="h-4 w-4" />
                   </Button>
                 </Link>

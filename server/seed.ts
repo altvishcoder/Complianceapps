@@ -2292,9 +2292,9 @@ async function seedNavigation() {
     // Assure - Compliance & proof
     { sectionId: "sec-assure", slug: "risk-radar", name: "Risk Radar", href: "/risk-radar", iconKey: "Radar", displayOrder: 1, isSystem: true },
     { sectionId: "sec-assure", slug: "regulatory-evidence", name: "Regulatory Evidence", href: "/reports/regulatory", iconKey: "Shield", displayOrder: 2, isSystem: true },
-    { sectionId: "sec-assure", slug: "risk-maps", name: "Risk Maps", href: "/maps", iconKey: "Map", displayOrder: 3, isSystem: true },
+    { sectionId: "sec-assure", slug: "risk-maps", name: "Property Risk Map", href: "/maps", iconKey: "Map", displayOrder: 3, isSystem: true },
     { sectionId: "sec-assure", slug: "audit-log", name: "Audit Log", href: "/admin/audit-log", iconKey: "ClipboardList", displayOrder: 4, requiresAdmin: true, isSystem: true },
-    { sectionId: "sec-assure", slug: "risk-heatmap", name: "Risk Heatmap", href: "/maps/risk-heatmap", iconKey: "MapPin", displayOrder: 5, isSystem: true },
+    { sectionId: "sec-assure", slug: "risk-heatmap", name: "Risk Hotspot Heatmap", href: "/maps/risk-heatmap", iconKey: "Flame", displayOrder: 5, isSystem: true },
     { sectionId: "sec-assure", slug: "scenarios", name: "Scenarios", href: "/maps/scenarios", iconKey: "FlaskConical", displayOrder: 6, isSystem: true },
     { sectionId: "sec-assure", slug: "evidence", name: "Evidence", href: "/maps/evidence", iconKey: "FileCheck", displayOrder: 7, isSystem: true },
     

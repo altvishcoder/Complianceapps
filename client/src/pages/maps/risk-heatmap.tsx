@@ -2,181 +2,185 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { MapWrapper, BaseMap, PropertyMarkers, RiskLegend, MapSkeleton } from '@/components/maps';
-import { RiskFilters } from '@/components/maps/RiskFilters';
-import { AreaDetailPanel } from '@/components/maps/AreaDetailPanel';
-import type { PropertyMarker } from '@/components/maps';
-import type { RiskFilters as RiskFiltersType, RiskScore, AreaRisk } from '@/lib/risk/types';
+import { MapWrapper, BaseMap, HeatmapLayer, MapSkeleton } from '@/components/maps';
+import type { HeatmapPoint } from '@/components/maps';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { getIcon, getActionIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
 
 const RefreshCcw = getIcon('RefreshCcw');
-const Download = getActionIcon('download');
-const X = getActionIcon('close');
+const Flame = getIcon('Flame');
 
 function hasUrlFilters(): boolean {
   const params = new URLSearchParams(window.location.search);
   return params.has('from') || params.has('stream') || params.has('level');
 }
 
+type HeatmapIntensity = 'low' | 'medium' | 'high';
+
 export default function RiskHeatmapPage() {
-  const [filters, setFilters] = useState<RiskFiltersType>({
-    level: 'ward',
-    streams: 'all',
-    period: 'current',
-    showOnlyAtRisk: false,
-  });
-  
-  const [selectedArea, setSelectedArea] = useState<AreaRisk | null>(null);
+  const [intensity, setIntensity] = useState<HeatmapIntensity>('medium');
+  const [showOnlyHighRisk, setShowOnlyHighRisk] = useState(false);
   const showBackButton = useMemo(() => hasUrlFilters(), []);
+
+  const radiusMap = { low: 15, medium: 25, high: 40 };
+  const blurMap = { low: 10, medium: 15, high: 25 };
   
-  // For property level, use the geo endpoint with full data; for aggregated views use risk/areas
-  const { data: areas = [], isLoading, refetch } = useQuery({
-    queryKey: ['risk-areas', filters.level, filters.streams, filters.period, filters.showOnlyAtRisk],
+  const { data: properties = [], isLoading, refetch } = useQuery({
+    queryKey: ['heatmap-properties'],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
-      
-      // Build params for all levels
-      const params = new URLSearchParams({ level: filters.level === 'estate' ? 'scheme' : filters.level });
-      if (filters.streams !== 'all' && Array.isArray(filters.streams) && filters.streams.length > 0) {
-        params.set('streams', filters.streams.join(','));
-      }
-      if (filters.showOnlyAtRisk) {
-        params.set('maxScore', '85');
-      }
-      
-      const res = await fetch(`/api/risk/areas?${params}`, {
-        headers: { 'X-User-Id': userId || '' }
+      const res = await fetch('/api/properties/geo', {
+        headers: { 'X-User-Id': userId || '' },
+        cache: 'no-store'
       });
       if (!res.ok) return [];
-      const data = await res.json();
-      return data;
+      return res.json();
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30000,
   });
-  
-  const hasStreamFilter = filters.streams !== 'all';
-  const streamLabel = hasStreamFilter && Array.isArray(filters.streams) && filters.streams.length > 0 
-    ? filters.streams[0].charAt(0).toUpperCase() + filters.streams[0].slice(1) 
-    : '';
 
-  const filteredAreas = useMemo(() => {
-    if (!filters.showOnlyAtRisk) return areas;
-    return areas.filter((a: AreaRisk) => a.riskScore.compositeScore < 85);
-  }, [areas, filters.showOnlyAtRisk]);
-
-  const mapMarkers: PropertyMarker[] = filteredAreas.map((area: AreaRisk, index: number) => ({
-    id: area.id,
-    name: area.name,
-    lat: area.lat,
-    lng: area.lng,
-    riskScore: area.riskScore.compositeScore,
-    propertyCount: area.riskScore.propertyCount,
-    unitCount: area.riskScore.unitCount,
-    assetType: index % 3 === 0 ? 'scheme' : index % 3 === 1 ? 'block' : 'property',
-  }));
-
-  const handleAreaClick = (marker: PropertyMarker) => {
-    const area = filteredAreas.find((a: AreaRisk) => a.id === marker.id);
-    if (area) {
-      setSelectedArea(area);
+  const heatmapPoints: HeatmapPoint[] = useMemo(() => {
+    let filtered = properties;
+    if (showOnlyHighRisk) {
+      filtered = properties.filter((p: any) => p.riskScore < 70);
     }
-  };
+    return filtered
+      .filter((p: any) => typeof p.lat === 'number' && !isNaN(p.lat) && typeof p.lng === 'number' && !isNaN(p.lng))
+      .map((p: any) => ({
+        lat: p.lat,
+        lng: p.lng,
+        intensity: p.riskScore || 75
+      }));
+  }, [properties, showOnlyHighRisk]);
+
+  const riskStats = useMemo(() => {
+    const total = properties.length;
+    const highRisk = properties.filter((p: any) => p.riskScore < 60).length;
+    const mediumRisk = properties.filter((p: any) => p.riskScore >= 60 && p.riskScore < 85).length;
+    const lowRisk = properties.filter((p: any) => p.riskScore >= 85).length;
+    const avgScore = total > 0 
+      ? Math.round(properties.reduce((sum: number, p: any) => sum + (p.riskScore || 75), 0) / total)
+      : 0;
+    return { total, highRisk, mediumRisk, lowRisk, avgScore };
+  }, [properties]);
+
+  const mapCenter = useMemo(() => {
+    const validPoints = heatmapPoints.filter(p => 
+      typeof p.lat === 'number' && !isNaN(p.lat) &&
+      typeof p.lng === 'number' && !isNaN(p.lng)
+    );
+    if (validPoints.length === 0) return [52.5, -1.5] as [number, number];
+    return [
+      validPoints.reduce((sum, p) => sum + p.lat, 0) / validPoints.length,
+      validPoints.reduce((sum, p) => sum + p.lng, 0) / validPoints.length
+    ] as [number, number];
+  }, [heatmapPoints]);
 
   return (
     <div className="flex h-screen bg-muted/30">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Risk Heatmap" />
+        <Header title="Risk Hotspot Heatmap" />
         <main id="main-content" className="flex-1 overflow-auto flex flex-col" role="main" aria-label="Risk heatmap content">
           {showBackButton && (
             <div className="p-4 pb-0">
-              <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+              <ContextBackButton fallbackPath="/maps" fallbackLabel="Property Risk Map" />
             </div>
           )}
-          <RiskFilters filters={filters} onChange={setFilters} />
+          
+          <div className="p-4 flex flex-wrap gap-4 items-center border-b">
+            <div className="flex items-center gap-2">
+              <Flame className="h-5 w-5 text-orange-500" />
+              <span className="font-medium">Risk Hotspot Heatmap</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Label htmlFor="intensity" className="text-sm">Intensity:</Label>
+              <Select value={intensity} onValueChange={(v) => setIntensity(v as HeatmapIntensity)}>
+                <SelectTrigger className="w-[100px]" id="intensity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Switch
+                id="high-risk-only"
+                checked={showOnlyHighRisk}
+                onCheckedChange={setShowOnlyHighRisk}
+              />
+              <Label htmlFor="high-risk-only" className="text-sm">High risk only</Label>
+            </div>
+            
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-auto">
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
           
           <div className="flex-1 flex min-h-[75vh] md:min-h-[600px]">
             <div className="flex-1 relative min-h-[75vh] md:min-h-[600px]">
-              {isLoading && areas.length === 0 ? (
+              {isLoading && properties.length === 0 ? (
                 <MapSkeleton />
               ) : (
                 <MapWrapper>
-                  <BaseMap 
-                    center={(() => {
-                      const validMarkers = mapMarkers.filter(m => 
-                        typeof m.lat === 'number' && !isNaN(m.lat) &&
-                        typeof m.lng === 'number' && !isNaN(m.lng)
-                      );
-                      if (validMarkers.length === 0) return [52.5, -1.5] as [number, number];
-                      return [
-                        validMarkers.reduce((sum, m) => sum + m.lat, 0) / validMarkers.length,
-                        validMarkers.reduce((sum, m) => sum + m.lng, 0) / validMarkers.length
-                      ] as [number, number];
-                    })()} 
-                    zoom={mapMarkers.length > 0 ? 10 : 6}
-                  >
-                    <PropertyMarkers 
-                      properties={mapMarkers}
-                      onPropertyClick={handleAreaClick}
+                  <BaseMap center={mapCenter} zoom={heatmapPoints.length > 0 ? 10 : 6}>
+                    <HeatmapLayer 
+                      points={heatmapPoints}
+                      radius={radiusMap[intensity]}
+                      blur={blurMap[intensity]}
                     />
                   </BaseMap>
                 </MapWrapper>
               )}
               
-              <div className="absolute top-4 right-4 z-[1000] flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => refetch()} data-testid="button-refresh-map">
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
+              <div className="absolute bottom-4 left-4 z-[1000]">
+                <Card className="bg-background/95 backdrop-blur-sm shadow-lg">
+                  <CardContent className="p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Heat Intensity</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-32 h-3 rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600" />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Low Risk</span>
+                      <span>High Risk</span>
+                    </div>
+                    <div className="pt-2 border-t text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Properties shown:</span>
+                        <span className="font-medium">{heatmapPoints.length.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">High risk areas:</span>
+                        <span className="font-medium text-destructive">{riskStats.highRisk.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
               
-              <div className="absolute bottom-4 left-4 z-[1000] space-y-2">
-                <RiskLegend />
-                {hasStreamFilter && (
-                  <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs border">
-                    <span className="text-muted-foreground">Filtered by: </span>
-                    <span className="font-medium text-primary">{streamLabel}</span>
-                    <span className="text-muted-foreground ml-2">({filteredAreas.length} areas)</span>
-                  </div>
-                )}
-              </div>
-              
-              {!selectedArea && !isLoading && (
+              {!isLoading && heatmapPoints.length === 0 && (
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none">
                   <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 text-sm text-center max-w-xs">
-                    {mapMarkers.length === 0 ? (
-                      <div className="space-y-1">
-                        <p className="font-medium text-foreground">No data found</p>
-                        <p className="text-muted-foreground">
-                          {hasStreamFilter 
-                            ? `No properties with ${streamLabel} certificates match your filters. Try selecting "All Streams".`
-                            : 'No properties with geo-coordinates found. Try a different aggregation level.'}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">Click an area to see details</p>
-                    )}
+                    <p className="font-medium text-foreground">No data to display</p>
+                    <p className="text-muted-foreground">
+                      No properties with geo-coordinates found.
+                    </p>
                   </div>
                 </div>
               )}
             </div>
-            
-            {selectedArea && (
-              <div className="w-80 border-l bg-background overflow-hidden">
-                <AreaDetailPanel
-                  areaId={selectedArea.id}
-                  areaName={selectedArea.name}
-                  areaLevel={selectedArea.level}
-                  riskScore={selectedArea.riskScore}
-                  onClose={() => setSelectedArea(null)}
-                  onExport={() => console.log('Export', selectedArea.id)}
-                />
-              </div>
-            )}
           </div>
         </main>
       </div>

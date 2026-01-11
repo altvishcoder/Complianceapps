@@ -24,8 +24,8 @@ export function ContextBackButton({
     '/certificates': 'Certificates',
     '/properties': 'Properties',
     '/actions': 'Remedial Actions',
-    '/maps': 'Maps',
-    '/maps/risk-heatmap': 'Risk Map',
+    '/maps': 'Property Risk Map',
+    '/maps/risk-heatmap': 'Property Risk Map',
   };
   
   const targetPath = fromPath || fallbackPath;
