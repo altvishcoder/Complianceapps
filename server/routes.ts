@@ -61,6 +61,7 @@ import { certificatesRouter } from "./routes/certificates.routes";
 import { contractorsRouter } from "./routes/contractors.routes";
 import { remedialRouter } from "./routes/remedial.routes";
 import { mlRouter } from "./routes/ml.routes";
+import { importsRouter } from "./routes/imports.routes";
 import { apiLogger } from "./logger";
 import { generateFullDemoData, generateBulkDemoData } from "./demo-data-generator";
 // Modular route files exist in server/routes/ for future migration and testing
@@ -294,6 +295,9 @@ export async function registerRoutes(
   
   // Register ML and model-insights routes
   app.use('/api', mlRouter);
+  
+  // Register imports routes
+  app.use('/api', importsRouter);
   
   // NOTE: Modular route files exist in server/routes/ for future migration
   // They are not mounted here to avoid conflicts with existing routes below
