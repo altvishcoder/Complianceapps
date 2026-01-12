@@ -2,6 +2,42 @@ import { logger } from '../../logger';
 import { circuitBreaker, withRetry } from '../circuit-breaker';
 import type { ExtractedCertificateData, CertificateTypeCode } from './types';
 
+const CERTIFICATE_METADATA_PATTERNS = [
+  /\bproperty\s+type\s*:/i,
+  /\bbuilding\s+type\s*:/i,
+  /\bheight\s*:/i,
+  /\bresponsible\s+person\s*:/i,
+  /\bduty\s+holder\s*:/i,
+  /\bsurvey\s+date\s*:/i,
+  /\bassessment\s+date\s*:/i,
+  /\breview\s+date\s*:/i,
+  /\bnext\s+assessment\s*(due)?\s*:/i,
+  /\basbestos\s+containing\s+material/i,
+  /\bresidential\s+units\s*:/i,
+  /\bbuilding\s+owner\s*:/i,
+  /\baccountable\s+person\s*:/i,
+  /\bprincipal\s+contractor\s*:/i,
+  /\bbsr\s+registration\s*:/i,
+  /\buprn\s*:/i,
+  /\bassessor\s*:/i,
+  /\binspection\s+date\s*:/i,
+  /\bcertificate\s+(?:no|number|ref)\s*:/i,
+];
+
+function sanitizePropertyAddress(address: string | null): string | null {
+  if (!address) return address;
+  
+  let sanitized = address;
+  for (const pattern of CERTIFICATE_METADATA_PATTERNS) {
+    const match = sanitized.match(pattern);
+    if (match && match.index !== undefined) {
+      sanitized = sanitized.substring(0, match.index);
+    }
+  }
+  
+  return sanitized.trim().replace(/\s+/g, ' ') || null;
+}
+
 export interface ServiceExtractionResult<T = unknown> {
   success: boolean;
   data: ExtractedCertificateData;
@@ -133,7 +169,7 @@ export function mapToExtractedData(raw: Record<string, unknown>): ExtractedCerti
   return {
     certificateType: isValidCertificateType(rawCertType) ? rawCertType as CertificateTypeCode : 'UNKNOWN',
     certificateNumber: (raw.certificateNumber as string) || null,
-    propertyAddress: (raw.propertyAddress as string) || null,
+    propertyAddress: sanitizePropertyAddress((raw.propertyAddress as string) || null),
     uprn: (raw.uprn as string) || null,
     inspectionDate: (raw.inspectionDate as string) || null,
     expiryDate: (raw.expiryDate as string) || null,

@@ -12,6 +12,42 @@ import type {
 import { db, eq, and, or, desc, sql, count, ilike, isNotNull, inArray } from "../base";
 import type { IPropertiesStorage } from "../interfaces";
 
+const CERTIFICATE_METADATA_PATTERNS = [
+  /\bproperty\s+type\s*:/i,
+  /\bbuilding\s+type\s*:/i,
+  /\bheight\s*:/i,
+  /\bresponsible\s+person\s*:/i,
+  /\bduty\s+holder\s*:/i,
+  /\bsurvey\s+date\s*:/i,
+  /\bassessment\s+date\s*:/i,
+  /\breview\s+date\s*:/i,
+  /\bnext\s+assessment\s*(due)?\s*:/i,
+  /\basbestos\s+containing\s+material/i,
+  /\bresidential\s+units\s*:/i,
+  /\bbuilding\s+owner\s*:/i,
+  /\baccountable\s+person\s*:/i,
+  /\bprincipal\s+contractor\s*:/i,
+  /\bbsr\s+registration\s*:/i,
+  /\buprn\s*:/i,
+  /\bassessor\s*:/i,
+  /\binspection\s+date\s*:/i,
+  /\bcertificate\s+(?:no|number|ref)\s*:/i,
+];
+
+function sanitizePropertyAddress(address: string): string {
+  if (!address) return address;
+  
+  let sanitized = address;
+  for (const pattern of CERTIFICATE_METADATA_PATTERNS) {
+    const match = sanitized.match(pattern);
+    if (match && match.index !== undefined) {
+      sanitized = sanitized.substring(0, match.index);
+    }
+  }
+  
+  return sanitized.trim().replace(/\s+/g, ' ');
+}
+
 export class PropertiesStorage implements IPropertiesStorage {
   async getOrganisation(id: string): Promise<Organisation | undefined> {
     const [org] = await db.select().from(organisations).where(eq(organisations.id, id));
@@ -190,11 +226,11 @@ export class PropertiesStorage implements IPropertiesStorage {
       conditions.push(or(
         ilike(properties.addressLine1, searchPattern),
         ilike(properties.postcode, searchPattern),
-        ilike(properties.name, searchPattern)
+        ilike(properties.uprn, searchPattern)
       ));
     }
     if (options.complianceStatus) {
-      conditions.push(eq(properties.complianceStatus, options.complianceStatus));
+      conditions.push(sql`${properties.complianceStatus} = ${options.complianceStatus}`);
     }
 
     const [countResult] = await db.select({ count: count() })
@@ -259,7 +295,8 @@ export class PropertiesStorage implements IPropertiesStorage {
   }
   
   async getOrCreateAutoProperty(organisationId: string, addressData: { addressLine1: string; city?: string; postcode?: string }): Promise<Property> {
-    const addressLine = (addressData.addressLine1 || 'Address To Be Verified').trim();
+    const rawAddress = (addressData.addressLine1 || 'Address To Be Verified').trim();
+    const addressLine = sanitizePropertyAddress(rawAddress);
     const normalizedAddress = addressLine.toLowerCase();
     
     const allProps = await db.select()
