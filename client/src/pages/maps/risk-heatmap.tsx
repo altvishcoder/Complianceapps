@@ -7,8 +7,6 @@ import { MapWrapper, BaseMap, HeatSurfaceLayer, MapSkeleton } from '@/components
 import type { HeatPoint } from '@/components/maps';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { getIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
@@ -384,98 +382,109 @@ export default function RiskHeatmapPage() {
         </main>
       </div>
       
-      <Dialog open={drillDownOpen} onOpenChange={setDrillDownOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] z-[1300]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      {drillDownOpen && (
+        <div className="fixed inset-0 z-[1400] flex items-center justify-center">
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setDrillDownOpen(false)}
+          />
+          <div className="relative z-[1401] bg-background border rounded-2xl shadow-2xl max-w-lg w-[calc(100%-2rem)] max-h-[80vh] p-4 sm:p-6">
+            <button
+              onClick={() => setDrillDownOpen(false)}
+              className="absolute right-4 top-4 rounded-xl p-1.5 opacity-70 hover:opacity-100 hover:bg-muted transition-all"
+              aria-label="Close"
+            >
+              <span className="text-lg">&times;</span>
+            </button>
+            
+            <div className="flex items-center gap-2 mb-2">
               <MapPin className="h-5 w-5 text-primary" />
-              Properties in Area
-            </DialogTitle>
-            <DialogDescription asChild>
-              <div className="text-sm text-muted-foreground">
-                Showing properties near the selected location
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="max-h-[50vh]">
-            {loadingZoneProps ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCcw className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : zoneProperties?.properties && zoneProperties.properties.length > 0 ? (
-              <div className="space-y-2">
-                {zoneProperties.properties.map((prop) => (
-                  <div
-                    key={prop.id}
-                    onClick={() => {
-                      setDrillDownOpen(false);
-                      navigate(`/properties/${prop.id}`);
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+              <h2 className="text-lg font-semibold">Properties in Area</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Showing properties near the selected location
+            </p>
+            
+            <div className="max-h-[50vh] overflow-y-auto">
+              {loadingZoneProps ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCcw className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : zoneProperties?.properties && zoneProperties.properties.length > 0 ? (
+                <div className="space-y-2">
+                  {zoneProperties.properties.map((prop) => (
+                    <div
+                      key={prop.id}
+                      onClick={() => {
                         setDrillDownOpen(false);
                         navigate(`/properties/${prop.id}`);
-                      }
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors border-2 hover:border-primary/50">
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Building className="h-4 w-4 text-primary flex-shrink-0" />
-                              <span className="font-medium text-sm truncate text-foreground">{prop.addressLine1}</span>
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setDrillDownOpen(false);
+                          navigate(`/properties/${prop.id}`);
+                        }
+                      }}
+                      className="cursor-pointer select-none"
+                      data-testid={`property-card-${prop.id}`}
+                    >
+                      <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors border-2 hover:border-primary/50">
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Building className="h-4 w-4 text-primary flex-shrink-0" />
+                                <span className="font-medium text-sm truncate text-foreground">{prop.addressLine1}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                <span>{prop.postcode}</span>
+                                {prop.uprn && (
+                                  <>
+                                    <span>•</span>
+                                    <span>UPRN: {prop.uprn}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                              <span>{prop.postcode}</span>
-                              {prop.uprn && (
-                                <>
-                                  <span>•</span>
-                                  <span>UPRN: {prop.uprn}</span>
-                                </>
-                              )}
-                            </div>
+                            <Badge 
+                              variant={prop.riskScore < 60 ? 'destructive' : prop.riskScore < 85 ? 'secondary' : 'outline'}
+                              className="flex-shrink-0 pointer-events-none"
+                            >
+                              {prop.riskScore}%
+                            </Badge>
                           </div>
-                          <Badge 
-                            variant={prop.riskScore < 60 ? 'destructive' : prop.riskScore < 85 ? 'secondary' : 'outline'}
-                            className="flex-shrink-0"
-                          >
-                            {prop.riskScore}%
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ))}
-                {zoneProperties.total > zoneProperties.properties.length && (
-                  <p className="text-xs text-center text-muted-foreground py-2">
-                    Showing {zoneProperties.properties.length} of {zoneProperties.total.toLocaleString()} properties
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <AlertTriangle className="h-8 w-8 mb-2" />
-                <p className="text-sm">No properties found in this area</p>
-              </div>
-            )}
-          </ScrollArea>
-          
-          <div className="flex justify-end pt-2 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDrillDownOpen(false)}
-            >
-              Close
-            </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ))}
+                  {zoneProperties.total > zoneProperties.properties.length && (
+                    <p className="text-xs text-center text-muted-foreground py-2">
+                      Showing {zoneProperties.properties.length} of {zoneProperties.total.toLocaleString()} properties
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <AlertTriangle className="h-8 w-8 mb-2" />
+                  <p className="text-sm">No properties found in this area</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end pt-4 mt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDrillDownOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }
