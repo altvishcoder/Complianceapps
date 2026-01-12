@@ -41,11 +41,12 @@ export default function CertificateDetailPage() {
     enabled: !!id,
   });
 
-  const { data: actions = [] } = useQuery({
+  const { data: actionsResponse } = useQuery({
     queryKey: ["actions", { certificateId: id }],
     queryFn: () => actionsApi.list({ certificateId: id }),
     enabled: !!id,
   });
+  const actions = actionsResponse?.data ?? [];
 
   const getOutcomeColor = (outcome?: string) => {
     if (outcome === "SATISFACTORY" || outcome === "PASS") {

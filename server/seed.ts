@@ -331,9 +331,15 @@ async function seedDemoData(orgId: string) {
   }
 }
 
-async function seedConfiguration() {
+export interface SeedResult {
+  section: string;
+  success: boolean;
+  error?: string;
+}
+
+export async function seedConfiguration(): Promise<SeedResult[]> {
   // Track success/failure for each section
-  const results: { section: string; success: boolean; error?: string }[] = [];
+  const results: SeedResult[] = [];
   
   // Helper to run section with error handling
   async function runSection(name: string, fn: () => Promise<void>) {
@@ -1845,6 +1851,8 @@ async function seedConfiguration() {
   } else {
     console.log("✓ All configuration sections seeded successfully");
   }
+  
+  return results;
 }
 
 async function seedFactorySettings() {
