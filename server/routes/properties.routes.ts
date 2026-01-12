@@ -166,7 +166,7 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
     }
     
     const rawGridSize = parseInt(req.query.gridSize as string) || 50;
-    const gridSize = Math.max(5, Math.min(200, rawGridSize));
+    const gridDimensions = rawGridSize <= 35 ? 8 : rawGridSize <= 60 ? 15 : 25;
     
     const result = await db.execute(sql`
       WITH bounds AS (
@@ -183,6 +183,15 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
           AND p.latitude IS NOT NULL 
           AND p.longitude IS NOT NULL
       ),
+      padded_bounds AS (
+        SELECT 
+          min_lat - GREATEST((max_lat - min_lat) * 0.05, 0.001) as min_lat,
+          max_lat + GREATEST((max_lat - min_lat) * 0.05, 0.001) as max_lat,
+          min_lng - GREATEST((max_lng - min_lng) * 0.05, 0.001) as min_lng,
+          max_lng + GREATEST((max_lng - min_lng) * 0.05, 0.001) as max_lng,
+          total_count
+        FROM bounds
+      ),
       grid_params AS (
         SELECT 
           min_lat,
@@ -190,15 +199,9 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
           min_lng,
           max_lng,
           total_count,
-          CASE 
-            WHEN max_lat = min_lat THEN 0.001 / ${gridSize}
-            ELSE (max_lat - min_lat) / ${gridSize}
-          END as lat_step,
-          CASE 
-            WHEN max_lng = min_lng THEN 0.001 / ${gridSize}
-            ELSE (max_lng - min_lng) / ${gridSize}
-          END as lng_step
-        FROM bounds
+          (max_lat - min_lat) / ${gridDimensions} as lat_step,
+          (max_lng - min_lng) / ${gridDimensions} as lng_step
+        FROM padded_bounds
         WHERE total_count > 0
       ),
       property_data AS (
