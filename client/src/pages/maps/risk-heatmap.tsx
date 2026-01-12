@@ -108,9 +108,15 @@ export default function RiskHeatmapPage() {
   });
   
   const { data: aggregatedAreas = [] } = useQuery({
-    queryKey: ['risk-areas', aggregationLevel],
+    queryKey: ['aggregated-areas', aggregationLevel],
     queryFn: async () => {
-      const res = await fetch(`/api/risk/areas?level=${aggregationLevel}`);
+      const userId = localStorage.getItem('user_id');
+      const endpoint = aggregationLevel === 'block' 
+        ? '/api/blocks/geo'
+        : `/api/risk/areas?level=${aggregationLevel}`;
+      const res = await fetch(endpoint, {
+        headers: { 'X-User-Id': userId || '' }
+      });
       if (!res.ok) return [];
       return res.json();
     },
@@ -222,16 +228,20 @@ export default function RiskHeatmapPage() {
     if (aggregationLevel === 'property') {
       return propertyMarkersWithCoords || [];
     }
-    return aggregatedAreas.map((area: any) => ({
-      id: area.id,
-      name: area.name,
-      address: `${area.name} (${area.riskScore?.propertyCount || 0} properties)`,
-      lat: area.lat,
-      lng: area.lng,
-      riskScore: area.riskScore?.compositeScore || 75,
-      propertyCount: area.riskScore?.propertyCount,
-      assetType: aggregationLevel as 'scheme' | 'block',
-    }));
+    return aggregatedAreas.map((area: any) => {
+      const propertyCount = area.propertyCount ?? area.riskScore?.propertyCount ?? 0;
+      const riskScore = area.riskScore?.compositeScore ?? area.riskScore ?? 75;
+      return {
+        id: area.id,
+        name: area.name,
+        address: area.address || `${area.name} (${propertyCount} properties)`,
+        lat: parseFloat(area.lat),
+        lng: parseFloat(area.lng),
+        riskScore: typeof riskScore === 'number' ? riskScore : 75,
+        propertyCount,
+        assetType: aggregationLevel as 'scheme' | 'block',
+      };
+    });
   }, [aggregationLevel, propertyMarkersWithCoords, aggregatedAreas]);
 
   

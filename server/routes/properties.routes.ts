@@ -157,6 +157,49 @@ propertiesRouter.get("/properties/geo", async (req: AuthenticatedRequest, res: R
   }
 });
 
+// ===== BLOCKS GEO DATA (centroid from properties) =====
+propertiesRouter.get("/blocks/geo", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const result = await db.execute(sql`
+      SELECT 
+        b.id,
+        b.name,
+        b.reference,
+        AVG(p.latitude) as lat,
+        AVG(p.longitude) as lng,
+        COUNT(p.id) as property_count,
+        AVG(COALESCE(rs.overall_score, 75)) as avg_risk_score
+      FROM blocks b
+      INNER JOIN schemes s ON b.scheme_id = s.id
+      LEFT JOIN properties p ON p.block_id = b.id AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+      LEFT JOIN property_risk_snapshots rs ON rs.property_id = p.id AND rs.is_latest = true
+      WHERE s.organisation_id = ${orgId}
+        AND b.deleted_at IS NULL
+      GROUP BY b.id, b.name, b.reference
+      HAVING AVG(p.latitude) IS NOT NULL AND AVG(p.longitude) IS NOT NULL
+    `);
+    
+    const geoBlocks = (result.rows as any[]).map(row => ({
+      id: row.id,
+      name: row.name || row.reference,
+      address: `${row.name} (${row.property_count} properties)`,
+      lat: parseFloat(row.lat),
+      lng: parseFloat(row.lng),
+      riskScore: Math.round(Number(row.avg_risk_score)),
+      propertyCount: parseInt(row.property_count)
+    }));
+    
+    res.json(geoBlocks);
+  } catch (error) {
+    handleRouteError(error, req, res, "Block Geodata");
+  }
+});
+
 // ===== PROPERTY GEO HEATMAP (grid-aggregated for performance) =====
 propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest, res: Response) => {
   try {
