@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MapWrapper, BaseMap, HeatSurfaceLayer, MapSkeleton } from '@/components/maps';
@@ -62,6 +62,7 @@ const drillLevelConfig = {
 };
 
 export default function RiskHeatmapPage() {
+  const [, navigate] = useLocation();
   const [drillState, setDrillState] = useState<DrillState>({ level: 'national' });
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [drillDownOpen, setDrillDownOpen] = useState(false);
@@ -277,7 +278,7 @@ export default function RiskHeatmapPage() {
                 <MapSkeleton />
               ) : (
                 <MapWrapper>
-                  <BaseMap center={[54, -2]} zoom={6} onMapReady={handleMapReady}>
+                  <BaseMap center={[51.5, -0.1]} zoom={10} onMapReady={handleMapReady}>
                     <HeatSurfaceLayer 
                       key={`heat-${drillState.level}-${cells.length}`}
                       points={heatPoints}
@@ -405,12 +406,23 @@ export default function RiskHeatmapPage() {
             ) : zoneProperties?.properties && zoneProperties.properties.length > 0 ? (
               <div className="space-y-2">
                 {zoneProperties.properties.map((prop) => (
-                  <Link 
-                    key={prop.id} 
-                    href={`/properties/${prop.id}`}
-                    className="block no-underline"
+                  <div
+                    key={prop.id}
+                    onClick={() => {
+                      setDrillDownOpen(false);
+                      navigate(`/properties/${prop.id}`);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setDrillDownOpen(false);
+                        navigate(`/properties/${prop.id}`);
+                      }
+                    }}
+                    className="cursor-pointer"
                   >
-                    <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors cursor-pointer border-2 hover:border-primary/50">
+                    <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors border-2 hover:border-primary/50">
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
@@ -437,7 +449,7 @@ export default function RiskHeatmapPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  </Link>
+                  </div>
                 ))}
                 {zoneProperties.total > zoneProperties.properties.length && (
                   <p className="text-xs text-center text-muted-foreground py-2">
