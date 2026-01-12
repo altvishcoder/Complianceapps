@@ -145,17 +145,18 @@ export default function RiskHeatmapPage() {
     return { highRisk, mediumRisk, lowRisk };
   }, [cells]);
 
-  const drillStateRef = useRef(drillState);
-  drillStateRef.current = drillState;
-
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
-    
-    map.on('click', (e: L.LeafletMouseEvent) => {
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleClick = (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
-      const currentLevel = drillStateRef.current.level;
       
-      if (currentLevel === 'national') {
+      if (drillState.level === 'national') {
         const spread = 2;
         setDrillState({
           level: 'regional',
@@ -163,7 +164,7 @@ export default function RiskHeatmapPage() {
           center: { lat, lng }
         });
         map.flyTo([lat, lng], 8, { duration: 0.8 });
-      } else if (currentLevel === 'regional') {
+      } else if (drillState.level === 'regional') {
         const spread = 0.5;
         setDrillState({
           level: 'local',
@@ -175,8 +176,13 @@ export default function RiskHeatmapPage() {
         setSelectedPoint({ lat, lng });
         setDrillDownOpen(true);
       }
-    });
-  }, []);
+    };
+
+    map.on('click', handleClick);
+    return () => {
+      map.off('click', handleClick);
+    };
+  }, [drillState.level]);
 
   const handleBack = useCallback(() => {
     if (drillState.level === 'local') {
