@@ -37,37 +37,58 @@ const SEED_DEMO_DATA = process.env.SEED_DEMO_DATA === "true";
 
 export async function seedDatabase() {
   try {
-    // Check existing data
-    const [existingOrg] = await db.select().from(organisations).limit(1);
-    const [existingUser] = await db.select().from(users).limit(1);
-    const [existingProperty] = await db.select().from(properties).limit(1);
-    
-    // Always seed configuration data (certificate types, classification codes, etc.)
-    await seedConfiguration();
-    
-    // If org, user, and property exist, database is already seeded
-    if (existingOrg && existingUser && existingProperty) {
-      console.log("✓ Database already seeded");
-      return;
-    }
-    
-    console.log("🌱 Seeding database...");
+    console.log("🌱 Starting database seeding...");
     console.log(`   SEED_DEMO_DATA=${SEED_DEMO_DATA ? 'true' : 'false (default)'}`);
     
-    // Always create or get organisation for admin user
-    let org = existingOrg;
-    if (!org) {
-      const [newOrg] = await db.insert(organisations).values({
-        id: ORG_ID,
-        name: SEED_DEMO_DATA ? "Demo Housing Association" : "My Organisation",
-        slug: SEED_DEMO_DATA ? "demo-ha" : "my-org",
-        settings: { timezone: "Europe/London" }
-      }).returning();
-      org = newOrg;
-      console.log("✓ Created organisation:", org.name);
-    } else {
-      console.log("✓ Using existing organisation:", org.name);
+    // STEP 1: Create mandatory organisation and system users FIRST
+    // This ensures login always works, even if configuration seeding fails
+    const org = await seedMandatoryUsersAndOrg();
+    
+    // STEP 2: Seed configuration data (with error handling for each section)
+    // Failures here won't block user login
+    try {
+      await seedConfiguration();
+    } catch (configError) {
+      console.error("⚠️ Configuration seeding had errors (login still works):", configError);
     }
+    
+    // Check if demo data is needed
+    const [existingProperty] = await db.select().from(properties).limit(1);
+    if (existingProperty) {
+      console.log("✓ Database already has property data");
+    } else if (SEED_DEMO_DATA) {
+      // Only seed demo data if SEED_DEMO_DATA is true and no properties exist
+      await seedDemoData(org.id);
+      const { seedComprehensiveDemoData } = await import("./demo-data/comprehensive-seed");
+      await seedComprehensiveDemoData(org.id);
+    } else {
+      console.log("ℹ️  Demo data skipped (set SEED_DEMO_DATA=true to enable)");
+    }
+    
+    console.log("🎉 Database seeding completed!");
+    
+  } catch (error) {
+    console.error("Error seeding database:", error);
+    throw error;
+  }
+}
+
+// Separate function to ensure mandatory users are always created first
+async function seedMandatoryUsersAndOrg() {
+  // Check/create organisation
+  let [org] = await db.select().from(organisations).where(eq(organisations.id, ORG_ID));
+  if (!org) {
+    const [newOrg] = await db.insert(organisations).values({
+      id: ORG_ID,
+      name: SEED_DEMO_DATA ? "Demo Housing Association" : "My Organisation",
+      slug: SEED_DEMO_DATA ? "demo-ha" : "my-org",
+      settings: { timezone: "Europe/London" }
+    }).returning();
+    org = newOrg;
+    console.log("✓ Created organisation:", org.name);
+  } else {
+    console.log("✓ Using existing organisation:", org.name);
+  }
     
     // Create default system accounts with proper role hierarchy
     // 1. Lashan Super User (highest privilege, only 1 per system)
@@ -138,22 +159,8 @@ export async function seedDatabase() {
     }
     await createCredentialAccount(COMPLIANCE_MANAGER_ID, compManagerPassword);
     
-    // Only seed demo data if SEED_DEMO_DATA is true
-    if (SEED_DEMO_DATA) {
-      await seedDemoData(org.id);
-      // Import and run comprehensive demo data for full reporting data
-      const { seedComprehensiveDemoData } = await import("./demo-data/comprehensive-seed");
-      await seedComprehensiveDemoData(org.id);
-    } else {
-      console.log("ℹ️  Demo data skipped (set SEED_DEMO_DATA=true to enable)");
-    }
-    
-    console.log("🎉 Database seeded successfully!");
-    
-  } catch (error) {
-    console.error("Error seeding database:", error);
-    throw error;
-  }
+  console.log("✓ Mandatory users and organisation seeded");
+  return org;
 }
 
 async function seedDemoData(orgId: string) {
@@ -325,14 +332,32 @@ async function seedDemoData(orgId: string) {
 }
 
 async function seedConfiguration() {
-  // Always seed factory settings if they don't exist
-  const [existingFactorySetting] = await db.select().from(factorySettings).limit(1);
-  if (!existingFactorySetting) {
-    await seedFactorySettings();
+  // Track success/failure for each section
+  const results: { section: string; success: boolean; error?: string }[] = [];
+  
+  // Helper to run section with error handling
+  async function runSection(name: string, fn: () => Promise<void>) {
+    try {
+      await fn();
+      results.push({ section: name, success: true });
+    } catch (error) {
+      console.error(`⚠️ Error seeding ${name}:`, error);
+      results.push({ section: name, success: false, error: String(error) });
+    }
   }
   
+  // Always seed factory settings if they don't exist
+  await runSection("Factory Settings", async () => {
+    const [existingFactorySetting] = await db.select().from(factorySettings).limit(1);
+    if (!existingFactorySetting) {
+      await seedFactorySettings();
+    }
+  });
+  
   // Always update navigation to ensure consistent structure across environments
-  await seedNavigation();
+  await runSection("Navigation", async () => {
+    await seedNavigation();
+  });
   
   console.log("🔧 Seeding/updating configuration data (upsert mode)...");
   
@@ -1772,6 +1797,14 @@ async function seedConfiguration() {
   }
   console.log(`✓ Replaced ${normalisationRulesData.length} normalisation rules with stream links`);
   
+  // Summary of configuration seeding results
+  const failed = results.filter(r => !r.success);
+  if (failed.length > 0) {
+    console.error(`⚠️ ${failed.length} configuration sections had errors:`);
+    failed.forEach(f => console.error(`   - ${f.section}: ${f.error}`));
+  } else {
+    console.log("✓ All configuration sections seeded successfully");
+  }
 }
 
 async function seedFactorySettings() {
