@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
@@ -8,9 +8,11 @@ import type { HeatPoint, PropertyMarker } from '@/components/maps';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
 import { PropertyHomeIcon } from '@/components/icons/SocialComplyLogo';
+import { toast } from 'sonner';
 import L from 'leaflet';
 
 const RefreshCcw = getIcon('RefreshCcw');
@@ -20,6 +22,12 @@ const AlertTriangle = getIcon('AlertTriangle');
 const ZoomIn = getIcon('ZoomIn');
 const ZoomOut = getIcon('ZoomOut');
 const ArrowLeft = getIcon('ArrowLeft');
+const Building2 = getIcon('Building2');
+const MapPinned = getIcon('MapPinned');
+const Home = getIcon('Home');
+const Loader2 = getIcon('Loader2');
+
+type AggregationLevel = 'property' | 'scheme' | 'ward';
 
 interface PropertyInZone {
   id: number;
@@ -64,10 +72,50 @@ export default function RiskHeatmapPage() {
   const [drillState, setDrillState] = useState<DrillState>({ level: 'national' });
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [drillDownOpen, setDrillDownOpen] = useState(false);
+  const [aggregationLevel, setAggregationLevel] = useState<AggregationLevel>('property');
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   const mapRef = useRef<L.Map | null>(null);
+  const queryClient = useQueryClient();
 
   const config = drillLevelConfig[drillState.level];
+  
+  const { data: geocodingStatus } = useQuery({
+    queryKey: ['geocoding-status'],
+    queryFn: async () => {
+      const res = await fetch('/api/geocoding/status');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+  
+  const geocodeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/geocoding/batch', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to geocode');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast.success(`Geocoded ${data.updated} properties`);
+      queryClient.invalidateQueries({ queryKey: ['property-markers-all'] });
+      queryClient.invalidateQueries({ queryKey: ['heatmap-data'] });
+      queryClient.invalidateQueries({ queryKey: ['geocoding-status'] });
+    },
+    onError: () => {
+      toast.error('Failed to geocode properties');
+    }
+  });
+  
+  const { data: aggregatedAreas = [] } = useQuery({
+    queryKey: ['risk-areas', aggregationLevel],
+    queryFn: async () => {
+      const res = await fetch(`/api/risk/areas?level=${aggregationLevel}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: aggregationLevel !== 'property',
+    staleTime: 30000,
+  });
   
   const buildQueryUrl = () => {
     let url = `/api/properties/geo/heatmap?gridSize=${config.gridSize}`;
@@ -168,6 +216,22 @@ export default function RiskHeatmapPage() {
     },
     staleTime: 60000,
   });
+  
+  const displayMarkers = useMemo(() => {
+    if (aggregationLevel === 'property') {
+      return propertyMarkersWithCoords || [];
+    }
+    return aggregatedAreas.map((area: any) => ({
+      id: area.id,
+      name: area.name,
+      address: `${area.name} (${area.riskScore?.propertyCount || 0} properties)`,
+      lat: area.lat,
+      lng: area.lng,
+      riskScore: area.riskScore?.compositeScore || 75,
+      propertyCount: area.riskScore?.propertyCount,
+      assetType: aggregationLevel === 'scheme' ? 'scheme' : 'block' as const,
+    }));
+  }, [aggregationLevel, propertyMarkersWithCoords, aggregatedAreas]);
 
   
   const handleMapReady = useCallback((map: L.Map) => {
@@ -274,6 +338,32 @@ export default function RiskHeatmapPage() {
               <span className="font-medium">Risk Hotspot Map</span>
             </div>
             
+            <Select value={aggregationLevel} onValueChange={(v) => setAggregationLevel(v as AggregationLevel)}>
+              <SelectTrigger className="w-[130px] h-8" data-testid="select-aggregation-level">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4} className="z-[2000]">
+                <SelectItem value="property">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-4 w-4" />
+                    Property
+                  </div>
+                </SelectItem>
+                <SelectItem value="scheme">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Scheme
+                  </div>
+                </SelectItem>
+                <SelectItem value="ward">
+                  <div className="flex items-center gap-2">
+                    <MapPinned className="h-4 w-4" />
+                    Ward
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            
             <div className="flex items-center gap-2">
               <Badge variant={drillState.level === 'national' ? 'default' : 'secondary'} className="text-xs">
                 {config.label}
@@ -297,6 +387,46 @@ export default function RiskHeatmapPage() {
             </Button>
           </div>
           
+          {geocodingStatus && geocodingStatus.notGeocoded > 0 && (
+            <div className="mx-4 mb-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                  <MapPin className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-amber-800 dark:text-amber-300 text-sm">
+                      {geocodingStatus.geocoded} of {geocodingStatus.total} properties have map coordinates
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {geocodingStatus.canAutoGeocode} properties can be auto-geocoded from their postcodes
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 ml-8 sm:ml-0">
+                  {geocodingStatus.canAutoGeocode > 0 && (
+                    <Button 
+                      size="sm"
+                      onClick={() => geocodeMutation.mutate()}
+                      disabled={geocodeMutation.isPending}
+                      data-testid="button-geocode"
+                    >
+                      {geocodeMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Geocoding...
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Geocode Properties
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="flex-1 min-h-[75vh] md:min-h-[600px] relative overflow-hidden">
             <div className="absolute inset-0">
               {isLoading && cells.length === 0 ? (
@@ -310,9 +440,9 @@ export default function RiskHeatmapPage() {
                       radius={config.radius}
                       blur={config.blur}
                     />
-                    {propertyMarkersWithCoords && propertyMarkersWithCoords.length > 0 && (
+                    {displayMarkers && displayMarkers.length > 0 && (
                       <PropertyMarkers 
-                        properties={propertyMarkersWithCoords}
+                        properties={displayMarkers}
                       />
                     )}
                   </BaseMap>
