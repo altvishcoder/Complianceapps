@@ -86,7 +86,7 @@ export function getAssetTypeLabel(type?: AssetType): string {
 
 function createCustomIcon(color: string, assetType?: AssetType): L.DivIcon {
   let shape = '';
-  let size = 24;
+  let size = 32;
   
   switch (assetType) {
     case 'scheme':
@@ -102,7 +102,14 @@ function createCustomIcon(color: string, assetType?: AssetType): L.DivIcon {
     case 'property':
     default:
       shape = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
+        <defs>
+          <linearGradient id="houseGrad-${color.replace('#', '')}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${color};stop-opacity:0.8" />
+          </linearGradient>
+        </defs>
+        <path d="M12 2L2 9V22H9V15H15V22H22V9L12 2Z" fill="url(#houseGrad-${color.replace('#', '')})" stroke="white" stroke-width="1.5"/>
+        <rect x="10" y="11" width="4" height="4" fill="white" opacity="0.9"/>
       </svg>`;
       break;
   }
@@ -111,8 +118,8 @@ function createCustomIcon(color: string, assetType?: AssetType): L.DivIcon {
     html: shape,
     className: 'custom-marker-icon',
     iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconAnchor: [size / 2, size],
+    popupAnchor: [0, -size],
   });
 }
 
