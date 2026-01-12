@@ -139,6 +139,7 @@ export default function RiskHeatmapPage() {
                 <MapWrapper>
                   <BaseMap center={[52.5, -1.5]} zoom={6} onMapReady={handleMapReady}>
                     <HeatmapLayer 
+                      key={`heatmap-${resolution}-${cells.length}`}
                       cells={cells}
                       cellSize={cellSize}
                     />
