@@ -147,8 +147,8 @@ export default function RiskHeatmapPage() {
 
   const showPropertyMarkers = drillState.level === 'local' || drillState.level === 'regional';
   
-  const { data: propertyMarkers } = useQuery<PropertyMarker[]>({
-    queryKey: ['property-markers', drillState.bounds],
+  const { data: propertyMarkersWithCoords } = useQuery<PropertyMarker[]>({
+    queryKey: ['property-markers-coords', drillState.bounds],
     queryFn: async () => {
       if (!drillState.bounds) return [];
       const userId = localStorage.getItem('user_id');
@@ -159,41 +159,17 @@ export default function RiskHeatmapPage() {
       );
       if (!res.ok) return [];
       const data = await res.json();
-      return data.properties.map((p: PropertyInZone) => ({
-        id: String(p.id),
-        name: p.addressLine1,
-        address: p.postcode,
-        lat: 0,
-        lng: 0,
-        riskScore: p.riskScore,
-        assetType: 'property' as const
-      }));
-    },
-    enabled: showPropertyMarkers && !!drillState.bounds,
-    staleTime: 60000,
-  });
-
-  const { data: propertyMarkersWithCoords } = useQuery<PropertyMarker[]>({
-    queryKey: ['property-markers-coords', drillState.bounds],
-    queryFn: async () => {
-      if (!drillState.bounds) return [];
-      const userId = localStorage.getItem('user_id');
-      const { minLat, maxLat, minLng, maxLng } = drillState.bounds;
-      const res = await fetch(
-        `/api/properties?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}&limit=200`,
-        { headers: { 'X-User-Id': userId || '' } }
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.properties || data).filter((p: any) => p.latitude && p.longitude).map((p: any) => ({
-        id: String(p.id),
-        name: p.addressLine1 || p.address || 'Property',
-        address: p.postcode,
-        lat: parseFloat(p.latitude),
-        lng: parseFloat(p.longitude),
-        riskScore: p.riskScore || p.complianceScore || 75,
-        assetType: 'property' as const
-      }));
+      return data.properties
+        .filter((p: any) => p.latitude && p.longitude)
+        .map((p: any) => ({
+          id: String(p.id),
+          name: p.addressLine1 || 'Property',
+          address: p.postcode,
+          lat: p.latitude,
+          lng: p.longitude,
+          riskScore: p.riskScore || 75,
+          assetType: 'property' as const
+        }));
     },
     enabled: showPropertyMarkers && !!drillState.bounds,
     staleTime: 60000,

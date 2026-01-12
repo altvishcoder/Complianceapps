@@ -321,6 +321,8 @@ propertiesRouter.get("/properties/geo/zone", async (req: AuthenticatedRequest, r
         p.uprn,
         p.address_line1 as "addressLine1",
         p.postcode,
+        p.latitude,
+        p.longitude,
         COALESCE(rs.overall_score, 75) as "riskScore"
       FROM properties p
       LEFT JOIN property_risk_snapshots rs ON rs.property_id = p.id AND rs.is_latest = true
@@ -349,6 +351,8 @@ propertiesRouter.get("/properties/geo/zone", async (req: AuthenticatedRequest, r
         uprn: row.uprn,
         addressLine1: row.addressLine1,
         postcode: row.postcode,
+        latitude: row.latitude ? parseFloat(row.latitude) : null,
+        longitude: row.longitude ? parseFloat(row.longitude) : null,
         riskScore: Math.round(parseFloat(row.riskScore))
       })),
       total: parseInt((countResult.rows[0] as any).total) || 0
