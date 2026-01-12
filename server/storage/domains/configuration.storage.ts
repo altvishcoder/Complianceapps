@@ -117,9 +117,9 @@ export class ConfigurationStorage implements IConfigurationStorage {
   
   async listExtractionSchemas(filters?: { complianceStreamId?: string }): Promise<ExtractionSchema[]> {
     if (filters?.complianceStreamId) {
-      return db.select().from(extractionSchemas).where(eq(extractionSchemas.complianceStreamId, filters.complianceStreamId)).orderBy(extractionSchemas.name);
+      return db.select().from(extractionSchemas).where(eq(extractionSchemas.complianceStreamId, filters.complianceStreamId)).orderBy(extractionSchemas.documentType);
     }
-    return db.select().from(extractionSchemas).orderBy(extractionSchemas.name);
+    return db.select().from(extractionSchemas).orderBy(extractionSchemas.documentType);
   }
   
   async getExtractionSchema(id: string): Promise<ExtractionSchema | undefined> {
@@ -187,7 +187,7 @@ export class ConfigurationStorage implements IConfigurationStorage {
   }
   
   async updateNormalisationRule(id: string, updates: Partial<InsertNormalisationRule>): Promise<NormalisationRule | undefined> {
-    const [updated] = await db.update(normalisationRules).set({ ...updates, updatedAt: new Date() }).where(eq(normalisationRules.id, id)).returning();
+    const [updated] = await db.update(normalisationRules).set(updates).where(eq(normalisationRules.id, id)).returning();
     return updated || undefined;
   }
   
