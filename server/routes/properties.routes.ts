@@ -166,7 +166,17 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
     }
     
     const rawGridSize = parseInt(req.query.gridSize as string) || 50;
-    const gridDimensions = rawGridSize <= 35 ? 8 : rawGridSize <= 60 ? 15 : 25;
+    const gridDimensions = rawGridSize <= 20 ? 8 : rawGridSize <= 50 ? 15 : rawGridSize <= 70 ? 25 : 40;
+    
+    const queryMinLat = req.query.minLat ? parseFloat(req.query.minLat as string) : null;
+    const queryMaxLat = req.query.maxLat ? parseFloat(req.query.maxLat as string) : null;
+    const queryMinLng = req.query.minLng ? parseFloat(req.query.minLng as string) : null;
+    const queryMaxLng = req.query.maxLng ? parseFloat(req.query.maxLng as string) : null;
+    const hasBoundsFilter = queryMinLat !== null && queryMaxLat !== null && queryMinLng !== null && queryMaxLng !== null;
+    
+    const boundsCondition = hasBoundsFilter 
+      ? sql`AND p.latitude BETWEEN ${queryMinLat} AND ${queryMaxLat} AND p.longitude BETWEEN ${queryMinLng} AND ${queryMaxLng}`
+      : sql``;
     
     const result = await db.execute(sql`
       WITH bounds AS (
@@ -182,6 +192,7 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
         WHERE s.organisation_id = ${orgId}
           AND p.latitude IS NOT NULL 
           AND p.longitude IS NOT NULL
+          ${boundsCondition}
       ),
       padded_bounds AS (
         SELECT 
@@ -216,6 +227,7 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
         WHERE s.organisation_id = ${orgId}
           AND p.latitude IS NOT NULL 
           AND p.longitude IS NOT NULL
+          ${boundsCondition}
       ),
       grid_cells AS (
         SELECT 

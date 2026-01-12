@@ -6,3 +6,5 @@ export type { PropertyMarker } from './PropertyMarkers';
 export { RiskLegend } from './RiskLegend';
 export { HeatmapLayer } from './HeatmapLayer';
 export type { HeatmapPoint, HeatmapCell } from './HeatmapLayer';
+export { HeatSurfaceLayer } from './HeatSurfaceLayer';
+export type { HeatPoint } from './HeatSurfaceLayer';

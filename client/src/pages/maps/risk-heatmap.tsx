@@ -2,12 +2,10 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { MapWrapper, BaseMap, HeatmapLayer, MapSkeleton } from '@/components/maps';
-import type { HeatmapCell } from '@/components/maps';
+import { MapWrapper, BaseMap, HeatSurfaceLayer, MapSkeleton } from '@/components/maps';
+import type { HeatPoint } from '@/components/maps';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +18,9 @@ const Flame = getIcon('Flame');
 const MapPin = getIcon('MapPin');
 const Building = getIcon('Building');
 const AlertTriangle = getIcon('AlertTriangle');
-const X = getIcon('X');
+const ZoomIn = getIcon('ZoomIn');
+const ZoomOut = getIcon('ZoomOut');
+const ArrowLeft = getIcon('ArrowLeft');
 
 interface PropertyInZone {
   id: number;
@@ -40,37 +40,49 @@ function hasUrlFilters(): boolean {
   return params.has('from') || params.has('stream') || params.has('level');
 }
 
-type GridResolution = 'coarse' | 'medium' | 'fine';
+type DrillLevel = 'national' | 'regional' | 'local';
 
 interface HeatmapResponse {
-  cells: HeatmapCell[];
+  cells: Array<{ lat: number; lng: number; avgRisk: number; count: number }>;
   cellSize: { latStep: number; lngStep: number };
   stats: { totalCells: number; totalProperties: number; avgRisk: number };
 }
 
-const resolutionLabels = {
-  coarse: 'Overview',
-  medium: 'Standard', 
-  fine: 'Detailed'
+interface DrillState {
+  level: DrillLevel;
+  bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  center?: { lat: number; lng: number };
+}
+
+const drillLevelConfig = {
+  national: { gridSize: 15, radius: 50, blur: 35, label: 'National Overview' },
+  regional: { gridSize: 40, radius: 35, blur: 25, label: 'Regional View' },
+  local: { gridSize: 80, radius: 25, blur: 15, label: 'Local Detail' }
 };
 
-const zoomLevelMap = { coarse: 6, medium: 8, fine: 10 };
-
 export default function RiskHeatmapPage() {
-  const [resolution, setResolution] = useState<GridResolution>('medium');
-  const [selectedCell, setSelectedCell] = useState<HeatmapCell | null>(null);
+  const [drillState, setDrillState] = useState<DrillState>({ level: 'national' });
+  const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [drillDownOpen, setDrillDownOpen] = useState(false);
   const showBackButton = useMemo(() => hasUrlFilters(), []);
   const mapRef = useRef<L.Map | null>(null);
-  const prevResolutionRef = useRef<GridResolution>(resolution);
 
-  const gridSizeMap = { coarse: 30, medium: 50, fine: 80 };
+  const config = drillLevelConfig[drillState.level];
+  
+  const buildQueryUrl = () => {
+    let url = `/api/properties/geo/heatmap?gridSize=${config.gridSize}`;
+    if (drillState.bounds) {
+      const { minLat, maxLat, minLng, maxLng } = drillState.bounds;
+      url += `&minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}`;
+    }
+    return url;
+  };
   
   const { data, isLoading, refetch } = useQuery<HeatmapResponse>({
-    queryKey: ['heatmap-data', resolution],
+    queryKey: ['heatmap-data', drillState.level, drillState.bounds],
     queryFn: async () => {
       const userId = localStorage.getItem('user_id');
-      const res = await fetch(`/api/properties/geo/heatmap?gridSize=${gridSizeMap[resolution]}`, {
+      const res = await fetch(buildQueryUrl(), {
         headers: { 'X-User-Id': userId || '' },
         cache: 'no-store'
       });
@@ -84,21 +96,29 @@ export default function RiskHeatmapPage() {
   const cellSize = data?.cellSize || { latStep: 0, lngStep: 0 };
   const stats = data?.stats || { totalCells: 0, totalProperties: 0, avgRisk: 0 };
 
+  const heatPoints: HeatPoint[] = useMemo(() => {
+    return cells.map(c => ({
+      lat: c.lat,
+      lng: c.lng,
+      riskScore: c.avgRisk,
+      count: c.count
+    }));
+  }, [cells]);
+
   const { data: zoneProperties, isLoading: loadingZoneProps } = useQuery<ZonePropertiesResponse>({
-    queryKey: ['zone-properties', selectedCell?.lat, selectedCell?.lng, cellSize.latStep, cellSize.lngStep],
+    queryKey: ['zone-properties', selectedPoint?.lat, selectedPoint?.lng],
     queryFn: async () => {
-      if (!selectedCell) return { properties: [], total: 0 };
+      if (!selectedPoint) return { properties: [], total: 0 };
       const userId = localStorage.getItem('user_id');
-      const halfLat = cellSize.latStep / 2;
-      const halfLng = cellSize.lngStep / 2;
+      const spread = 0.05;
       const res = await fetch(
-        `/api/properties/geo/zone?minLat=${selectedCell.lat - halfLat}&maxLat=${selectedCell.lat + halfLat}&minLng=${selectedCell.lng - halfLng}&maxLng=${selectedCell.lng + halfLng}&limit=50`,
+        `/api/properties/geo/zone?minLat=${selectedPoint.lat - spread}&maxLat=${selectedPoint.lat + spread}&minLng=${selectedPoint.lng - spread}&maxLng=${selectedPoint.lng + spread}&limit=50`,
         { headers: { 'X-User-Id': userId || '' } }
       );
       if (!res.ok) return { properties: [], total: 0 };
       return res.json();
     },
-    enabled: !!selectedCell && drillDownOpen,
+    enabled: !!selectedPoint && drillDownOpen,
     staleTime: 60000,
   });
 
@@ -109,55 +129,82 @@ export default function RiskHeatmapPage() {
     return { highRisk, mediumRisk, lowRisk };
   }, [cells]);
 
+  const drillStateRef = useRef(drillState);
+  drillStateRef.current = drillState;
+
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
+    
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      const currentLevel = drillStateRef.current.level;
+      
+      if (currentLevel === 'national') {
+        const spread = 2;
+        setDrillState({
+          level: 'regional',
+          bounds: { minLat: lat - spread, maxLat: lat + spread, minLng: lng - spread * 1.5, maxLng: lng + spread * 1.5 },
+          center: { lat, lng }
+        });
+        map.flyTo([lat, lng], 8, { duration: 0.8 });
+      } else if (currentLevel === 'regional') {
+        const spread = 0.5;
+        setDrillState({
+          level: 'local',
+          bounds: { minLat: lat - spread, maxLat: lat + spread, minLng: lng - spread * 1.5, maxLng: lng + spread * 1.5 },
+          center: { lat, lng }
+        });
+        map.flyTo([lat, lng], 11, { duration: 0.8 });
+      } else {
+        setSelectedPoint({ lat, lng });
+        setDrillDownOpen(true);
+      }
+    });
   }, []);
 
-  const handleCellClick = useCallback((cell: HeatmapCell) => {
-    setSelectedCell(cell);
-    setDrillDownOpen(true);
-    
-    if (mapRef.current) {
-      const halfLat = cellSize.latStep / 2;
-      const halfLng = cellSize.lngStep / 2;
-      const bounds = L.latLngBounds(
-        [cell.lat - halfLat, cell.lng - halfLng],
-        [cell.lat + halfLat, cell.lng + halfLng]
-      );
-      mapRef.current.fitBounds(bounds, { maxZoom: 14, padding: [50, 50] });
+  const handleBack = useCallback(() => {
+    if (drillState.level === 'local') {
+      setDrillState({ level: 'regional', bounds: undefined });
+      mapRef.current?.flyTo([54, -2], 7, { duration: 0.6 });
+    } else if (drillState.level === 'regional') {
+      setDrillState({ level: 'national' });
+      mapRef.current?.flyTo([54, -2], 6, { duration: 0.6 });
     }
-  }, [cellSize]);
+  }, [drillState.level]);
+
+  const handleReset = useCallback(() => {
+    setDrillState({ level: 'national' });
+    mapRef.current?.flyTo([54, -2], 6, { duration: 0.6 });
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current || cells.length === 0 || cellSize.latStep === 0) return;
     
-    const map = mapRef.current;
-    
-    const timeoutId = setTimeout(() => {
-      try {
-        const minLat = Math.min(...cells.map(c => c.lat));
-        const maxLat = Math.max(...cells.map(c => c.lat));
-        const minLng = Math.min(...cells.map(c => c.lng));
-        const maxLng = Math.max(...cells.map(c => c.lng));
-        
-        const bounds = L.latLngBounds(
-          [minLat - cellSize.latStep, minLng - cellSize.lngStep],
-          [maxLat + cellSize.latStep, maxLng + cellSize.lngStep]
-        );
-        
-        if (map && bounds.isValid()) {
-          const targetZoom = zoomLevelMap[resolution];
-          map.fitBounds(bounds, { maxZoom: targetZoom, padding: [20, 20] });
+    if (drillState.level === 'national' && !drillState.bounds) {
+      const map = mapRef.current;
+      const timeoutId = setTimeout(() => {
+        try {
+          const minLat = Math.min(...cells.map(c => c.lat));
+          const maxLat = Math.max(...cells.map(c => c.lat));
+          const minLng = Math.min(...cells.map(c => c.lng));
+          const maxLng = Math.max(...cells.map(c => c.lng));
+          
+          const bounds = L.latLngBounds(
+            [minLat - cellSize.latStep, minLng - cellSize.lngStep],
+            [maxLat + cellSize.latStep, maxLng + cellSize.lngStep]
+          );
+          
+          if (map && bounds.isValid()) {
+            map.fitBounds(bounds, { maxZoom: 7, padding: [20, 20] });
+          }
+        } catch (e) {
+          console.warn('Failed to fit bounds:', e);
         }
-        
-        prevResolutionRef.current = resolution;
-      } catch (e) {
-        console.warn('Failed to fit bounds:', e);
-      }
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [cells, cellSize, resolution]);
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [cells, cellSize, drillState.level, drillState.bounds]);
 
   return (
     <div className="flex h-screen bg-muted/30">
@@ -179,17 +226,20 @@ export default function RiskHeatmapPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Label htmlFor="resolution" className="text-sm">Detail level:</Label>
-              <Select value={resolution} onValueChange={(v) => setResolution(v as GridResolution)}>
-                <SelectTrigger className="w-[110px]" id="resolution">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper" sideOffset={4} className="z-[2000]">
-                  <SelectItem value="coarse">Overview</SelectItem>
-                  <SelectItem value="medium">Standard</SelectItem>
-                  <SelectItem value="fine">Detailed</SelectItem>
-                </SelectContent>
-              </Select>
+              <Badge variant={drillState.level === 'national' ? 'default' : 'secondary'} className="text-xs">
+                {config.label}
+              </Badge>
+              {drillState.level !== 'national' && (
+                <Button variant="ghost" size="sm" onClick={handleBack} className="h-7 px-2">
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back
+                </Button>
+              )}
+              {drillState.level !== 'national' && (
+                <Button variant="ghost" size="sm" onClick={handleReset} className="h-7 px-2">
+                  Reset
+                </Button>
+              )}
             </div>
             
             <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-auto">
@@ -204,16 +254,52 @@ export default function RiskHeatmapPage() {
                 <MapSkeleton />
               ) : (
                 <MapWrapper>
-                  <BaseMap center={[52.5, -1.5]} zoom={6} onMapReady={handleMapReady}>
-                    <HeatmapLayer 
-                      key={`heatmap-${resolution}-${cells.length}`}
-                      cells={cells}
-                      cellSize={cellSize}
-                      onCellClick={handleCellClick}
+                  <BaseMap center={[54, -2]} zoom={6} onMapReady={handleMapReady}>
+                    <HeatSurfaceLayer 
+                      key={`heat-${drillState.level}-${cells.length}`}
+                      points={heatPoints}
+                      radius={config.radius}
+                      blur={config.blur}
                     />
                   </BaseMap>
                 </MapWrapper>
               )}
+            </div>
+            
+            <div className="absolute top-4 right-4 z-[1100] pointer-events-auto">
+              <Card className="bg-background/95 backdrop-blur-sm shadow-lg w-48">
+                <CardContent className="p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    How to use
+                  </p>
+                  <div className="text-xs space-y-1 text-muted-foreground">
+                    {drillState.level === 'national' && (
+                      <p className="flex items-center gap-1">
+                        <ZoomIn className="h-3 w-3" />
+                        Click a hotspot to zoom in
+                      </p>
+                    )}
+                    {drillState.level === 'regional' && (
+                      <p className="flex items-center gap-1">
+                        <ZoomIn className="h-3 w-3" />
+                        Click again for local detail
+                      </p>
+                    )}
+                    {drillState.level === 'local' && (
+                      <p className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        Click to see properties
+                      </p>
+                    )}
+                    {drillState.level !== 'national' && (
+                      <p className="flex items-center gap-1">
+                        <ZoomOut className="h-3 w-3" />
+                        Use Back to zoom out
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
             
             <div className="absolute bottom-4 left-4 z-[1100] pointer-events-auto">
@@ -221,14 +307,14 @@ export default function RiskHeatmapPage() {
                 <CardContent className="p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      {resolutionLabels[resolution]} View
+                      Risk Intensity
                     </p>
                     <Badge variant="outline" className="text-[10px]">
                       {stats.totalCells} zones
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-32 h-3 rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600" />
+                    <div className="w-32 h-3 rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" />
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Low Risk</span>
@@ -244,12 +330,17 @@ export default function RiskHeatmapPage() {
                       <span className="font-medium">{stats.avgRisk}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">High risk:</span>
-                      <span className="font-medium text-destructive">{riskBreakdown.highRisk.toLocaleString()}</span>
+                      <span className="text-muted-foreground text-red-600">High risk:</span>
+                      <span className="font-medium text-red-600">{riskBreakdown.highRisk.toLocaleString()}</span>
                     </div>
-                  </div>
-                  <div className="pt-1 text-[10px] text-muted-foreground italic">
-                    Click any zone to drill down
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-amber-600">Medium:</span>
+                      <span className="font-medium text-amber-600">{riskBreakdown.mediumRisk.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-green-600">Low risk:</span>
+                      <span className="font-medium text-green-600">{riskBreakdown.lowRisk.toLocaleString()}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -274,20 +365,11 @@ export default function RiskHeatmapPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              Zone Details
+              Properties in Area
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {selectedCell && (
-                  <>
-                    <span>Risk Score:</span>
-                    <Badge variant={selectedCell.avgRisk < 60 ? 'destructive' : selectedCell.avgRisk < 85 ? 'secondary' : 'outline'}>
-                      {selectedCell.avgRisk.toFixed(0)}%
-                    </Badge>
-                    <span>•</span>
-                    <span>{selectedCell.count.toLocaleString()} properties</span>
-                  </>
-                )}
+              <div className="text-sm text-muted-foreground">
+                Showing properties near the selected location
               </div>
             </DialogDescription>
           </DialogHeader>
@@ -337,24 +419,20 @@ export default function RiskHeatmapPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertTriangle className="h-8 w-8 mb-2" />
-                <p className="text-sm">No property details available</p>
+                <p className="text-sm">No properties found in this area</p>
               </div>
             )}
           </ScrollArea>
           
-          {selectedCell && (
-            <div className="flex justify-end pt-2 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDrillDownOpen(false);
-                }}
-              >
-                Close
-              </Button>
-            </div>
-          )}
+          <div className="flex justify-end pt-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDrillDownOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
