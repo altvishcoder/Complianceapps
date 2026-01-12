@@ -413,24 +413,19 @@ export default function RiskHeatmapPage() {
               ) : zoneProperties?.properties && zoneProperties.properties.length > 0 ? (
                 <div className="space-y-2">
                   {zoneProperties.properties.map((prop) => (
-                    <div
+                    <button
                       key={prop.id}
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         setDrillDownOpen(false);
-                        navigate(`/properties/${prop.id}`);
+                        setTimeout(() => navigate(`/properties/${prop.id}`), 50);
                       }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          setDrillDownOpen(false);
-                          navigate(`/properties/${prop.id}`);
-                        }
-                      }}
-                      className="cursor-pointer select-none"
+                      className="w-full text-left cursor-pointer select-none block"
                       data-testid={`property-card-${prop.id}`}
                     >
-                      <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors border-2 hover:border-primary/50">
+                      <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors border-2 hover:border-primary/50 hover:shadow-md">
                         <CardContent className="p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
@@ -450,14 +445,14 @@ export default function RiskHeatmapPage() {
                             </div>
                             <Badge 
                               variant={prop.riskScore < 60 ? 'destructive' : prop.riskScore < 85 ? 'secondary' : 'outline'}
-                              className="flex-shrink-0 pointer-events-none"
+                              className="flex-shrink-0"
                             >
                               {prop.riskScore}%
                             </Badge>
                           </div>
                         </CardContent>
                       </Card>
-                    </div>
+                    </button>
                   ))}
                   {zoneProperties.total > zoneProperties.properties.length && (
                     <p className="text-xs text-center text-muted-foreground py-2">
