@@ -1,0 +1,189 @@
+# SocialComply - Compliance Management Platform
+
+> AI-powered compliance management for UK social housing organizations
+
+[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](./CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+
+## 🏠 Overview
+
+SocialComply streamlines compliance certificate tracking (gas safety, electrical, fire risk) and remedial action management for UK social housing providers. Built on the UKHDS 5-level asset hierarchy with AI-powered document extraction. 
+
+## ✨ Key Features
+
+- 🤖 **AI Document Extraction**:  Claude Vision processing for 45+ certificate types
+- 🏗️ **UKHDS-Aligned Architecture**: Scheme → Block → Dwelling → Space → Component
+- 📊 **Risk Radar**: Predictive compliance scoring
+- 🔐 **Enterprise Auth**: BetterAuth + SSO (Azure AD, Google, Okta, Keycloak)
+- 📈 **Real-time Monitoring**: System health dashboards and AI chatbot
+- 🔄 **External API**:  Machine-to-machine certificate ingestion
+
+## 🚀 Quick Start (Replit)
+
+### 1. **Setup Environment Variables**
+
+Click **"Secrets"** tab (🔒 icon) and add:
+
+```bash
+# Required
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+BETTER_AUTH_SECRET=<generate with: openssl rand -base64 32>
+BETTER_AUTH_URL=https://<your-repl-url>.replit.dev
+
+# Optional - AI Features
+ANTHROPIC_API_KEY=sk-ant-xxx
+
+# Optional - SSO Providers
+AZURE_CLIENT_ID=xxx
+AZURE_CLIENT_SECRET=xxx
+GOOGLE_CLIENT_ID=xxx
+GOOGLE_CLIENT_SECRET=xxx
+```
+
+### 2. **Install Dependencies**
+
+```bash
+npm install
+```
+
+### 3. **Initialize Database**
+
+```bash
+npm run db:push
+```
+
+### 4. **Seed Initial Data**
+
+```bash
+# Production (minimal seed)
+npm run seed
+
+# Demo data (for testing)
+SEED_DEMO_DATA=true npm run seed
+```
+
+### 5. **Start Development**
+
+Click the **"Run"** button or: 
+
+```bash
+npm run dev
+```
+
+### 6. **Access the Application**
+
+- **Web UI**: Opens automatically in Replit Webview
+- **API Docs**: Navigate to `/api/docs` for Swagger UI
+
+### 7. **Default Login**
+
+- **Username**: `lashan`
+- **Password**: `Lashan2025! Secure`
+
+⚠️ **Change immediately in production! **
+
+## 📁 Project Structure
+
+```
+├── client/          # React frontend (TypeScript + Vite)
+├── server/          # Express backend
+│   ├── routes/      # Modular API routes
+│   ├── services/    # Business logic
+│   └── db. ts        # Database connection
+├── shared/          # Shared types and schemas
+├── migrations/      # Database migrations
+├── docs/           # Documentation
+└── tests/          # Test suites
+```
+
+## 🛠️ Development Commands
+
+```bash
+npm run dev          # Start dev server (auto-reload)
+npm run build        # Build for production
+npm start           # Run production build
+npm run check       # TypeScript type checking
+npm run db:push     # Push schema changes
+```
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Coverage
+npm run test:coverage
+```
+
+## 🔐 Security
+
+- ✅ BetterAuth with bcrypt password hashing
+- ✅ Role-based access control (RBAC)
+- ✅ PostgreSQL-backed rate limiting
+- ✅ Helmet security headers
+- ✅ Session-based authentication
+- ✅ Sentry error tracking (production)
+
+## 📊 Database Schema
+
+- **90+ tables** organized by domain
+- **80 certificate types** across 16 compliance streams
+- **UKHDS hierarchy** with flexible space linking
+- **Drizzle ORM** with PostgreSQL
+
+## 🤝 Contributing
+
+1. Check the [CHANGELOG](./CHANGELOG.md) for recent changes
+2. Review `replit.md` for architecture details
+3. Follow TypeScript best practices
+4. Write tests for new features
+5. Update documentation
+
+## 📝 Environment Variables
+
+See `.env.example` for full list of configuration options.
+
+## 🚢 Deployment (Replit)
+
+### Automatic Deployment
+- Click **"Deploy"** button in Replit
+- Configure custom domain (optional)
+- Add production secrets
+
+### Environment-Specific Settings
+```bash
+NODE_ENV=production
+BETTER_AUTH_SECRET=<strong-random-value>
+SENTRY_DSN=<your-sentry-dsn>
+```
+
+## 📚 Documentation
+
+- [Architecture Overview](./replit. md)
+- [API Documentation](https://your-app.replit.dev/api/docs)
+- [Changelog](./CHANGELOG.md)
+
+## 🐛 Known Issues
+
+- Pre-1.0 release - some features in development
+- See GitHub Issues for tracked bugs
+
+## 📄 License
+
+MIT License - see LICENSE file
+
+## 🆘 Support
+
+- GitHub Issues:  Report bugs and feature requests
+- Documentation: Check `/docs` folder
+- API Help: Visit `/api/docs` Swagger interface
+
+---
+
+**Version**:  0.9.0 (Pre-release)  
+**Target**: UK Social Housing Compliance  
+**Built with** ❤️ on Replit
