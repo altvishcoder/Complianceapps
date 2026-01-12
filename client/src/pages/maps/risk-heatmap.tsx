@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'wouter';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MapWrapper, BaseMap, HeatSurfaceLayer, MapSkeleton } from '@/components/maps';
@@ -404,17 +405,17 @@ export default function RiskHeatmapPage() {
             ) : zoneProperties?.properties && zoneProperties.properties.length > 0 ? (
               <div className="space-y-2">
                 {zoneProperties.properties.map((prop) => (
-                  <a 
+                  <Link 
                     key={prop.id} 
                     href={`/properties/${prop.id}`}
-                    className="block hover:no-underline"
+                    className="block no-underline"
                   >
-                    <Card className="overflow-hidden hover:bg-muted/50 transition-colors cursor-pointer">
+                    <Card className="overflow-hidden hover:bg-muted/50 active:bg-muted transition-colors cursor-pointer border-2 hover:border-primary/50">
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <Building className="h-4 w-4 text-primary flex-shrink-0" />
                               <span className="font-medium text-sm truncate text-foreground">{prop.addressLine1}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -436,7 +437,7 @@ export default function RiskHeatmapPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  </a>
+                  </Link>
                 ))}
                 {zoneProperties.total > zoneProperties.properties.length && (
                   <p className="text-xs text-center text-muted-foreground py-2">
