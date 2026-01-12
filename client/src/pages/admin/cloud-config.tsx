@@ -6,12 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Cloud, Database, Shield, Brain, Check, X, AlertTriangle, 
-  Loader2, RefreshCw, HardDrive, Server, Key
+  Loader2, RefreshCw, HardDrive, Server, Key, Settings, Pencil
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface StorageProvider {
   id: string;
@@ -197,7 +201,12 @@ function ProviderCardSkeleton() {
 export default function CloudConfigPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("storage");
+  const [storageDialogOpen, setStorageDialogOpen] = useState(false);
+  const [selectedStorageProvider, setSelectedStorageProvider] = useState<string>("");
+  
+  const isSuperAdmin = user?.role === "SUPER_ADMIN" || user?.role === "LASHAN_SUPER_USER";
   
   const { data: config, isLoading, error } = useQuery<CloudConfig>({
     queryKey: ["/api/admin/cloud-config"],
@@ -229,6 +238,37 @@ export default function CloudConfigPage() {
     onError: (error) => {
       toast({
         title: "Health Check Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const updateStorageMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      const res = await fetch("/api/admin/cloud-config/storage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update storage provider");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/cloud-config"] });
+      setStorageDialogOpen(false);
+      toast({
+        title: "Storage Provider Updated",
+        description: data.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
@@ -293,20 +333,88 @@ export default function CloudConfigPage() {
                     Active: {config?.storage.activeProvider || "Loading..."}
                   </p>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => healthCheckMutation.mutate("storage")}
-                  disabled={healthCheckMutation.isPending}
-                  data-testid="btn-health-check-storage"
-                >
-                  {healthCheckMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                <div className="flex gap-2">
+                  {isSuperAdmin && (
+                    <Dialog open={storageDialogOpen} onOpenChange={setStorageDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedStorageProvider(config?.storage.activeProvider || "")}
+                          data-testid="btn-edit-storage"
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Change Provider
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Change Storage Provider</DialogTitle>
+                          <DialogDescription>
+                            Select the active storage provider for document storage. Ensure all required environment variables are configured before switching.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <Label htmlFor="storage-provider">Active Storage Provider</Label>
+                          <Select 
+                            value={selectedStorageProvider} 
+                            onValueChange={setSelectedStorageProvider}
+                          >
+                            <SelectTrigger id="storage-provider" className="mt-2" data-testid="select-storage-provider">
+                              <SelectValue placeholder="Select a provider" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {config?.storage.providers.map(provider => (
+                                <SelectItem 
+                                  key={provider.id} 
+                                  value={provider.id}
+                                  disabled={!provider.configured && provider.id !== config.storage.activeProvider}
+                                >
+                                  {provider.name} {!provider.configured && "(not configured)"}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {selectedStorageProvider && config?.storage.providers.find(p => p.id === selectedStorageProvider) && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Required env vars: {config?.storage.providers.find(p => p.id === selectedStorageProvider)?.envVarsConfigured}/
+                              {config?.storage.providers.find(p => p.id === selectedStorageProvider)?.envVarsRequired} configured
+                            </p>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setStorageDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={() => updateStorageMutation.mutate(selectedStorageProvider)}
+                            disabled={updateStorageMutation.isPending || !selectedStorageProvider}
+                            data-testid="btn-save-storage"
+                          >
+                            {updateStorageMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Save Changes
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   )}
-                  Test Connection
-                </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => healthCheckMutation.mutate("storage")}
+                    disabled={healthCheckMutation.isPending}
+                    data-testid="btn-health-check-storage"
+                  >
+                    {healthCheckMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Test Connection
+                  </Button>
+                </div>
               </div>
               
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

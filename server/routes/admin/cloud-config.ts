@@ -3,7 +3,10 @@ import { requireRole, type AuthenticatedRequest } from "../../session";
 import { getAIRegistry } from "../../services/ai/providers";
 import { getConfiguredProviders } from "../../auth";
 import { ObjectStorageService } from "../../replit_integrations/object_storage";
-import { ADMIN_ROLES } from "./utils";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES } from "./utils";
+import { db } from "../../db";
+import { factorySettings, factorySettingsAudit } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export const adminCloudConfigRouter = Router();
 
@@ -111,12 +114,18 @@ const SSO_PROVIDER_INFO: Record<string, { name: string; description: string; env
   },
 };
 
+async function getFactorySetting(key: string): Promise<string | null> {
+  const [setting] = await db.select().from(factorySettings).where(eq(factorySettings.key, key));
+  return setting?.value ?? null;
+}
+
 adminCloudConfigRouter.get("/cloud-config", requireRole(...ADMIN_ROLES), async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const aiRegistry = getAIRegistry();
     const aiProviders = aiRegistry.listProviders();
     
-    const activeStorageProvider = process.env.STORAGE_PROVIDER || "replit";
+    const storageSetting = await getFactorySetting("STORAGE_PROVIDER");
+    const activeStorageProvider = storageSetting || process.env.STORAGE_PROVIDER || "replit";
     const storageProviders = Object.entries(STORAGE_PROVIDER_INFO).map(([id, info]) => {
       const isActive = id === activeStorageProvider;
       const envVarsSet = info.envVars.filter(v => !!process.env[v]);
@@ -228,5 +237,122 @@ adminCloudConfigRouter.post("/cloud-config/health-check", requireRole(...ADMIN_R
   } catch (error) {
     console.error("Error running health check:", error);
     res.status(500).json({ error: "Failed to run health check" });
+  }
+});
+
+adminCloudConfigRouter.patch("/cloud-config/storage", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { provider } = req.body;
+    const validProviders = Object.keys(STORAGE_PROVIDER_INFO);
+    
+    if (!provider || !validProviders.includes(provider)) {
+      return res.status(400).json({ 
+        error: `Invalid provider. Valid options: ${validProviders.join(", ")}` 
+      });
+    }
+    
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(factorySettings).where(eq(factorySettings.key, "STORAGE_PROVIDER"));
+      
+      if (!existing) {
+        throw new Error("Storage provider setting not found");
+      }
+      
+      const previousValue = existing.value;
+      
+      const [updated] = await tx.update(factorySettings)
+        .set({ value: provider, updatedAt: new Date(), updatedById: req.user?.id })
+        .where(eq(factorySettings.key, "STORAGE_PROVIDER"))
+        .returning();
+      
+      await tx.insert(factorySettingsAudit).values({
+        settingId: existing.id,
+        key: "STORAGE_PROVIDER",
+        oldValue: previousValue,
+        newValue: provider,
+        changedById: req.user?.id || "system",
+      });
+      
+      return { updated, previousValue };
+    });
+    
+    res.json({ 
+      success: true, 
+      setting: result.updated,
+      message: `Storage provider changed from ${result.previousValue} to ${provider}` 
+    });
+  } catch (error: any) {
+    console.error("Error updating storage provider:", error);
+    if (error.message === "Storage provider setting not found") {
+      return res.status(404).json({ error: error.message });
+    }
+    res.status(500).json({ error: "Failed to update storage provider" });
+  }
+});
+
+adminCloudConfigRouter.patch("/cloud-config/ai", requireRole(...SUPER_ADMIN_ROLES), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { primaryProvider, fallbackEnabled } = req.body;
+    const validProviders = Object.keys(AI_PROVIDER_INFO);
+    
+    if (primaryProvider !== undefined && !validProviders.includes(primaryProvider)) {
+      return res.status(400).json({ 
+        error: `Invalid AI provider. Valid options: ${validProviders.join(", ")}` 
+      });
+    }
+    
+    const results = await db.transaction(async (tx) => {
+      const txResults: any[] = [];
+      
+      if (primaryProvider !== undefined) {
+        const [existing] = await tx.select().from(factorySettings).where(eq(factorySettings.key, "AI_PRIMARY_PROVIDER"));
+        
+        if (existing) {
+          const previousValue = existing.value;
+          await tx.update(factorySettings)
+            .set({ value: primaryProvider, updatedAt: new Date(), updatedById: req.user?.id })
+            .where(eq(factorySettings.key, "AI_PRIMARY_PROVIDER"));
+          
+          await tx.insert(factorySettingsAudit).values({
+            settingId: existing.id,
+            key: "AI_PRIMARY_PROVIDER",
+            oldValue: previousValue,
+            newValue: primaryProvider,
+            changedById: req.user?.id || "system",
+          });
+          
+          txResults.push({ key: "AI_PRIMARY_PROVIDER", updated: true });
+        }
+      }
+      
+      if (fallbackEnabled !== undefined) {
+        const [existing] = await tx.select().from(factorySettings).where(eq(factorySettings.key, "AI_FALLBACK_ENABLED"));
+        
+        if (existing) {
+          const previousValue = existing.value;
+          const newValue = String(fallbackEnabled);
+          await tx.update(factorySettings)
+            .set({ value: newValue, updatedAt: new Date(), updatedById: req.user?.id })
+            .where(eq(factorySettings.key, "AI_FALLBACK_ENABLED"));
+          
+          await tx.insert(factorySettingsAudit).values({
+            settingId: existing.id,
+            key: "AI_FALLBACK_ENABLED",
+            oldValue: previousValue,
+            newValue,
+            changedById: req.user?.id || "system",
+          });
+          
+          txResults.push({ key: "AI_FALLBACK_ENABLED", updated: true });
+        }
+      }
+      
+      return txResults;
+    });
+    
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error("Error updating AI settings:", error);
+    res.status(500).json({ error: "Failed to update AI settings" });
   }
 });
