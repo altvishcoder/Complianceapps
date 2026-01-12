@@ -44,6 +44,7 @@ export class DatabaseStorage implements IStorage {
   updateBlock = this.properties.updateBlock.bind(this.properties);
   deleteBlock = this.properties.deleteBlock.bind(this.properties);
   listProperties = this.properties.listProperties.bind(this.properties);
+  listPropertiesPaginated = this.properties.listPropertiesPaginated.bind(this.properties);
   getProperty = this.properties.getProperty.bind(this.properties);
   createProperty = this.properties.createProperty.bind(this.properties);
   updateProperty = this.properties.updateProperty.bind(this.properties);

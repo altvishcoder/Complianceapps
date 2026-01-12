@@ -168,6 +168,53 @@ export class PropertiesStorage implements IPropertiesStorage {
       .where(eq(schemes.organisationId, organisationId))
       .then(results => results.map(r => r.properties));
   }
+
+  async listPropertiesPaginated(organisationId: string, options: { 
+    blockId?: string; 
+    schemeId?: string; 
+    search?: string; 
+    complianceStatus?: string; 
+    limit: number; 
+    offset: number 
+  }): Promise<{ data: Property[]; total: number }> {
+    const conditions: any[] = [eq(schemes.organisationId, organisationId)];
+    
+    if (options.blockId) {
+      conditions.push(eq(properties.blockId, options.blockId));
+    }
+    if (options.schemeId) {
+      conditions.push(eq(blocks.schemeId, options.schemeId));
+    }
+    if (options.search) {
+      const searchPattern = `%${options.search}%`;
+      conditions.push(or(
+        ilike(properties.addressLine1, searchPattern),
+        ilike(properties.postcode, searchPattern),
+        ilike(properties.name, searchPattern)
+      ));
+    }
+    if (options.complianceStatus) {
+      conditions.push(eq(properties.complianceStatus, options.complianceStatus));
+    }
+
+    const [countResult] = await db.select({ count: count() })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(...conditions));
+    const total = countResult?.count || 0;
+
+    const results = await db.select({ properties })
+      .from(properties)
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(...conditions))
+      .orderBy(desc(properties.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    return { data: results.map(r => r.properties), total };
+  }
   
   async getProperty(id: string): Promise<Property | undefined> {
     const [property] = await db.select().from(properties).where(eq(properties.id, id));

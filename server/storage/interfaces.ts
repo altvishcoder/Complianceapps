@@ -107,6 +107,7 @@ export interface IPropertiesStorage {
   deleteBlock(id: string): Promise<boolean>;
   
   listProperties(organisationId: string, filters?: { blockId?: string; schemeId?: string }): Promise<Property[]>;
+  listPropertiesPaginated(organisationId: string, options: { blockId?: string; schemeId?: string; search?: string; complianceStatus?: string; limit: number; offset: number }): Promise<{ data: Property[]; total: number }>;
   getProperty(id: string): Promise<Property | undefined>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, updates: Partial<InsertProperty>): Promise<Property | undefined>;
