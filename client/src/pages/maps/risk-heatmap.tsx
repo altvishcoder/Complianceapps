@@ -131,8 +131,8 @@ export default function RiskHeatmapPage() {
             </Button>
           </div>
           
-          <div className="flex-1 flex min-h-[75vh] md:min-h-[600px]">
-            <div className="flex-1 relative min-h-[75vh] md:min-h-[600px]">
+          <div className="flex-1 min-h-[75vh] md:min-h-[600px] relative overflow-hidden">
+            <div className="absolute inset-0">
               {isLoading && cells.length === 0 ? (
                 <MapSkeleton />
               ) : (
@@ -145,51 +145,51 @@ export default function RiskHeatmapPage() {
                   </BaseMap>
                 </MapWrapper>
               )}
-              
-              <div className="absolute bottom-4 left-4 z-[1000]">
-                <Card className="bg-background/95 backdrop-blur-sm shadow-lg">
-                  <CardContent className="p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Heat Intensity</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 h-3 rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600" />
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Low Risk</span>
-                      <span>High Risk</span>
-                    </div>
-                    <div className="pt-2 border-t text-xs space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Grid cells:</span>
-                        <span className="font-medium">{stats.totalCells.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Properties covered:</span>
-                        <span className="font-medium">{stats.totalProperties.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Avg risk score:</span>
-                        <span className="font-medium">{stats.avgRisk}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">High risk areas:</span>
-                        <span className="font-medium text-destructive">{riskBreakdown.highRisk.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {!isLoading && cells.length === 0 && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-none">
-                  <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 text-sm text-center max-w-xs">
-                    <p className="font-medium text-foreground">No data to display</p>
-                    <p className="text-muted-foreground">
-                      No properties with geo-coordinates found.
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
+            
+            <div className="absolute bottom-4 left-4 z-[1100] pointer-events-auto">
+              <Card className="bg-background/95 backdrop-blur-sm shadow-lg">
+                <CardContent className="p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Heat Intensity</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-32 h-3 rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600" />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Low Risk</span>
+                    <span>High Risk</span>
+                  </div>
+                  <div className="pt-2 border-t text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Grid cells:</span>
+                      <span className="font-medium">{stats.totalCells.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Properties covered:</span>
+                      <span className="font-medium">{stats.totalProperties.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Avg risk score:</span>
+                      <span className="font-medium">{stats.avgRisk}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">High risk areas:</span>
+                      <span className="font-medium text-destructive">{riskBreakdown.highRisk.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {!isLoading && cells.length === 0 && (
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1100] pointer-events-none">
+                <div className="bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 text-sm text-center max-w-xs">
+                  <p className="font-medium text-foreground">No data to display</p>
+                  <p className="text-muted-foreground">
+                    No properties with geo-coordinates found.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
