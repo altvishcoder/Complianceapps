@@ -145,33 +145,27 @@ export default function RiskHeatmapPage() {
     return { highRisk, mediumRisk, lowRisk };
   }, [cells]);
 
-  const showPropertyMarkers = drillState.level === 'local' || drillState.level === 'regional';
-  
   const { data: propertyMarkersWithCoords } = useQuery<PropertyMarker[]>({
-    queryKey: ['property-markers-coords', drillState.bounds],
+    queryKey: ['property-markers-all'],
     queryFn: async () => {
-      if (!drillState.bounds) return [];
       const userId = localStorage.getItem('user_id');
-      const { minLat, maxLat, minLng, maxLng } = drillState.bounds;
-      const res = await fetch(
-        `/api/properties/geo/zone?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}&limit=200`,
-        { headers: { 'X-User-Id': userId || '' } }
-      );
+      const res = await fetch('/api/properties/geo', {
+        headers: { 'X-User-Id': userId || '' }
+      });
       if (!res.ok) return [];
       const data = await res.json();
-      return data.properties
-        .filter((p: any) => p.latitude && p.longitude)
+      return data
+        .filter((p: any) => p.lat && p.lng)
         .map((p: any) => ({
           id: String(p.id),
-          name: p.addressLine1 || 'Property',
-          address: p.postcode,
-          lat: p.latitude,
-          lng: p.longitude,
+          name: p.name || 'Property',
+          address: p.address,
+          lat: parseFloat(p.lat),
+          lng: parseFloat(p.lng),
           riskScore: p.riskScore || 75,
           assetType: 'property' as const
         }));
     },
-    enabled: showPropertyMarkers && !!drillState.bounds,
     staleTime: 60000,
   });
 
@@ -319,7 +313,7 @@ export default function RiskHeatmapPage() {
                       radius={config.radius}
                       blur={config.blur}
                     />
-                    {showPropertyMarkers && propertyMarkersWithCoords && propertyMarkersWithCoords.length > 0 && (
+                    {propertyMarkersWithCoords && propertyMarkersWithCoords.length > 0 && (
                       <PropertyMarkers 
                         properties={propertyMarkersWithCoords}
                         onPropertyClick={handlePropertyMarkerClick}
