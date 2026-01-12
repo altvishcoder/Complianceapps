@@ -382,33 +382,39 @@ export default function RiskHeatmapPage() {
             ) : zoneProperties?.properties && zoneProperties.properties.length > 0 ? (
               <div className="space-y-2">
                 {zoneProperties.properties.map((prop) => (
-                  <Card key={prop.id} className="overflow-hidden">
-                    <CardContent className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="font-medium text-sm truncate">{prop.addressLine1}</span>
+                  <a 
+                    key={prop.id} 
+                    href={`/properties/${prop.id}`}
+                    className="block hover:no-underline"
+                  >
+                    <Card className="overflow-hidden hover:bg-muted/50 transition-colors cursor-pointer">
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="font-medium text-sm truncate text-foreground">{prop.addressLine1}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <span>{prop.postcode}</span>
+                              {prop.uprn && (
+                                <>
+                                  <span>•</span>
+                                  <span>UPRN: {prop.uprn}</span>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <span>{prop.postcode}</span>
-                            {prop.uprn && (
-                              <>
-                                <span>•</span>
-                                <span>UPRN: {prop.uprn}</span>
-                              </>
-                            )}
-                          </div>
+                          <Badge 
+                            variant={prop.riskScore < 60 ? 'destructive' : prop.riskScore < 85 ? 'secondary' : 'outline'}
+                            className="flex-shrink-0"
+                          >
+                            {prop.riskScore}%
+                          </Badge>
                         </div>
-                        <Badge 
-                          variant={prop.riskScore < 60 ? 'destructive' : prop.riskScore < 85 ? 'secondary' : 'outline'}
-                          className="flex-shrink-0"
-                        >
-                          {prop.riskScore}%
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </a>
                 ))}
                 {zoneProperties.total > zoneProperties.properties.length && (
                   <p className="text-xs text-center text-muted-foreground py-2">
