@@ -106,13 +106,29 @@ export default function RiskHeatmapPage() {
   }, [cells]);
 
   const { data: zoneProperties, isLoading: loadingZoneProps } = useQuery<ZonePropertiesResponse>({
-    queryKey: ['zone-properties', selectedPoint?.lat, selectedPoint?.lng],
+    queryKey: ['zone-properties', selectedPoint?.lat, selectedPoint?.lng, drillState.bounds?.minLat],
     queryFn: async () => {
       if (!selectedPoint) return { properties: [], total: 0 };
       const userId = localStorage.getItem('user_id');
-      const spread = 0.05;
+      
+      let minLat: number, maxLat: number, minLng: number, maxLng: number;
+      if (drillState.bounds) {
+        const latRange = (drillState.bounds.maxLat - drillState.bounds.minLat) / 4;
+        const lngRange = (drillState.bounds.maxLng - drillState.bounds.minLng) / 4;
+        minLat = selectedPoint.lat - latRange;
+        maxLat = selectedPoint.lat + latRange;
+        minLng = selectedPoint.lng - lngRange;
+        maxLng = selectedPoint.lng + lngRange;
+      } else {
+        const spread = 0.2;
+        minLat = selectedPoint.lat - spread;
+        maxLat = selectedPoint.lat + spread;
+        minLng = selectedPoint.lng - spread;
+        maxLng = selectedPoint.lng + spread;
+      }
+      
       const res = await fetch(
-        `/api/properties/geo/zone?minLat=${selectedPoint.lat - spread}&maxLat=${selectedPoint.lat + spread}&minLng=${selectedPoint.lng - spread}&maxLng=${selectedPoint.lng + spread}&limit=50`,
+        `/api/properties/geo/zone?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}&limit=50`,
         { headers: { 'X-User-Id': userId || '' } }
       );
       if (!res.ok) return { properties: [], total: 0 };
