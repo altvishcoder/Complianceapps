@@ -65,19 +65,31 @@ export default function RiskHeatmapPage() {
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || cells.length === 0) return;
+    if (!mapRef.current || cells.length === 0 || cellSize.latStep === 0) return;
     
-    const minLat = Math.min(...cells.map(c => c.lat));
-    const maxLat = Math.max(...cells.map(c => c.lat));
-    const minLng = Math.min(...cells.map(c => c.lng));
-    const maxLng = Math.max(...cells.map(c => c.lng));
+    const map = mapRef.current;
     
-    const bounds = L.latLngBounds(
-      [minLat - cellSize.latStep, minLng - cellSize.lngStep],
-      [maxLat + cellSize.latStep, maxLng + cellSize.lngStep]
-    );
+    const timeoutId = setTimeout(() => {
+      try {
+        const minLat = Math.min(...cells.map(c => c.lat));
+        const maxLat = Math.max(...cells.map(c => c.lat));
+        const minLng = Math.min(...cells.map(c => c.lng));
+        const maxLng = Math.max(...cells.map(c => c.lng));
+        
+        const bounds = L.latLngBounds(
+          [minLat - cellSize.latStep, minLng - cellSize.lngStep],
+          [maxLat + cellSize.latStep, maxLng + cellSize.lngStep]
+        );
+        
+        if (map && bounds.isValid()) {
+          map.fitBounds(bounds, { maxZoom: 12, padding: [20, 20] });
+        }
+      } catch (e) {
+        console.warn('Failed to fit bounds:', e);
+      }
+    }, 100);
     
-    mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: [20, 20] });
+    return () => clearTimeout(timeoutId);
   }, [cells, cellSize]);
 
   return (
