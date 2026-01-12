@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import * as LucideIcons from "lucide-react";
 import { 
-  ShieldCheck,
   AlertTriangle,
   LogOut,
   ChevronRight,
@@ -16,6 +15,7 @@ import {
   Star,
   Pin
 } from "lucide-react";
+import { SocialComplyLogo, SocialComplyLogoSimple } from "@/components/icons/SocialComplyLogo";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -425,18 +425,18 @@ export function Sidebar() {
         data-testid="sidebar-content"
       >
         <div className="flex h-20 items-center px-6 border-b border-slate-200 dark:border-white/5">
-          <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             <div className="relative" aria-hidden="true">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl blur-lg opacity-60"></div>
-              <div className="relative bg-gradient-to-br from-emerald-500 to-green-600 p-2.5 rounded-xl">
-                <ShieldCheck className="h-6 w-6 text-white" />
+              <div className="relative bg-gradient-to-br from-emerald-500 to-green-600 p-2 rounded-xl">
+                <SocialComplyLogo className="h-7 w-7" />
               </div>
             </div>
             <div>
               <span className="text-xl font-display font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">SocialComply</span>
               <p className="text-xs text-slate-500 font-medium">Enterprise Platform</p>
             </div>
-          </div>
+          </Link>
         </div>
         
         <div ref={navScrollRef} className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
@@ -570,7 +570,7 @@ export function Sidebar() {
               {emergencyHazards === 0 && overdueCerts === 0 && (
                 <div className="flex items-center gap-3 px-3 py-3 text-sm rounded-xl bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
                   <div className="p-1.5 rounded-lg bg-emerald-500/20">
-                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                    <SocialComplyLogoSimple className="h-4 w-4 text-emerald-400" />
                   </div>
                   <div>
                     <p className="text-emerald-300 font-medium">All Clear</p>
