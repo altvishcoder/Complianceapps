@@ -63,6 +63,7 @@ export class DatabaseStorage implements IStorage {
 
   listCertificates = this.certificates.listCertificates.bind(this.certificates);
   listCertificatesCursor = this.certificates.listCertificatesCursor.bind(this.certificates);
+  listCertificatesPaginated = this.certificates.listCertificatesPaginated.bind(this.certificates);
   getCertificate = this.certificates.getCertificate.bind(this.certificates);
   createCertificate = this.certificates.createCertificate.bind(this.certificates);
   updateCertificate = this.certificates.updateCertificate.bind(this.certificates);

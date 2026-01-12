@@ -91,6 +91,71 @@ export class CertificatesStorage implements ICertificatesStorage {
     return { data, nextCursor, hasMore };
   }
   
+  async listCertificatesPaginated(organisationId: string, options: { 
+    propertyId?: string; 
+    status?: string | string[]; 
+    search?: string; 
+    limit: number; 
+    offset: number;
+    types?: string[];
+    expired?: boolean;
+    expiring?: boolean;
+  }): Promise<{ 
+    data: (Certificate & { property?: Property; extraction?: Extraction })[]; 
+    total: number 
+  }> {
+    const conditions: any[] = [eq(certificates.organisationId, organisationId)];
+    
+    if (options.propertyId) {
+      conditions.push(eq(certificates.propertyId, options.propertyId));
+    }
+    if (options.status) {
+      if (Array.isArray(options.status)) {
+        conditions.push(inArray(certificates.status, options.status as any[]));
+      } else {
+        conditions.push(eq(certificates.status, options.status as any));
+      }
+    }
+    if (options.search) {
+      const searchPattern = `%${options.search}%`;
+      conditions.push(or(
+        ilike(certificates.type, searchPattern),
+        ilike(certificates.originalFilename, searchPattern)
+      ));
+    }
+    if (options.types && options.types.length > 0) {
+      conditions.push(sql`${certificates.certificateType}::text = ANY(${`{${options.types.join(',')}}`}::text[])`);
+    }
+    if (options.expired) {
+      conditions.push(sql`${certificates.expiryDate}::date < CURRENT_DATE`);
+    }
+    if (options.expiring) {
+      conditions.push(sql`${certificates.expiryDate}::date >= CURRENT_DATE AND ${certificates.expiryDate}::date < CURRENT_DATE + INTERVAL '30 days'`);
+    }
+
+    const [countResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(certificates)
+      .where(and(...conditions));
+    const total = Number(countResult?.count || 0);
+
+    const rows = await db.select()
+      .from(certificates)
+      .leftJoin(properties, eq(certificates.propertyId, properties.id))
+      .leftJoin(extractions, eq(extractions.certificateId, certificates.id))
+      .where(and(...conditions))
+      .orderBy(desc(certificates.createdAt))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    const data = rows.map(row => ({
+      ...row.certificates,
+      property: row.properties || undefined,
+      extraction: row.extractions || undefined
+    }));
+
+    return { data, total };
+  }
+
   async getCertificate(id: string): Promise<Certificate | undefined> {
     const [cert] = await db.select().from(certificates).where(eq(certificates.id, id));
     return cert || undefined;

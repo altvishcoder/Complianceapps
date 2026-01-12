@@ -135,6 +135,7 @@ export interface IPropertiesStorage {
 export interface ICertificatesStorage {
   listCertificates(organisationId: string, filters?: { propertyId?: string; status?: string }): Promise<Certificate[]>;
   listCertificatesCursor(organisationId: string, options: { propertyId?: string; status?: string | string[]; search?: string; limit: number; cursor?: string }): Promise<{ data: (Certificate & { property?: Property; extraction?: Extraction })[]; nextCursor: string | null; hasMore: boolean }>;
+  listCertificatesPaginated(organisationId: string, options: { propertyId?: string; status?: string | string[]; search?: string; limit: number; offset: number; types?: string[]; expired?: boolean; expiring?: boolean }): Promise<{ data: (Certificate & { property?: Property; extraction?: Extraction })[]; total: number }>;
   getCertificate(id: string): Promise<Certificate | undefined>;
   createCertificate(certificate: InsertCertificate): Promise<Certificate>;
   updateCertificate(id: string, updates: Partial<InsertCertificate>): Promise<Certificate | undefined>;
