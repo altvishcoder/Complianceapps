@@ -417,15 +417,27 @@ propertiesRouter.get("/properties/:id", async (req: AuthenticatedRequest, res: R
       return res.status(404).json({ error: "Property not found" });
     }
     
-    const block = property.blockId ? await storage.getBlock(property.blockId) : null;
-    const scheme = block?.schemeId ? await storage.getScheme(block.schemeId) : null;
-    const certificates = await storage.listCertificates(orgId, { propertyId: property.id });
-    const actions = await storage.listRemedialActions(orgId, { propertyId: property.id });
-    const componentsList = await storage.listComponents({ propertyId: property.id });
+    const [block, certificates, actions, componentsList] = await Promise.all([
+      property.blockId ? storage.getBlock(property.blockId) : Promise.resolve(null),
+      storage.listCertificates(orgId, { propertyId: property.id }),
+      storage.listRemedialActions(orgId, { propertyId: property.id }),
+      storage.listComponents({ propertyId: property.id }),
+    ]);
     
-    const components = await Promise.all(componentsList.map(async (comp) => {
-      const type = await storage.getComponentType(comp.componentTypeId);
-      return { ...comp, componentType: type };
+    const scheme = block?.schemeId ? await storage.getScheme(block.schemeId) : null;
+    
+    const uniqueTypeIds = [...new Set(componentsList.map(c => c.componentTypeId).filter(Boolean))];
+    const componentTypesMap = new Map<string, any>();
+    if (uniqueTypeIds.length > 0) {
+      const types = await Promise.all(uniqueTypeIds.map(id => storage.getComponentType(id)));
+      uniqueTypeIds.forEach((id, idx) => {
+        if (types[idx]) componentTypesMap.set(id, types[idx]);
+      });
+    }
+    
+    const components = componentsList.map(comp => ({
+      ...comp,
+      componentType: comp.componentTypeId ? componentTypesMap.get(comp.componentTypeId) : null
     }));
     
     res.json({
