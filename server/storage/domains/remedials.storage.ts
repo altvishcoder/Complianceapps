@@ -5,7 +5,7 @@ import type { IRemedialsStorage } from "../interfaces";
 
 export class RemedialsStorage implements IRemedialsStorage {
   async listRemedialActions(organisationId: string, filters?: { propertyId?: string; status?: string; certificateId?: string }): Promise<RemedialAction[]> {
-    const conditions = [eq(remedialActions.organisationId, organisationId)];
+    const conditions = [eq(schemes.organisationId, organisationId)];
     if (filters?.propertyId) {
       conditions.push(eq(remedialActions.propertyId, filters.propertyId));
     }
@@ -15,7 +15,14 @@ export class RemedialsStorage implements IRemedialsStorage {
     if (filters?.certificateId) {
       conditions.push(eq(remedialActions.certificateId, filters.certificateId));
     }
-    return db.select().from(remedialActions).where(and(...conditions)).orderBy(desc(remedialActions.createdAt));
+    const items = await db.select({ remedialActions })
+      .from(remedialActions)
+      .innerJoin(properties, eq(remedialActions.propertyId, properties.id))
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(...conditions))
+      .orderBy(desc(remedialActions.createdAt));
+    return items.map(i => i.remedialActions);
   }
   
   async listRemedialActionsPaginated(organisationId: string, options: {
@@ -31,7 +38,7 @@ export class RemedialsStorage implements IRemedialsStorage {
     certificateType?: string;
     excludeCompleted?: boolean;
   }): Promise<{ items: RemedialAction[]; total: number }> {
-    const conditions: any[] = [eq(remedialActions.organisationId, organisationId)];
+    const conditions: any[] = [eq(schemes.organisationId, organisationId)];
     
     if (options.status) {
       conditions.push(eq(remedialActions.status, options.status as any));
@@ -65,17 +72,25 @@ export class RemedialsStorage implements IRemedialsStorage {
       ));
     }
     
-    const [countResult] = await db.select({ count: count() }).from(remedialActions).where(and(...conditions));
+    const [countResult] = await db.select({ count: count() })
+      .from(remedialActions)
+      .innerJoin(properties, eq(remedialActions.propertyId, properties.id))
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
+      .where(and(...conditions));
     const total = countResult?.count || 0;
     
-    const items = await db.select()
+    const items = await db.select({ remedialActions })
       .from(remedialActions)
+      .innerJoin(properties, eq(remedialActions.propertyId, properties.id))
+      .innerJoin(blocks, eq(properties.blockId, blocks.id))
+      .innerJoin(schemes, eq(blocks.schemeId, schemes.id))
       .where(and(...conditions))
       .orderBy(desc(remedialActions.createdAt))
       .limit(options.limit)
       .offset(options.offset);
     
-    return { items, total };
+    return { items: items.map(i => i.remedialActions), total };
   }
   
   async getRemedialAction(id: string): Promise<RemedialAction | undefined> {
