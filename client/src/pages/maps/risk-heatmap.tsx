@@ -10,12 +10,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getIcon } from '@/config/icons';
 import { ContextBackButton } from '@/components/navigation/ContextBackButton';
+import { PropertyHomeIcon } from '@/components/icons/SocialComplyLogo';
 import L from 'leaflet';
 
 const RefreshCcw = getIcon('RefreshCcw');
 const Flame = getIcon('Flame');
 const MapPin = getIcon('MapPin');
-const Building = getIcon('Building');
 const AlertTriangle = getIcon('AlertTriangle');
 const ZoomIn = getIcon('ZoomIn');
 const ZoomOut = getIcon('ZoomOut');
@@ -156,6 +156,11 @@ export default function RiskHeatmapPage() {
     const handleClick = (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
       
+      // Always show properties popup on click - allows direct access
+      setSelectedPoint({ lat, lng });
+      setDrillDownOpen(true);
+      
+      // Also zoom in if not at local level for better context
       if (drillState.level === 'national') {
         const spread = 2;
         setDrillState({
@@ -163,7 +168,7 @@ export default function RiskHeatmapPage() {
           bounds: { minLat: lat - spread, maxLat: lat + spread, minLng: lng - spread * 1.5, maxLng: lng + spread * 1.5 },
           center: { lat, lng }
         });
-        map.flyTo([lat, lng], 8, { duration: 0.8 });
+        map.flyTo([lat, lng], 10, { duration: 0.8 });
       } else if (drillState.level === 'regional') {
         const spread = 0.5;
         setDrillState({
@@ -171,10 +176,7 @@ export default function RiskHeatmapPage() {
           bounds: { minLat: lat - spread, maxLat: lat + spread, minLng: lng - spread * 1.5, maxLng: lng + spread * 1.5 },
           center: { lat, lng }
         });
-        map.flyTo([lat, lng], 11, { duration: 0.8 });
-      } else {
-        setSelectedPoint({ lat, lng });
-        setDrillDownOpen(true);
+        map.flyTo([lat, lng], 13, { duration: 0.8 });
       }
     };
 
@@ -430,7 +432,7 @@ export default function RiskHeatmapPage() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <Building className="h-4 w-4 text-primary flex-shrink-0" />
+                                <PropertyHomeIcon className="h-4 w-4 text-primary flex-shrink-0" />
                                 <span className="font-medium text-sm truncate text-foreground">{prop.addressLine1}</span>
                               </div>
                               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">

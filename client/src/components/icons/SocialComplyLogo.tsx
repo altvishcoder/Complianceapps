@@ -90,3 +90,43 @@ export const SocialComplyLogoSimple = forwardRef<SVGSVGElement, SocialComplyLogo
 );
 
 SocialComplyLogoSimple.displayName = 'SocialComplyLogoSimple';
+
+export const PropertyHomeIcon = forwardRef<SVGSVGElement, SocialComplyLogoProps>(
+  ({ className, ...props }, ref) => (
+    <svg
+      ref={ref}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <path
+        d="M3 10.5L12 3l9 7.5v10.5a1 1 0 01-1 1H4a1 1 0 01-1-1V10.5z"
+        fill="url(#homeGradient)"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 21V12h6v9"
+        stroke="white"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <rect x="6" y="8" width="3" height="2.5" rx="0.5" fill="white" fillOpacity="0.7" />
+      <rect x="15" y="8" width="3" height="2.5" rx="0.5" fill="white" fillOpacity="0.7" />
+      <defs>
+        <linearGradient id="homeGradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#3b82f6" />
+          <stop offset="1" stopColor="#1d4ed8" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+);
+
+PropertyHomeIcon.displayName = 'PropertyHomeIcon';
