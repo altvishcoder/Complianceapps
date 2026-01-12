@@ -400,7 +400,7 @@ export function Sidebar() {
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 shadow-lg border border-slate-200 dark:border-transparent"
+        className="fixed top-4 left-4 z-[1300] md:hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 shadow-lg border border-slate-200 dark:border-transparent"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         aria-label={isMobileOpen ? "Close menu" : "Open menu"}
         data-testid="button-mobile-menu"
@@ -410,7 +410,7 @@ export function Sidebar() {
       
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-[1200] md:hidden"
           onClick={() => setIsMobileOpen(false)}
           aria-hidden="true"
         />
@@ -418,7 +418,7 @@ export function Sidebar() {
       
       <aside 
         className={cn(
-          "fixed md:relative z-40 flex h-screen w-72 flex-col bg-white dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-white border-r border-slate-200 dark:border-white/5 transition-transform duration-300 ease-in-out",
+          "fixed md:relative z-[1250] flex h-screen w-72 flex-col bg-white dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-white border-r border-slate-200 dark:border-white/5 transition-transform duration-300 ease-in-out",
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
         aria-label="Main navigation"
