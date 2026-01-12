@@ -276,16 +276,19 @@ export default function RiskHeatmapPage() {
               <MapPin className="h-5 w-5 text-primary" />
               Zone Details
             </DialogTitle>
-            <DialogDescription>
-              {selectedCell && (
-                <span className="flex items-center gap-2">
-                  Risk Score: <Badge variant={selectedCell.avgRisk < 60 ? 'destructive' : selectedCell.avgRisk < 85 ? 'secondary' : 'outline'}>
-                    {selectedCell.avgRisk.toFixed(0)}%
-                  </Badge>
-                  <span className="text-muted-foreground">•</span>
-                  {selectedCell.count.toLocaleString()} properties in zone
-                </span>
-              )}
+            <DialogDescription asChild>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {selectedCell && (
+                  <>
+                    <span>Risk Score:</span>
+                    <Badge variant={selectedCell.avgRisk < 60 ? 'destructive' : selectedCell.avgRisk < 85 ? 'secondary' : 'outline'}>
+                      {selectedCell.avgRisk.toFixed(0)}%
+                    </Badge>
+                    <span>•</span>
+                    <span>{selectedCell.count.toLocaleString()} properties</span>
+                  </>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           
