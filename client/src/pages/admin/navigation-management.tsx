@@ -145,7 +145,7 @@ export default function AdminNavigationManagement() {
   });
 
   const handleRoleToggle = (itemId: string, role: string, currentRoles: string[]) => {
-    const existingChanges = pendingChanges[itemId] ?? currentRoles;
+    const existingChanges = pendingChanges[itemId] ?? currentRoles ?? [];
     const newRoles = existingChanges.includes(role)
       ? existingChanges.filter(r => r !== role)
       : [...existingChanges, role];
@@ -169,7 +169,7 @@ export default function AdminNavigationManagement() {
   };
 
   const getEffectiveRoles = (item: NavigationItem): string[] => {
-    return pendingChanges[item.id] ?? item.allowedRoles;
+    return pendingChanges[item.id] ?? item.allowedRoles ?? [];
   };
 
   const hasChanges = Object.keys(pendingChanges).length > 0;
