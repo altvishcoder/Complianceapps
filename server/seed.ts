@@ -361,8 +361,13 @@ async function seedConfiguration() {
   
   console.log("🔧 Seeding/updating configuration data (upsert mode)...");
   
-  // ==================== COMPLIANCE STREAMS ====================
-  // Comprehensive compliance streams covering all UK social housing regulations
+  // Shared context for all configuration sections (populated by compliance streams)
+  let streamCodeToId: Record<string, string> = {};
+  let documentTypeToStreamCode: Record<string, string> = {};
+  let classificationCodeToStreamCode: Record<string, string> = {};
+  
+  // ==================== COMPLIANCE STREAMS (critical - must succeed) ====================
+  // This section must succeed as it provides the context for all other sections
   const streamsData = [
     { code: "GAS_HEATING", name: "Gas & Heating Safety", description: "Gas safety, boilers, oil, LPG, solid fuel, heat pumps per Gas Safety Regulations 1998", colorCode: "#EF4444", iconName: "Flame", isSystem: true, isActive: true, displayOrder: 1 },
     { code: "ELECTRICAL", name: "Electrical Safety", description: "Electrical installations, testing, PAT per Electrical Safety Standards Regulations 2020", colorCode: "#F59E0B", iconName: "Zap", isSystem: true, isActive: true, displayOrder: 2 },
@@ -401,13 +406,12 @@ async function seedConfiguration() {
   
   // Fetch all streams to get their IDs for linking
   const allStreams = await db.select().from(complianceStreams);
-  const streamCodeToId: Record<string, string> = {};
   for (const stream of allStreams) {
     streamCodeToId[stream.code] = stream.id;
   }
   
   // Document type to stream code mapping (used for extraction schemas, compliance rules, etc.)
-  const documentTypeToStreamCode: Record<string, string> = {
+  documentTypeToStreamCode = {
     // Gas & Heating
     "GAS": "GAS_HEATING", "GAS_SVC": "GAS_HEATING", "OIL": "GAS_HEATING", "OIL_TANK": "GAS_HEATING",
     "LPG": "GAS_HEATING", "SOLID": "GAS_HEATING", "BIO": "GAS_HEATING", "HVAC": "GAS_HEATING",
@@ -443,7 +447,7 @@ async function seedConfiguration() {
   };
   
   // Classification code to stream code mapping (based on which certificate types use these codes)
-  const classificationCodeToStreamCode: Record<string, string> = {
+  classificationCodeToStreamCode = {
     // Gas Safety codes
     "ID": "GAS_HEATING", "AR": "GAS_HEATING", "NCS": "GAS_HEATING",
     // EICR codes
@@ -593,27 +597,33 @@ async function seedConfiguration() {
     { code: "LIFT_LOLER", name: "Lift Thorough Examination (LOLER)", shortName: "Lift/LOLER", complianceStream: "LIFTING", description: "Six-monthly lift inspection under LOLER 1998", validityMonths: 6, warningDays: 30, requiredFields: ["examinationDate", "engineerName", "liftId", "safeForUse", "nextExaminationDate"], displayOrder: 134, isActive: true }
   ];
   
-  for (const certType of certTypesData) {
-    const streamId = streamCodeToId[certType.complianceStream] || null;
-    await db.insert(certificateTypes).values({ ...certType, streamId })
-      .onConflictDoUpdate({
-        target: certificateTypes.code,
-        set: {
-          name: certType.name,
-          shortName: certType.shortName,
-          complianceStream: certType.complianceStream,
-          streamId: streamId,
-          description: certType.description,
-          validityMonths: certType.validityMonths,
-          warningDays: certType.warningDays,
-          requiredFields: certType.requiredFields,
-          displayOrder: certType.displayOrder,
-          isActive: certType.isActive,
-          updatedAt: new Date()
-        }
-      });
+  try {
+    for (const certType of certTypesData) {
+      const streamId = streamCodeToId[certType.complianceStream] || null;
+      await db.insert(certificateTypes).values({ ...certType, streamId })
+        .onConflictDoUpdate({
+          target: certificateTypes.code,
+          set: {
+            name: certType.name,
+            shortName: certType.shortName,
+            complianceStream: certType.complianceStream,
+            streamId: streamId,
+            description: certType.description,
+            validityMonths: certType.validityMonths,
+            warningDays: certType.warningDays,
+            requiredFields: certType.requiredFields,
+            displayOrder: certType.displayOrder,
+            isActive: certType.isActive,
+            updatedAt: new Date()
+          }
+        });
+    }
+    console.log(`✓ Upserted ${certTypesData.length} certificate types with stream links`);
+    results.push({ section: "Certificate Types", success: true });
+  } catch (error) {
+    console.error("⚠️ Error seeding certificate types:", error);
+    results.push({ section: "Certificate Types", success: false, error: String(error) });
   }
-  console.log(`✓ Upserted ${certTypesData.length} certificate types with stream links`);
   
   // ==================== CLASSIFICATION CODES ====================
   // Comprehensive defect/risk classification codes for all certificate types with remedial action settings
@@ -724,13 +734,19 @@ async function seedConfiguration() {
   ];
   
   // Delete existing and re-insert (classification codes don't have unique constraint on code alone)
-  await db.delete(classificationCodes);
-  const classificationCodesWithStream = classificationCodesData.map(code => ({
-    ...code,
-    complianceStreamId: classificationCodeToStreamCode[code.code] ? streamCodeToId[classificationCodeToStreamCode[code.code]] : null
-  }));
-  await db.insert(classificationCodes).values(classificationCodesWithStream);
-  console.log(`✓ Replaced ${classificationCodesData.length} classification codes with stream links`);
+  try {
+    await db.delete(classificationCodes);
+    const classificationCodesWithStream = classificationCodesData.map(code => ({
+      ...code,
+      complianceStreamId: classificationCodeToStreamCode[code.code] ? streamCodeToId[classificationCodeToStreamCode[code.code]] : null
+    }));
+    await db.insert(classificationCodes).values(classificationCodesWithStream);
+    console.log(`✓ Replaced ${classificationCodesData.length} classification codes with stream links`);
+    results.push({ section: "Classification Codes", success: true });
+  } catch (error) {
+    console.error("⚠️ Error seeding classification codes:", error);
+    results.push({ section: "Classification Codes", success: false, error: String(error) });
+  }
   
   // ==================== EXTRACTION SCHEMAS ====================
   // Comprehensive schemas for all 60+ certificate types aligned with UK social housing standards
@@ -1506,13 +1522,19 @@ async function seedConfiguration() {
   ];
   
   // Delete existing and re-insert extraction schemas with stream links
-  await db.delete(extractionSchemas);
-  const extractionSchemasWithStream = extractionSchemasData.map(schema => ({
-    ...schema,
-    complianceStreamId: documentTypeToStreamCode[schema.documentType] ? streamCodeToId[documentTypeToStreamCode[schema.documentType]] : null
-  }));
-  await db.insert(extractionSchemas).values(extractionSchemasWithStream);
-  console.log(`✓ Replaced ${extractionSchemasData.length} extraction schemas with stream links`);
+  try {
+    await db.delete(extractionSchemas);
+    const extractionSchemasWithStream = extractionSchemasData.map(schema => ({
+      ...schema,
+      complianceStreamId: documentTypeToStreamCode[schema.documentType] ? streamCodeToId[documentTypeToStreamCode[schema.documentType]] : null
+    }));
+    await db.insert(extractionSchemas).values(extractionSchemasWithStream);
+    console.log(`✓ Replaced ${extractionSchemasData.length} extraction schemas with stream links`);
+    results.push({ section: "Extraction Schemas", success: true });
+  } catch (error) {
+    console.error("⚠️ Error seeding extraction schemas:", error);
+    results.push({ section: "Extraction Schemas", success: false, error: String(error) });
+  }
   
   // ==================== COMPONENT TYPES ====================
   const componentTypesData: Array<{
@@ -1567,27 +1589,33 @@ async function seedConfiguration() {
     { code: "ASBESTOS_ACM", name: "Asbestos Containing Material", category: "STRUCTURE", description: "Known or presumed ACM location", hactElementCode: "STRUCT-001", expectedLifespanYears: null, relatedCertificateTypes: ["ASBESTOS"], inspectionFrequencyMonths: 12, isHighRisk: true, buildingSafetyRelevant: true, displayOrder: 60, isActive: true }
   ];
   
-  for (const compType of componentTypesData) {
-    await db.insert(componentTypes).values(compType)
-      .onConflictDoUpdate({
-        target: componentTypes.code,
-        set: {
-          name: compType.name,
-          category: compType.category,
-          description: compType.description,
-          hactElementCode: compType.hactElementCode,
-          expectedLifespanYears: compType.expectedLifespanYears,
-          relatedCertificateTypes: compType.relatedCertificateTypes,
-          inspectionFrequencyMonths: compType.inspectionFrequencyMonths,
-          isHighRisk: compType.isHighRisk,
-          buildingSafetyRelevant: compType.buildingSafetyRelevant,
-          displayOrder: compType.displayOrder,
-          isActive: compType.isActive,
-          updatedAt: new Date()
-        }
-      });
+  try {
+    for (const compType of componentTypesData) {
+      await db.insert(componentTypes).values(compType)
+        .onConflictDoUpdate({
+          target: componentTypes.code,
+          set: {
+            name: compType.name,
+            category: compType.category,
+            description: compType.description,
+            hactElementCode: compType.hactElementCode,
+            expectedLifespanYears: compType.expectedLifespanYears,
+            relatedCertificateTypes: compType.relatedCertificateTypes,
+            inspectionFrequencyMonths: compType.inspectionFrequencyMonths,
+            isHighRisk: compType.isHighRisk,
+            buildingSafetyRelevant: compType.buildingSafetyRelevant,
+            displayOrder: compType.displayOrder,
+            isActive: compType.isActive,
+            updatedAt: new Date()
+          }
+        });
+    }
+    console.log(`✓ Upserted ${componentTypesData.length} component types`);
+    results.push({ section: "Component Types", success: true });
+  } catch (error) {
+    console.error("⚠️ Error seeding component types:", error);
+    results.push({ section: "Component Types", success: false, error: String(error) });
   }
-  console.log(`✓ Upserted ${componentTypesData.length} component types`);
   
   // ==================== COMPLIANCE RULES ====================
   // Comprehensive domain validation rules for all certificate types aligned with UK regulations
@@ -1664,27 +1692,33 @@ async function seedConfiguration() {
     { ruleCode: "BEEP_ANNUAL_REVIEW", ruleName: "BEEP Annual Review", documentType: "BEEP", description: "Building Emergency Evacuation Plans require annual review", legislation: "Regulatory Reform (Fire Safety) Order 2005", conditions: [{ field: "hasCommunalAreas", operator: "equals", value: true }], conditionLogic: "AND", action: "FLAG_URGENT", priority: "P2", isActive: true }
   ];
   
-  for (const rule of complianceRulesData) {
-    const streamId = documentTypeToStreamCode[rule.documentType] ? streamCodeToId[documentTypeToStreamCode[rule.documentType]] : null;
-    await db.insert(complianceRules).values({ ...rule, complianceStreamId: streamId })
-      .onConflictDoUpdate({
-        target: complianceRules.ruleCode,
-        set: {
-          ruleName: rule.ruleName,
-          documentType: rule.documentType,
-          complianceStreamId: streamId,
-          description: rule.description,
-          legislation: rule.legislation,
-          conditions: rule.conditions,
-          conditionLogic: rule.conditionLogic,
-          action: rule.action,
-          priority: rule.priority,
-          isActive: rule.isActive,
-          updatedAt: new Date()
-        }
-      });
+  try {
+    for (const rule of complianceRulesData) {
+      const streamId = documentTypeToStreamCode[rule.documentType] ? streamCodeToId[documentTypeToStreamCode[rule.documentType]] : null;
+      await db.insert(complianceRules).values({ ...rule, complianceStreamId: streamId })
+        .onConflictDoUpdate({
+          target: complianceRules.ruleCode,
+          set: {
+            ruleName: rule.ruleName,
+            documentType: rule.documentType,
+            complianceStreamId: streamId,
+            description: rule.description,
+            legislation: rule.legislation,
+            conditions: rule.conditions,
+            conditionLogic: rule.conditionLogic,
+            action: rule.action,
+            priority: rule.priority,
+            isActive: rule.isActive,
+            updatedAt: new Date()
+          }
+        });
+    }
+    console.log(`✓ Upserted ${complianceRulesData.length} compliance rules with stream links`);
+    results.push({ section: "Compliance Rules", success: true });
+  } catch (error) {
+    console.error("⚠️ Error seeding compliance rules:", error);
+    results.push({ section: "Compliance Rules", success: false, error: String(error) });
   }
-  console.log(`✓ Upserted ${complianceRulesData.length} compliance rules with stream links`);
   
   // ==================== NORMALISATION RULES ====================
   // Comprehensive data transformation rules for extracted certificate data
@@ -1790,12 +1824,18 @@ async function seedConfiguration() {
   };
   
   // Delete existing and re-insert normalisation rules with stream links
-  await db.delete(normalisationRules);
-  for (const rule of normalisationRulesData) {
-    const streamId = getStreamIdForNormRule(rule.ruleName);
-    await db.insert(normalisationRules).values({ ...rule, complianceStreamId: streamId });
+  try {
+    await db.delete(normalisationRules);
+    for (const rule of normalisationRulesData) {
+      const streamId = getStreamIdForNormRule(rule.ruleName);
+      await db.insert(normalisationRules).values({ ...rule, complianceStreamId: streamId });
+    }
+    console.log(`✓ Replaced ${normalisationRulesData.length} normalisation rules with stream links`);
+    results.push({ section: "Normalisation Rules", success: true });
+  } catch (error) {
+    console.error("⚠️ Error seeding normalisation rules:", error);
+    results.push({ section: "Normalisation Rules", success: false, error: String(error) });
   }
-  console.log(`✓ Replaced ${normalisationRulesData.length} normalisation rules with stream links`);
   
   // Summary of configuration seeding results
   const failed = results.filter(r => !r.success);
