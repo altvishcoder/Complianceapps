@@ -19,11 +19,17 @@ interface HeatmapLayerProps {
   cells: HeatmapCell[];
   cellSize: { latStep: number; lngStep: number };
   opacity?: number;
+  onCellClick?: (cell: HeatmapCell) => void;
 }
 
 function getRiskColor(score: number): string {
   const hue = Math.max(0, Math.min(120, (score / 100) * 120));
   return `hsl(${hue}, 75%, 45%)`;
+}
+
+function getBorderColor(score: number): string {
+  const hue = Math.max(0, Math.min(120, (score / 100) * 120));
+  return `hsl(${hue}, 85%, 30%)`;
 }
 
 function getRiskOpacity(count: number, maxCount: number): number {
@@ -34,7 +40,8 @@ function getRiskOpacity(count: number, maxCount: number): number {
 export function HeatmapLayer({ 
   cells, 
   cellSize,
-  opacity = 0.7
+  opacity = 0.7,
+  onCellClick
 }: HeatmapLayerProps) {
   const map = useMap();
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -61,24 +68,30 @@ export function HeatmapLayer({
         [cell.lat + halfLat, cell.lng + halfLng]
       ];
 
-      const color = getRiskColor(cell.avgRisk);
+      const fillColor = getRiskColor(cell.avgRisk);
+      const borderColor = getBorderColor(cell.avgRisk);
       const cellOpacity = getRiskOpacity(cell.count, maxCount) * opacity;
       
       const rect = L.rectangle(bounds, {
-        color: color,
-        weight: 0,
-        fillColor: color,
+        color: borderColor,
+        weight: 2,
+        fillColor: fillColor,
         fillOpacity: cellOpacity,
         interactive: true
       });
 
       rect.bindTooltip(
-        `<div class="text-xs">
-          <div class="font-medium">Risk: ${cell.avgRisk.toFixed(0)}%</div>
-          <div class="text-muted-foreground">${cell.count} properties</div>
+        `<div class="text-xs p-1">
+          <div class="font-semibold text-sm">Risk Score: ${cell.avgRisk.toFixed(0)}%</div>
+          <div class="text-muted-foreground mt-1">${cell.count.toLocaleString()} properties</div>
+          <div class="text-muted-foreground text-[10px] mt-1">Click to drill down</div>
         </div>`,
         { direction: 'top', className: 'leaflet-tooltip-custom' }
       );
+
+      if (onCellClick) {
+        rect.on('click', () => onCellClick(cell));
+      }
 
       layerGroup.addLayer(rect);
     });
@@ -92,7 +105,7 @@ export function HeatmapLayer({
         layerGroupRef.current = null;
       }
     };
-  }, [map, cells, cellSize, opacity]);
+  }, [map, cells, cellSize, opacity, onCellClick]);
 
   return null;
 }

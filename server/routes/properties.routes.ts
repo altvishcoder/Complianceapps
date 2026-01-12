@@ -285,6 +285,67 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
   }
 });
 
+// ===== PROPERTY GEO ZONE (fetch properties in a bounding box for drill-down) =====
+propertiesRouter.get("/properties/geo/zone", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orgId = getOrgId(req);
+    if (!orgId) {
+      return res.status(403).json({ error: "No organisation access" });
+    }
+    
+    const minLat = parseFloat(req.query.minLat as string);
+    const maxLat = parseFloat(req.query.maxLat as string);
+    const minLng = parseFloat(req.query.minLng as string);
+    const maxLng = parseFloat(req.query.maxLng as string);
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    
+    if (isNaN(minLat) || isNaN(maxLat) || isNaN(minLng) || isNaN(maxLng)) {
+      return res.status(400).json({ error: "Invalid bounding box coordinates" });
+    }
+    
+    const result = await db.execute(sql`
+      SELECT 
+        p.id,
+        p.uprn,
+        p.address_line1 as "addressLine1",
+        p.postcode,
+        COALESCE(rs.overall_score, 75) as "riskScore"
+      FROM properties p
+      LEFT JOIN property_risk_snapshots rs ON rs.property_id = p.id AND rs.is_latest = true
+      INNER JOIN blocks b ON p.block_id = b.id
+      INNER JOIN schemes s ON b.scheme_id = s.id
+      WHERE s.organisation_id = ${orgId}
+        AND p.latitude BETWEEN ${minLat} AND ${maxLat}
+        AND p.longitude BETWEEN ${minLng} AND ${maxLng}
+      ORDER BY COALESCE(rs.overall_score, 75) ASC
+      LIMIT ${limit}
+    `);
+    
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM properties p
+      INNER JOIN blocks b ON p.block_id = b.id
+      INNER JOIN schemes s ON b.scheme_id = s.id
+      WHERE s.organisation_id = ${orgId}
+        AND p.latitude BETWEEN ${minLat} AND ${maxLat}
+        AND p.longitude BETWEEN ${minLng} AND ${maxLng}
+    `);
+    
+    res.json({
+      properties: result.rows.map((row: any) => ({
+        id: row.id,
+        uprn: row.uprn,
+        addressLine1: row.addressLine1,
+        postcode: row.postcode,
+        riskScore: Math.round(parseFloat(row.riskScore))
+      })),
+      total: parseInt((countResult.rows[0] as any).total) || 0
+    });
+  } catch (error) {
+    handleRouteError(error, req, res, "Property Zone");
+  }
+});
+
 propertiesRouter.get("/properties/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orgId = getOrgId(req);
