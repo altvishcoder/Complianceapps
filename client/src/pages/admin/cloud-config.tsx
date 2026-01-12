@@ -120,6 +120,131 @@ function StatusBadge({ status, label }: { status: "active" | "configured" | "unc
   );
 }
 
+function ProviderConfigDialog({ 
+  provider, 
+  type,
+  isSuperAdmin 
+}: { 
+  provider: StorageProvider | AIProvider | SSOProvider;
+  type: "storage" | "ai" | "sso";
+  isSuperAdmin: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  
+  const envVarDescriptions: Record<string, string> = {
+    AWS_ACCESS_KEY_ID: "Your AWS access key ID for S3 authentication",
+    AWS_SECRET_ACCESS_KEY: "Your AWS secret access key (keep secure)",
+    AWS_REGION: "AWS region where your S3 bucket is located (e.g., eu-west-2)",
+    S3_BUCKET: "Name of your S3 bucket for document storage",
+    AZURE_STORAGE_CONNECTION_STRING: "Azure Storage account connection string",
+    AZURE_STORAGE_CONTAINER: "Name of Azure Blob container for documents",
+    GOOGLE_APPLICATION_CREDENTIALS: "Path to Google Cloud service account JSON file",
+    GCS_BUCKET: "Name of your Google Cloud Storage bucket",
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: "Azure Document Intelligence service endpoint URL",
+    AZURE_DOCUMENT_INTELLIGENCE_KEY: "Azure Document Intelligence API key",
+    OPENAI_API_KEY: "Your OpenAI API key for AI extraction",
+    ANTHROPIC_API_KEY: "Your Anthropic API key for Claude models",
+    AZURE_TENANT_ID: "Azure AD tenant ID for Microsoft Entra SSO",
+    AZURE_CLIENT_ID: "Azure AD application (client) ID",
+    AZURE_CLIENT_SECRET: "Azure AD client secret",
+    GOOGLE_CLIENT_ID: "Google OAuth client ID",
+    GOOGLE_CLIENT_SECRET: "Google OAuth client secret",
+    OKTA_DOMAIN: "Your Okta organization domain",
+    OKTA_CLIENT_ID: "Okta application client ID",
+    OKTA_CLIENT_SECRET: "Okta client secret",
+    KEYCLOAK_URL: "Keycloak server URL",
+    KEYCLOAK_REALM: "Keycloak realm name",
+    KEYCLOAK_CLIENT_ID: "Keycloak client ID",
+    KEYCLOAK_CLIENT_SECRET: "Keycloak client secret",
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-7 text-xs"
+          data-testid={`btn-configure-${'id' in provider ? provider.id : (provider as AIProvider).name}`}
+        >
+          <Settings className="h-3 w-3 mr-1" />
+          Configure
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Configure {provider.name || (provider as AIProvider).displayName}
+          </DialogTitle>
+          <DialogDescription>
+            {provider.configured 
+              ? "This provider is configured and ready to use."
+              : "Configure the required settings to enable this provider."}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="py-4 space-y-4">
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="text-sm font-medium">Configuration Status</div>
+            <StatusBadge 
+              status={provider.configured ? "configured" : "unconfigured"} 
+              label={`${provider.envVarsConfigured}/${provider.envVarsRequired} configured`}
+            />
+          </div>
+          
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Required Environment Variables</Label>
+            <div className="space-y-2">
+              {provider.envVars.map((envVar, index) => {
+                const isConfigured = index < provider.envVarsConfigured;
+                return (
+                  <div 
+                    key={envVar} 
+                    className={`p-3 rounded-lg border ${isConfigured ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800" : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <code className="text-xs font-mono bg-background px-1.5 py-0.5 rounded">{envVar}</code>
+                      {isConfigured ? (
+                        <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs">
+                          <Check className="h-3 w-3 mr-1" />
+                          Set
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Missing
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {envVarDescriptions[envVar] || "Required for this provider"}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {!provider.configured && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>How to configure:</strong> Add the missing environment variables in your Replit Secrets panel (Tools → Secrets) or your deployment environment configuration.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProviderCard({ 
   icon: Icon, 
   name, 
@@ -129,6 +254,9 @@ function ProviderCard({
   details,
   priority,
   capabilities,
+  provider,
+  providerType,
+  isSuperAdmin,
 }: { 
   icon: React.ElementType;
   name: string;
@@ -138,6 +266,9 @@ function ProviderCard({
   details?: React.ReactNode;
   priority?: number;
   capabilities?: string[];
+  provider?: StorageProvider | AIProvider | SSOProvider;
+  providerType?: "storage" | "ai" | "sso";
+  isSuperAdmin?: boolean;
 }) {
   return (
     <Card className="relative">
@@ -170,7 +301,16 @@ function ProviderCard({
             ))}
           </div>
         )}
-        {details}
+        <div className="flex items-center justify-between">
+          {details}
+          {provider && providerType && isSuperAdmin && (
+            <ProviderConfigDialog 
+              provider={provider} 
+              type={providerType}
+              isSuperAdmin={isSuperAdmin}
+            />
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -438,6 +578,9 @@ export default function CloudConfigPage() {
                           {provider.envVarsConfigured}/{provider.envVarsRequired} env vars set
                         </div>
                       }
+                      provider={provider}
+                      providerType="storage"
+                      isSuperAdmin={isSuperAdmin}
                     />
                   ))
                 )}
@@ -532,8 +675,17 @@ export default function CloudConfigPage() {
                             )}
                             
                             {provider.envVars.length > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                {provider.envVarsConfigured}/{provider.envVarsRequired} env vars configured
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-muted-foreground">
+                                  {provider.envVarsConfigured}/{provider.envVarsRequired} env vars configured
+                                </div>
+                                {isSuperAdmin && (
+                                  <ProviderConfigDialog 
+                                    provider={provider} 
+                                    type="ai"
+                                    isSuperAdmin={isSuperAdmin}
+                                  />
+                                )}
                               </div>
                             )}
                             
@@ -604,6 +756,9 @@ export default function CloudConfigPage() {
                           {provider.envVarsConfigured}/{provider.envVarsRequired} env vars set
                         </div>
                       }
+                      provider={provider}
+                      providerType="sso"
+                      isSuperAdmin={isSuperAdmin}
                     />
                   ))
                 )}
