@@ -189,16 +189,16 @@ export default function RiskHeatmapPage() {
   const handleBack = useCallback(() => {
     if (drillState.level === 'local') {
       setDrillState({ level: 'regional', bounds: undefined });
-      mapRef.current?.flyTo([54, -2], 7, { duration: 0.6 });
+      mapRef.current?.flyTo([51.5, -0.1], 9, { duration: 0.6 });
     } else if (drillState.level === 'regional') {
       setDrillState({ level: 'national' });
-      mapRef.current?.flyTo([54, -2], 6, { duration: 0.6 });
+      mapRef.current?.flyTo([51.5, -0.1], 10, { duration: 0.6 });
     }
   }, [drillState.level]);
 
   const handleReset = useCallback(() => {
     setDrillState({ level: 'national' });
-    mapRef.current?.flyTo([54, -2], 6, { duration: 0.6 });
+    mapRef.current?.flyTo([51.5, -0.1], 10, { duration: 0.6 });
   }, []);
 
   useEffect(() => {
@@ -385,7 +385,7 @@ export default function RiskHeatmapPage() {
       </div>
       
       <Dialog open={drillDownOpen} onOpenChange={setDrillDownOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
+        <DialogContent className="max-w-lg max-h-[80vh] z-[1300]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
