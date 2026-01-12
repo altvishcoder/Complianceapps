@@ -22,12 +22,13 @@ const AlertTriangle = getIcon('AlertTriangle');
 const ZoomIn = getIcon('ZoomIn');
 const ZoomOut = getIcon('ZoomOut');
 const ArrowLeft = getIcon('ArrowLeft');
+const Building = getIcon('Building');
 const Building2 = getIcon('Building2');
 const MapPinned = getIcon('MapPinned');
 const Home = getIcon('Home');
 const Loader2 = getIcon('Loader2');
 
-type AggregationLevel = 'property' | 'scheme' | 'ward';
+type AggregationLevel = 'property' | 'block' | 'scheme';
 
 interface PropertyInZone {
   id: number;
@@ -229,7 +230,7 @@ export default function RiskHeatmapPage() {
       lng: area.lng,
       riskScore: area.riskScore?.compositeScore || 75,
       propertyCount: area.riskScore?.propertyCount,
-      assetType: aggregationLevel === 'scheme' ? 'scheme' : 'block' as const,
+      assetType: aggregationLevel as 'scheme' | 'block',
     }));
   }, [aggregationLevel, propertyMarkersWithCoords, aggregatedAreas]);
 
@@ -347,6 +348,12 @@ export default function RiskHeatmapPage() {
                   <div className="flex items-center gap-2">
                     <Home className="h-4 w-4" />
                     Property
+                  </div>
+                </SelectItem>
+                <SelectItem value="block">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Block
                   </div>
                 </SelectItem>
                 <SelectItem value="scheme">
