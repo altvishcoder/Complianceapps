@@ -201,7 +201,7 @@ function Router() {
       <Route path="/admin/navigation">{() => <AdminProtectedRoute component={AdminNavigationManagement} />}</Route>
       <Route path="/admin/ml-insights">{() => <AdminProtectedRoute component={AdminMLInsights} />}</Route>
       <Route path="/admin/cache-control">{() => <AdminProtectedRoute component={AdminCacheControl} />}</Route>
-      <Route path="/admin/jobs">{() => <AdminProtectedRoute component={AdminJobsManagement} />}</Route>
+      <Route path="/admin/jobs-management">{() => <AdminProtectedRoute component={AdminJobsManagement} />}</Route>
       <Route path="/admin/performance">{() => <AdminProtectedRoute component={AdminPerformance} />}</Route>
       <Route path="/admin/cloud-config">{() => <AdminProtectedRoute component={AdminCloudConfig} />}</Route>
       <Route path="/model-insights">{() => <ProtectedRoute component={ModelInsightsPage} />}</Route>
