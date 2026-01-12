@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { MapWrapper, BaseMap, HeatSurfaceLayer, MapSkeleton } from '@/components/maps';
-import type { HeatPoint } from '@/components/maps';
+import { MapWrapper, BaseMap, HeatSurfaceLayer, MapSkeleton, PropertyMarkers } from '@/components/maps';
+import type { HeatPoint, PropertyMarker } from '@/components/maps';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -144,6 +144,64 @@ export default function RiskHeatmapPage() {
     const lowRisk = cells.filter(c => c.avgRisk >= 85).reduce((sum, c) => sum + c.count, 0);
     return { highRisk, mediumRisk, lowRisk };
   }, [cells]);
+
+  const showPropertyMarkers = drillState.level === 'local' || drillState.level === 'regional';
+  
+  const { data: propertyMarkers } = useQuery<PropertyMarker[]>({
+    queryKey: ['property-markers', drillState.bounds],
+    queryFn: async () => {
+      if (!drillState.bounds) return [];
+      const userId = localStorage.getItem('user_id');
+      const { minLat, maxLat, minLng, maxLng } = drillState.bounds;
+      const res = await fetch(
+        `/api/properties/geo/zone?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}&limit=200`,
+        { headers: { 'X-User-Id': userId || '' } }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.properties.map((p: PropertyInZone) => ({
+        id: String(p.id),
+        name: p.addressLine1,
+        address: p.postcode,
+        lat: 0,
+        lng: 0,
+        riskScore: p.riskScore,
+        assetType: 'property' as const
+      }));
+    },
+    enabled: showPropertyMarkers && !!drillState.bounds,
+    staleTime: 60000,
+  });
+
+  const { data: propertyMarkersWithCoords } = useQuery<PropertyMarker[]>({
+    queryKey: ['property-markers-coords', drillState.bounds],
+    queryFn: async () => {
+      if (!drillState.bounds) return [];
+      const userId = localStorage.getItem('user_id');
+      const { minLat, maxLat, minLng, maxLng } = drillState.bounds;
+      const res = await fetch(
+        `/api/properties?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}&limit=200`,
+        { headers: { 'X-User-Id': userId || '' } }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.properties || data).filter((p: any) => p.latitude && p.longitude).map((p: any) => ({
+        id: String(p.id),
+        name: p.addressLine1 || p.address || 'Property',
+        address: p.postcode,
+        lat: parseFloat(p.latitude),
+        lng: parseFloat(p.longitude),
+        riskScore: p.riskScore || p.complianceScore || 75,
+        assetType: 'property' as const
+      }));
+    },
+    enabled: showPropertyMarkers && !!drillState.bounds,
+    staleTime: 60000,
+  });
+
+  const handlePropertyMarkerClick = useCallback((property: PropertyMarker) => {
+    navigate(`/properties/${property.id}`);
+  }, [navigate]);
 
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
@@ -285,6 +343,12 @@ export default function RiskHeatmapPage() {
                       radius={config.radius}
                       blur={config.blur}
                     />
+                    {showPropertyMarkers && propertyMarkersWithCoords && propertyMarkersWithCoords.length > 0 && (
+                      <PropertyMarkers 
+                        properties={propertyMarkersWithCoords}
+                        onPropertyClick={handlePropertyMarkerClick}
+                      />
+                    )}
                   </BaseMap>
                 </MapWrapper>
               )}
