@@ -169,10 +169,7 @@ export default function RiskHeatmapPage() {
     staleTime: 60000,
   });
 
-  const handlePropertyMarkerClick = useCallback((property: PropertyMarker) => {
-    navigate(`/properties/${property.id}`);
-  }, [navigate]);
-
+  
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
   }, []);
@@ -263,18 +260,18 @@ export default function RiskHeatmapPage() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Risk Hotspot Heatmap" />
+        <Header title="Risk Hotspot Map" />
         <main id="main-content" className="flex-1 overflow-auto flex flex-col" role="main" aria-label="Risk heatmap content">
           {showBackButton && (
             <div className="p-4 pb-0">
-              <ContextBackButton fallbackPath="/maps" fallbackLabel="Property Risk Map" />
+              <ContextBackButton fallbackPath="/dashboard" fallbackLabel="Dashboard" />
             </div>
           )}
           
           <div className="p-4 flex flex-wrap gap-4 items-center border-b relative z-[1500] bg-background">
             <div className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-orange-500" />
-              <span className="font-medium">Risk Hotspot Heatmap</span>
+              <span className="font-medium">Risk Hotspot Map</span>
             </div>
             
             <div className="flex items-center gap-2">
@@ -316,7 +313,6 @@ export default function RiskHeatmapPage() {
                     {propertyMarkersWithCoords && propertyMarkersWithCoords.length > 0 && (
                       <PropertyMarkers 
                         properties={propertyMarkersWithCoords}
-                        onPropertyClick={handlePropertyMarkerClick}
                       />
                     )}
                   </BaseMap>

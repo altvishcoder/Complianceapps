@@ -194,7 +194,7 @@ export default function EvidencePage() {
           <main id="main-content" className="flex-1 overflow-y-auto" role="main" aria-label="Board mode evidence content">
             {showBackButton && (
               <div className="p-4 pb-0">
-                <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+                <ContextBackButton fallbackPath="/maps/risk-heatmap" fallbackLabel="Risk Hotspot Map" />
               </div>
             )}
             <div className="p-4 border-b bg-background flex items-center justify-between">
@@ -230,7 +230,7 @@ export default function EvidencePage() {
         <main id="main-content" className="flex-1 overflow-hidden flex flex-col" role="main" aria-label="Evidence view content">
           {showBackButton && (
             <div className="p-4 pb-0">
-              <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+              <ContextBackButton fallbackPath="/maps/risk-heatmap" fallbackLabel="Risk Hotspot Map" />
             </div>
           )}
           <div className="p-4 border-b bg-background flex items-center justify-between flex-wrap gap-4">

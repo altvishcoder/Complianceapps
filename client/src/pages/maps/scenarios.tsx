@@ -140,7 +140,7 @@ export default function ScenariosPage() {
         <main id="main-content" className="flex-1 overflow-hidden flex flex-col" role="main" aria-label="Scenario analysis content">
           {showBackButton && (
             <div className="p-4 pb-0 border-b">
-              <ContextBackButton fallbackPath="/maps" fallbackLabel="Risk Maps" />
+              <ContextBackButton fallbackPath="/maps/risk-heatmap" fallbackLabel="Risk Hotspot Map" />
             </div>
           )}
           <div className="flex-1 overflow-hidden flex">
