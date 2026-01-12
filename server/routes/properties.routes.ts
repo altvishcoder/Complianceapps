@@ -191,12 +191,12 @@ propertiesRouter.get("/properties/geo/heatmap", async (req: AuthenticatedRequest
           max_lng,
           total_count,
           CASE 
-            WHEN max_lat = min_lat THEN 0.01
-            ELSE GREATEST((max_lat - min_lat) / ${gridSize}, 0.0001)
+            WHEN max_lat = min_lat THEN 0.001 / ${gridSize}
+            ELSE (max_lat - min_lat) / ${gridSize}
           END as lat_step,
           CASE 
-            WHEN max_lng = min_lng THEN 0.01
-            ELSE GREATEST((max_lng - min_lng) / ${gridSize}, 0.0001)
+            WHEN max_lng = min_lng THEN 0.001 / ${gridSize}
+            ELSE (max_lng - min_lng) / ${gridSize}
           END as lng_step
         FROM bounds
         WHERE total_count > 0
