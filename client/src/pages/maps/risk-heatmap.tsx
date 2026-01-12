@@ -105,7 +105,7 @@ export default function RiskHeatmapPage() {
             </div>
           )}
           
-          <div className="p-4 flex flex-wrap gap-4 items-center border-b">
+          <div className="p-4 flex flex-wrap gap-4 items-center border-b relative z-[1500] bg-background">
             <div className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-orange-500" />
               <span className="font-medium">Risk Hotspot Heatmap</span>
