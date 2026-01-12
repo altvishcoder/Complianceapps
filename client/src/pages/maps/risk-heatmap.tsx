@@ -355,12 +355,6 @@ export default function RiskHeatmapPage() {
                     Scheme
                   </div>
                 </SelectItem>
-                <SelectItem value="ward">
-                  <div className="flex items-center gap-2">
-                    <MapPinned className="h-4 w-4" />
-                    Ward
-                  </div>
-                </SelectItem>
               </SelectContent>
             </Select>
             
